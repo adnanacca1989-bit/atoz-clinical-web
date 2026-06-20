@@ -1,0 +1,58 @@
+using AtoZClinical.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace AtoZClinical.Web.Pages;
+
+public abstract class ClinicFormPageModel : PageModel
+{
+    protected readonly ClinicContextService ClinicContext;
+
+    protected ClinicFormPageModel(ClinicContextService clinicContext) => ClinicContext = clinicContext;
+
+    [BindProperty(SupportsGet = true)]
+    public Guid? RecordId { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public bool NewRecord { get; set; }
+
+    [BindProperty]
+    public string SaveMode { get; set; } = "Edit";
+
+    public string UserName => User.Identity?.Name ?? "admin";
+    public string StatusText => $"{DateTime.Now:M/d/yyyy h:mm tt} - Ready";
+
+    protected async Task<Guid?> RequireClinicIdAsync()
+    {
+        if (await ClinicContext.IsVendorAsync())
+            return null;
+
+        var access = await ClinicContext.GetClinicAccessAsync();
+        if (!access.IsAllowed)
+            return null;
+
+        return access.Clinic?.Id ?? await ClinicContext.GetClinicIdAsync();
+    }
+
+    protected void SetFormViewData(string title, string? createdBy, string? updatedBy, DateTime? updatedAt)
+    {
+        ViewData["FormTitle"] = title;
+        ViewData["StatusText"] = StatusText;
+        ViewData["RecordId"] = RecordId?.ToString() ?? "";
+        ViewData["CreatedBy"] = createdBy ?? UserName;
+        ViewData["UpdatedBy"] = updatedBy ?? UserName;
+        ViewData["UpdatedOn"] = updatedAt?.ToString("M/d/yyyy h:mm tt") ?? DateTime.Now.ToString("M/d/yyyy h:mm tt");
+    }
+
+    protected IActionResult RedirectToRecord(Guid? id) =>
+        RedirectToPage(new { RecordId = id, Search });
+
+    protected IActionResult RedirectToNewForm() =>
+        RedirectToPage(new { Search, NewRecord = true });
+
+    protected IActionResult RedirectAfterSave(Guid savedId) =>
+        SaveMode == "New" ? RedirectToNewForm() : RedirectToRecord(savedId);
+}

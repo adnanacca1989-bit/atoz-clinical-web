@@ -1,0 +1,56 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.AccountsReceivableModel
+@{
+    ViewData["Title"] = "Accounts Receivable";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Accounts Receivable</h1>
+    <form method="post">
+        <div class="row g-3 mb-2">
+            <div class="col-md-3">
+                <label class="clinical-field-label">From Date</label>
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">To Date</label>
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Patient Name</label>
+                <input asp-for="PatientName" class="clinical-field" placeholder="Search patient..." />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Doctor Name</label>
+                <input asp-for="DoctorName" class="clinical-field" placeholder="Search doctor..." />
+            </div>
+        </div>
+        <p class="small text-muted mb-2">Showing @Model.Results.Count patient balances</p>
+        <div class="clinical-record-grid" style="min-height: 400px;">
+            <table>
+                <thead>
+                    <tr><th>Invoice ID</th><th>Invoice Date</th><th>Patient</th><th>Doctor</th><th>Debit</th><th>Credit</th><th>Cash Paid</th><th>Balance</th><th>Aging Days</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.InvoiceId</td>
+                        <td>@r.InvoiceDate.ToString("d")</td>
+                        <td>@r.Patient</td>
+                        <td>@r.Doctor</td>
+                        <td>@r.Debit.ToString("N2")</td>
+                        <td>@r.Credit.ToString("N2")</td>
+                        <td>@r.CashPaid.ToString("N2")</td>
+                        <td>@r.Balance.ToString("N2")</td>
+                        <td>@r.AgingDays</td>
+                        <td>@r.Status</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>

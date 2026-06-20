@@ -1,0 +1,228 @@
+using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace AtoZClinical.Web.Pages.Pharmacy;
+
+public class BillModel : ClinicFormPageModel
+{
+    private readonly PharmacyBillService _service;
+    private readonly PharmacyItemRegistrationService _items;
+    private const int DefaultLineCount = 8;
+
+    public BillModel(ClinicContextService clinicContext, PharmacyBillService service, PharmacyItemRegistrationService items) : base(clinicContext)
+    {
+        _service = service;
+        _items = items;
+    }
+
+    [BindProperty]
+    public PharmacyBillInput Input { get; set; } = new();
+
+    [BindProperty]
+    public List<PharmacyBillLineInput> Lines { get; set; } = [];
+
+    public List<PharmacyBill> Records { get; private set; } = [];
+    public List<PharmacyItem> RegisteredItems { get; private set; } = [];
+
+    public decimal LineSubTotal => Lines.Sum(l => l.LineTotal);
+    public decimal NetAmount => LineSubTotal - Input.Discount;
+    public decimal Balance => NetAmount - Input.AmountPaid;
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        await LoadAsync(clinicId.Value);
+        RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
+        if (RecordId.HasValue)
+            await LoadRecord(clinicId.Value, RecordId.Value);
+        else if (Records.Count > 0 && Input.BillNo == 0)
+            await LoadRecord(clinicId.Value, Records[0].Id);
+        else
+            await PrepareNew(clinicId.Value);
+        SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt);
+        return Page();
+    }
+
+    public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
+    public Task<IActionResult> OnPostNewAsync() => NewCoreAsync();
+    public Task<IActionResult> OnPostClearAsync() => NewCoreAsync();
+    public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
+    public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
+    public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    private async Task LoadAsync(Guid clinicId)
+    {
+        Records = await _service.ListAsync(clinicId);
+        if (!string.IsNullOrWhiteSpace(Search))
+            Records = Records.Where(r =>
+                (r.PatientName?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||
+                (r.DoctorName?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||
+                r.BillNo.ToString().Contains(Search)).ToList();
+    }
+
+    private async Task LoadRecord(Guid clinicId, Guid id)
+    {
+        var item = await _service.GetAsync(clinicId, id);
+        if (item is null) return;
+        RecordId = item.Id;
+        Input = PharmacyBillInput.FromEntity(item);
+        Lines = item.Lines.OrderBy(l => l.LineNo).Select(PharmacyBillLineInput.FromEntity).ToList();
+        EnsureLineRows();
+    }
+
+    private async Task PrepareNew(Guid clinicId)
+    {
+        RecordId = null;
+        var all = await _service.ListAsync(clinicId);
+        var next = (all.Count > 0 ? all.Max(b => b.BillNo) : 0) + 1;
+        Input = new PharmacyBillInput
+        {
+            BillNo = next,
+            BillDate = DateTime.Today,
+            PaymentMethod = ClinicLookup.PaymentMethods[0],
+            PaymentStatus = "Unpaid"
+        };
+        Lines = CreateEmptyLines();
+    }
+
+    private async Task<IActionResult> SaveCoreAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        var entity = Input.ToEntity(RecordId);
+        var lines = Lines
+            .Where(l => !string.IsNullOrWhiteSpace(l.MedicineName))
+            .Select(l => l.ToEntity())
+            .ToList();
+        var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
+        return RedirectAfterSave(saved.Id);
+    }
+
+    private Task<IActionResult> NewCoreAsync()
+    {
+        RecordId = null;
+        return Task.FromResult<IActionResult>(RedirectToPage());
+    }
+
+    private async Task<IActionResult> DeleteCoreAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null || !RecordId.HasValue) return RedirectToPage();
+        await _service.DeleteAsync(clinicId.Value, RecordId.Value, UserName);
+        return RedirectToPage();
+    }
+
+    private async Task<IActionResult> NavigateCoreAsync(int delta)
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        await LoadAsync(clinicId.Value);
+        if (Records.Count == 0) return RedirectToPage();
+        var idx = RecordId.HasValue ? Records.FindIndex(r => r.Id == RecordId.Value) : 0;
+        if (idx < 0) idx = 0;
+        idx = Math.Clamp(idx + delta, 0, Records.Count - 1);
+        return RedirectToRecord(Records[idx].Id);
+    }
+
+    private void EnsureLineRows()
+    {
+        while (Lines.Count < DefaultLineCount)
+            Lines.Add(new PharmacyBillLineInput { LineNo = Lines.Count + 1 });
+    }
+
+    private static List<PharmacyBillLineInput> CreateEmptyLines() =>
+        Enumerable.Range(1, DefaultLineCount).Select(i => new PharmacyBillLineInput { LineNo = i }).ToList();
+
+    public sealed class PharmacyBillInput
+    {
+        public int BillNo { get; set; }
+        public DateTime BillDate { get; set; } = DateTime.Today;
+        public int? RequestNo { get; set; }
+        public string? PatientName { get; set; }
+        public string? PatientId { get; set; }
+        public string? DoctorName { get; set; }
+        public string? Specialty { get; set; }
+        public decimal Discount { get; set; }
+        public decimal AmountPaid { get; set; }
+        public string PaymentMethod { get; set; } = "Cash";
+        public string? PaymentStatus { get; set; }
+        public string? Notes { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        public static PharmacyBillInput FromEntity(PharmacyBill b) => new()
+        {
+            BillNo = b.BillNo,
+            BillDate = b.BillDate,
+            RequestNo = b.RequestNo,
+            PatientName = b.PatientName,
+            PatientId = b.PatientId,
+            DoctorName = b.DoctorName,
+            Specialty = b.Specialty,
+            Discount = b.Discount,
+            AmountPaid = b.AmountPaid,
+            PaymentMethod = b.PaymentMethod,
+            PaymentStatus = b.PaymentStatus,
+            Notes = b.Notes,
+            UpdatedAt = b.UpdatedAt
+        };
+
+        public PharmacyBill ToEntity(Guid? id) => new()
+        {
+            Id = id ?? Guid.Empty,
+            BillNo = BillNo,
+            BillDate = BillDate,
+            RequestNo = RequestNo,
+            PatientName = PatientName,
+            PatientId = PatientId,
+            DoctorName = DoctorName,
+            Specialty = Specialty,
+            Discount = Discount,
+            AmountPaid = AmountPaid,
+            PaymentMethod = PaymentMethod,
+            PaymentStatus = PaymentStatus,
+            Notes = Notes
+        };
+    }
+
+    public sealed class PharmacyBillLineInput
+    {
+        public int LineNo { get; set; }
+        public string? Barcode { get; set; }
+        public string? MedicineCode { get; set; }
+        public string? MedicineName { get; set; }
+        public string? Dosage { get; set; }
+        public string? Uom { get; set; }
+        public int Qty { get; set; } = 1;
+        public decimal UnitPrice { get; set; }
+
+        public decimal LineTotal => Qty * UnitPrice;
+
+        public static PharmacyBillLineInput FromEntity(PharmacyBillLine l) => new()
+        {
+            LineNo = l.LineNo,
+            Barcode = l.Barcode,
+            MedicineCode = l.MedicineCode,
+            MedicineName = l.MedicineName,
+            Dosage = l.Dosage,
+            Uom = l.Uom,
+            Qty = l.Qty,
+            UnitPrice = l.UnitPrice
+        };
+
+        public PharmacyBillLine ToEntity() => new()
+        {
+            LineNo = LineNo,
+            Barcode = Barcode,
+            MedicineCode = MedicineCode,
+            MedicineName = MedicineName,
+            Dosage = Dosage,
+            Uom = Uom,
+            Qty = Qty,
+            UnitPrice = UnitPrice,
+            LineTotal = Qty * UnitPrice
+        };
+    }
+}

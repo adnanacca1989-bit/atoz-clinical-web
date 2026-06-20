@@ -1,0 +1,42 @@
+@page
+@model AtoZClinical.Web.Pages.Account.LicenseBlockedModel
+@{
+    ViewData["Title"] = "Access Blocked";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Access Blocked - A to Z Clinical</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-7">
+                <div class="atz-card p-4">
+                    <h2 class="atz-section-title text-danger">@Model.Title</h2>
+                    <p class="lead">@Model.Message</p>
+                    @if (!string.IsNullOrWhiteSpace(Model.ClinicName))
+                    {
+                        <p><strong>Clinic:</strong> @Model.ClinicName</p>
+                    }
+                    @if (Model.LicenseExpires.HasValue)
+                    {
+                        <p><strong>License expires:</strong> @Model.LicenseExpires.Value.ToString("dd MMM yyyy")</p>
+                    }
+                    <p class="text-muted">Contact your system vendor to activate or renew your subscription.</p>
+                    <div class="d-flex gap-2 mt-4">
+                        <a class="btn btn-atz-primary" asp-page="/Account/Login">Back to Login</a>
+                        <a class="btn btn-outline-secondary" asp-page="/Index">Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

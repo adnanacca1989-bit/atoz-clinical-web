@@ -1,0 +1,97 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - A to Z Clinical</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/clinical-forms.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <nav class="navbar navbar-dark atz-navbar mb-0">
+            <div class="container-fluid">
+                <a class="navbar-brand atz-brand" asp-page="/Dashboard/Index">A to Z Clinical</a>
+                <div class="d-flex align-items-center gap-2 text-white small">
+                    <span class="navbar-user-name">@User.Identity.Name</span>
+                    <partial name="_SettingsGear" />
+                    <form method="post" asp-page="/Account/Logout" class="m-0">
+                        <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
+                    </form>
+                </div>
+            </div>
+        </nav>
+        <div class="container-fluid">
+            <div class="row">
+                <aside class="col-md-2 col-lg-2 p-0 atz-navbar min-vh-100 atz-sidebar">
+                    <div class="p-3 atz-sidebar-inner">
+                        @if (User.IsInRole("Vendor"))
+                        {
+                            <div class="text-white-50 small mb-2">VENDOR</div>
+                            <a class="sidebar-link" asp-page="/Vendor/Index">Clinics / Clients</a>
+                            <a class="sidebar-link" asp-page="/Vendor/Clients">Existing Clients</a>
+                            <a class="sidebar-link" asp-page="/Vendor/Create">New Client</a>
+                        }
+                        else
+                        {
+                            <div class="text-white-50 small mb-2">CLINIC</div>
+                            <a class="sidebar-link" asp-page="/Dashboard/Index">Dashboard</a>
+                            <a class="sidebar-link" asp-page="/PatientRegistration/Index">Patient Registration</a>
+                            <a class="sidebar-link" asp-page="/Doctors/Index">Doctor Registration</a>
+                            <a class="sidebar-link" asp-page="/Prescriptions/Index">Doctor's Prescription</a>
+                            <div class="text-white-50 small mt-3 mb-1">LABORATORY</div>
+                            <a class="sidebar-link" asp-page="/Laboratory/Registration">Lab Registration</a>
+                            <a class="sidebar-link" asp-page="/Laboratory/Request">Lab Request</a>
+                            <a class="sidebar-link" asp-page="/Laboratory/Result">Lab Result</a>
+                            <div class="text-white-50 small mt-3 mb-1">RADIOLOGY</div>
+                            <a class="sidebar-link" asp-page="/Radiology/Registration">Radiology Registration</a>
+                            <a class="sidebar-link" asp-page="/Radiology/Request">Radiology Request</a>
+                            <a class="sidebar-link" asp-page="/Radiology/Result">Radiology Result</a>
+                            <div class="text-white-50 small mt-3 mb-1">PHARMACY</div>
+                            <a class="sidebar-link" asp-page="/Pharmacy/Registration">Pharmacy Registration</a>
+                            <a class="sidebar-link" asp-page="/Pharmacy/Request">Pharmacy Request</a>
+                            <a class="sidebar-link" asp-page="/Pharmacy/Bill">Pharmacy Bill</a>
+                            <a class="sidebar-link" asp-page="/Pharmacy/Purchase">Purchase Bill</a>
+                            <a class="sidebar-link" asp-page="/Pharmacy/OpeningBalance">Opening Balance</a>
+                            <div class="text-white-50 small mt-3 mb-1">BILLING</div>
+                            <a class="sidebar-link" asp-page="/ServiceIncomes/Index">Service Income</a>
+                            <a class="sidebar-link" asp-page="/Invoices/Index">Invoice / Billing</a>
+                            <a class="sidebar-link" asp-page="/CashReceipts/Index">Cash Receipt</a>
+                            <a class="sidebar-link" asp-page="/CashPayments/Index">Cash Payment</a>
+                            <a class="sidebar-link" asp-page="/ChartOfAccounts/Index">Chart of Accounts</a>
+                            <div class="text-white-50 small mt-3 mb-1">REPORTS</div>
+                            <a class="sidebar-link" asp-page="/Reports/PatientHistory">Patient History</a>
+                            <a class="sidebar-link" asp-page="/Reports/PatientStatus">Patient Status</a>
+                            <a class="sidebar-link" asp-page="/Reports/PlStatement">PL Statement</a>
+                            <a class="sidebar-link" asp-page="/Reports/AccountsReceivable">Accounts Receivable</a>
+                            <a class="sidebar-link" asp-page="/Reports/OperatingReport">Operating Report</a>
+                            <a class="sidebar-link" asp-page="/Reports/CashReport">Cash Report</a>
+                            <a class="sidebar-link" asp-page="/Reports/PharmacyInventory">Pharmacy Inventory</a>
+                            <div class="text-white-50 small mt-3 mb-1">ADMIN</div>
+                            <a class="sidebar-link" asp-page="/Admin/Responsibilities">Responsibilities</a>
+                            <a class="sidebar-link" asp-page="/Admin/AuditLog">Audit Log</a>
+                            <a class="sidebar-link" asp-page="/Admin/Backup">Data Backup</a>
+                        }
+                    </div>
+                </aside>
+                <main class="col-md-10 col-lg-10 p-4">
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+    }
+    else
+    {
+        <main>
+            @RenderBody()
+        </main>
+    }
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

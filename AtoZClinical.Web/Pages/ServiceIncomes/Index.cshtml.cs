@@ -1,0 +1,130 @@
+using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace AtoZClinical.Web.Pages.ServiceIncomes;
+
+public class IndexModel : ClinicFormPageModel
+{
+    private readonly ServiceIncomeService _service;
+
+    public IndexModel(ClinicContextService clinicContext, ServiceIncomeService service) : base(clinicContext)
+    {
+        _service = service;
+    }
+
+    [BindProperty]
+    public ServiceIncomeInput Input { get; set; } = new();
+
+    public List<ServiceIncome> Records { get; private set; } = [];
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        await LoadAsync(clinicId.Value);
+        if (RecordId.HasValue)
+            await LoadRecord(clinicId.Value, RecordId.Value);
+        else if (Records.Count > 0 && Input.ServiceNo == 0)
+            await LoadRecord(clinicId.Value, Records[0].Id);
+        else
+            await PrepareNew(clinicId.Value);
+        SetFormViewData("Service Income", null, null, Input.UpdatedAt);
+        return Page();
+    }
+
+    public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
+    public Task<IActionResult> OnPostNewAsync() => NewCoreAsync();
+    public Task<IActionResult> OnPostClearAsync() => NewCoreAsync();
+    public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
+    public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
+    public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    private async Task LoadAsync(Guid clinicId)
+    {
+        Records = await _service.ListAsync(clinicId);
+        if (!string.IsNullOrWhiteSpace(Search))
+            Records = Records.Where(r =>
+                r.Name.Contains(Search, StringComparison.OrdinalIgnoreCase) ||
+                r.AccountName.Contains(Search, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private async Task LoadRecord(Guid clinicId, Guid id)
+    {
+        var item = await _service.GetAsync(clinicId, id);
+        if (item is null) return;
+        RecordId = item.Id;
+        Input = ServiceIncomeInput.FromEntity(item);
+    }
+
+    private async Task PrepareNew(Guid clinicId)
+    {
+        RecordId = null;
+        var all = await _service.ListAsync(clinicId);
+        var next = (all.Count > 0 ? all.Max(s => s.ServiceNo) : 0) + 1;
+        Input = new ServiceIncomeInput { ServiceNo = next, AccountName = ClinicLookup.AccountNames[0] };
+    }
+
+    private async Task<IActionResult> SaveCoreAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        var entity = Input.ToEntity(RecordId);
+        var saved = await _service.SaveAsync(clinicId.Value, entity);
+        return RedirectAfterSave(saved.Id);
+    }
+
+    private Task<IActionResult> NewCoreAsync()
+    {
+        RecordId = null;
+        return Task.FromResult<IActionResult>(RedirectToPage());
+    }
+
+    private async Task<IActionResult> DeleteCoreAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null || !RecordId.HasValue) return RedirectToPage();
+        await _service.DeleteAsync(clinicId.Value, RecordId.Value);
+        return RedirectToPage();
+    }
+
+    private async Task<IActionResult> NavigateCoreAsync(int delta)
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        await LoadAsync(clinicId.Value);
+        if (Records.Count == 0) return RedirectToPage();
+        var idx = RecordId.HasValue ? Records.FindIndex(r => r.Id == RecordId.Value) : 0;
+        if (idx < 0) idx = 0;
+        idx = Math.Clamp(idx + delta, 0, Records.Count - 1);
+        return RedirectToRecord(Records[idx].Id);
+    }
+
+    public sealed class ServiceIncomeInput
+    {
+        public int ServiceNo { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string AccountName { get; set; } = "Clinical Revenue";
+        public decimal Fee { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        public static ServiceIncomeInput FromEntity(ServiceIncome s) => new()
+        {
+            ServiceNo = s.ServiceNo,
+            Name = s.Name,
+            AccountName = s.AccountName,
+            Fee = s.Fee,
+            UpdatedAt = s.UpdatedAt
+        };
+
+        public ServiceIncome ToEntity(Guid? id) => new()
+        {
+            Id = id ?? Guid.Empty,
+            ServiceNo = ServiceNo,
+            Name = Name.Trim(),
+            AccountName = AccountName,
+            Fee = Fee
+        };
+    }
+}

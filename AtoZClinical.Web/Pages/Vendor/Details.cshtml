@@ -1,0 +1,125 @@
+@page "{id:guid}"
+@model AtoZClinical.Web.Pages.Vendor.DetailsModel
+@{
+    ViewData["Title"] = "Client Details";
+    var statusClass = Model.Clinic!.Status switch
+    {
+        AtoZClinical.Core.Enums.ClinicStatus.Active => "success",
+        AtoZClinical.Core.Enums.ClinicStatus.Pending => "warning",
+        AtoZClinical.Core.Enums.ClinicStatus.Suspended => "danger",
+        AtoZClinical.Core.Enums.ClinicStatus.Expired => "secondary",
+        _ => "secondary"
+    };
+}
+
+@if (Model.Created)
+{
+    <div class="alert alert-success">Client created successfully. Copy the credentials below and give them to your customer.</div>
+}
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert alert-info">@Model.Message</div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="atz-section-title mb-1">@Model.Clinic!.Name</h2>
+        <span class="badge bg-@statusClass">@Model.Clinic.Status</span>
+        <span class="badge bg-primary ms-1">@Model.Clinic.PlanName</span>
+        <span class="text-muted ms-2">@Model.Users.Count / @Model.Clinic.MaxUsers users</span>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (Model.Clinic.Status != AtoZClinical.Core.Enums.ClinicStatus.Active)
+        {
+            <form method="post" asp-page-handler="Activate" asp-route-id="@Model.Clinic.Id" class="d-inline">
+                <button type="submit" class="btn btn-success btn-sm">Activate</button>
+            </form>
+        }
+        @if (Model.Clinic.Status != AtoZClinical.Core.Enums.ClinicStatus.Suspended)
+        {
+            <form method="post" asp-page-handler="Suspend" asp-route-id="@Model.Clinic.Id" class="d-inline">
+                <button type="submit" class="btn btn-warning btn-sm">Suspend</button>
+            </form>
+        }
+        <form method="post" asp-page-handler="SetExpired" asp-route-id="@Model.Clinic.Id" class="d-inline">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Mark Expired</button>
+        </form>
+        <a class="btn btn-outline-primary btn-sm" asp-page="CreateUser" asp-route-clinicId="@Model.Clinic.Id">+ Add User</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="credential-box">
+            <h5 class="fw-bold mb-3">Handoff to Client — Login &amp; Hosting</h5>
+            <table class="table table-sm mb-0">
+                <tr><th>System</th><td>A to Z Clinical Management System</td></tr>
+                <tr><th>Clinic Code</th><td><strong>@Model.Clinic.ClinicCode</strong></td></tr>
+                <tr><th>License Key</th><td><code>@Model.Clinic.LicenseKey</code></td></tr>
+                <tr><th>Plan</th><td>@Model.Clinic.PlanName (@Model.Clinic.MaxUsers users max)</td></tr>
+                <tr><th>Web Address</th><td>@(Model.Clinic.HostingUrl ?? "—")</td></tr>
+                <tr><th>Username</th><td><strong>@(Model.NewUsername ?? "—")</strong></td></tr>
+                <tr><th>Password</th><td><strong class="text-danger">@(Model.NewPassword ?? "(existing — not shown)")</strong></td></tr>
+                <tr><th>Database Host</th><td>@(Model.Clinic.DatabaseHost ?? "—")</td></tr>
+                <tr><th>Database Port</th><td>@Model.Clinic.DatabasePort</td></tr>
+                <tr><th>Database Name</th><td>@(Model.Clinic.DatabaseName ?? "—")</td></tr>
+                <tr><th>License Expires</th><td>@(Model.Clinic.LicenseExpires?.ToString("dd MMM yyyy") ?? "No expiry")</td></tr>
+            </table>
+            <button class="btn btn-sm btn-outline-secondary mt-3" onclick="window.print()">Print Credentials</button>
+        </div>
+
+        <div class="atz-card p-3 mt-3">
+            <h5 class="mb-3">Renew / Upgrade Subscription</h5>
+            <form method="post" asp-page-handler="Renew" asp-route-id="@Model.Clinic.Id">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label asp-for="Renew.LicenseExpires" class="form-label">License Expires</label>
+                        <input asp-for="Renew.LicenseExpires" class="form-control" type="date" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Renew.PlanName" class="form-label">Plan</label>
+                        <select asp-for="Renew.PlanName" class="form-select">
+                            <option value="Trial">Trial</option>
+                            <option value="Standard">Standard</option>
+                            <option value="Professional">Professional</option>
+                            <option value="Enterprise">Enterprise</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Renew.MaxUsers" class="form-label">Max Users</label>
+                        <input asp-for="Renew.MaxUsers" class="form-control" type="number" min="1" max="500" />
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-atz-primary btn-sm mt-3">Renew License &amp; Activate</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="atz-card p-3">
+            <h5 class="mb-3">Clinic Users</h5>
+            <table class="table table-sm">
+                <thead><tr><th>Username</th><th>Name</th><th>Role</th></tr></thead>
+                <tbody>
+                @foreach (var user in Model.Users)
+                {
+                    <tr>
+                        <td>@user.UserName</td>
+                        <td>@user.FullName</td>
+                        <td>@user.ClinicRole</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="atz-card p-3 mt-3">
+            <h6>Notes</h6>
+            <p class="mb-0 text-muted">@(Model.Clinic.Notes ?? "—")</p>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a asp-page="Index">← Back to clients</a>
+    <span class="mx-2">|</span>
+    <a asp-page="Clients">All clients (SaaS)</a>
+</div>

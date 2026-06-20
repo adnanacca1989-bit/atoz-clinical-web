@@ -1,0 +1,47 @@
+@page
+@model AtoZClinical.Web.Pages.Vendor.IndexModel
+@{
+    ViewData["Title"] = "Clinics / Clients";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="atz-section-title mb-1">Clinics / Clients</h2>
+        <p class="text-muted mb-0">Manage sold licenses and client access</p>
+    </div>
+    <a class="btn btn-atz-primary" asp-page="Create">+ New Client</a>
+</div>
+
+<div class="atz-card p-3">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Clinic Name</th>
+                <th>Contact</th>
+                <th>Hosting URL</th>
+                <th>License</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var clinic in Model.Clinics)
+        {
+            <tr>
+                <td>@clinic.ClinicCode</td>
+                <td>@clinic.Name</td>
+                <td>@clinic.Phone<br /><small class="text-muted">@clinic.Email</small></td>
+                <td>@(clinic.HostingUrl ?? "—")</td>
+                <td><code>@clinic.LicenseKey</code></td>
+                <td><span class="badge bg-success">@clinic.Status</span></td>
+                <td><a asp-page="Details" asp-route-id="@clinic.Id">Details</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (!Model.Clinics.Any())
+    {
+        <p class="text-muted p-3 mb-0">No clients yet. Click <strong>New Client</strong> to sell your first license.</p>
+    }
+</div>

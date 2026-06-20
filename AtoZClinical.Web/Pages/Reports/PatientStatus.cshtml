@@ -1,0 +1,57 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.PatientStatusModel
+@{
+    ViewData["Title"] = "Patient Status Report";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Patient Status Report</h1>
+    <form method="post">
+        <div class="row g-3 mb-2">
+            <div class="col-md-3">
+                <label class="clinical-field-label">From Date</label>
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">To Date</label>
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Status</label>
+                <select asp-for="Status" class="clinical-field">
+                    <option>All</option>
+                    <option>Active</option>
+                    <option>Completed</option>
+                    <option>Cancelled</option>
+                </select>
+            </div>
+        </div>
+        <p class="small text-muted mb-2">Showing @Model.Results.Count patient status records</p>
+        <div class="clinical-record-grid" style="min-height: 400px;">
+            <table>
+                <thead>
+                    <tr><th>No.</th><th>Patient Name</th><th>Appointment Date</th><th>Appointment Time</th><th>Doctor Name</th><th>Specialty</th><th>Invoice Balance</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                @{ var n = 0; }
+                @foreach (var r in Model.Results)
+                {
+                    n++;
+                    <tr>
+                        <td>@n</td>
+                        <td>@r.PatientName</td>
+                        <td>@(r.AppointmentDate?.ToString("d") ?? "")</td>
+                        <td>@(r.AppointmentTime?.ToString(@"hh\:mm") ?? "")</td>
+                        <td>@r.DoctorName</td>
+                        <td>@r.Specialty</td>
+                        <td>@r.InvoiceBalance.ToString("N2")</td>
+                        <td>@r.Status</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>

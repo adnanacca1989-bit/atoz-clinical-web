@@ -1,0 +1,43 @@
+@page
+@model AtoZClinical.Web.Pages.Admin.BackupModel
+@{
+    ViewData["Title"] = "Data Backup";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Data Backup</h1>
+    <p class="text-muted">Export clinic data to Excel files for backup and offline review.</p>
+    <p class="small text-muted mb-4">Clinic: <strong>@Model.ClinicName</strong> · @Model.StatusText</p>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="atz-card p-4 h-100">
+                <h5>Separate Excel Files (ZIP)</h5>
+                <p class="text-muted small">
+                    Downloads a ZIP archive containing one Excel file per module:
+                    Patients, Doctors, Lab, Radiology, Pharmacy, Invoices, Cash, Chart of Accounts, Audit Log, and more.
+                </p>
+                <form method="post" asp-page-handler="ExportZip">
+                    <button type="submit" class="btn btn-atz-primary">📦 Export Excel Files (ZIP)</button>
+                </form>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="atz-card p-4 h-100">
+                <h5>Single Excel Workbook</h5>
+                <p class="text-muted small">
+                    Downloads one .xlsx file with multiple sheets for the main clinic data
+                    (Patients, Doctors, Pharmacy, Invoices, Cash Receipts, Audit Log).
+                </p>
+                <form method="post" asp-page-handler="ExportWorkbook">
+                    <button type="submit" class="btn btn-outline-primary">📊 Export Workbook (.xlsx)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="clinical-toolbar mt-4">
+        <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
+    </div>
+</div>

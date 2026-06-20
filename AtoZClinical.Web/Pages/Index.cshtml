@@ -1,0 +1,65 @@
+﻿@page
+@model AtoZClinical.Web.Pages.IndexModel
+@{
+    ViewData["Title"] = "A to Z Clinical";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A to Z Clinical Management System</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="container py-5">
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-bold" style="color:#0b4f8a">A to Z</h1>
+            <p class="lead">Clinical Management System — Web Edition</p>
+            <p class="text-muted">PostgreSQL · Multi-clinic · Sellable licenses</p>
+            @if (!string.IsNullOrEmpty(Model.PublicUrl))
+            {
+                <p class="mt-3 mb-0">
+                    <span class="text-muted">Share this link:</span>
+                    <a href="@Model.PublicUrl" class="fw-semibold">@Model.PublicUrl</a>
+                </p>
+            }
+            else if (Model.IsLocalOnly)
+            {
+                <div class="alert alert-warning mt-4 mx-auto text-start" style="max-width:640px">
+                    <strong>Local test only.</strong>
+                    <code>http://localhost:5034</code> works only on this computer — others cannot open it.
+                    To share with anyone, deploy to the cloud (e.g. Render) and use the public URL like
+                    <code>https://your-app.onrender.com</code>.
+                </div>
+            }
+        </div>
+        <div class="row justify-content-center g-4">
+            <div class="col-md-4">
+                <div class="atz-card p-4 h-100">
+                    <h5 class="atz-section-title">For Clinic Users</h5>
+                    <p>Login with the username and password provided by your vendor.</p>
+                    <a class="btn btn-atz-primary" asp-page="/Account/Login">Clinic Login</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="atz-card p-4 h-100">
+                    <h5 class="atz-section-title">New Clinic (SaaS)</h5>
+                    <p>Register your clinic for a 30-day trial. Vendor approval required before login.</p>
+                    <a class="btn btn-outline-primary" asp-page="/Register/Clinic">Register Clinic</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="atz-card p-4 h-100">
+                    <h5 class="atz-section-title">For Vendor (You)</h5>
+                    <p>Create clinics, manage licenses, subscriptions, and client access.</p>
+                    <a class="btn btn-outline-primary" asp-page="/Account/Login">Vendor Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

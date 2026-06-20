@@ -1,0 +1,83 @@
+@page
+@model AtoZClinical.Web.Pages.Register.ClinicModel
+@{
+    ViewData["Title"] = "Register Your Clinic";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register Clinic - A to Z Clinical</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="text-center mb-4">
+                    <h1 class="display-6 fw-bold" style="color:#0b4f8a">Register Your Clinic</h1>
+                    <p class="text-muted">30-day trial · Pending vendor approval · SaaS multi-clinic</p>
+                </div>
+
+                @if (Model.Registered)
+                {
+                    <div class="atz-card p-4">
+                        <div class="alert alert-success">Registration submitted successfully.</div>
+                        <p>Your clinic <strong>@Model.ClinicName</strong> is pending approval.</p>
+                        <p>Admin username: <strong>@Model.AdminUsername</strong></p>
+                        <p class="text-muted">You will receive access after the vendor activates your account. Then login at the clinic login page.</p>
+                        <a class="btn btn-atz-primary" asp-page="/Account/Login">Go to Login</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="atz-card p-4">
+                        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                        <form method="post">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Clinic Name *</label>
+                                    <input asp-for="Input.ClinicName" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Contact Person *</label>
+                                    <input asp-for="Input.ContactPerson" class="form-control" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Phone</label>
+                                    <input asp-for="Input.Phone" class="form-control" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Email</label>
+                                    <input asp-for="Input.Email" class="form-control" type="email" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">City</label>
+                                    <input asp-for="Input.City" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Admin Username *</label>
+                                    <input asp-for="Input.AdminUsername" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Admin Password *</label>
+                                    <input asp-for="Input.AdminPassword" class="form-control" type="password" />
+                                </div>
+                            </div>
+                            <div class="mt-4 d-flex gap-2">
+                                <button type="submit" class="btn btn-atz-primary">Submit Registration</button>
+                                <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <partial name="_ValidationScriptsPartial" />
+</body>
+</html>

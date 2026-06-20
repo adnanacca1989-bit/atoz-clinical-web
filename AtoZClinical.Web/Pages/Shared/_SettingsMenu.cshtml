@@ -1,0 +1,17 @@
+@{
+    var current = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+}
+<div class="atz-card p-3 mb-4">
+    <div class="atz-section-title mb-3">System Settings</div>
+    <div class="settings-menu-grid">
+        <a class="settings-menu-item @(current.Contains("Uom") ? "active" : "")" asp-page="/Settings/Uom">Define UOM</a>
+        <a class="settings-menu-item @(current.Contains("Currency") ? "active" : "")" asp-page="/Settings/Currency">Define Currency</a>
+        <a class="settings-menu-item @(current.Contains("Vendor") ? "active" : "")" asp-page="/Settings/Vendor">Define Vendor</a>
+        <a class="settings-menu-item @(current.Contains("Owner") ? "active" : "")" asp-page="/Settings/Owner">Define Owner</a>
+        <a class="settings-menu-item @(current.Contains("Language") ? "active" : "")" asp-page="/Settings/Language">Define Language</a>
+        <a class="settings-menu-item @(current.Contains("Maintenance") ? "active" : "")" asp-page="/Settings/Maintenance">Maintenance</a>
+        <a class="settings-menu-item @(current.Contains("FormStyle") ? "active" : "")" asp-page="/Settings/FormStyle">Style Forms</a>
+        <a class="settings-menu-item @(current.Contains("Users") ? "active" : "")" asp-page="/Settings/Users">Define User</a>
+        <a class="settings-menu-item @(current.Contains("ChangePassword") ? "active" : "")" asp-page="/Settings/ChangePassword">Change Password</a>
+    </div>
+</div>

@@ -1,0 +1,116 @@
+@page
+@model AtoZClinical.Web.Pages.Vendor.CreateModel
+@{
+    ViewData["Title"] = "New Client / Clinic";
+}
+
+<h2 class="atz-section-title">Register New Client</h2>
+<p class="text-muted">Create clinic license, admin login, and hosting details to give the customer.</p>
+
+<form method="post" class="atz-card p-4">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label asp-for="Input.Name" class="form-label"></label>
+            <input asp-for="Input.Name" class="form-control" />
+            <span asp-validation-for="Input.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.ClinicCode" class="form-label"></label>
+            <input asp-for="Input.ClinicCode" class="form-control" placeholder="Auto if empty" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.ContactPerson" class="form-label"></label>
+            <input asp-for="Input.ContactPerson" class="form-control" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.Email" class="form-label"></label>
+            <input asp-for="Input.Email" class="form-control" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.Phone" class="form-label"></label>
+            <input asp-for="Input.Phone" class="form-control" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.LicenseExpires" class="form-label"></label>
+            <input asp-for="Input.LicenseExpires" class="form-control" type="date" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.PlanName" class="form-label"></label>
+            <select asp-for="Input.PlanName" class="form-select">
+                <option value="Trial">Trial</option>
+                <option value="Standard">Standard</option>
+                <option value="Professional">Professional</option>
+                <option value="Enterprise">Enterprise</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.MaxUsers" class="form-label"></label>
+            <input asp-for="Input.MaxUsers" class="form-control" type="number" min="1" max="500" />
+        </div>
+        <div class="col-md-12">
+            <div class="form-check">
+                <input asp-for="Input.ActivateImmediately" class="form-check-input" type="checkbox" />
+                <label asp-for="Input.ActivateImmediately" class="form-check-label">Activate immediately (skip pending approval)</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.Address" class="form-label"></label>
+            <input asp-for="Input.Address" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.City" class="form-label"></label>
+            <input asp-for="Input.City" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.Country" class="form-label"></label>
+            <input asp-for="Input.Country" class="form-control" />
+        </div>
+    </div>
+
+    <h5 class="mt-4 mb-3" style="color:#0b4f8a">Hosting Information (give to client)</h5>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="Input.HostingUrl" class="form-label"></label>
+            <input asp-for="Input.HostingUrl" class="form-control" placeholder="https://clinic.yourserver.com" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.DatabaseHost" class="form-label"></label>
+            <input asp-for="Input.DatabaseHost" class="form-control" placeholder="localhost" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.DatabasePort" class="form-label"></label>
+            <input asp-for="Input.DatabasePort" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.DatabaseName" class="form-label"></label>
+            <input asp-for="Input.DatabaseName" class="form-control" placeholder="atoz_clinical_cln001" />
+        </div>
+    </div>
+
+    <h5 class="mt-4 mb-3" style="color:#0b4f8a">Clinic Admin Login</h5>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label asp-for="Input.AdminUsername" class="form-label"></label>
+            <input asp-for="Input.AdminUsername" class="form-control" />
+            <span asp-validation-for="Input.AdminUsername" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.AdminPassword" class="form-label"></label>
+            <input asp-for="Input.AdminPassword" class="form-control" placeholder="Auto-generate if empty" />
+        </div>
+        <div class="col-md-12">
+            <label asp-for="Input.Notes" class="form-label"></label>
+            <textarea asp-for="Input.Notes" class="form-control" rows="2"></textarea>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-atz-primary">Create Client &amp; License</button>
+        <a class="btn btn-outline-secondary" asp-page="Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

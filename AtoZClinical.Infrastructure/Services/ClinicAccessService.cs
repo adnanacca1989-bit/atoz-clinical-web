@@ -1,0 +1,76 @@
+using AtoZClinical.Core.Entities;
+using AtoZClinical.Core.Enums;
+using AtoZClinical.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace AtoZClinical.Infrastructure.Services;
+
+public enum ClinicBlockReason
+{
+    None = 0,
+    NoClinic = 1,
+    Pending = 2,
+    Suspended = 3,
+    Expired = 4
+}
+
+public sealed record ClinicAccessResult(bool IsAllowed, string Message, ClinicBlockReason Reason, Clinic? Clinic)
+{
+    public static ClinicAccessResult Allowed(Clinic clinic) =>
+        new(true, string.Empty, ClinicBlockReason.None, clinic);
+
+    public static ClinicAccessResult Blocked(string message, ClinicBlockReason reason, Clinic? clinic = null) =>
+        new(false, message, reason, clinic);
+}
+
+public sealed class ClinicAccessService
+{
+    private readonly ClinicalDbContext _db;
+
+    public ClinicAccessService(ClinicalDbContext db) => _db = db;
+
+    public ClinicAccessResult Evaluate(Clinic? clinic)
+    {
+        if (clinic is null)
+            return ClinicAccessResult.Blocked("No clinic is assigned to this account.", ClinicBlockReason.NoClinic);
+
+        if (clinic.Status == ClinicStatus.Pending)
+            return ClinicAccessResult.Blocked(
+                "Your clinic registration is pending approval. You will be able to login once the vendor activates your account.",
+                ClinicBlockReason.Pending, clinic);
+
+        if (clinic.Status == ClinicStatus.Suspended)
+            return ClinicAccessResult.Blocked(
+                "Your clinic account is suspended. Please contact your system vendor.",
+                ClinicBlockReason.Suspended, clinic);
+
+        if (clinic.Status == ClinicStatus.Expired)
+            return ClinicAccessResult.Blocked(
+                "Your subscription license has expired. Please contact your vendor to renew.",
+                ClinicBlockReason.Expired, clinic);
+
+        if (clinic.LicenseExpires.HasValue && clinic.LicenseExpires.Value.Date < DateTime.UtcNow.Date)
+            return ClinicAccessResult.Blocked(
+                $"Your license expired on {clinic.LicenseExpires.Value:d}. Please contact your vendor to renew.",
+                ClinicBlockReason.Expired, clinic);
+
+        return ClinicAccessResult.Allowed(clinic);
+    }
+
+    public async Task<int> ExpireOverdueLicensesAsync(CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.UtcNow.Date;
+        var overdue = await _db.Clinics
+            .Where(c => c.Status == ClinicStatus.Active || c.Status == ClinicStatus.Pending)
+            .Where(c => c.LicenseExpires != null && c.LicenseExpires.Value.Date < today)
+            .ToListAsync(cancellationToken);
+
+        foreach (var clinic in overdue)
+            clinic.Status = ClinicStatus.Expired;
+
+        if (overdue.Count > 0)
+            await _db.SaveChangesAsync(cancellationToken);
+
+        return overdue.Count;
+    }
+}

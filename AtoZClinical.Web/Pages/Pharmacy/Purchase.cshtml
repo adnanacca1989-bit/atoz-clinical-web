@@ -1,0 +1,148 @@
+@page
+@model AtoZClinical.Web.Pages.Pharmacy.PurchaseModel
+@{
+    ViewData["Title"] = "Pharmacy Purchase Bill";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Pharmacy Purchase Bill</h1>
+    <p class="text-muted small">Supplier purchase — stock IN with discount amount or percentage.</p>
+    <div asp-validation-summary="All" class="validation-summary-errors mx-3"></div>
+    <form method="post" id="purchaseBillForm">
+        <div class="clinical-form-body">
+            <div class="clinical-form-left">
+                <div class="row g-2 mb-2">
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Purchase ID</label>
+                        <input asp-for="Input.PurchaseNo" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Date</label>
+                        <input asp-for="Input.PurchaseDate" class="clinical-field" type="date" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Supplier Name</label>
+                        <select asp-for="Input.SupplierName" id="supplierSelect" class="clinical-field">
+                            <option value="">-- Select Supplier --</option>
+                            @{
+                                var vendorNames = Model.RegisteredVendors.Select(v => v.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                                if (!string.IsNullOrWhiteSpace(Model.Input.SupplierName) && !vendorNames.Contains(Model.Input.SupplierName))
+                                {
+                                    <option value="@Model.Input.SupplierName" selected data-phone="@Model.Input.SupplierPhone">@Model.Input.SupplierName</option>
+                                }
+                            }
+                            @foreach (var v in Model.RegisteredVendors)
+                            {
+                                <option value="@v.Name"
+                                        selected="@(Model.Input.SupplierName == v.Name)"
+                                        data-phone="@v.Phone">@v.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Supplier Phone</label>
+                        <input asp-for="Input.SupplierPhone" id="supplierPhoneInput" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Supplier Invoice No</label>
+                        <input asp-for="Input.SupplierInvoiceNo" class="clinical-field" />
+                    </div>
+                </div>
+                <table class="line-grid pharmacy-line-grid">
+                    <thead><tr><th>No</th><th>Item</th><th>Barcode</th><th>Code</th><th>Name</th><th>Dosage</th><th>UOM</th><th>QTY IN</th><th>Unit Cost</th><th>Total</th></tr></thead>
+                    <tbody>
+                    @for (var i = 0; i < Model.Lines.Count; i++)
+                    {
+                        var line = Model.Lines[i];
+                        var lineBarcode = line.Barcode ?? "";
+                        var lineName = line.MedicineName ?? "";
+                        <tr class="pharmacy-line" data-line="@i">
+                            <td><input asp-for="Lines[i].LineNo" readonly /></td>
+                            <td>
+                                <select class="pharmacy-item-select clinical-field">
+                                    <option value="">-- Item --</option>
+                                    @foreach (var item in Model.RegisteredItems)
+                                    {
+                                        var isSelected = (!string.IsNullOrEmpty(lineBarcode) && lineBarcode == item.Barcode)
+                                            || (!string.IsNullOrEmpty(lineName) && string.Equals(lineName, item.MedicineName, StringComparison.OrdinalIgnoreCase));
+                                        <option value="@item.Id" selected="@isSelected"
+                                                data-barcode="@item.Barcode" data-code="@item.MedicineCode" data-name="@item.MedicineName"
+                                                data-dosage="@item.Dosage" data-base-uom="@item.BaseUom" data-alt-uom="@item.AlternateUom"
+                                                data-price="@item.DefaultUnitPrice" data-avg-cost="@item.MovingAverageCost">@item.MedicineName</option>
+                                    }
+                                </select>
+                            </td>
+                            <td><input asp-for="Lines[i].Barcode" class="pharmacy-barcode" /></td>
+                            <td><input asp-for="Lines[i].MedicineCode" class="pharmacy-code" /></td>
+                            <td><input asp-for="Lines[i].MedicineName" class="pharmacy-name" /></td>
+                            <td><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" /></td>
+                            <td><input asp-for="Lines[i].Uom" class="pharmacy-uom clinical-field" placeholder="Pcs" /></td>
+                            <td><input asp-for="Lines[i].Qty" type="number" min="0" class="pharmacy-qty purchase-qty" /></td>
+                            <td><input asp-for="Lines[i].UnitCost" type="number" step="0.01" class="pharmacy-cost purchase-cost" /></td>
+                            <td><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="purchase-line-total" /></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                <div class="row g-2 mt-2">
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Sub Total</label>
+                        <input id="purchaseSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Discount %</label>
+                        <input asp-for="Input.DiscountPercent" id="discountPercent" class="clinical-field" type="number" step="0.01" min="0" max="100" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Discount Amount</label>
+                        <input asp-for="Input.DiscountAmount" id="discountAmount" class="clinical-field" type="number" step="0.01" min="0" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Net Amount</label>
+                        <input id="netAmount" value="@Model.NetAmount.ToString("N2")" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Paid Amount</label>
+                        <input asp-for="Input.AmountPaid" class="clinical-field" type="number" step="0.01" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Payment Method</label>
+                        <select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))"></select>
+                    </div>
+                </div>
+            </div>
+            <div class="clinical-form-right">
+                <div class="record-transaction-header">Record Transaction</div>
+                <div class="record-transaction-status">@Model.StatusText</div>
+                <div class="p-2">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                </div>
+                <div class="clinical-record-grid">
+                    <table>
+                        <thead><tr><th>ID</th><th>Date</th><th>Supplier</th><th>Net</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+                                <td>@r.PurchaseNo</td>
+                                <td>@r.PurchaseDate.ToString("d")</td>
+                                <td>@r.SupplierName</td>
+                                <td>@r.NetAmount.ToString("N2")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" asp-for="RecordId" />
+        <partial name="_FormToolbar" />
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/js/pharmacy-barcode.js" asp-append-version="true"></script>
+    <script src="~/js/pharmacy-purchase-discount.js" asp-append-version="true"></script>
+    <script src="~/js/pharmacy-purchase-vendor.js" asp-append-version="true"></script>
+}

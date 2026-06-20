@@ -1,0 +1,144 @@
+@page
+@model AtoZClinical.Web.Pages.Radiology.RequestModel
+@{
+    ViewData["Title"] = "Radiology Request";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Radiology Request</h1>
+    <div asp-validation-summary="All" class="validation-summary-errors mx-3"></div>
+    <form method="post">
+        <div class="clinical-form-body">
+            <div class="clinical-form-left">
+                <div class="row g-3 mb-2">
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Request ID</label>
+                        <input asp-for="Input.RequestNo" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Request Date</label>
+                        <input asp-for="Input.RequestDate" class="clinical-field" type="date" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="clinical-field-label field-required">Patient Name</label>
+                        <input asp-for="Input.PatientName" id="radiologyRequestPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." required />
+                        <span asp-validation-for="Input.PatientName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Patient Barcode</label>
+                        <input asp-for="Input.PatientBarcode" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label field-required">Age</label>
+                        <input asp-for="Input.Age" class="clinical-field" type="number" readonly required />
+                        <span asp-validation-for="Input.Age" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label field-required">Gender</label>
+                        <input asp-for="Input.Gender" class="clinical-field" readonly required />
+                        <span asp-validation-for="Input.Gender" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label field-required">Phone Number</label>
+                        <input asp-for="Input.Phone" class="clinical-field" readonly required />
+                        <span asp-validation-for="Input.Phone" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label field-required">City</label>
+                        <input asp-for="Input.City" class="clinical-field" readonly required />
+                        <span asp-validation-for="Input.City" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label field-required">Doctor Name</label>
+                        <input asp-for="Input.DoctorName" class="clinical-field" readonly required />
+                        <span asp-validation-for="Input.DoctorName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label field-required">Specialty</label>
+                        <input asp-for="Input.Specialty" class="clinical-field" readonly required />
+                        <span asp-validation-for="Input.Specialty" class="text-danger small"></span>
+                    </div>
+                </div>
+                <div class="section-caption">Radiology Lines</div>
+                <table class="line-grid">
+                    <thead>
+                        <tr><th>No</th><th>Radiology Test</th><th>Radiology Code</th><th>Radiology Name</th><th>Category</th><th>QTY</th><th>Fee</th><th>Total</th></tr>
+                    </thead>
+                    <tbody>
+                    @for (var i = 0; i < Model.Lines.Count; i++)
+                    {
+                        var lineCode = Model.Lines[i].TestCode ?? "";
+                        <tr class="radiology-line" data-line="@i">
+                            <td><input asp-for="Lines[i].LineNo" readonly /></td>
+                            <td>
+                                <select class="radiology-test-select clinical-field">
+                                    <option value="">-- Select Test --</option>
+                                    @foreach (var t in Model.RegisteredTests)
+                                    {
+                                        <option value="@t.TestCode"
+                                                selected="@(lineCode == t.TestCode)"
+                                                data-code="@t.TestCode"
+                                                data-name="@t.TestName"
+                                                data-category="@t.Category"
+                                                data-fee="@t.Fee">@t.TestCode - @t.TestName</option>
+                                    }
+                                </select>
+                            </td>
+                            <td><input asp-for="Lines[i].TestCode" class="radiology-test-code clinical-field" /></td>
+                            <td><input asp-for="Lines[i].TestName" class="radiology-test-name clinical-field" /></td>
+                            <td><input asp-for="Lines[i].Category" class="radiology-test-category clinical-field" /></td>
+                            <td><input asp-for="Lines[i].Qty" class="radiology-qty" type="number" min="1" /></td>
+                            <td><input asp-for="Lines[i].Fee" class="radiology-fee" type="number" step="0.01" /></td>
+                            <td><input class="radiology-line-total" value="@(Model.Lines[i].Total.ToString("N2"))" readonly /></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                <div class="d-flex justify-content-end mt-2">
+                    <div class="text-end" style="min-width: 200px;">
+                        <label class="clinical-field-label">Total</label>
+                        <input id="radiologyRequestTotalAmount" value="@Model.LineTotal.ToString("N2")" class="clinical-field text-end" readonly />
+                    </div>
+                </div>
+            </div>
+            <div class="clinical-form-right">
+                <div class="record-transaction-header">Record Transaction</div>
+                <div class="record-transaction-status">@Model.StatusText</div>
+                <div class="p-2">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                </div>
+                <div class="clinical-record-grid">
+                    <table>
+                        <thead><tr><th>ID</th><th>Date</th><th>Patie...</th><th>Doctor</th><th>Spe...</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+                                <td>@r.RequestNo</td>
+                                <td>@r.RequestDate.ToString("d")</td>
+                                <td>@r.PatientName</td>
+                                <td>@r.DoctorName</td>
+                                <td>@r.Specialty</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" asp-for="RecordId" />
+        <partial name="_FormToolbar" />
+        <div class="clinical-form-footer">
+            <span>Created By: @Model.UserName</span>
+            <span>Last Updated By: @Model.UserName</span>
+        </div>
+    </form>
+</div>
+
+<partial name="_PatientSelectModal" />
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/radiology-request.js" asp-append-version="true"></script>
+}

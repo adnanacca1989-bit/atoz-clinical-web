@@ -1,0 +1,96 @@
+@page
+@model AtoZClinical.Web.Pages.Vendor.ClientsModel
+@using AtoZClinical.Core.Enums
+@{
+    ViewData["Title"] = "Existing Clients";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="atz-section-title mb-1">Existing Clients</h2>
+        <p class="text-muted mb-0">Manage client status: pending, active, or remove</p>
+    </div>
+    <a class="btn btn-atz-primary" asp-page="Create">+ New Client</a>
+</div>
+
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger">@err</div>
+}
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-3">
+        <label class="form-label small">Status filter</label>
+        <select name="Filter" class="form-select" onchange="this.form.submit()">
+            <option value="All" selected="@(Model.Filter == "All" || string.IsNullOrEmpty(Model.Filter))">All</option>
+            <option value="Pending" selected="@(Model.Filter == "Pending")">Pending</option>
+            <option value="Active" selected="@(Model.Filter == "Active")">Active</option>
+            <option value="Suspended" selected="@(Model.Filter == "Suspended")">Suspended</option>
+            <option value="Expired" selected="@(Model.Filter == "Expired")">Expired</option>
+        </select>
+    </div>
+</form>
+
+<div class="atz-card p-3">
+    <table class="table table-hover mb-0 align-middle">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Clinic Name</th>
+                <th>Contact</th>
+                <th>Plan</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var clinic in Model.Clinics)
+        {
+            var badge = clinic.Status switch
+            {
+                ClinicStatus.Active => "bg-success",
+                ClinicStatus.Pending => "bg-warning text-dark",
+                ClinicStatus.Suspended => "bg-secondary",
+                ClinicStatus.Expired => "bg-danger",
+                _ => "bg-light text-dark"
+            };
+            <tr>
+                <td>@clinic.ClinicCode</td>
+                <td>@clinic.Name</td>
+                <td>@clinic.Phone<br /><small class="text-muted">@clinic.Email</small></td>
+                <td>@clinic.PlanName<br /><small class="text-muted">@clinic.MaxUsers users max</small></td>
+                <td>@(clinic.LicenseExpires?.ToString("dd MMM yyyy") ?? "—")</td>
+                <td><span class="badge @badge">@clinic.Status</span></td>
+                <td class="d-flex flex-wrap gap-1">
+                    <form method="post" asp-page-handler="SetActive" class="d-inline">
+                        <input type="hidden" name="id" value="@clinic.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
+                    </form>
+                    <form method="post" asp-page-handler="SetPending" class="d-inline">
+                        <input type="hidden" name="id" value="@clinic.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-warning">Pending</button>
+                    </form>
+                    <form method="post" asp-page-handler="SetSuspended" class="d-inline">
+                        <input type="hidden" name="id" value="@clinic.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Suspend</button>
+                    </form>
+                    <form method="post" asp-page-handler="SetExpired" class="d-inline">
+                        <input type="hidden" name="id" value="@clinic.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Expire</button>
+                    </form>
+                    <form method="post" asp-page-handler="Delete" class="d-inline" onsubmit="return confirm('Delete this client and all users? This cannot be undone.');">
+                        <input type="hidden" name="id" value="@clinic.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                    <a class="btn btn-sm btn-link" asp-page="Details" asp-route-id="@clinic.Id">Details</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (!Model.Clinics.Any())
+    {
+        <p class="text-muted p-3 mb-0">No clients found.</p>
+    }
+</div>

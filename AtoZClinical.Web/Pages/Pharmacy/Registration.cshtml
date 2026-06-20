@@ -1,0 +1,88 @@
+@page
+@model AtoZClinical.Web.Pages.Pharmacy.RegistrationModel
+@{
+    ViewData["Title"] = "Pharmacy Registration";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Pharmacy Registration</h1>
+    <form method="post">
+        <div asp-validation-summary="All" class="validation-summary-errors mx-3"></div>
+        <div class="clinical-form-body">
+            <div class="clinical-form-left">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Item ID</label>
+                        <input asp-for="Input.ItemNo" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Barcode *</label>
+                        <input asp-for="Input.Barcode" class="clinical-field" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Medicine Code</label>
+                        <input asp-for="Input.MedicineCode" class="clinical-field" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Default Price</label>
+                        <input asp-for="Input.DefaultUnitPrice" class="clinical-field" type="number" step="0.01" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="clinical-field-label">Medicine Name *</label>
+                        <input asp-for="Input.MedicineName" class="clinical-field" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="clinical-field-label">Dosage</label>
+                        <input asp-for="Input.Dosage" class="clinical-field" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Base UOM</label>
+                        <input asp-for="Input.BaseUom" class="clinical-field" placeholder="Pcs" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Alternate UOM</label>
+                        <input asp-for="Input.AlternateUom" class="clinical-field" placeholder="Box" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Conversion</label>
+                        <input asp-for="Input.ConversionFactor" class="clinical-field" type="number" step="0.01" />
+                        <div class="small text-muted">1 Box = X Pcs</div>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <input asp-for="Input.IsActive" class="form-check-input" type="checkbox" />
+                            <label class="form-check-label" asp-for="Input.IsActive">Active</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="clinical-form-right">
+                <div class="record-transaction-header">Registered Items</div>
+                <div class="record-transaction-status">@Model.StatusText</div>
+                <div class="p-2">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                </div>
+                <div class="clinical-record-grid">
+                    <table>
+                        <thead><tr><th>ID</th><th>Barcode</th><th>Name</th><th>UOM</th><th>Price</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+                                <td>@r.ItemNo</td>
+                                <td>@r.Barcode</td>
+                                <td>@r.MedicineName</td>
+                                <td>@r.BaseUom@(r.AlternateUom != null ? $" / {r.AlternateUom}" : "")</td>
+                                <td>@r.DefaultUnitPrice.ToString("N2")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" asp-for="RecordId" />
+        <partial name="_FormToolbar" />
+    </form>
+</div>

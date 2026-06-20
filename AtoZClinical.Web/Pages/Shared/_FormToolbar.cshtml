@@ -1,0 +1,28 @@
+@{
+    var showHistory = ViewData["ShowHistory"] as bool? ?? false;
+    var showPatientCard = ViewData["ShowPatientCard"] as bool? ?? false;
+    var openPatientSelect = ViewData["OpenPatientSelect"] as bool? ?? false;
+}
+<input type="hidden" name="SaveMode" id="saveModeInput" value="Edit" />
+<div class="clinical-toolbar">
+    <button type="submit" asp-page-handler="New" class="btn-form">+ New</button>
+    <button type="submit" asp-page-handler="Save" class="btn-form btn-form-primary" onclick="document.getElementById('saveModeInput').value='New';">💾 Add</button>
+    <button type="submit" asp-page-handler="Save" class="btn-form" onclick="document.getElementById('saveModeInput').value='Edit';">✏️ Edit</button>
+    <button type="submit" asp-page-handler="Delete" class="btn-form" onclick="return confirm('Delete this record?');">🗑️ Delete</button>
+    @if (openPatientSelect)
+    {
+        <button type="button" class="btn-form" id="openPatientSelectBtn">🔍 Search</button>
+    }
+    else
+    {
+        <button type="button" class="btn-form" onclick="document.getElementById('searchBox')?.focus();">🔍 Search</button>
+    }
+    <button type="button" class="btn-form" onclick="window.location.reload();" title="Reload page">🔄 Refresh</button>
+    <button type="submit" asp-page-handler="Clear" class="btn-form">🧹 Clear</button>
+    <button type="button" class="btn-form" onclick="window.print();">🖨️ Print</button>
+    <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
+    <button type="submit" asp-page-handler="Back" class="btn-form">← Back</button>
+    <button type="submit" asp-page-handler="Next" class="btn-form">Next →</button>
+    @if (showHistory) { <button type="button" class="btn-form">📋 History</button> }
+    @if (showPatientCard) { <button type="button" class="btn-form" id="patientCardBtn">Patient Card</button> }
+</div>

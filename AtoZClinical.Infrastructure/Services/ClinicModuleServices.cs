@@ -1,0 +1,334 @@
+using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+namespace AtoZClinical.Infrastructure.Services;
+
+public abstract class ClinicCrudServiceBase<T> where T : class
+{
+    protected ClinicalDbContext Db { get; }
+    protected ClinicCrudServiceBase(ClinicalDbContext db) => Db = db;
+
+    protected abstract IQueryable<T> ForClinic(Guid clinicId);
+    protected abstract void SetClinicId(T entity, Guid clinicId);
+    protected abstract Guid GetId(T entity);
+
+    public Task<List<T>> ListAsync(Guid clinicId) =>
+        ForClinic(clinicId).ToListAsync();
+
+    public Task<T?> GetAsync(Guid clinicId, Guid id) =>
+        ForClinic(clinicId).FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id);
+}
+
+public static class ClinicLookup
+{
+    public static readonly string[] Specialties =
+    [
+        "ENT", "Cardiology", "Pediatrics", "Dermatology", "Orthopedics", "General Medicine",
+        "Gynecology", "Obstetrics", "Neurology", "Dental", "Dentistry", "Oral Surgery",
+        "Ophthalmology", "Urology", "Psychiatry", "Oncology", "Emergency Medicine",
+        "Anesthesiology", "Internal Medicine", "Pulmonology", "Gastroenterology",
+        "Nephrology", "Endocrinology", "Rheumatology", "Plastic Surgery", "General Surgery",
+        "Vascular Surgery", "Pediatric Surgery", "Radiology", "Pathology", "Physical Therapy",
+        "Nutrition", "Family Medicine", "Sports Medicine", "Allergy & Immunology"
+    ];
+
+    public static readonly string[] Cities =
+        ["Baghdad", "Basra", "Erbil", "Mosul", "Najaf", "Karbala", "Kirkuk", "Sulaymaniyah"];
+
+    public static readonly string[] BloodGroups =
+        ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+    public static readonly string[] LabCategories =
+        ["Hematology", "Microbiology", "Biochemistry", "Immunology", "Radiology", "Pathology"];
+
+    public static readonly string[] RadiologyCategories =
+        ["X-Ray", "CT", "MRI", "Ultrasound", "Mammography", "PET", "Fluoroscopy", "Nuclear Medicine", "DEXA"];
+
+    public static readonly string[] AccountCategoryTypes =
+        ["Asset", "Liability", "Equity", "Income", "Expense"];
+
+    public static readonly string[] AccountDetailTypes =
+    [
+        "Bank", "Accounts Receivable", "Other Current Asset", "Fixed Asset",
+        "Accounts Payable", "Credit Card", "Other Current Liability", "Long Term Liability",
+        "Owner's Equity", "Retained Earnings",
+        "Service/Fee Income", "Other Primary Income", "Other Income",
+        "Office/General Administrative", "Payroll Expenses", "Supplies", "Utilities", "Other Expense"
+    ];
+
+    public static readonly string[] ChronicDiseaseTypes =
+        ["Diabetes", "Hypertension", "Asthma", "COPD", "Heart Disease", "Kidney Disease", "Thyroid Disorder", "Arthritis", "Epilepsy"];
+
+    public static readonly string[] AccountNames =
+        ["Clinical Revenue", "Laboratory Revenue", "Radiology Revenue", "Consultation Revenue", "Other Revenue"];
+
+    public static readonly string[] PaymentMethods =
+        ["Cash", "Card", "Bank Transfer", "Cheque"];
+
+    public static readonly string[] PayeeTypes =
+        ["Vendor", "Employee", "Supplier", "Other"];
+}
+
+public sealed class DoctorService
+{
+    private readonly ClinicalDbContext _db;
+    public DoctorService(ClinicalDbContext db) => _db = db;
+
+    public Task<List<Doctor>> ListAsync(Guid clinicId) =>
+        _db.Doctors.Where(d => d.ClinicId == clinicId).OrderBy(d => d.DoctorNo).ToListAsync();
+
+    public Task<Doctor?> GetAsync(Guid clinicId, Guid id) =>
+        _db.Doctors.FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.Id == id);
+
+    public async Task<Doctor> SaveAsync(Guid clinicId, Doctor doctor, string? userName)
+    {
+        doctor.ClinicId = clinicId;
+        doctor.UpdatedAt = DateTime.UtcNow;
+        doctor.UpdatedBy = userName;
+        if (doctor.Id == Guid.Empty)
+        {
+            doctor.Id = Guid.NewGuid();
+            doctor.DoctorNo = await NextNoAsync(clinicId);
+            doctor.CreatedAt = DateTime.UtcNow;
+            doctor.CreatedBy = userName;
+            _db.Doctors.Add(doctor);
+        }
+        else _db.Doctors.Update(doctor);
+        await _db.SaveChangesAsync();
+        return doctor;
+    }
+
+    public async Task DeleteAsync(Guid clinicId, Guid id)
+    {
+        var item = await GetAsync(clinicId, id);
+        if (item is null) return;
+        _db.Doctors.Remove(item);
+        await _db.SaveChangesAsync();
+    }
+
+    public Task<int> NextNoAsync(Guid clinicId) =>
+        _db.Doctors.Where(d => d.ClinicId == clinicId).Select(d => (int?)d.DoctorNo).MaxAsync()
+            .ContinueWith(t => (t.Result ?? 0) + 1);
+}
+
+public sealed class ServiceIncomeService
+{
+    private readonly ClinicalDbContext _db;
+    public ServiceIncomeService(ClinicalDbContext db) => _db = db;
+
+    public Task<List<ServiceIncome>> ListAsync(Guid clinicId) =>
+        _db.ServiceIncomes.Where(s => s.ClinicId == clinicId).OrderBy(s => s.ServiceNo).ToListAsync();
+
+    public Task<ServiceIncome?> GetAsync(Guid clinicId, Guid id) =>
+        _db.ServiceIncomes.FirstOrDefaultAsync(s => s.ClinicId == clinicId && s.Id == id);
+
+    public async Task<ServiceIncome> SaveAsync(Guid clinicId, ServiceIncome item)
+    {
+        item.ClinicId = clinicId;
+        item.UpdatedAt = DateTime.UtcNow;
+        if (item.Id == Guid.Empty)
+        {
+            item.Id = Guid.NewGuid();
+            item.ServiceNo = (await _db.ServiceIncomes.Where(s => s.ClinicId == clinicId).MaxAsync(s => (int?)s.ServiceNo) ?? 0) + 1;
+            item.CreatedAt = DateTime.UtcNow;
+            _db.ServiceIncomes.Add(item);
+        }
+        else _db.ServiceIncomes.Update(item);
+        await _db.SaveChangesAsync();
+        return item;
+    }
+
+    public async Task DeleteAsync(Guid clinicId, Guid id)
+    {
+        var item = await GetAsync(clinicId, id);
+        if (item is null) return;
+        _db.ServiceIncomes.Remove(item);
+        await _db.SaveChangesAsync();
+    }
+}
+
+public sealed class CashReceiptService
+{
+    private readonly ClinicalDbContext _db;
+    public CashReceiptService(ClinicalDbContext db) => _db = db;
+
+    public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
+        _db.CashReceipts.Where(c => c.ClinicId == clinicId).OrderByDescending(c => c.ReceiptNo).ToListAsync();
+
+    public Task<CashReceipt?> GetAsync(Guid clinicId, Guid id) =>
+        _db.CashReceipts.FirstOrDefaultAsync(c => c.ClinicId == clinicId && c.Id == id);
+
+    public async Task<CashReceipt> SaveAsync(Guid clinicId, CashReceipt item)
+    {
+        item.ClinicId = clinicId;
+        item.UpdatedAt = DateTime.UtcNow;
+        if (item.Id == Guid.Empty)
+        {
+            item.Id = Guid.NewGuid();
+            item.ReceiptNo = (await _db.CashReceipts.Where(c => c.ClinicId == clinicId).MaxAsync(c => (int?)c.ReceiptNo) ?? 0) + 1;
+            item.CreatedAt = DateTime.UtcNow;
+            _db.CashReceipts.Add(item);
+        }
+        else _db.CashReceipts.Update(item);
+        await _db.SaveChangesAsync();
+        return item;
+    }
+
+    public async Task DeleteAsync(Guid clinicId, Guid id)
+    {
+        var item = await GetAsync(clinicId, id);
+        if (item is null) return;
+        _db.CashReceipts.Remove(item);
+        await _db.SaveChangesAsync();
+    }
+}
+
+public sealed class LabTestService
+{
+    private readonly ClinicalDbContext _db;
+    public LabTestService(ClinicalDbContext db) => _db = db;
+
+    public Task<List<LabTest>> ListAsync(Guid clinicId) =>
+        _db.LabTests.Where(t => t.ClinicId == clinicId).OrderBy(t => t.TestNo).ToListAsync();
+
+    public Task<LabTest?> GetAsync(Guid clinicId, Guid id) =>
+        _db.LabTests.FirstOrDefaultAsync(t => t.ClinicId == clinicId && t.Id == id);
+
+    public async Task<LabTest> SaveAsync(Guid clinicId, LabTest item)
+    {
+        item.ClinicId = clinicId;
+        item.UpdatedAt = DateTime.UtcNow;
+        if (item.Id == Guid.Empty)
+        {
+            item.Id = Guid.NewGuid();
+            item.TestNo = (await _db.LabTests.Where(t => t.ClinicId == clinicId).MaxAsync(t => (int?)t.TestNo) ?? 0) + 1;
+            item.CreatedAt = DateTime.UtcNow;
+            _db.LabTests.Add(item);
+        }
+        else _db.LabTests.Update(item);
+        await _db.SaveChangesAsync();
+        return item;
+    }
+
+    public async Task DeleteAsync(Guid clinicId, Guid id)
+    {
+        var item = await GetAsync(clinicId, id);
+        if (item is null) return;
+        _db.LabTests.Remove(item);
+        await _db.SaveChangesAsync();
+    }
+}
+
+public sealed class LabRequestService
+{
+    private readonly ClinicalDbContext _db;
+    public LabRequestService(ClinicalDbContext db) => _db = db;
+
+    public Task<List<LabRequest>> ListAsync(Guid clinicId) =>
+        _db.LabRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+
+    public Task<LabRequest?> GetAsync(Guid clinicId, Guid id) =>
+        _db.LabRequests.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+
+    public async Task<LabRequest> SaveAsync(Guid clinicId, LabRequest item, List<LabRequestLine> lines)
+    {
+        item.ClinicId = clinicId;
+        item.UpdatedAt = DateTime.UtcNow;
+        item.TotalAmount = lines.Sum(l => l.Total);
+
+        if (item.Id == Guid.Empty)
+        {
+            item.Id = Guid.NewGuid();
+            item.RequestNo = (await _db.LabRequests.Where(r => r.ClinicId == clinicId).MaxAsync(r => (int?)r.RequestNo) ?? 0) + 1;
+            item.CreatedAt = DateTime.UtcNow;
+            _db.LabRequests.Add(item);
+        }
+        else
+        {
+            var existing = await _db.LabRequestLines.Where(l => l.LabRequestId == item.Id).ToListAsync();
+            _db.LabRequestLines.RemoveRange(existing);
+            _db.LabRequests.Update(item);
+        }
+
+        foreach (var line in lines)
+        {
+            line.Id = Guid.NewGuid();
+            line.LabRequestId = item.Id;
+            _db.LabRequestLines.Add(line);
+        }
+
+        await _db.SaveChangesAsync();
+        return item;
+    }
+
+    public async Task DeleteAsync(Guid clinicId, Guid id)
+    {
+        var item = await GetAsync(clinicId, id);
+        if (item is null) return;
+        _db.LabRequests.Remove(item);
+        await _db.SaveChangesAsync();
+    }
+
+    public Task<LabRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode) =>
+        _db.LabRequests
+            .Include(r => r.Lines)
+            .Where(r => r.ClinicId == clinicId)
+            .Where(r =>
+                (!string.IsNullOrWhiteSpace(patientBarcode) && r.PatientBarcode == patientBarcode.Trim()) ||
+                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName == patientName.Trim()))
+            .OrderByDescending(r => r.RequestNo)
+            .FirstOrDefaultAsync();
+}
+
+public sealed class LabResultService
+{
+    private readonly ClinicalDbContext _db;
+    public LabResultService(ClinicalDbContext db) => _db = db;
+
+    public Task<List<LabResult>> ListAsync(Guid clinicId) =>
+        _db.LabResults.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
+
+    public Task<LabResult?> GetAsync(Guid clinicId, Guid id) =>
+        _db.LabResults.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+
+    public async Task<LabResult> SaveAsync(Guid clinicId, LabResult item, List<LabResultLine> lines)
+    {
+        item.ClinicId = clinicId;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        if (item.Id == Guid.Empty)
+        {
+            item.Id = Guid.NewGuid();
+            item.ResultNo = (await _db.LabResults.Where(r => r.ClinicId == clinicId).MaxAsync(r => (int?)r.ResultNo) ?? 0) + 1;
+            item.CreatedAt = DateTime.UtcNow;
+            _db.LabResults.Add(item);
+        }
+        else
+        {
+            var existing = await _db.LabResultLines.Where(l => l.LabResultId == item.Id).ToListAsync();
+            _db.LabResultLines.RemoveRange(existing);
+            _db.LabResults.Update(item);
+        }
+
+        foreach (var line in lines)
+        {
+            line.Id = Guid.NewGuid();
+            line.LabResultId = item.Id;
+            _db.LabResultLines.Add(line);
+        }
+
+        await _db.SaveChangesAsync();
+        return item;
+    }
+
+    public async Task DeleteAsync(Guid clinicId, Guid id)
+    {
+        var item = await GetAsync(clinicId, id);
+        if (item is null) return;
+        _db.LabResults.Remove(item);
+        await _db.SaveChangesAsync();
+    }
+}

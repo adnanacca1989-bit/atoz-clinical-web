@@ -1,0 +1,165 @@
+using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace AtoZClinical.Web.Pages.CashPayments;
+
+public class IndexModel : ClinicFormPageModel
+{
+    private readonly CashPaymentService _service;
+    private readonly ChartAccountService _chartService;
+
+    public IndexModel(ClinicContextService clinicContext, CashPaymentService service, ChartAccountService chartService) : base(clinicContext)
+    {
+        _service = service;
+        _chartService = chartService;
+    }
+
+    [BindProperty]
+    public CashPaymentInput Input { get; set; } = new();
+
+    public List<CashPayment> Records { get; private set; } = [];
+    public List<ChartAccount> Accounts { get; private set; } = [];
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        await LoadAsync(clinicId.Value);
+        if (RecordId.HasValue)
+            await LoadRecord(clinicId.Value, RecordId.Value);
+        else if (Records.Count > 0 && Input.PaymentNo == 0)
+            await LoadRecord(clinicId.Value, Records[0].Id);
+        else
+            await PrepareNew(clinicId.Value);
+        SetFormViewData("Cash Payment", null, null, Input.UpdatedAt);
+        return Page();
+    }
+
+    public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
+    public Task<IActionResult> OnPostNewAsync() => NewCoreAsync();
+    public Task<IActionResult> OnPostClearAsync() => NewCoreAsync();
+    public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
+    public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
+    public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    private async Task LoadAsync(Guid clinicId)
+    {
+        Records = await _service.ListAsync(clinicId);
+        Accounts = await _chartService.ListAsync(clinicId);
+        if (!string.IsNullOrWhiteSpace(Search))
+            Records = Records.Where(r =>
+                (r.PayeeName?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||
+                (r.ChartAccountName?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||
+                r.PaymentNo.ToString().Contains(Search)).ToList();
+    }
+
+    private async Task LoadRecord(Guid clinicId, Guid id)
+    {
+        var item = await _service.GetAsync(clinicId, id);
+        if (item is null) return;
+        RecordId = item.Id;
+        Input = CashPaymentInput.FromEntity(item);
+    }
+
+    private async Task PrepareNew(Guid clinicId)
+    {
+        RecordId = null;
+        var all = await _service.ListAsync(clinicId);
+        var next = (all.Count > 0 ? all.Max(c => c.PaymentNo) : 0) + 1;
+        var accounts = await _chartService.ListAsync(clinicId);
+        Input = new CashPaymentInput
+        {
+            PaymentNo = next,
+            PaymentDate = DateTime.Today,
+            PaymentMethod = ClinicLookup.PaymentMethods[0],
+            WrittenAmount = "Zero",
+            ChartAccountName = accounts.FirstOrDefault()?.Name ?? ClinicLookup.AccountNames[0]
+        };
+    }
+
+    private async Task<IActionResult> SaveCoreAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        var entity = Input.ToEntity(RecordId);
+        var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
+        return RedirectAfterSave(saved.Id);
+    }
+
+    private Task<IActionResult> NewCoreAsync()
+    {
+        RecordId = null;
+        return Task.FromResult<IActionResult>(RedirectToPage());
+    }
+
+    private async Task<IActionResult> DeleteCoreAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null || !RecordId.HasValue) return RedirectToPage();
+        await _service.DeleteAsync(clinicId.Value, RecordId.Value, UserName);
+        return RedirectToPage();
+    }
+
+    private async Task<IActionResult> NavigateCoreAsync(int delta)
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+        await LoadAsync(clinicId.Value);
+        if (Records.Count == 0) return RedirectToPage();
+        var idx = RecordId.HasValue ? Records.FindIndex(r => r.Id == RecordId.Value) : 0;
+        if (idx < 0) idx = 0;
+        idx = Math.Clamp(idx + delta, 0, Records.Count - 1);
+        return RedirectToRecord(Records[idx].Id);
+    }
+
+    public sealed class CashPaymentInput
+    {
+        public int PaymentNo { get; set; }
+        public DateTime PaymentDate { get; set; } = DateTime.Today;
+        public string? PatientId { get; set; }
+        public string? PayeeName { get; set; }
+        public string? DoctorName { get; set; }
+        public string? BalanceStatus { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentMethod { get; set; } = "Cash";
+        public string? Description { get; set; }
+        public string? EndingBalance { get; set; }
+        public string? ChartAccountName { get; set; }
+        public string WrittenAmount { get; set; } = "Zero";
+        public string? ReferenceNo { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        public static CashPaymentInput FromEntity(CashPayment c) => new()
+        {
+            PaymentNo = c.PaymentNo,
+            PaymentDate = c.PaymentDate,
+            PayeeName = c.PayeeName,
+            DoctorName = c.Description,
+            BalanceStatus = c.PayeeType,
+            Amount = c.Amount,
+            PaymentMethod = c.PaymentMethod,
+            Description = c.Description,
+            ChartAccountName = c.ChartAccountName,
+            WrittenAmount = c.WrittenAmount,
+            ReferenceNo = c.ReferenceNo,
+            UpdatedAt = c.UpdatedAt
+        };
+
+        public CashPayment ToEntity(Guid? id) => new()
+        {
+            Id = id ?? Guid.Empty,
+            PaymentNo = PaymentNo,
+            PaymentDate = PaymentDate,
+            PayeeName = PayeeName,
+            PayeeType = BalanceStatus,
+            ChartAccountName = ChartAccountName,
+            Amount = Amount,
+            WrittenAmount = WrittenAmount,
+            PaymentMethod = PaymentMethod,
+            ReferenceNo = ReferenceNo,
+            Description = string.IsNullOrWhiteSpace(DoctorName) ? Description : $"{DoctorName} — {Description}".Trim(' ', '—')
+        };
+    }
+}

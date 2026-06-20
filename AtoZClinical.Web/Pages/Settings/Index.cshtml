@@ -1,0 +1,16 @@
+@page
+@model AtoZClinical.Web.Pages.Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+    Layout = "_Layout";
+}
+
+<h2 class="atz-section-title">Settings</h2>
+<p class="text-muted mb-4">Configure clinic system options.</p>
+
+<partial name="_SettingsMenu" />
+
+@if (Model.IsVendor)
+{
+    <div class="alert alert-info">Vendor accounts can change password only. Clinic settings apply to clinic users.</div>
+}

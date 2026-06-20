@@ -1,0 +1,67 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.PatientHistoryModel
+@{
+    ViewData["Title"] = "Patient History";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Patient History</h1>
+    <form method="post">
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <label class="clinical-field-label">Patient Name</label>
+                <input asp-for="PatientName" class="clinical-field" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Doctor Name</label>
+                <input asp-for="DoctorName" class="clinical-field" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end gap-2">
+                <button type="submit" asp-page-handler="Run" class="btn btn-primary">🔍 Search</button>
+                <button type="submit" asp-page-handler="Clear" class="btn btn-outline-secondary">🧹 Clear</button>
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">Patient ID</label>
+                <input asp-for="PatientId" class="clinical-field" />
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">Age</label>
+                <input asp-for="Age" class="clinical-field" />
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">Date of Birth</label>
+                <input asp-for="DateOfBirth" class="clinical-field" />
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">City</label>
+                <input asp-for="City" class="clinical-field" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Phone Number</label>
+                <input asp-for="PhoneNumber" class="clinical-field" />
+            </div>
+        </div>
+        <div class="clinical-record-grid" style="min-height: 400px;">
+            <table>
+                <thead><tr><th>Patient</th><th>Form</th><th>Date</th><th>Details</th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.Patient</td>
+                        <td>@r.Form</td>
+                        <td>@r.Date.ToString("d")</td>
+                        <td>@r.Details</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="clinical-toolbar mt-3">
+            <button type="button" class="btn-form btn-form-primary" onclick="window.print();">🖨️ Print</button>
+            <button type="button" class="btn-form">Export</button>
+            <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
+        </div>
+    </form>
+</div>

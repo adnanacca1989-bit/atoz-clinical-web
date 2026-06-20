@@ -1,0 +1,60 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.PharmacyInventoryModel
+@{
+    ViewData["Title"] = "Pharmacy Inventory Report";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Pharmacy Inventory Report</h1>
+    <p class="text-muted small">Moving average costing — QTY IN from opening balance; QTY OUT from pharmacy bills.</p>
+    <form method="post">
+        <div class="row g-3 mb-2">
+            <div class="col-md-3">
+                <label class="clinical-field-label">From Date</label>
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">To Date</label>
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-4">
+                <label class="clinical-field-label">Search (Barcode / Code / Name)</label>
+                <input asp-for="Search" class="clinical-field" placeholder="Search item..." />
+            </div>
+        </div>
+        <div class="d-flex justify-content-end mb-2 small">
+            <span><strong>Total Inventory Value:</strong> @Model.TotalValue.ToString("N2")</span>
+        </div>
+        <div class="clinical-record-grid" style="min-height: 400px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th><th>Barcode</th><th>Code</th><th>Medicine Name</th><th>Dosage</th>
+                        <th>QTY IN</th><th>QTY OUT</th><th>QTY Balance</th><th>Mvg Avg Cost</th><th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @{ var n = 0; }
+                @foreach (var r in Model.Results)
+                {
+                    n++;
+                    <tr>
+                        <td>@n</td>
+                        <td>@r.Barcode</td>
+                        <td>@r.MedicineCode</td>
+                        <td>@r.MedicineName</td>
+                        <td>@r.Dosage</td>
+                        <td>@r.QtyIn</td>
+                        <td>@r.QtyOut</td>
+                        <td>@r.QtyBalance</td>
+                        <td>@r.MovingAverageCost.ToString("N2")</td>
+                        <td>@r.TotalValue.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>

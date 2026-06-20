@@ -1,0 +1,107 @@
+@page
+@model AtoZClinical.Web.Pages.Doctors.IndexModel
+@{
+    ViewData["Title"] = "Doctor Registration";
+    Layout = "_Layout";
+}
+<link rel="stylesheet" href="~/css/clinical-forms.css" asp-append-version="true" />
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Doctor Registration</h1>
+    <div asp-validation-summary="All" class="validation-summary-errors mx-3"></div>
+    <form method="post" enctype="multipart/form-data">
+        <div class="clinical-form-body">
+            <div class="clinical-form-left">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Doctor ID</label>
+                        <input asp-for="Input.DoctorNo" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-8">
+                        <label class="clinical-field-label field-required">Doctor Name</label>
+                        <input asp-for="Input.Name" class="clinical-field" required />
+                        <span asp-validation-for="Input.Name" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label field-required">Specialty</label>
+                        <select asp-for="Input.Specialty" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.Specialties))" required></select>
+                        <span asp-validation-for="Input.Specialty" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Phone</label>
+                        <input asp-for="Input.Phone" class="clinical-field" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Email</label>
+                        <input asp-for="Input.Email" class="clinical-field" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label field-required">Consultation Fee</label>
+                        <input asp-for="Input.ConsultationFee" class="clinical-field" type="number" step="0.01" min="0.01" required />
+                        <span asp-validation-for="Input.ConsultationFee" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Status</label>
+                        <select asp-for="Input.Status" class="clinical-field">
+                            <option>Active</option>
+                            <option>Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Doctor Photo</label>
+                        <div class="d-flex gap-2 align-items-start">
+                            <div class="doctor-photo-box">
+                                @if (!string.IsNullOrEmpty(Model.Input.PhotoBase64))
+                                {
+                                    <img src="@Model.Input.PhotoBase64" alt="Doctor" />
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">👨‍⚕️</span>
+                                }
+                            </div>
+                            <div>
+                                <input type="file" name="photoFile" accept="image/*" class="form-control form-control-sm mb-1" />
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelector('[name=photoFile]').value='';">Remove Photo</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="clinical-form-right">
+                <div class="record-transaction-header">Record Transaction</div>
+                <div class="record-transaction-status">@Model.StatusText</div>
+                <div class="p-2">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                </div>
+                <div class="clinical-record-grid">
+                    <table>
+                        <thead><tr><th>Doctor...</th><th>Name</th><th>Specialty</th><th>Phone</th><th>Fee</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+                                <td>@r.DoctorNo</td>
+                                <td>@r.Name</td>
+                                <td>@r.Specialty</td>
+                                <td>@r.Phone</td>
+                                <td>@r.ConsultationFee.ToString("N2")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" asp-for="RecordId" />
+        <partial name="_FormToolbar" />
+        <div class="clinical-form-footer">
+            <span>Created By: @(Model.Input.CreatedBy ?? Model.UserName)</span>
+            <span>Last Updated By: @(Model.Input.UpdatedBy ?? Model.UserName)</span>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

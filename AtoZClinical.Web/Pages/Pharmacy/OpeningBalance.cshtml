@@ -1,0 +1,106 @@
+@page
+@model AtoZClinical.Web.Pages.Pharmacy.OpeningBalanceModel
+@{
+    ViewData["Title"] = "Pharmacy Opening Balance";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Pharmacy Opening Balance</h1>
+    <form method="post">
+        <div class="clinical-form-body">
+            <div class="clinical-form-left">
+                <div class="row g-3 mb-2">
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Balance ID</label>
+                        <input asp-for="Input.BalanceNo" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Balance Date</label>
+                        <input asp-for="Input.BalanceDate" class="clinical-field" type="date" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="clinical-field-label">Notes</label>
+                        <input asp-for="Input.Notes" class="clinical-field" />
+                    </div>
+                </div>
+                <p class="small text-muted">Scan or enter barcode — stock IN uses moving average costing.</p>
+                <table class="line-grid pharmacy-line-grid">
+                    <thead>
+                        <tr><th>No</th><th>Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th>QTY IN</th><th>Unit Cost</th><th>Total</th></tr>
+                    </thead>
+                    <tbody>
+                    @for (var i = 0; i < Model.Lines.Count; i++)
+                    {
+                        var lineBarcode = Model.Lines[i].Barcode ?? "";
+                        <tr class="pharmacy-line" data-line="@i">
+                            <td><input asp-for="Lines[i].LineNo" readonly /></td>
+                            <td>
+                                <select class="pharmacy-item-select clinical-field">
+                                    <option value="">-- Item --</option>
+                                    @foreach (var item in Model.RegisteredItems)
+                                    {
+                                        <option value="@item.Barcode"
+                                                selected="@(lineBarcode == item.Barcode)"
+                                                data-barcode="@item.Barcode"
+                                                data-code="@item.MedicineCode"
+                                                data-name="@item.MedicineName"
+                                                data-dosage="@item.Dosage"
+                                                data-base-uom="@item.BaseUom"
+                                                data-alt-uom="@item.AlternateUom"
+                                                data-price="@item.DefaultUnitPrice"
+                                                data-avg-cost="@item.MovingAverageCost"
+                                                data-qty="@item.QuantityOnHand">@item.MedicineName</option>
+                                    }
+                                </select>
+                            </td>
+                            <td><input asp-for="Lines[i].Barcode" class="pharmacy-barcode" /></td>
+                            <td><input asp-for="Lines[i].MedicineCode" class="pharmacy-code" /></td>
+                            <td><input asp-for="Lines[i].MedicineName" class="pharmacy-name" /></td>
+                            <td><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" /></td>
+                            <td><input asp-for="Lines[i].Uom" class="pharmacy-uom clinical-field" placeholder="Pcs" /></td>
+                            <td><input asp-for="Lines[i].Qty" type="number" min="0" class="pharmacy-qty" /></td>
+                            <td><input asp-for="Lines[i].UnitCost" type="number" step="0.01" class="pharmacy-cost" /></td>
+                            <td><input value="@(Model.Lines[i].Total.ToString("N2"))" readonly class="pharmacy-line-total" /></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                <div class="d-flex justify-content-end mt-2">
+                    <div class="text-end" style="min-width: 200px;">
+                        <label class="clinical-field-label">Total Value</label>
+                        <input value="@Model.LineTotal.ToString("N2")" class="clinical-field text-end" readonly />
+                    </div>
+                </div>
+            </div>
+            <div class="clinical-form-right">
+                <div class="record-transaction-header">Record Transaction</div>
+                <div class="record-transaction-status">@Model.StatusText</div>
+                <div class="p-2">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                </div>
+                <div class="clinical-record-grid">
+                    <table>
+                        <thead><tr><th>ID</th><th>Date</th><th>Notes</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+                                <td>@r.BalanceNo</td>
+                                <td>@r.BalanceDate.ToString("d")</td>
+                                <td>@r.Notes</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" asp-for="RecordId" />
+        <partial name="_FormToolbar" />
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/js/pharmacy-barcode.js" asp-append-version="true"></script>
+}

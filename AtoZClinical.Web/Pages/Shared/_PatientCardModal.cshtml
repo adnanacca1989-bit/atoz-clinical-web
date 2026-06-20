@@ -1,0 +1,65 @@
+<div class="modal fade" id="patientCardModal" tabindex="-1" aria-labelledby="patientCardModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered patient-card-dialog">
+
+        <div class="modal-content patient-card-modal-content">
+
+            <div class="modal-header py-2 border-0">
+
+                <h5 class="modal-title" id="patientCardModalLabel">Patient Card</h5>
+
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body pt-0">
+
+                <div id="patientCardPrintArea" class="patient-card-preview">
+
+                    <div class="patient-card-inner">
+
+                        <div class="patient-card-top">
+
+                            <span class="patient-card-title">Patient Card.</span>
+
+                            <span class="patient-card-plus">+</span>
+
+                        </div>
+
+                        <div class="patient-card-row"><strong>Patient Name:</strong> <span id="pcPatientName">—</span></div>
+
+                        <div class="patient-card-row"><strong>Doctor Name:</strong> <span id="pcDoctorName">—</span></div>
+
+                        <div class="patient-card-row"><strong>Specialty:</strong> <span id="pcSpecialty">—</span></div>
+
+                        <div class="patient-card-row"><strong>Age:</strong> <span id="pcAge">—</span> Years</div>
+
+                        <div class="patient-card-bottom">
+
+                            <svg id="pcBarcode"></svg>
+
+                            <span class="patient-card-id" id="pcPatientId">PAT-000001</span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer patient-card-footer border-0">
+
+                <button type="button" class="btn-form btn-form-primary" id="patientCardPrintBtn">🖨️ Print</button>
+
+                <button type="button" class="btn-form" data-bs-dismiss="modal">✕ Close</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+

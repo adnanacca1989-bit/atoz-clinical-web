@@ -1,0 +1,416 @@
+/* Desktop-style clinical forms matching A to Z WinForms layout */
+
+main:has(.clinical-form-page) {
+    padding-bottom: 2rem;
+}
+
+.clinical-form-page {
+    background: #ece9e9;
+    margin: -1.5rem -1.5rem 0;
+    padding: 0 0 2.75rem;
+    min-height: auto;
+    box-sizing: border-box;
+}
+
+.clinical-form-page .page-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    padding: 0.75rem 1rem 0.5rem;
+    margin: 0;
+}
+
+.clinical-form-body {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    min-height: calc(100vh - 300px);
+    max-height: calc(100vh - 300px);
+    padding: 0 0.5rem;
+}
+
+.clinical-form-left {
+    background: #f5f5f5;
+    border: 1px solid #c8c8c8;
+    padding: 1rem 1.25rem;
+    overflow-y: auto;
+}
+
+.clinical-form-right {
+    background: #fafafa;
+    border: 1px solid #c8c8c8;
+    border-left: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+}
+
+.record-transaction-header {
+    background: #f0f0f0;
+    border-bottom: 1px solid #c8c8c8;
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.record-transaction-status {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    color: #555;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.clinical-record-grid {
+    flex: 1;
+    overflow: auto;
+    font-size: 0.85rem;
+}
+
+.clinical-record-grid table {
+    width: 100%;
+    margin: 0;
+}
+
+.clinical-record-grid thead th {
+    background: #e8e8e8;
+    color: #333;
+    font-weight: 600;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid #ccc;
+    position: sticky;
+    top: 0;
+    white-space: nowrap;
+}
+
+.clinical-record-grid tbody td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+}
+
+.clinical-record-grid tbody tr:hover {
+    background: #e3f2fd;
+}
+
+.clinical-record-grid tbody tr.selected {
+    background: #bbdefb;
+}
+
+.clinical-field-label {
+    font-size: 0.8rem;
+    color: #333;
+    margin-bottom: 0.15rem;
+    font-weight: 500;
+}
+
+.clinical-field {
+    background: #fff;
+    border: 1px solid #b0b0b0;
+    border-radius: 2px;
+    font-size: 0.9rem;
+    padding: 0.35rem 0.5rem;
+    width: 100%;
+}
+
+.clinical-field:read-only {
+    background: #f9f9f9;
+}
+
+.clinical-form-footer {
+    background: #e8e8e8;
+    border-top: 1px solid #c8c8c8;
+    padding: 0.5rem 1rem;
+    margin: 0 0.5rem 1rem;
+    font-size: 0.75rem;
+    color: #555;
+    display: flex;
+    justify-content: space-between;
+}
+
+.clinical-toolbar {
+    background: #f0f0f0;
+    border-top: 2px solid #c8c8c8;
+    padding: 0.75rem 0.75rem 0.65rem;
+    margin: 0.5rem 0.5rem 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.clinical-toolbar .btn-form {
+    background: #fff;
+    border: 1px solid #999;
+    border-radius: 3px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    min-width: 70px;
+    min-height: 2rem;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    vertical-align: middle;
+}
+
+.clinical-toolbar .btn-form:hover {
+    background: #e8e8e8;
+}
+
+.clinical-toolbar .btn-form-primary {
+    background: #0078d7;
+    border-color: #005a9e;
+    color: #fff;
+    font-weight: 600;
+}
+
+.clinical-toolbar .btn-form-primary:hover {
+    background: #005a9e;
+    color: #fff;
+}
+
+.patient-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-top: 1px solid #e0e0e0;
+    font-size: 0.8rem;
+}
+
+.patient-stat-box {
+    text-align: center;
+    padding: 0.35rem;
+    background: #fff;
+    border: 1px solid #ddd;
+}
+
+.patient-stat-box .num {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.patient-stat-box.total .num { color: #1565c0; }
+.patient-stat-box.today .num { color: #2e7d32; }
+.patient-stat-box.active .num { color: #6a1b9a; }
+.patient-stat-box.inactive .num { color: #c62828; }
+
+.section-caption {
+    font-weight: 600;
+    color: #1565c0;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.line-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+
+.line-grid th {
+    background: #e8e8e8;
+    padding: 0.35rem;
+    border: 1px solid #ccc;
+}
+
+.line-grid td {
+    padding: 0.2rem;
+    border: 1px solid #ddd;
+}
+
+.line-grid input, .line-grid select {
+    width: 100%;
+    border: 1px solid #bbb;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.85rem;
+}
+
+.doctor-photo-box {
+    width: 90px;
+    height: 90px;
+    border: 1px solid #bbb;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.doctor-photo-box img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.doctor-picker-field {
+    cursor: pointer;
+    background: #fffdf5;
+}
+
+.clinical-field[readonly]:not(.doctor-picker-field) {
+    background: #ececec;
+    cursor: default;
+}
+
+.doctor-select-modal .modal-header {
+    background: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+}
+
+.doctor-select-grid {
+    min-height: 280px;
+    max-height: 360px;
+}
+
+.doctor-select-footer {
+    background: #f5f5f5;
+    border-top: 1px solid #ccc;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.doctor-select-footer .btn-form {
+    min-width: 72px;
+}
+
+/* Patient card modal */
+.patient-card-dialog {
+    max-width: 520px;
+}
+
+.patient-card-modal-content {
+    background: #ececec;
+}
+
+.patient-card-preview {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0 1rem;
+}
+
+.patient-card-inner {
+    width: 100%;
+    max-width: 420px;
+    background: #e8e8e8;
+    border: 1px solid #b8b8b8;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    padding: 1rem 1.25rem 1.1rem;
+}
+
+.patient-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+}
+
+.patient-card-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.patient-card-plus {
+    width: 28px;
+    height: 28px;
+    background: #0d6efd;
+    color: #fff;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.patient-card-row {
+    margin-bottom: 0.45rem;
+    font-size: 0.95rem;
+}
+
+.patient-card-row strong {
+    font-weight: 700;
+}
+
+.patient-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 1.25rem;
+    gap: 0.75rem;
+}
+
+.patient-card-bottom svg {
+    height: 48px;
+    max-width: 55%;
+}
+
+.patient-card-id {
+    background: #9a9a9a;
+    color: #fff;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.patient-card-footer {
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+.field-required::after {
+    content: " *";
+    color: #c0392b;
+}
+
+.validation-summary-errors {
+    color: #c0392b;
+    background: #fdecea;
+    border: 1px solid #f5c6cb;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+}
+
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+
+    #patientCardPrintArea,
+    #patientCardPrintArea * {
+        visibility: visible !important;
+    }
+
+    #patientCardPrintArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    .modal-backdrop {
+        display: none !important;
+    }
+}
+
+@media (max-width: 992px) {
+    .clinical-form-body {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        max-height: none;
+    }
+    .clinical-form-right {
+        border-left: 1px solid #c8c8c8;
+        min-height: 250px;
+    }
+}

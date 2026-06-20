@@ -1,0 +1,69 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.OperatingReportModel
+@{
+    ViewData["Title"] = "Operating Report";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Operating Report</h1>
+    <form method="post">
+        <div class="row g-3 mb-2">
+            <div class="col-md-2">
+                <label class="clinical-field-label">From Date</label>
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">To Date</label>
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Patient Name</label>
+                <input asp-for="PatientName" class="clinical-field" placeholder="Select patient..." />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Doctor Name</label>
+                <input asp-for="DoctorName" class="clinical-field" placeholder="Select doctor..." />
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">Invoice Status</label>
+                <select asp-for="InvoiceStatus" class="clinical-field">
+                    <option>All</option>
+                    <option>Paid</option>
+                    <option>Unpaid</option>
+                    <option>Partial</option>
+                </select>
+            </div>
+        </div>
+        <div class="d-flex justify-content-end gap-4 mb-2 small">
+            <span><strong>Invoices:</strong> @Model.InvoiceCount</span>
+            <span><strong>Net:</strong> @Model.NetTotal.ToString("N2")</span>
+            <span><strong>Cash Received:</strong> @Model.CashReceived.ToString("N2")</span>
+            <span><strong>Cash Paid:</strong> @Model.CashPaid.ToString("N2")</span>
+            <span><strong>Balance:</strong> @Model.BalanceTotal.ToString("N2")</span>
+        </div>
+        <div class="clinical-record-grid" style="min-height: 400px;">
+            <table>
+                <thead>
+                    <tr><th>Patient</th><th>Doctor Name</th><th>Doctor Specialty</th><th>Cash Received</th><th>Cash Paid</th><th>Invoice Net Amount</th><th>Ending Balance</th><th>Invoice Status</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.Patient</td>
+                        <td>@r.DoctorName</td>
+                        <td>@r.DoctorSpecialty</td>
+                        <td>@r.CashReceived.ToString("N2")</td>
+                        <td>@r.CashPaid.ToString("N2")</td>
+                        <td>@r.InvoiceNetAmount.ToString("N2")</td>
+                        <td>@r.EndingBalance.ToString("N2")</td>
+                        <td>@r.InvoiceStatus</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>
