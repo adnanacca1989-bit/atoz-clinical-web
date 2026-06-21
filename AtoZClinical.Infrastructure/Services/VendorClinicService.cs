@@ -52,7 +52,7 @@ public sealed class VendorClinicService
             DatabasePort = request.DatabasePort > 0 ? request.DatabasePort : 5432,
             DatabaseName = request.DatabaseName?.Trim(),
             LicenseKey = GenerateLicenseKey(),
-            LicenseExpires = request.LicenseExpires ?? DateTime.UtcNow.Date.AddYears(1),
+            LicenseExpires = ToUtcDate(request.LicenseExpires) ?? DateTime.UtcNow.Date.AddYears(1),
             PlanName = string.IsNullOrWhiteSpace(request.PlanName) ? "Standard" : request.PlanName.Trim(),
             MaxUsers = request.MaxUsers > 0 ? request.MaxUsers : 25,
             Status = request.ActivateImmediately ? ClinicStatus.Active : ClinicStatus.Pending,
@@ -60,7 +60,14 @@ public sealed class VendorClinicService
         };
 
         _db.Clinics.Add(clinic);
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message, ex);
+        }
 
         var username = request.AdminUsername.Trim();
         if (await _users.FindByNameAsync(username) is not null)
@@ -147,7 +154,7 @@ public sealed class VendorClinicService
             ?? throw new InvalidOperationException("Clinic not found.");
         clinic.Status = ClinicStatus.Active;
         if (licenseExpires.HasValue)
-            clinic.LicenseExpires = licenseExpires.Value.Date;
+            clinic.LicenseExpires = ToUtcDate(licenseExpires)!.Value;
         else if (clinic.LicenseExpires is null || clinic.LicenseExpires.Value.Date < DateTime.UtcNow.Date)
             clinic.LicenseExpires = DateTime.UtcNow.Date.AddYears(1);
         await _db.SaveChangesAsync();
@@ -160,7 +167,7 @@ public sealed class VendorClinicService
     {
         var clinic = await _db.Clinics.FindAsync(clinicId)
             ?? throw new InvalidOperationException("Clinic not found.");
-        clinic.LicenseExpires = licenseExpires.Date;
+        clinic.LicenseExpires = ToUtcDate(licenseExpires)!.Value;
         clinic.Status = ClinicStatus.Active;
         if (!string.IsNullOrWhiteSpace(planName))
             clinic.PlanName = planName.Trim();
@@ -232,6 +239,13 @@ public sealed class VendorClinicService
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
         var random = Random.Shared;
         return new string(Enumerable.Range(0, 10).Select(_ => chars[random.Next(chars.Length)]).ToArray()) + "!1";
+    }
+
+    private static DateTime? ToUtcDate(DateTime? value)
+    {
+        if (value is null) return null;
+        var date = value.Value.Date;
+        return DateTime.SpecifyKind(date, DateTimeKind.Utc);
     }
 
     private async Task EnsureRoleAsync(string role)

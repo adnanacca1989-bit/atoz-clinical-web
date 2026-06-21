@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Vendor;
 
@@ -55,6 +56,11 @@ public class CreateModel : PageModel
             TempData["NewPassword"] = password;
             TempData["NewUsername"] = admin.UserName;
             return RedirectToPage("Details", new { id = clinic.Id, created = true });
+        }
+        catch (DbUpdateException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.InnerException?.Message ?? ex.Message);
+            return Page();
         }
         catch (Exception ex)
         {

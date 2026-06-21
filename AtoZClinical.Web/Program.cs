@@ -11,6 +11,8 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 static string? FirstNonEmpty(params string?[] values)
 {
     foreach (var value in values)
