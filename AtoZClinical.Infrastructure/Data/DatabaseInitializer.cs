@@ -4,10 +4,13 @@ using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace AtoZClinical.Infrastructure.Data;
 
@@ -141,16 +144,30 @@ public static class DatabaseInitializer
 
     private static async Task EnsureSchemaAsync(ClinicalDbContext db, IHostEnvironment env, ILogger logger)
     {
+        var creator = db.Database.GetService<IRelationalDatabaseCreator>();
+
         if (!await db.Database.CanConnectAsync())
         {
-            await db.Database.EnsureCreatedAsync();
+            await creator.CreateAsync();
             logger.LogInformation("Database created (schema v{Version}).", SchemaVersion);
+            return;
+        }
+
+        if (!await creator.HasTablesAsync())
+        {
+            await db.Database.EnsureCreatedAsync();
+            logger.LogInformation("Database schema created on empty PostgreSQL database (schema v{Version}).", SchemaVersion);
             return;
         }
 
         try
         {
             _ = await db.Clinics.Select(c => c.PlanName).FirstOrDefaultAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+        {
+            await db.Database.EnsureCreatedAsync();
+            logger.LogInformation("Created missing tables on PostgreSQL (schema v{Version}).", SchemaVersion);
         }
         catch (Exception ex)
         {
