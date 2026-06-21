@@ -20,13 +20,20 @@ main:has(.clinical-form-page) {
     margin: 0;
 }
 
+.clinical-form-page form {
+    display: flex;
+    flex-direction: column;
+}
+
 .clinical-form-body {
     display: grid;
     grid-template-columns: 1fr 340px;
     gap: 0;
-    min-height: calc(100vh - 300px);
-    max-height: calc(100vh - 300px);
+    min-height: 0;
+    max-height: calc(100vh - 320px);
     padding: 0 0.5rem;
+    flex: 1 1 auto;
+    overflow: hidden;
 }
 
 .clinical-form-left {
@@ -125,18 +132,51 @@ main:has(.clinical-form-page) {
     color: #555;
     display: flex;
     justify-content: space-between;
+    flex-shrink: 0;
+    clear: both;
+}
+
+.line-grid-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.line-grid-actions .btn-form,
+.line-grid .delete-line-btn {
+    min-width: auto;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.pharmacy-line-grid th.col-item,
+.pharmacy-line-grid td.col-item,
+.invoice-line-grid th.col-item,
+.invoice-line-grid td.col-item {
+    min-width: 220px;
+    width: 220px;
+}
+
+.pharmacy-line-grid td.col-item select,
+.invoice-line-grid td.col-item select {
+    min-width: 200px;
 }
 
 .clinical-toolbar {
     background: #f0f0f0;
     border-top: 2px solid #c8c8c8;
+    border-bottom: 1px solid #c8c8c8;
     padding: 0.75rem 0.75rem 0.65rem;
-    margin: 0.5rem 0.5rem 0.75rem;
+    margin: 0 0.5rem 0;
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
     align-items: center;
     flex-shrink: 0;
+    clear: both;
+    position: relative;
+    z-index: 5;
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .clinical-toolbar .btn-form {

@@ -55,7 +55,8 @@ public sealed class PharmacyItemRegistrationService
             if (existing is not null)
             {
                 item.QuantityOnHand = existing.QuantityOnHand;
-                item.MovingAverageCost = existing.MovingAverageCost;
+                if (item.MovingAverageCost <= 0)
+                    item.MovingAverageCost = existing.MovingAverageCost;
             }
             _db.PharmacyItems.Update(item);
         }

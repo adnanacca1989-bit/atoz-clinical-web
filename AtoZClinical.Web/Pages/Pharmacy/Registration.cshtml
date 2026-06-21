@@ -66,6 +66,38 @@
                             <label class="form-check-label" asp-for="Input.IsActive">Active</label>
                         </div>
                     </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Cost of Item</label>
+                        <input asp-for="Input.ItemCost" class="clinical-field" type="number" step="0.01" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Reorder Point</label>
+                        <input asp-for="Input.ReorderPoint" class="clinical-field" type="number" min="0" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Inventory (Qty on Hand)</label>
+                        <input asp-for="Input.QuantityOnHand" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Income Account</label>
+                        <select asp-for="Input.IncomeAccountName" class="clinical-field">
+                            <option value="">-- Select --</option>
+                            @foreach (var acct in Model.IncomeAccounts)
+                            {
+                                <option value="@acct.Name">@acct.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="clinical-field-label">Cost / Inventory Account</label>
+                        <select asp-for="Input.CostAccountName" class="clinical-field">
+                            <option value="">-- Select --</option>
+                            @foreach (var acct in Model.CostAccounts)
+                            {
+                                <option value="@acct.Name">@acct.Name</option>
+                            }
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="clinical-form-right">

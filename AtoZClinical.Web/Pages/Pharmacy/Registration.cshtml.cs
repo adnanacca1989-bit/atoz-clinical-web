@@ -9,11 +9,13 @@ public class RegistrationModel : ClinicFormPageModel
 {
     private readonly PharmacyItemRegistrationService _service;
     private readonly ClinicLookupService _lookup;
+    private readonly ChartAccountService _accounts;
 
-    public RegistrationModel(ClinicContextService clinicContext, PharmacyItemRegistrationService service, ClinicLookupService lookup) : base(clinicContext)
+    public RegistrationModel(ClinicContextService clinicContext, PharmacyItemRegistrationService service, ClinicLookupService lookup, ChartAccountService accounts) : base(clinicContext)
     {
         _service = service;
         _lookup = lookup;
+        _accounts = accounts;
     }
 
     [BindProperty]
@@ -21,6 +23,8 @@ public class RegistrationModel : ClinicFormPageModel
 
     public List<PharmacyItem> Records { get; private set; } = [];
     public List<ClinicUom> UomOptions { get; private set; } = [];
+    public List<ChartAccount> IncomeAccounts { get; private set; } = [];
+    public List<ChartAccount> CostAccounts { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -28,6 +32,7 @@ public class RegistrationModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
         await LoadUomOptionsAsync(clinicId.Value);
+        await LoadAccountsAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
         else if (Records.Count > 0 && Input.ItemNo == 0)
@@ -44,6 +49,19 @@ public class RegistrationModel : ClinicFormPageModel
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
     public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
     public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    private async Task LoadAccountsAsync(Guid clinicId)
+    {
+        var all = await _accounts.ListAsync(clinicId);
+        IncomeAccounts = all.Where(a => a.CategoryType.Equals("Income", StringComparison.OrdinalIgnoreCase)).ToList();
+        CostAccounts = all.Where(a =>
+            a.CategoryType.Equals("Expense", StringComparison.OrdinalIgnoreCase) ||
+            a.CategoryType.Equals("Asset", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (IncomeAccounts.Count == 0)
+            IncomeAccounts = all;
+        if (CostAccounts.Count == 0)
+            CostAccounts = all;
+    }
 
     private async Task LoadUomOptionsAsync(Guid clinicId)
     {
@@ -91,6 +109,7 @@ public class RegistrationModel : ClinicFormPageModel
             ModelState.AddModelError(string.Empty, "Barcode and Medicine Name are required.");
             await LoadAsync(clinicId.Value);
             await LoadUomOptionsAsync(clinicId.Value);
+            await LoadAccountsAsync(clinicId.Value);
             return Page();
         }
         try
@@ -104,6 +123,7 @@ public class RegistrationModel : ClinicFormPageModel
             ModelState.AddModelError(string.Empty, ex.Message);
             await LoadAsync(clinicId.Value);
             await LoadUomOptionsAsync(clinicId.Value);
+            await LoadAccountsAsync(clinicId.Value);
             return Page();
         }
     }
@@ -127,6 +147,7 @@ public class RegistrationModel : ClinicFormPageModel
             ModelState.AddModelError(string.Empty, ex.Message);
             await LoadAsync(clinicId.Value);
             await LoadUomOptionsAsync(clinicId.Value);
+            await LoadAccountsAsync(clinicId.Value);
             return Page();
         }
         return RedirectToPage();
@@ -155,6 +176,11 @@ public class RegistrationModel : ClinicFormPageModel
         public string? AlternateUom { get; set; }
         public decimal ConversionFactor { get; set; } = 1;
         public decimal DefaultUnitPrice { get; set; }
+        public decimal ItemCost { get; set; }
+        public int ReorderPoint { get; set; }
+        public int QuantityOnHand { get; set; }
+        public string? IncomeAccountName { get; set; }
+        public string? CostAccountName { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime? UpdatedAt { get; set; }
 
@@ -169,6 +195,11 @@ public class RegistrationModel : ClinicFormPageModel
             AlternateUom = t.AlternateUom,
             ConversionFactor = t.ConversionFactor,
             DefaultUnitPrice = t.DefaultUnitPrice,
+            ItemCost = t.MovingAverageCost,
+            ReorderPoint = t.ReorderPoint,
+            QuantityOnHand = t.QuantityOnHand,
+            IncomeAccountName = t.IncomeAccountName,
+            CostAccountName = t.CostAccountName,
             IsActive = t.IsActive,
             UpdatedAt = t.UpdatedAt
         };
@@ -185,6 +216,10 @@ public class RegistrationModel : ClinicFormPageModel
             AlternateUom = AlternateUom,
             ConversionFactor = ConversionFactor,
             DefaultUnitPrice = DefaultUnitPrice,
+            MovingAverageCost = ItemCost,
+            ReorderPoint = ReorderPoint,
+            IncomeAccountName = IncomeAccountName,
+            CostAccountName = CostAccountName,
             IsActive = IsActive
         };
     }

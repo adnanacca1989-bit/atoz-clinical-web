@@ -124,7 +124,7 @@ builder.Services.AddScoped<PharmacyItemRegistrationService>();
 builder.Services.AddScoped<ClinicSettingsService>();
 builder.Services.AddScoped<ClinicLookupService>();
 builder.Services.AddScoped<PharmacyPurchaseBillService>();
-builder.Services.AddScoped<ClinicBackupService>();
+builder.Services.AddScoped<PatientInvoiceService>();
 builder.Services.AddHostedService<ClinicLicenseMaintenanceService>();
 builder.Services.AddRazorPages(options =>
 {

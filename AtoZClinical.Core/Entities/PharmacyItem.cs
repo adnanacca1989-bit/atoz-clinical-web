@@ -13,9 +13,12 @@ public class PharmacyItem
     public string? AlternateUom { get; set; }
     public decimal ConversionFactor { get; set; } = 1;
     public decimal DefaultUnitPrice { get; set; }
+    public decimal MovingAverageCost { get; set; }
+    public int ReorderPoint { get; set; }
+    public string? IncomeAccountName { get; set; }
+    public string? CostAccountName { get; set; }
     public bool IsActive { get; set; } = true;
     public int QuantityOnHand { get; set; }
-    public decimal MovingAverageCost { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

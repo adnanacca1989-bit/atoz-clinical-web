@@ -16,7 +16,7 @@ namespace AtoZClinical.Infrastructure.Data;
 
 public static class DatabaseInitializer
 {
-    private const int SchemaVersion = 10;
+    private const int SchemaVersion = 11;
 
     public static async Task InitializeAsync(IServiceProvider services)
     {
@@ -163,6 +163,7 @@ public static class DatabaseInitializer
         try
         {
             _ = await db.Clinics.Select(c => c.PlanName).FirstOrDefaultAsync();
+            await ApplySchemaPatchesAsync(db, logger);
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
         {
@@ -182,5 +183,33 @@ public static class DatabaseInitializer
             await db.Database.EnsureCreatedAsync();
             logger.LogInformation("Database recreated (schema v{Version}).", SchemaVersion);
         }
+    }
+
+    private static async Task ApplySchemaPatchesAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (!db.Database.IsNpgsql()) return;
+
+        var patches = new[]
+        {
+            """ALTER TABLE "PharmacyRequests" ADD COLUMN IF NOT EXISTS "Phone" text;""",
+            """ALTER TABLE "PharmacyRequests" ADD COLUMN IF NOT EXISTS "City" text;""",
+            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "ReorderPoint" integer NOT NULL DEFAULT 0;""",
+            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "IncomeAccountName" text;""",
+            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "CostAccountName" text;"""
+        };
+
+        foreach (var sql in patches)
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync(sql);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Schema patch: {Sql}", sql);
+            }
+        }
+
+        logger.LogInformation("Applied PostgreSQL schema patches (v{Version}).", SchemaVersion);
     }
 }

@@ -56,14 +56,14 @@
                         <input asp-for="Input.PaymentStatus" class="clinical-field" />
                     </div>
                 </div>
-                <table class="line-grid">
-                    <thead><tr><th>No</th><th>Service Income</th><th>QTY</th><th>Rate</th><th>Total</th></tr></thead>
+                <table class="line-grid invoice-line-grid">
+                    <thead><tr><th>No</th><th class="col-item">Service / Charge</th><th>QTY</th><th>Rate</th><th>Total</th><th>Del</th></tr></thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
                     {
-                        <tr>
+                        <tr class="invoice-line">
                             <td><input asp-for="Lines[i].LineNo" readonly /></td>
-                            <td>
+                            <td class="col-item">
                                 <select asp-for="Lines[i].ServiceName" class="clinical-field">
                                     <option value="">--</option>
                                     @foreach (var s in Model.Services)
@@ -74,11 +74,15 @@
                             </td>
                             <td><input asp-for="Lines[i].Qty" type="number" min="1" /></td>
                             <td><input asp-for="Lines[i].UnitFee" type="number" step="0.01" /></td>
-                            <td><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly /></td>
+                            <td><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="invoice-line-total" /></td>
+                            <td class="text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
                         </tr>
                     }
                     </tbody>
                 </table>
+                <div class="line-grid-actions mt-2">
+                    <button type="button" class="btn-form" id="addInvoiceLinesBtn">+ Add Lines</button>
+                </div>
                 <div class="row g-2 mt-2">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Total Invoice Amount</label>
