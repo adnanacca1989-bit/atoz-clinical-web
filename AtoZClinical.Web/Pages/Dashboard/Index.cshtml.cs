@@ -39,7 +39,7 @@ public class IndexModel : PageModel
             new("/Radiology/Result", "Radiology Result")
         ]),
         new("Pharmacy", [
-            new("/Pharmacy/Registration", "Pharmacy Registration"),
+            new("/Pharmacy/Registration", "Pharmacy Registration Item Pharmacy"),
             new("/Pharmacy/Request", "Pharmacy Request"),
             new("/Pharmacy/Bill", "Pharmacy Bill"),
             new("/Pharmacy/Purchase", "Purchase Bill"),

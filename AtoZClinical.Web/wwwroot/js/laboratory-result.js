@@ -18,6 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const resultDateInput = document.querySelector('[name="Input.ResultDate"]');
 
+    const barcodeInput = document.querySelector('[name="Input.PatientBarcode"]');
+
+    const ageInput = document.querySelector('[name="Input.Age"]');
+
+    const genderInput = document.querySelector('[name="Input.Gender"]');
+
+    const phoneInput = document.querySelector('[name="Input.Phone"]');
+
+    const cityInput = document.querySelector('[name="Input.City"]');
+
     const doctorInput = document.querySelector('[name="Input.DoctorName"]');
 
     const specialtyInput = document.querySelector('[name="Input.Specialty"]');
@@ -205,6 +215,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selectedPatient) return;
 
         patientNameInput.value = selectedPatient.name || '';
+
+        if (barcodeInput) barcodeInput.value = selectedPatient.patientNo || '';
+
+        if (ageInput) ageInput.value = selectedPatient.age != null ? selectedPatient.age : '';
+
+        if (genderInput) genderInput.value = selectedPatient.gender || '';
+
+        if (phoneInput) phoneInput.value = selectedPatient.phone || '';
+
+        if (cityInput) cityInput.value = selectedPatient.city || '';
 
         if (resultDateInput && !resultDateInput.value) {
 

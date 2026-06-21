@@ -1,12 +1,12 @@
 @page
 @model AtoZClinical.Web.Pages.Pharmacy.RegistrationModel
 @{
-    ViewData["Title"] = "Pharmacy Registration";
+    ViewData["Title"] = "Pharmacy Registration Item Pharmacy";
     Layout = "_Layout";
 }
 
 <div class="clinical-form-page">
-    <h1 class="page-title">Pharmacy Registration</h1>
+    <h1 class="page-title">Pharmacy Registration Item Pharmacy</h1>
     <form method="post">
         <div asp-validation-summary="All" class="validation-summary-errors mx-3"></div>
         <div class="clinical-form-body">
@@ -38,11 +38,22 @@
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Base UOM</label>
-                        <input asp-for="Input.BaseUom" class="clinical-field" placeholder="Pcs" />
+                        <select asp-for="Input.BaseUom" class="clinical-field">
+                            @foreach (var uom in Model.UomOptions)
+                            {
+                                <option value="@uom.Code">@uom.Name (@uom.Code)</option>
+                            }
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Alternate UOM</label>
-                        <input asp-for="Input.AlternateUom" class="clinical-field" placeholder="Box" />
+                        <select asp-for="Input.AlternateUom" class="clinical-field">
+                            <option value="">--</option>
+                            @foreach (var uom in Model.UomOptions)
+                            {
+                                <option value="@uom.Code">@uom.Name (@uom.Code)</option>
+                            }
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Conversion</label>

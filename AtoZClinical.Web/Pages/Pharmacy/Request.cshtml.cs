@@ -41,6 +41,7 @@ public class RequestModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Request", null, null, Input.UpdatedAt);
+        ViewData["OpenPatientSelect"] = true;
         return Page();
     }
 
@@ -137,6 +138,8 @@ public class RequestModel : ClinicFormPageModel
         public string? PatientId { get; set; }
         public int? Age { get; set; }
         public string? Gender { get; set; }
+        public string? Phone { get; set; }
+        public string? City { get; set; }
         public string? DoctorName { get; set; }
         public string? Specialty { get; set; }
         public string? Notes { get; set; }
@@ -151,6 +154,8 @@ public class RequestModel : ClinicFormPageModel
             PatientId = r.PatientId,
             Age = r.Age,
             Gender = r.Gender,
+            Phone = r.Phone,
+            City = r.City,
             DoctorName = r.DoctorName,
             Specialty = r.Specialty,
             Notes = r.Notes,
@@ -167,6 +172,8 @@ public class RequestModel : ClinicFormPageModel
             PatientId = PatientId,
             Age = Age,
             Gender = Gender,
+            Phone = Phone,
+            City = City,
             DoctorName = DoctorName,
             Specialty = Specialty,
             Notes = Notes

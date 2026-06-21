@@ -21,15 +21,35 @@
                     </div>
                     <div class="col-md-6">
                         <label class="clinical-field-label">Patient Name</label>
-                        <input asp-for="Input.PayeeName" class="clinical-field" />
+                        <input asp-for="Input.PayeeName" id="cashPaymentPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
                     </div>
-                    <div class="col-md-4">
-                        <label class="clinical-field-label">Patient ID</label>
-                        <input asp-for="Input.PatientId" class="clinical-field" />
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Patient Barcode</label>
+                        <input asp-for="Input.PatientId" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-1">
+                        <label class="clinical-field-label">Age</label>
+                        <input asp-for="Input.Age" class="clinical-field" type="number" readonly />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Gender</label>
+                        <input asp-for="Input.Gender" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Phone</label>
+                        <input asp-for="Input.Phone" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">City</label>
+                        <input asp-for="Input.City" class="clinical-field" readonly />
                     </div>
                     <div class="col-md-4">
                         <label class="clinical-field-label">Doctor Name</label>
-                        <input asp-for="Input.DoctorName" class="clinical-field" />
+                        <input asp-for="Input.DoctorName" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Specialty</label>
+                        <input asp-for="Input.Specialty" class="clinical-field" readonly />
                     </div>
                     <div class="col-md-4">
                         <label class="clinical-field-label">Balance Status</label>
@@ -104,3 +124,10 @@
         </div>
     </form>
 </div>
+
+<partial name="_PatientSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/cash-payment.js" asp-append-version="true"></script>
+}

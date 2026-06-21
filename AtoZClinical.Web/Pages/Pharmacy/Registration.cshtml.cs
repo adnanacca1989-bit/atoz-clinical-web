@@ -8,29 +8,33 @@ namespace AtoZClinical.Web.Pages.Pharmacy;
 public class RegistrationModel : ClinicFormPageModel
 {
     private readonly PharmacyItemRegistrationService _service;
+    private readonly ClinicLookupService _lookup;
 
-    public RegistrationModel(ClinicContextService clinicContext, PharmacyItemRegistrationService service) : base(clinicContext)
+    public RegistrationModel(ClinicContextService clinicContext, PharmacyItemRegistrationService service, ClinicLookupService lookup) : base(clinicContext)
     {
         _service = service;
+        _lookup = lookup;
     }
 
     [BindProperty]
     public PharmacyItemInput Input { get; set; } = new();
 
     public List<PharmacyItem> Records { get; private set; } = [];
+    public List<ClinicUom> UomOptions { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
+        await LoadUomOptionsAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
         else if (Records.Count > 0 && Input.ItemNo == 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
-        SetFormViewData("Pharmacy Registration", null, null, Input.UpdatedAt);
+        SetFormViewData("Pharmacy Registration Item Pharmacy", null, null, Input.UpdatedAt);
         return Page();
     }
 
@@ -40,6 +44,13 @@ public class RegistrationModel : ClinicFormPageModel
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
     public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
     public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    private async Task LoadUomOptionsAsync(Guid clinicId)
+    {
+        UomOptions = (await _lookup.ListUomsAsync(clinicId)).Where(u => u.IsActive).OrderBy(u => u.UomNo).ToList();
+        if (UomOptions.Count == 0)
+            UomOptions = [new ClinicUom { Code = "Pcs", Name = "Pieces" }, new ClinicUom { Code = "Box", Name = "Box" }];
+    }
 
     private async Task LoadAsync(Guid clinicId)
     {
@@ -64,7 +75,11 @@ public class RegistrationModel : ClinicFormPageModel
         RecordId = null;
         var all = await _service.ListAsync(clinicId);
         var next = (all.Count > 0 ? all.Max(t => t.ItemNo) : 0) + 1;
-        Input = new PharmacyItemInput { ItemNo = next, BaseUom = "Pcs", AlternateUom = "Box", ConversionFactor = 1, IsActive = true };
+        var defaultBase = UomOptions.FirstOrDefault(u => u.Code.Equals("Pcs", StringComparison.OrdinalIgnoreCase))?.Code
+            ?? UomOptions.First().Code;
+        var defaultAlt = UomOptions.FirstOrDefault(u => u.Code.Equals("Box", StringComparison.OrdinalIgnoreCase))?.Code
+            ?? UomOptions.Skip(1).FirstOrDefault()?.Code;
+        Input = new PharmacyItemInput { ItemNo = next, BaseUom = defaultBase, AlternateUom = defaultAlt, ConversionFactor = 1, IsActive = true };
     }
 
     private async Task<IActionResult> SaveCoreAsync()
@@ -75,6 +90,7 @@ public class RegistrationModel : ClinicFormPageModel
         {
             ModelState.AddModelError(string.Empty, "Barcode and Medicine Name are required.");
             await LoadAsync(clinicId.Value);
+            await LoadUomOptionsAsync(clinicId.Value);
             return Page();
         }
         try
@@ -87,6 +103,7 @@ public class RegistrationModel : ClinicFormPageModel
         {
             ModelState.AddModelError(string.Empty, ex.Message);
             await LoadAsync(clinicId.Value);
+            await LoadUomOptionsAsync(clinicId.Value);
             return Page();
         }
     }
@@ -109,6 +126,7 @@ public class RegistrationModel : ClinicFormPageModel
         {
             ModelState.AddModelError(string.Empty, ex.Message);
             await LoadAsync(clinicId.Value);
+            await LoadUomOptionsAsync(clinicId.Value);
             return Page();
         }
         return RedirectToPage();

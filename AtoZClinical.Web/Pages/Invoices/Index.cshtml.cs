@@ -42,6 +42,7 @@ public class IndexModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Invoice / Billing", null, null, Input.UpdatedAt);
+        ViewData["OpenPatientSelect"] = true;
         return Page();
     }
 
@@ -142,7 +143,10 @@ public class IndexModel : ClinicFormPageModel
         public DateTime InvoiceDate { get; set; } = DateTime.Today;
         public string? PatientName { get; set; }
         public string? PatientId { get; set; }
+        public int? Age { get; set; }
+        public string? Gender { get; set; }
         public string? Phone { get; set; }
+        public string? City { get; set; }
         public string? DoctorName { get; set; }
         public string? Specialty { get; set; }
         public decimal Discount { get; set; }

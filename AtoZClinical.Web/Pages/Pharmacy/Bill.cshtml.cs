@@ -43,6 +43,7 @@ public class BillModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt);
+        ViewData["OpenPatientSelect"] = true;
         return Page();
     }
 
@@ -143,6 +144,10 @@ public class BillModel : ClinicFormPageModel
         public int? RequestNo { get; set; }
         public string? PatientName { get; set; }
         public string? PatientId { get; set; }
+        public int? Age { get; set; }
+        public string? Gender { get; set; }
+        public string? Phone { get; set; }
+        public string? City { get; set; }
         public string? DoctorName { get; set; }
         public string? Specialty { get; set; }
         public decimal Discount { get; set; }

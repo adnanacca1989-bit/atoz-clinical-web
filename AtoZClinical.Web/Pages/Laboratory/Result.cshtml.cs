@@ -132,6 +132,11 @@ public class ResultModel : ClinicFormPageModel
         public int? RequestNo { get; set; }
         public DateTime ResultDate { get; set; } = DateTime.Today;
         public string? PatientName { get; set; }
+        public string? PatientBarcode { get; set; }
+        public int? Age { get; set; }
+        public string? Gender { get; set; }
+        public string? Phone { get; set; }
+        public string? City { get; set; }
         public string? DoctorName { get; set; }
         public string? Specialty { get; set; }
         public string? Notes { get; set; }

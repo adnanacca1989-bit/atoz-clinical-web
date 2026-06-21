@@ -1,20 +1,19 @@
-document.addEventListener('DOMContentLoaded', () => {
+/**
+ * Shared patient selection modal. Call initPatientPicker({ ... }) on DOMContentLoaded.
+ * @param {object} options
+ * @param {string} options.patientNameSelector - CSS selector for patient name input
+ * @param {Record<string, (p: object) => string|number|null|undefined>} [options.fieldMap] - selector -> value getter
+ * @param {(patient: object) => Promise<void>|void} [options.onApply] - called after fields are filled, before modal closes
+ */
+function initPatientPicker(options) {
     const modalEl = document.getElementById('patientSelectModal');
-    const patientNameInput = document.getElementById('radiologyResultPatientNameInput');
+    const patientNameInput = document.querySelector(options.patientNameSelector);
     if (!modalEl || !patientNameInput) return;
 
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     const searchInput = document.getElementById('patientSearchInput');
     const tableBody = document.getElementById('patientSelectTableBody');
-    const requestNoInput = document.querySelector('[name="Input.RequestNo"]');
-    const resultDateInput = document.querySelector('[name="Input.ResultDate"]');
-    const barcodeInput = document.querySelector('[name="Input.PatientBarcode"]');
-    const ageInput = document.querySelector('[name="Input.Age"]');
-    const genderInput = document.querySelector('[name="Input.Gender"]');
-    const phoneInput = document.querySelector('[name="Input.Phone"]');
-    const cityInput = document.querySelector('[name="Input.City"]');
-    const doctorInput = document.querySelector('[name="Input.DoctorName"]');
-    const specialtyInput = document.querySelector('[name="Input.Specialty"]');
+    const fieldMap = options.fieldMap || {};
 
     let patients = [];
     let selectedPatient = null;
@@ -23,29 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = document.createElement('div');
         d.textContent = s ?? '';
         return d.innerHTML;
-    };
-
-    const setLineField = (index, field, value) => {
-        const el = document.querySelector(`[name="Lines[${index}].${field}"]`);
-        if (el) el.value = value ?? '';
-    };
-
-    const clearResultLines = () => {
-        for (let i = 0; i < 20; i++) {
-            if (!document.querySelector(`[name="Lines[${i}].TestCode"]`)) break;
-            setLineField(i, 'LineNo', i + 1);
-            ['TestCode', 'TestName', 'Category', 'Result', 'NormalRange', 'Unit'].forEach(f => setLineField(i, f, ''));
-        }
-    };
-
-    const fillResultLines = (lines) => {
-        clearResultLines();
-        lines.forEach((line, i) => {
-            setLineField(i, 'LineNo', line.lineNo ?? i + 1);
-            setLineField(i, 'TestCode', line.testCode);
-            setLineField(i, 'TestName', line.testName);
-            setLineField(i, 'Category', line.category);
-        });
     };
 
     const renderPatients = () => {
@@ -87,35 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch { /* ignore */ }
     };
 
-    const loadRadiologyRequest = async (patient) => {
-        const params = new URLSearchParams();
-        if (patient.name) params.set('patientName', patient.name);
-        if (patient.patientNo) params.set('patientBarcode', patient.patientNo);
-        try {
-            const res = await fetch(`/Radiology/RequestByPatient?${params}`);
-            if (!res.ok) return;
-            const data = await res.json();
-            if (!data) return;
-            if (requestNoInput) requestNoInput.value = data.requestNo ?? '';
-            if (resultDateInput) resultDateInput.value = new Date().toISOString().slice(0, 10);
-            if (doctorInput) doctorInput.value = data.doctorName || patient.doctorName || '';
-            if (specialtyInput) specialtyInput.value = data.specialty || patient.specialty || '';
-            if (data.lines?.length) fillResultLines(data.lines);
-        } catch { /* ignore */ }
-    };
-
     const applyPatient = async () => {
         if (!selectedPatient) return;
         patientNameInput.value = selectedPatient.name || '';
-        if (barcodeInput) barcodeInput.value = selectedPatient.patientNo || '';
-        if (ageInput) ageInput.value = selectedPatient.age != null ? selectedPatient.age : '';
-        if (genderInput) genderInput.value = selectedPatient.gender || '';
-        if (phoneInput) phoneInput.value = selectedPatient.phone || '';
-        if (cityInput) cityInput.value = selectedPatient.city || '';
-        if (resultDateInput && !resultDateInput.value) {
-            resultDateInput.value = new Date().toISOString().slice(0, 10);
+        for (const [selector, getter] of Object.entries(fieldMap)) {
+            const el = document.querySelector(selector);
+            if (!el) continue;
+            const val = getter(selectedPatient);
+            el.value = val != null ? val : '';
         }
-        await loadRadiologyRequest(selectedPatient);
+        if (options.onApply) await options.onApply(selectedPatient);
         modal.hide();
     };
 
@@ -140,4 +97,31 @@ document.addEventListener('DOMContentLoaded', () => {
         loadPatients();
     });
     modalEl.addEventListener('shown.bs.modal', () => searchInput?.focus());
-});
+}
+
+/** Standard patient field selectors used across clinical forms. */
+const patientFieldMap = {
+    barcode: '[name="Input.PatientBarcode"]',
+    patientId: '[name="Input.PatientId"]',
+    age: '[name="Input.Age"]',
+    gender: '[name="Input.Gender"]',
+    phone: '[name="Input.Phone"]',
+    city: '[name="Input.City"]',
+    doctor: '[name="Input.DoctorName"]',
+    specialty: '[name="Input.Specialty"]',
+    appointmentDate: '[name="Input.AppointmentDate"]',
+    appointmentTime: '[name="Input.AppointmentTime"]'
+};
+
+function standardPatientFieldMap(usePatientIdForBarcode) {
+    const barcodeSelector = usePatientIdForBarcode ? patientFieldMap.patientId : patientFieldMap.barcode;
+    return {
+        [barcodeSelector]: p => p.patientNo || '',
+        [patientFieldMap.age]: p => p.age != null ? p.age : '',
+        [patientFieldMap.gender]: p => p.gender || '',
+        [patientFieldMap.phone]: p => p.phone || '',
+        [patientFieldMap.city]: p => p.city || '',
+        [patientFieldMap.doctor]: p => p.doctorName || '',
+        [patientFieldMap.specialty]: p => p.specialty || ''
+    };
+}

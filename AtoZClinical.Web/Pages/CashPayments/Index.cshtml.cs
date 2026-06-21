@@ -34,6 +34,7 @@ public class IndexModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Cash Payment", null, null, Input.UpdatedAt);
+        ViewData["OpenPatientSelect"] = true;
         return Page();
     }
 
@@ -120,7 +121,12 @@ public class IndexModel : ClinicFormPageModel
         public DateTime PaymentDate { get; set; } = DateTime.Today;
         public string? PatientId { get; set; }
         public string? PayeeName { get; set; }
+        public int? Age { get; set; }
+        public string? Gender { get; set; }
+        public string? Phone { get; set; }
+        public string? City { get; set; }
         public string? DoctorName { get; set; }
+        public string? Specialty { get; set; }
         public string? BalanceStatus { get; set; }
         public decimal Amount { get; set; }
         public string PaymentMethod { get; set; } = "Cash";
