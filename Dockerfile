@@ -1,8 +1,8 @@
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ["AtoZClinical.Web/AtoZClinical.Web.csproj", "AtoZClinical.Web/"]
 COPY ["AtoZClinical.Infrastructure/AtoZClinical.Infrastructure.csproj", "AtoZClinical.Infrastructure/"]
@@ -15,4 +15,5 @@ FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV Database__Provider=PostgreSQL
 ENTRYPOINT ["dotnet", "AtoZClinical.Web.dll"]

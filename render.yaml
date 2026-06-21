@@ -5,11 +5,14 @@ services:
     name: atoz-clinical
     runtime: docker
     plan: free
+    region: oregon
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /
+    healthCheckPath: /Account/Login
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      - key: Database__Provider
+        value: PostgreSQL
       - key: ConnectionStrings__ClinicalDatabase
         fromDatabase:
           name: atoz-clinical-db

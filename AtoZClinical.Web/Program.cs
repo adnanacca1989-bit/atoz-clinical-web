@@ -130,9 +130,10 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
-
-if (!app.Environment.IsDevelopment() || builder.Configuration.GetValue("UseHttpsRedirection", true))
+else if (builder.Configuration.GetValue("UseHttpsRedirection", true))
+{
     app.UseHttpsRedirection();
+}
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
