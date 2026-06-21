@@ -7,20 +7,56 @@ using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+static string? FirstNonEmpty(params string?[] values)
+{
+    foreach (var value in values)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            return value.Trim();
+    }
+    return null;
+}
 
 static string NormalizeConnectionString(string value)
 {
     if (value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
-        return "postgresql://" + value["postgres://".Length..];
-    return value;
+        value = "postgresql://" + value["postgres://".Length..];
+
+    if (!value.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        return value;
+
+    var uri = new Uri(value);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var csb = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = Uri.UnescapeDataString(userInfo[0]),
+        SslMode = SslMode.Require
+    };
+    if (userInfo.Length > 1)
+        csb.Password = Uri.UnescapeDataString(userInfo[1]);
+
+    return csb.ConnectionString;
 }
 
-var connectionString = NormalizeConnectionString(
-    builder.Configuration.GetConnectionString("ClinicalDatabase")
-    ?? Environment.GetEnvironmentVariable("DATABASE_URL")
-    ?? "Data Source=atoz_clinical.db");
+var rawConnectionString = FirstNonEmpty(
+    builder.Configuration.GetConnectionString("ClinicalDatabase"),
+    builder.Configuration["DATABASE_URL"],
+    Environment.GetEnvironmentVariable("ConnectionStrings__ClinicalDatabase"),
+    Environment.GetEnvironmentVariable("DATABASE_URL"),
+    Environment.GetEnvironmentVariable("RENDER_DATABASE_URL"));
+
+if (string.IsNullOrWhiteSpace(rawConnectionString))
+    throw new InvalidOperationException(
+        "Database connection string is missing. Set ConnectionStrings__ClinicalDatabase or DATABASE_URL on Render.");
+
+var connectionString = NormalizeConnectionString(rawConnectionString);
 var useSqlite = builder.Configuration.GetValue("Database:Provider", "PostgreSQL") == "Sqlite"
     || connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
 
