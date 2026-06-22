@@ -6,53 +6,36 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page clinical-standard-form invoice-form-page">
+<div class="clinical-form-page clinical-standard-form clinical-his-compact invoice-form-page">
     <h1 class="page-title">Invoice / Billing</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
     <partial name="_ClinicalFormHint" />
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
-                <div class="row g-2 mb-2 clinical-form-header clinical-patient-header-compact">
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Invoice ID</label>
-                        <input asp-for="Input.InvoiceNo" class="clinical-field" readonly />
+                <div class="clinical-context-strip">
+                    <div class="ctx-row">
+                        <div class="ctx-field ctx-doc">
+                            <label class="clinical-field-label">Invoice ID</label>
+                            <input asp-for="Input.InvoiceNo" class="clinical-field" readonly />
+                        </div>
+                        <div class="ctx-field ctx-date">
+                            <label class="clinical-field-label">Invoice Date</label>
+                            <input asp-for="Input.InvoiceDate" class="clinical-field" type="date" />
+                        </div>
+                        <div class="ctx-field ctx-patient">
+                            <label class="clinical-field-label">Patient Name</label>
+                            <input asp-for="Input.PatientName" id="invoicePatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Invoice Date</label>
-                        <input asp-for="Input.InvoiceDate" class="clinical-field" type="date" />
-                    </div>
-                    <div class="col-md-8">
-                        <label class="clinical-field-label">Patient Name</label>
-                        <input asp-for="Input.PatientName" id="invoicePatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Patient Barcode</label>
-                        <input asp-for="Input.PatientId" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-1">
-                        <label class="clinical-field-label">Age</label>
-                        <input asp-for="Input.Age" class="clinical-field" type="number" readonly />
-                    </div>
-                    <div class="col-md-1">
-                        <label class="clinical-field-label">Gender</label>
-                        <input asp-for="Input.Gender" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Phone</label>
-                        <input asp-for="Input.Phone" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">City</label>
-                        <input asp-for="Input.City" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Doctor Name</label>
-                        <input asp-for="Input.DoctorName" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Specialty</label>
-                        <input asp-for="Input.Specialty" class="clinical-field" readonly />
+                    <div class="ctx-row ctx-demographics">
+                        <div class="ctx-field ctx-sm"><label class="clinical-field-label">MRN</label><input asp-for="Input.PatientId" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Age</label><input asp-for="Input.Age" class="clinical-field" type="number" readonly /></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Sex</label><input asp-for="Input.Gender" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Phone</label><input asp-for="Input.Phone" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">City</label><input asp-for="Input.City" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-lg"><label class="clinical-field-label">Doctor</label><input asp-for="Input.DoctorName" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Specialty</label><input asp-for="Input.Specialty" class="clinical-field" readonly /></div>
                     </div>
                 </div>
                 <div class="clinical-form-grid-area invoice-lines-area">
@@ -80,37 +63,14 @@
                 </div>
                 <div class="clinical-form-totals-section invoice-totals-compact">
                 <div class="section-caption section-caption-sm">Invoice Totals &amp; Payment</div>
-                <div class="form-summary-panel invoice-summary-panel invoice-summary-compact">
-                <div class="row g-1 row-cols-2 row-cols-md-3 row-cols-xl-6">
-                    <div class="col">
-                        <label class="clinical-field-label">Total Invoice Amount</label>
-                        <input id="invoiceSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="clinical-field invoice-summary-field" readonly />
-                    </div>
-                    <div class="col">
-                        <label class="clinical-field-label">Discount</label>
-                        <input asp-for="Input.Discount" id="invoiceDiscount" class="clinical-field invoice-summary-field" type="number" step="0.01" />
-                    </div>
-                    <div class="col">
-                        <label class="clinical-field-label">Net Invoice Amount</label>
-                        <input id="invoiceNetAmount" value="@Model.NetAmount.ToString("N2")" class="clinical-field invoice-summary-field invoice-net-field" readonly />
-                    </div>
-                    <div class="col">
-                        <label class="clinical-field-label">Cash Paid</label>
-                        <input asp-for="Input.AmountPaid" id="invoiceAmountPaid" class="clinical-field invoice-summary-field" type="number" step="0.01" />
-                    </div>
-                    <div class="col">
-                        <label class="clinical-field-label">Payment Method</label>
-                        <select asp-for="Input.PaymentMethod" class="clinical-field invoice-summary-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))"></select>
-                    </div>
-                    <div class="col">
-                        <label class="clinical-field-label">Balance Due</label>
-                        <input id="invoiceBalance" value="@Model.Balance.ToString("N2")" class="clinical-field invoice-summary-field invoice-balance-field" readonly />
-                    </div>
-                    <div class="col">
-                        <label class="clinical-field-label">Invoice Status</label>
-                        <input asp-for="Input.PaymentStatus" class="clinical-field invoice-summary-field" />
-                    </div>
-                </div>
+                <div class="ctx-payment-bar invoice-summary-compact">
+                    <div class="ctx-pay-item"><label class="clinical-field-label">Subtotal</label><input id="invoiceSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="clinical-field invoice-summary-field" readonly /></div>
+                    <div class="ctx-pay-item"><label class="clinical-field-label">Discount</label><input asp-for="Input.Discount" id="invoiceDiscount" class="clinical-field invoice-summary-field" type="number" step="0.01" /></div>
+                    <div class="ctx-pay-item ctx-pay-total"><label class="clinical-field-label">Net Amount</label><input id="invoiceNetAmount" value="@Model.NetAmount.ToString("N2")" class="clinical-field invoice-summary-field invoice-net-field" readonly /></div>
+                    <div class="ctx-pay-item"><label class="clinical-field-label">Cash Paid</label><input asp-for="Input.AmountPaid" id="invoiceAmountPaid" class="clinical-field invoice-summary-field" type="number" step="0.01" /></div>
+                    <div class="ctx-pay-item"><label class="clinical-field-label">Method</label><select asp-for="Input.PaymentMethod" class="clinical-field invoice-summary-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))"></select></div>
+                    <div class="ctx-pay-item ctx-pay-balance"><label class="clinical-field-label">Balance</label><input id="invoiceBalance" value="@Model.Balance.ToString("N2")" class="clinical-field invoice-summary-field invoice-balance-field" readonly /></div>
+                    <div class="ctx-pay-item"><label class="clinical-field-label">Status</label><input asp-for="Input.PaymentStatus" class="clinical-field invoice-summary-field" /></div>
                 </div>
                 </div>
             </div>

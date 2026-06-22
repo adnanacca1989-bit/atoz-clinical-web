@@ -2,4 +2,7 @@
     var hint = ViewData["FormHint"] as string;
     if (string.IsNullOrWhiteSpace(hint)) return;
 }
-<div class="clinical-form-hint" role="note">@hint</div>
+<details class="clinical-form-hint-details">
+    <summary class="clinical-form-hint-summary">Quick help</summary>
+    <div class="clinical-form-hint" role="note">@hint</div>
+</details>

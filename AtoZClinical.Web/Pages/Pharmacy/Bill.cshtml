@@ -6,141 +6,82 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page clinical-standard-form">
+<div class="clinical-form-page clinical-standard-form clinical-his-compact">
     <h1 class="page-title">Pharmacy Bill</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
     <partial name="_ClinicalFormHint" />
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
-                <div class="row g-2 mb-2 clinical-form-header clinical-patient-header-compact">
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Bill ID</label>
-                        <input asp-for="Input.BillNo" class="clinical-field" readonly />
+                <div class="clinical-context-strip">
+                    <div class="ctx-row">
+                        <div class="ctx-field ctx-doc"><label class="clinical-field-label">Bill ID</label><input asp-for="Input.BillNo" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-date"><label class="clinical-field-label">Bill Date</label><input asp-for="Input.BillDate" class="clinical-field" type="date" /></div>
+                        <div class="ctx-field ctx-ref"><label class="clinical-field-label">Request ID</label><input asp-for="Input.RequestNo" class="clinical-field" type="number" /></div>
+                        <div class="ctx-field ctx-patient">
+                            <label class="clinical-field-label">Patient Name</label>
+                            <input asp-for="Input.PatientName" id="pharmacyBillPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Bill Date</label>
-                        <input asp-for="Input.BillDate" class="clinical-field" type="date" />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Request ID</label>
-                        <input asp-for="Input.RequestNo" class="clinical-field" type="number" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="clinical-field-label">Patient Name</label>
-                        <input asp-for="Input.PatientName" id="pharmacyBillPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Patient Barcode</label>
-                        <input asp-for="Input.PatientId" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-1">
-                        <label class="clinical-field-label">Age</label>
-                        <input asp-for="Input.Age" class="clinical-field" type="number" readonly />
-                    </div>
-                    <div class="col-md-1">
-                        <label class="clinical-field-label">Gender</label>
-                        <input asp-for="Input.Gender" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Phone</label>
-                        <input asp-for="Input.Phone" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">City</label>
-                        <input asp-for="Input.City" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Doctor Name</label>
-                        <input asp-for="Input.DoctorName" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Specialty</label>
-                        <input asp-for="Input.Specialty" class="clinical-field" readonly />
+                    <div class="ctx-row ctx-demographics">
+                        <div class="ctx-field ctx-sm"><label class="clinical-field-label">MRN</label><input asp-for="Input.PatientId" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Age</label><input asp-for="Input.Age" class="clinical-field" type="number" readonly /></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Sex</label><input asp-for="Input.Gender" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Phone</label><input asp-for="Input.Phone" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">City</label><input asp-for="Input.City" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-lg"><label class="clinical-field-label">Doctor</label><input asp-for="Input.DoctorName" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Specialty</label><input asp-for="Input.Specialty" class="clinical-field" readonly /></div>
                     </div>
                 </div>
                 <div class="clinical-form-grid-area">
-                <div class="section-caption-row">
-                    <div class="section-caption">Bill Lines</div>
-                    <button type="button" class="btn-form btn-form-sm pharmacy-toggle-details">Show barcode &amp; details</button>
-                </div>
-                <div class="line-grid-scroll clinical-line-grid-scroll">
-                <table class="line-grid pharmacy-line-grid pharmacy-line-grid-compact clinical-line-grid">
-                    <thead><tr><th class="col-no">No</th><th class="col-item">Item</th><th class="pharmacy-col-detail">Barcode</th><th class="pharmacy-col-detail">Medicine Code</th><th class="col-medicine">Medicine Name</th><th class="pharmacy-col-detail">Dosage</th><th>UOM</th><th class="col-qty">QTY</th><th class="col-fee">Unit Price</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
-                    <tbody>
-                    @for (var i = 0; i < Model.Lines.Count; i++)
-                    {
-                        var lineBarcode = Model.Lines[i].Barcode ?? "";
-                        <tr class="pharmacy-line" data-line="@i">
-                            <td><input asp-for="Lines[i].LineNo" readonly /></td>
-                            <td class="col-item">
-                                <select class="pharmacy-item-select clinical-field">
-                                    <option value="">-- Item --</option>
-                                    @foreach (var item in Model.RegisteredItems)
-                                    {
-                                        <option value="@item.Barcode"
-                                                selected="@(lineBarcode == item.Barcode)"
-                                                data-barcode="@item.Barcode"
-                                                data-code="@item.MedicineCode"
-                                                data-name="@item.MedicineName"
-                                                data-dosage="@item.Dosage"
-                                                data-base-uom="@item.BaseUom"
-                                                data-alt-uom="@item.AlternateUom"
-                                                data-price="@item.DefaultUnitPrice"
-                                                data-avg-cost="@item.MovingAverageCost"
-                                                data-qty="@item.QuantityOnHand">@item.MedicineName</option>
-                                    }
-                                </select>
-                            </td>
-                            <td class="pharmacy-col-detail"><input asp-for="Lines[i].Barcode" class="pharmacy-barcode" /></td>
-                            <td class="pharmacy-col-detail"><input asp-for="Lines[i].MedicineCode" class="pharmacy-code" /></td>
-                            <td class="col-medicine"><input asp-for="Lines[i].MedicineName" class="pharmacy-name" readonly /></td>
-                            <td class="pharmacy-col-detail"><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" readonly /></td>
-                            <td><input asp-for="Lines[i].Uom" class="pharmacy-uom clinical-field" placeholder="Pcs" /></td>
-                            <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="1" class="pharmacy-qty" /></td>
-                            <td class="col-fee"><input asp-for="Lines[i].UnitPrice" type="number" step="0.01" class="pharmacy-price" /></td>
-                            <td class="col-total"><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="pharmacy-line-total" /></td>
-                            <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-                </div>
+                    <div class="section-caption-row">
+                        <div class="section-caption">Bill Lines</div>
+                        <button type="button" class="btn-form btn-form-sm pharmacy-toggle-details">Show barcode &amp; details</button>
+                    </div>
+                    <div class="line-grid-scroll clinical-line-grid-scroll">
+                        <table class="line-grid pharmacy-line-grid pharmacy-line-grid-compact clinical-line-grid">
+                            <thead><tr><th class="col-no">No</th><th class="col-item">Item</th><th class="pharmacy-col-detail">Barcode</th><th class="pharmacy-col-detail">Code</th><th class="col-medicine">Medicine</th><th class="pharmacy-col-detail">Dosage</th><th>UOM</th><th class="col-qty">QTY</th><th class="col-fee">Price</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.Lines.Count; i++)
+                            {
+                                var lineBarcode = Model.Lines[i].Barcode ?? "";
+                                <tr class="pharmacy-line" data-line="@i">
+                                    <td><input asp-for="Lines[i].LineNo" readonly /></td>
+                                    <td class="col-item">
+                                        <select class="pharmacy-item-select clinical-field">
+                                            <option value="">-- Item --</option>
+                                            @foreach (var item in Model.RegisteredItems)
+                                            {
+                                                <option value="@item.Barcode" selected="@(lineBarcode == item.Barcode)" data-barcode="@item.Barcode" data-code="@item.MedicineCode" data-name="@item.MedicineName" data-dosage="@item.Dosage" data-base-uom="@item.BaseUom" data-alt-uom="@item.AlternateUom" data-price="@item.DefaultUnitPrice" data-avg-cost="@item.MovingAverageCost" data-qty="@item.QuantityOnHand">@item.MedicineName</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td class="pharmacy-col-detail"><input asp-for="Lines[i].Barcode" class="pharmacy-barcode" /></td>
+                                    <td class="pharmacy-col-detail"><input asp-for="Lines[i].MedicineCode" class="pharmacy-code" /></td>
+                                    <td class="col-medicine"><input asp-for="Lines[i].MedicineName" class="pharmacy-name" readonly /></td>
+                                    <td class="pharmacy-col-detail"><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" readonly /></td>
+                                    <td><input asp-for="Lines[i].Uom" class="pharmacy-uom clinical-field" placeholder="Pcs" /></td>
+                                    <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="1" class="pharmacy-qty" /></td>
+                                    <td class="col-fee"><input asp-for="Lines[i].UnitPrice" type="number" step="0.01" class="pharmacy-price" /></td>
+                                    <td class="col-total"><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="pharmacy-line-total" /></td>
+                                    <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 <div class="clinical-form-totals-section">
-                <div class="section-caption">Bill Totals &amp; Payment</div>
-                <div class="form-summary-panel">
-                <div class="row g-2">
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Sub Total</label>
-                        <input id="pharmacyBillSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="clinical-field" readonly />
+                    <div class="section-caption">Bill Totals &amp; Payment</div>
+                    <div class="ctx-payment-bar">
+                        <div class="ctx-pay-item"><label class="clinical-field-label">Sub Total</label><input id="pharmacyBillSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="clinical-field" readonly /></div>
+                        <div class="ctx-pay-item"><label class="clinical-field-label">Discount</label><input asp-for="Input.Discount" id="pharmacyBillDiscount" class="clinical-field" type="number" step="0.01" /></div>
+                        <div class="ctx-pay-item ctx-pay-total"><label class="clinical-field-label">Net Amount</label><input id="pharmacyBillNet" value="@Model.NetAmount.ToString("N2")" class="clinical-field" readonly /></div>
+                        <div class="ctx-pay-item"><label class="clinical-field-label">Paid</label><input asp-for="Input.AmountPaid" id="pharmacyBillPaid" class="clinical-field" type="number" step="0.01" /></div>
+                        <div class="ctx-pay-item"><label class="clinical-field-label">Method</label><select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))"></select></div>
+                        <div class="ctx-pay-item ctx-pay-balance"><label class="clinical-field-label">Balance</label><input id="pharmacyBillBalance" value="@Model.Balance.ToString("N2")" class="clinical-field" readonly /></div>
+                        <div class="ctx-pay-item"><label class="clinical-field-label">Status</label><input asp-for="Input.PaymentStatus" class="clinical-field" /></div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Discount</label>
-                        <input asp-for="Input.Discount" id="pharmacyBillDiscount" class="clinical-field" type="number" step="0.01" />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Net Amount</label>
-                        <input id="pharmacyBillNet" value="@Model.NetAmount.ToString("N2")" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Paid Amount</label>
-                        <input asp-for="Input.AmountPaid" id="pharmacyBillPaid" class="clinical-field" type="number" step="0.01" />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Payment Method</label>
-                        <select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))"></select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Balance</label>
-                        <input id="pharmacyBillBalance" value="@Model.Balance.ToString("N2")" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Bill Status</label>
-                        <input asp-for="Input.PaymentStatus" class="clinical-field" />
-                    </div>
-                </div>
-                </div>
                 </div>
             </div>
             <div class="clinical-form-right">
@@ -151,14 +92,13 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>Bill No</th><th>Patient</th><th>Doctor</th><th>Net</th></tr></thead>
+                        <thead><tr><th>Bill No</th><th>Patient</th><th>Net</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
                             <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
                                 <td>@r.BillNo</td>
                                 <td>@r.PatientName</td>
-                                <td>@r.DoctorName</td>
                                 <td>@r.TotalAmount.ToString("N2")</td>
                             </tr>
                         }

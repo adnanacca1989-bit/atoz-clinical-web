@@ -1,243 +1,103 @@
 @page
-
 @model AtoZClinical.Web.Pages.Laboratory.ResultModel
-
 @{
-
     ViewData["Title"] = "Laboratory Result";
-
     Layout = "_Layout";
-
     ViewData["FormHint"] = "Select a patient to load test lines from their lab request. Enter result values, normal range, and unit for each test.";
-
-
-
 }
 
-
-
-<div class="clinical-form-page clinical-standard-form">
-
-    <div class="clinical-page-title-row">
-        <h1 class="page-title">Laboratory Result</h1>
-        <img src="~/img/lab-needle.png" alt="" class="clinical-form-illustration lab-needle-icon" asp-append-version="true" />
-    </div>
-
+<div class="clinical-form-page clinical-standard-form clinical-his-compact">
+    <h1 class="page-title">Laboratory Result</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
-
     <partial name="_ClinicalFormHint" />
-
     <form method="post">
-
         <div class="clinical-form-body">
-
             <div class="clinical-form-left clinical-form-scroll">
-
-                <div class="row g-2 mb-2 clinical-form-header clinical-patient-header-compact">
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">Result No</label>
-
-                        <input asp-for="Input.ResultNo" class="clinical-field" readonly />
-
+                <div class="clinical-context-strip">
+                    <div class="ctx-row">
+                        <div class="ctx-field ctx-doc"><label class="clinical-field-label">Result No</label><input asp-for="Input.ResultNo" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-ref"><label class="clinical-field-label">Request No</label><input asp-for="Input.RequestNo" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-date"><label class="clinical-field-label">Result Date</label><input asp-for="Input.ResultDate" class="clinical-field" type="date" /></div>
+                        <div class="ctx-field ctx-patient">
+                            <label class="clinical-field-label">Patient Name</label>
+                            <input asp-for="Input.PatientName" id="labResultPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+                        </div>
                     </div>
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">Request No</label>
-
-                        <input asp-for="Input.RequestNo" class="clinical-field" readonly />
-
+                    <div class="ctx-row ctx-demographics">
+                        <div class="ctx-field ctx-sm"><label class="clinical-field-label">MRN</label><input asp-for="Input.PatientBarcode" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Age</label><input asp-for="Input.Age" class="clinical-field" type="number" readonly /></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Sex</label><input asp-for="Input.Gender" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Phone</label><input asp-for="Input.Phone" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">City</label><input asp-for="Input.City" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-lg"><label class="clinical-field-label">Doctor</label><input asp-for="Input.DoctorName" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Specialty</label><input asp-for="Input.Specialty" class="clinical-field" readonly /></div>
                     </div>
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">Result Date</label>
-
-                        <input asp-for="Input.ResultDate" class="clinical-field" type="date" />
-
+                    <div class="ctx-row ctx-notes-row">
+                        <div class="ctx-field ctx-grow"><label class="clinical-field-label">Notes</label><input asp-for="Input.Notes" class="clinical-field" /></div>
                     </div>
-
-                    <div class="col-md-6">
-
-                        <label class="clinical-field-label">Patient Name</label>
-
-                        <input asp-for="Input.PatientName" id="labResultPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
-
-                    </div>
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">Patient Barcode</label>
-
-                        <input asp-for="Input.PatientBarcode" class="clinical-field" readonly />
-
-                    </div>
-
-                    <div class="col-md-1">
-
-                        <label class="clinical-field-label">Age</label>
-
-                        <input asp-for="Input.Age" class="clinical-field" type="number" readonly />
-
-                    </div>
-
-                    <div class="col-md-1">
-
-                        <label class="clinical-field-label">Gender</label>
-
-                        <input asp-for="Input.Gender" class="clinical-field" readonly />
-
-                    </div>
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">Phone</label>
-
-                        <input asp-for="Input.Phone" class="clinical-field" readonly />
-
-                    </div>
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">City</label>
-
-                        <input asp-for="Input.City" class="clinical-field" readonly />
-
-                    </div>
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">Doctor Name</label>
-
-                        <input asp-for="Input.DoctorName" class="clinical-field" readonly />
-
-                    </div>
-
-                    <div class="col-md-2">
-
-                        <label class="clinical-field-label">Specialty</label>
-
-                        <input asp-for="Input.Specialty" class="clinical-field" readonly />
-
-                    </div>
-
-                    <div class="col-md-12">
-
-                        <label class="clinical-field-label">Notes</label>
-
-                        <input asp-for="Input.Notes" class="clinical-field" />
-
-                    </div>
-
                 </div>
-
                 <div class="clinical-form-grid-area">
-                <div class="section-caption">Result Lines</div>
-                <div class="line-grid-scroll clinical-line-grid-scroll">
-                <table class="line-grid clinical-line-grid">
-                    <thead>
-                        <tr><th class="col-no">No</th><th class="col-item">Test Name</th><th>Test Code</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th><th class="col-del">Del</th></tr>
-                    </thead>
-                    <tbody>
-                    @for (var i = 0; i < Model.Lines.Count; i++)
-                    {
-                        <tr class="lab-line" data-line="@i">
-                            <td><input asp-for="Lines[i].LineNo" readonly /></td>
-                            <td class="col-item"><input asp-for="Lines[i].TestName" readonly /></td>
-                            <td><input asp-for="Lines[i].TestCode" readonly /></td>
-                            <td><input asp-for="Lines[i].Category" readonly /></td>
-                            <td><input asp-for="Lines[i].Result" /></td>
-                            <td><input asp-for="Lines[i].NormalRange" /></td>
-                            <td><input asp-for="Lines[i].Unit" /></td>
-                            <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+                    <div class="section-caption">Result Lines</div>
+                    <div class="line-grid-scroll clinical-line-grid-scroll">
+                        <table class="line-grid clinical-line-grid">
+                            <thead>
+                                <tr><th class="col-no">No</th><th class="col-item">Test Name</th><th>Code</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th><th class="col-del">Del</th></tr>
+                            </thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.Lines.Count; i++)
+                            {
+                                <tr class="lab-line" data-line="@i">
+                                    <td><input asp-for="Lines[i].LineNo" readonly /></td>
+                                    <td class="col-item"><input asp-for="Lines[i].TestName" readonly /></td>
+                                    <td><input asp-for="Lines[i].TestCode" readonly /></td>
+                                    <td><input asp-for="Lines[i].Category" readonly /></td>
+                                    <td><input asp-for="Lines[i].Result" /></td>
+                                    <td><input asp-for="Lines[i].NormalRange" /></td>
+                                    <td><input asp-for="Lines[i].Unit" /></td>
+                                    <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                </div>
-
             </div>
-
             <div class="clinical-form-right">
-
                 <div class="record-transaction-header">Record Transaction</div>
-
                 <div class="record-transaction-status">@Model.StatusText</div>
-
                 <div class="p-2">
-
                     <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
-
                 </div>
-
                 <div class="clinical-record-grid">
-
                     <table>
-
-                        <thead><tr><th>Result No</th><th>Request No</th><th>Date</th><th>Patient</th><th>Doctor</th></tr></thead>
-
+                        <thead><tr><th>Result No</th><th>Request</th><th>Date</th><th>Patient</th></tr></thead>
                         <tbody>
-
                         @foreach (var r in Model.Records)
-
                         {
-
                             <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
-
                                 <td>@r.ResultNo</td>
-
                                 <td>@r.RequestNo</td>
-
                                 <td>@r.ResultDate.ToString("d")</td>
-
                                 <td>@r.PatientName</td>
-
-                                <td>@r.DoctorName</td>
-
                             </tr>
-
                         }
-
                         </tbody>
-
                     </table>
-
                 </div>
-
             </div>
-
         </div>
-
         <input type="hidden" asp-for="RecordId" />
-
         <partial name="_FormToolbar" />
-
         <div class="clinical-form-footer">
-
             <span>Created By: @Model.UserName</span>
-
             <span>Last Updated By: @Model.UserName</span>
-
         </div>
-
     </form>
-
 </div>
-
-
 
 <partial name="_PatientSelectModal" />
 
-
-
 @section Scripts {
-
     <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
     <script src="~/js/laboratory-result.js" asp-append-version="true"></script>
-
 }
-
-

@@ -1098,3 +1098,327 @@ main:has(.clinical-form-page) {
         min-height: 250px;
     }
 }
+
+/* ——— HIS compact encounter layout (Epic/Cerner-style density) ——— */
+
+.clinical-his-compact .clinical-form-body {
+    grid-template-columns: 1fr 280px;
+    min-height: 420px;
+    max-height: calc(100vh - 132px);
+}
+
+.clinical-his-compact.clinical-standard-form .clinical-form-body {
+    min-height: 420px;
+}
+
+.clinical-his-compact.clinical-standard-form .clinical-form-scroll {
+    max-height: calc(100vh - 168px);
+}
+
+.clinical-his-compact.clinical-standard-form .clinical-line-grid-scroll {
+    max-height: min(320px, calc(100vh - 340px));
+    min-height: 160px;
+}
+
+.clinical-his-compact .clinical-form-right {
+    min-height: 320px;
+}
+
+.clinical-his-compact .record-transaction-header {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+}
+
+.clinical-his-compact .record-transaction-status {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+}
+
+.clinical-his-compact .clinical-form-right > .p-2 {
+    padding: 0.35rem !important;
+}
+
+.clinical-his-compact .clinical-form-right .clinical-field.mb-2 {
+    margin-bottom: 0.25rem !important;
+    font-size: 0.82rem;
+    padding: 0.25rem 0.4rem;
+}
+
+.clinical-his-compact .clinical-toolbar {
+    padding: 0.4rem 0.5rem 0.35rem;
+    margin: 0 0.35rem 0;
+    gap: 0.25rem;
+}
+
+.clinical-his-compact .clinical-toolbar .btn-form {
+    padding: 0.28rem 0.55rem;
+    font-size: 0.78rem;
+    min-width: 58px;
+    min-height: 1.75rem;
+}
+
+.clinical-his-compact .clinical-form-footer {
+    padding: 0.3rem 0.75rem;
+    margin: 0 0.35rem 0.5rem;
+    font-size: 0.7rem;
+}
+
+.clinical-form-hint-details {
+    margin: 0 0.35rem 0.25rem;
+    flex-shrink: 0;
+}
+
+.clinical-form-hint-summary {
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1565c0;
+    padding: 0.15rem 0.35rem;
+    list-style: none;
+    user-select: none;
+}
+
+.clinical-form-hint-summary::-webkit-details-marker {
+    display: none;
+}
+
+.clinical-form-hint-summary::before {
+    content: "▸ ";
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.clinical-form-hint-details[open] .clinical-form-hint-summary::before {
+    transform: rotate(90deg);
+}
+
+.clinical-form-hint-details .clinical-form-hint {
+    margin: 0.2rem 0 0;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.78rem;
+}
+
+/* Encounter context strip — 2-row patient banner */
+.clinical-context-strip {
+    background: #fff;
+    border: 1px solid #b8c9d9;
+    border-left: 3px solid #1565c0;
+    padding: 0.35rem 0.5rem;
+    margin-bottom: 0.3rem;
+    flex-shrink: 0;
+}
+
+.clinical-context-strip .ctx-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.25rem 0.4rem;
+}
+
+.clinical-context-strip .ctx-row + .ctx-row {
+    margin-top: 0.25rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid #e8eef3;
+}
+
+.clinical-context-strip .ctx-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.clinical-context-strip .ctx-field label,
+.clinical-context-strip .ctx-field .clinical-field-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #546e7a;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.05rem;
+    line-height: 1.1;
+}
+
+.clinical-context-strip .ctx-field .clinical-field {
+    font-size: 0.8rem;
+    padding: 0.22rem 0.35rem;
+    min-height: 1.65rem;
+}
+
+.clinical-context-strip .ctx-doc { flex: 0 0 7rem; }
+.clinical-context-strip .ctx-date { flex: 0 0 8.5rem; }
+.clinical-context-strip .ctx-ref { flex: 0 0 7rem; }
+.clinical-context-strip .ctx-patient { flex: 1 1 12rem; min-width: 10rem; }
+.clinical-context-strip .ctx-patient .clinical-field,
+.clinical-context-strip .ctx-patient .doctor-picker-field {
+    font-weight: 600;
+    background: #fffdf5;
+}
+
+.clinical-context-strip .ctx-demographics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.35rem;
+    align-items: flex-end;
+}
+
+.clinical-context-strip .ctx-demographics .ctx-field {
+    flex: 0 0 auto;
+}
+
+.clinical-context-strip .ctx-xs { width: 3.5rem; }
+.clinical-context-strip .ctx-sm { width: 5.5rem; }
+.clinical-context-strip .ctx-md { width: 7.5rem; }
+.clinical-context-strip .ctx-lg { flex: 1 1 8rem; min-width: 6rem; }
+.clinical-context-strip .ctx-grow { flex: 1 1 10rem; min-width: 8rem; }
+
+.clinical-context-strip .ctx-notes-row .ctx-grow {
+    flex: 1 1 100%;
+}
+
+/* Inline payment / totals bar */
+.ctx-payment-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.25rem 0.4rem;
+    background: #f0f7ff;
+    border: 1px solid #90caf9;
+    padding: 0.35rem 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.ctx-payment-bar .ctx-pay-item {
+    flex: 1 1 7rem;
+    min-width: 6rem;
+    max-width: 10rem;
+}
+
+.ctx-payment-bar .ctx-pay-item label,
+.ctx-payment-bar .ctx-pay-item .clinical-field-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-bottom: 0.05rem;
+    display: block;
+}
+
+.ctx-payment-bar .clinical-field {
+    font-size: 0.8rem;
+    padding: 0.22rem 0.35rem;
+    font-weight: 600;
+}
+
+.ctx-payment-bar .ctx-pay-item.ctx-pay-total .clinical-field {
+    color: #1565c0;
+    border-color: #1565c0;
+}
+
+.ctx-payment-bar .ctx-pay-item.ctx-pay-balance .clinical-field {
+    color: #c62828;
+}
+
+.clinical-his-compact .clinical-grand-total-row {
+    justify-content: flex-start;
+    margin-top: 0.2rem;
+}
+
+.clinical-his-compact .clinical-grand-total-box {
+    min-width: 10rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: left;
+}
+
+.clinical-his-compact .clinical-grand-total-box .clinical-field-label {
+    margin-bottom: 0;
+    white-space: nowrap;
+    font-size: 0.75rem;
+}
+
+.clinical-his-compact .clinical-grand-total-field {
+    font-size: 0.95rem !important;
+    flex: 1;
+    min-width: 6rem;
+}
+
+.clinical-his-compact .section-caption {
+    font-size: 0.82rem;
+    margin-bottom: 0.2rem;
+}
+
+.clinical-his-compact .form-summary-panel,
+.clinical-his-compact .invoice-summary-panel {
+    padding: 0.4rem 0.5rem !important;
+    border-width: 1px !important;
+}
+
+.clinical-his-compact .invoice-summary-compact .clinical-field-label {
+    font-size: 0.68rem;
+}
+
+/* Lab / radiology detail columns — hidden until toggled */
+.lab-line-grid-compact,
+.radiology-line-grid-compact {
+    min-width: 640px;
+}
+
+.lab-line-grid-compact .lab-col-detail,
+.radiology-line-grid-compact .rad-col-detail {
+    display: none;
+}
+
+.lab-line-grid-compact.lab-show-details,
+.radiology-line-grid-compact.rad-show-details {
+    min-width: 980px;
+}
+
+.lab-line-grid-compact.lab-show-details .lab-col-detail,
+.radiology-line-grid-compact.rad-show-details .rad-col-detail {
+    display: table-cell;
+}
+
+/* Prescription HIS layout */
+.prescription-his-layout .clinical-form-body {
+    grid-template-columns: 1fr 260px;
+}
+
+.prescription-his-layout .prescription-clinical-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-height: 0;
+}
+
+.prescription-his-layout .prescription-chronic-scroll {
+    max-height: 110px;
+    min-height: 72px;
+    overflow-y: auto;
+}
+
+.prescription-his-layout .prescription-diagnosis-block label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1565c0;
+}
+
+.prescription-his-layout .prescription-diagnosis-block textarea {
+    min-height: 5.5rem;
+    max-height: 8rem;
+    font-size: 0.85rem;
+    resize: vertical;
+}
+
+.prescription-his-layout .clinical-record-grid {
+    max-height: calc(100vh - 280px) !important;
+}
+
+@media (max-width: 1200px) {
+    .clinical-context-strip .ctx-demographics {
+        gap: 0.2rem;
+    }
+    .clinical-context-strip .ctx-lg,
+    .clinical-context-strip .ctx-grow {
+        min-width: 5rem;
+    }
+}
+
