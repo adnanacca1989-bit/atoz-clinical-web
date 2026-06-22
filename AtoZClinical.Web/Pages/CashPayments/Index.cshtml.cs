@@ -64,6 +64,8 @@ public class IndexModel : ClinicFormPageModel
         if (item is null) return;
         RecordId = item.Id;
         Input = CashPaymentInput.FromEntity(item);
+        if (Input.Amount > 0 && (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase)))
+            Input.WrittenAmount = AmountWords.Convert(Input.Amount);
     }
 
     private async Task PrepareNew(Guid clinicId)
@@ -77,6 +79,7 @@ public class IndexModel : ClinicFormPageModel
             PaymentDate = DateTime.Today,
             PaymentMethod = ClinicLookup.PaymentMethods[0],
             WrittenAmount = "Zero",
+            BalanceStatus = "Due",
             ChartAccountName = accounts.FirstOrDefault()?.Name ?? ClinicLookup.AccountNames[0]
         };
     }
@@ -85,17 +88,16 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+        if (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase))
+            Input.WrittenAmount = AmountWords.Convert(Input.Amount);
         var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
         var entity = Input.ToEntity(isNew ? null : RecordId);
         var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
         return RedirectAfterSave(saved.Id);
     }
 
-    private Task<IActionResult> NewCoreAsync()
-    {
-        RecordId = null;
-        return Task.FromResult<IActionResult>(RedirectToPage());
-    }
+    private Task<IActionResult> NewCoreAsync() =>
+        Task.FromResult<IActionResult>(RedirectToNewForm());
 
     private async Task<IActionResult> DeleteCoreAsync()
     {
@@ -129,11 +131,12 @@ public class IndexModel : ClinicFormPageModel
         public string? City { get; set; }
         public string? DoctorName { get; set; }
         public string? Specialty { get; set; }
+        public decimal BalanceDue { get; set; }
         public string? BalanceStatus { get; set; }
         public decimal Amount { get; set; }
         public string PaymentMethod { get; set; } = "Cash";
         public string? Description { get; set; }
-        public string? EndingBalance { get; set; }
+        public decimal? EndingBalance { get; set; }
         public string? ChartAccountName { get; set; }
         public string WrittenAmount { get; set; } = "Zero";
         public string? ReferenceNo { get; set; }

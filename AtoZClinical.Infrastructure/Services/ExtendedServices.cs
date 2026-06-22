@@ -289,6 +289,9 @@ public sealed class InvoiceService
     public Task<Invoice?> GetAsync(Guid clinicId, Guid id) =>
         _db.Invoices.Include(i => i.Lines).FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Id == id);
 
+    public async Task<int> NextInvoiceNoAsync(Guid clinicId) =>
+        (await _db.Invoices.Where(i => i.ClinicId == clinicId).MaxAsync(i => (int?)i.InvoiceNo) ?? 0) + 1;
+
     public async Task<Invoice> SaveAsync(Guid clinicId, Invoice item, List<InvoiceLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;

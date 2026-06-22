@@ -90,11 +90,8 @@ public class IndexModel : ClinicFormPageModel
         return RedirectAfterSave(saved.Id);
     }
 
-    private Task<IActionResult> NewCoreAsync()
-    {
-        RecordId = null;
-        return Task.FromResult<IActionResult>(RedirectToPage());
-    }
+    private Task<IActionResult> NewCoreAsync() =>
+        Task.FromResult<IActionResult>(RedirectToNewForm());
 
     private async Task<IActionResult> DeleteCoreAsync()
     {
