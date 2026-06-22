@@ -5,43 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         onApply: loadPatientInvoiceCharges
     });
     bindInvoiceTotals();
-    bindInvoiceQuickService();
 });
-
-function bindInvoiceQuickService() {
-    const pick = document.getElementById('invoiceQuickServicePick');
-    const addBtn = document.getElementById('invoiceQuickServiceAdd');
-    const tbody = document.querySelector('.invoice-line-grid tbody');
-    if (!pick || !addBtn || !tbody) return;
-
-    const findTargetRow = () => {
-        const rows = tbody.querySelectorAll('tr.invoice-line');
-        for (const row of rows) {
-            const name = row.querySelector('.invoice-service-name')?.value?.trim();
-            const rate = Number(row.querySelector('[name$=".UnitFee"]')?.value) || 0;
-            if (!name && rate <= 0) return row;
-        }
-        return rows[rows.length - 1];
-    };
-
-    addBtn.addEventListener('click', () => {
-        const opt = pick.selectedOptions[0];
-        if (!opt?.value) {
-            pick.focus();
-            return;
-        }
-        const row = findTargetRow();
-        if (!row) return;
-        const nameInput = row.querySelector('.invoice-service-name');
-        const rateInput = row.querySelector('[name$=".UnitFee"]');
-        const qtyInput = row.querySelector('[name$=".Qty"]');
-        if (nameInput) nameInput.value = opt.value;
-        if (rateInput && opt.dataset.fee) rateInput.value = opt.dataset.fee;
-        if (qtyInput && !qtyInput.value) qtyInput.value = '1';
-        if (typeof window.recalcInvoiceTotals === 'function') window.recalcInvoiceTotals();
-    });
-}
-
 function bindInvoiceTotals() {
     const subTotalEl = document.getElementById('invoiceSubTotal');
     const netEl = document.getElementById('invoiceNetAmount');

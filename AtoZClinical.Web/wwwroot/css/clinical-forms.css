@@ -394,15 +394,80 @@ main:has(.clinical-form-page) {
     padding: 0.25rem 0.4rem;
 }
 
-/* Invoice uses same standard form scroll rules as other clinical forms */
+/* Invoice form: fill viewport; line grid scrolls inside left panel */
 .clinical-standard-form.invoice-form-page .clinical-form-body,
 .invoice-form-page.clinical-standard-form .clinical-form-body {
-    max-height: none;
-    overflow: visible;
+    max-height: calc(100vh - 200px);
+    overflow: hidden;
 }
 
-.clinical-standard-form .invoice-line-grid-scroll {
-    max-height: min(360px, 40vh);
+/* Invoice form: maximize line table, compact totals footer */
+.invoice-form-page .clinical-form-grid-area.invoice-lines-area {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.invoice-form-page .invoice-line-grid-scroll {
+    flex: 1 1 auto;
+    min-height: 220px;
+    max-height: none;
+    overflow: scroll;
+    scrollbar-gutter: stable;
+}
+
+.invoice-form-page .invoice-line-grid {
+    min-width: 680px;
+}
+
+.invoice-form-page .invoice-totals-compact {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+}
+
+.invoice-form-page .section-caption-sm {
+    font-size: 0.8rem;
+    margin-bottom: 0.15rem;
+}
+
+.invoice-summary-compact {
+    padding: 0.4rem 0.55rem !important;
+    margin-top: 0 !important;
+    border-width: 1px !important;
+}
+
+.invoice-summary-compact .clinical-field-label {
+    font-size: 0.7rem !important;
+    margin-bottom: 0.05rem !important;
+    font-weight: 600 !important;
+}
+
+.invoice-summary-compact .invoice-summary-field {
+    font-size: 0.82rem !important;
+    padding: 0.2rem 0.35rem !important;
+    font-weight: 600;
+}
+
+.invoice-summary-compact .invoice-balance-field {
+    font-size: 0.85rem !important;
+}
+
+.clinical-page-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem 0.25rem;
+}
+
+.clinical-page-title-row .page-title {
+    padding: 0;
+}
+
+.clinical-form-illustration.lab-needle-icon {
+    height: 56px;
+    width: auto;
+    flex-shrink: 0;
+    object-fit: contain;
 }
 
 .pharmacy-line-grid th.col-item,
