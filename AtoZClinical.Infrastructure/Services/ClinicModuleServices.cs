@@ -195,6 +195,9 @@ public sealed class CashReceiptService
     public Task<CashReceipt?> GetAsync(Guid clinicId, Guid id) =>
         _db.CashReceipts.FirstOrDefaultAsync(c => c.ClinicId == clinicId && c.Id == id);
 
+    public async Task<int> NextReceiptNoAsync(Guid clinicId) =>
+        (await _db.CashReceipts.Where(c => c.ClinicId == clinicId).MaxAsync(c => (int?)c.ReceiptNo) ?? 0) + 1;
+
     public async Task<CashReceipt> SaveAsync(Guid clinicId, CashReceipt item)
     {
         item.ClinicId = clinicId;

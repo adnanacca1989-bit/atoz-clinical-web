@@ -470,6 +470,20 @@ main:has(.clinical-form-page) {
     object-fit: contain;
 }
 
+.clinical-patient-header-compact {
+    flex-shrink: 0;
+}
+
+.clinical-patient-header-compact .clinical-field-label {
+    font-size: 0.75rem;
+    margin-bottom: 0.1rem;
+}
+
+.clinical-patient-header-compact .clinical-field {
+    font-size: 0.82rem;
+    padding: 0.28rem 0.4rem;
+}
+
 .pharmacy-line-grid th.col-item,
 .pharmacy-line-grid td.col-item {
     min-width: 220px;

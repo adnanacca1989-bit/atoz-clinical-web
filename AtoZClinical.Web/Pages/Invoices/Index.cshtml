@@ -13,7 +13,7 @@
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
-                <div class="row g-2 mb-2 clinical-form-header">
+                <div class="row g-2 mb-2 clinical-form-header clinical-patient-header-compact">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Invoice ID</label>
                         <input asp-for="Input.InvoiceNo" class="clinical-field" readonly />
@@ -22,7 +22,7 @@
                         <label class="clinical-field-label">Invoice Date</label>
                         <input asp-for="Input.InvoiceDate" class="clinical-field" type="date" />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-8">
                         <label class="clinical-field-label">Patient Name</label>
                         <input asp-for="Input.PatientName" id="invoicePatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
                     </div>
@@ -34,7 +34,7 @@
                         <label class="clinical-field-label">Age</label>
                         <input asp-for="Input.Age" class="clinical-field" type="number" readonly />
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <label class="clinical-field-label">Gender</label>
                         <input asp-for="Input.Gender" class="clinical-field" readonly />
                     </div>
@@ -46,17 +46,13 @@
                         <label class="clinical-field-label">City</label>
                         <input asp-for="Input.City" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Doctor Name</label>
                         <input asp-for="Input.DoctorName" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Specialty</label>
                         <input asp-for="Input.Specialty" class="clinical-field" readonly />
-                    </div>
-                    <div class="col-md-4">
-                        <label class="clinical-field-label">Invoice Status</label>
-                        <input asp-for="Input.PaymentStatus" class="clinical-field" />
                     </div>
                 </div>
                 <div class="clinical-form-grid-area invoice-lines-area">
@@ -109,6 +105,10 @@
                     <div class="col">
                         <label class="clinical-field-label">Balance Due</label>
                         <input id="invoiceBalance" value="@Model.Balance.ToString("N2")" class="clinical-field invoice-summary-field invoice-balance-field" readonly />
+                    </div>
+                    <div class="col">
+                        <label class="clinical-field-label">Invoice Status</label>
+                        <input asp-for="Input.PaymentStatus" class="clinical-field invoice-summary-field" />
                     </div>
                 </div>
                 </div>

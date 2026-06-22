@@ -26,7 +26,9 @@ public class IndexModel : ClinicFormPageModel
         await LoadAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (Records.Count > 0 && Input.ReceiptNo == 0)
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
@@ -65,8 +67,7 @@ public class IndexModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
-        var all = await _service.ListAsync(clinicId);
-        var next = (all.Count > 0 ? all.Max(c => c.ReceiptNo) : 0) + 1;
+        var next = await _service.NextReceiptNoAsync(clinicId);
         Input = new CashReceiptInput
         {
             ReceiptNo = next,
@@ -83,7 +84,8 @@ public class IndexModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
         if (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase))
             Input.WrittenAmount = AmountWords.Convert(Input.Amount);
-        var entity = Input.ToEntity(RecordId);
+        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
+        var entity = Input.ToEntity(isNew ? null : RecordId);
         var saved = await _service.SaveAsync(clinicId.Value, entity);
         return RedirectAfterSave(saved.Id);
     }

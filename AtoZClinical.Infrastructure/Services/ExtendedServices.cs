@@ -352,6 +352,9 @@ public sealed class CashPaymentService
     public Task<CashPayment?> GetAsync(Guid clinicId, Guid id) =>
         _db.CashPayments.FirstOrDefaultAsync(c => c.ClinicId == clinicId && c.Id == id);
 
+    public async Task<int> NextPaymentNoAsync(Guid clinicId) =>
+        (await _db.CashPayments.Where(c => c.ClinicId == clinicId).MaxAsync(c => (int?)c.PaymentNo) ?? 0) + 1;
+
     public async Task<CashPayment> SaveAsync(Guid clinicId, CashPayment item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;

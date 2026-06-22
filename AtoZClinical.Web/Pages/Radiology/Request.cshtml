@@ -13,50 +13,50 @@
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
-                <div class="row g-2 mb-2 clinical-form-header">
-                    <div class="col-md-3">
+                <div class="row g-2 mb-2 clinical-form-header clinical-patient-header-compact">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Request ID</label>
                         <input asp-for="Input.RequestNo" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Request Date</label>
                         <input asp-for="Input.RequestDate" class="clinical-field" type="date" />
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <label class="clinical-field-label field-required">Patient Name</label>
                         <input asp-for="Input.PatientName" id="radiologyRequestPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." required />
                         <span asp-validation-for="Input.PatientName" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Patient Barcode</label>
                         <input asp-for="Input.PatientBarcode" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <label class="clinical-field-label field-required">Age</label>
                         <input asp-for="Input.Age" class="clinical-field" type="number" readonly required />
                         <span asp-validation-for="Input.Age" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <label class="clinical-field-label field-required">Gender</label>
                         <input asp-for="Input.Gender" class="clinical-field" readonly required />
                         <span asp-validation-for="Input.Gender" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-4">
-                        <label class="clinical-field-label field-required">Phone Number</label>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label field-required">Phone</label>
                         <input asp-for="Input.Phone" class="clinical-field" readonly required />
                         <span asp-validation-for="Input.Phone" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label field-required">City</label>
                         <input asp-for="Input.City" class="clinical-field" readonly required />
                         <span asp-validation-for="Input.City" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label field-required">Doctor Name</label>
                         <input asp-for="Input.DoctorName" class="clinical-field" readonly required />
                         <span asp-validation-for="Input.DoctorName" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label field-required">Specialty</label>
                         <input asp-for="Input.Specialty" class="clinical-field" readonly required />
                         <span asp-validation-for="Input.Specialty" class="text-danger small"></span>

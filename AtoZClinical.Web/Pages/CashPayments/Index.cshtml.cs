@@ -29,7 +29,9 @@ public class IndexModel : ClinicFormPageModel
         await LoadAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (Records.Count > 0 && Input.PaymentNo == 0)
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
@@ -67,8 +69,7 @@ public class IndexModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
-        var all = await _service.ListAsync(clinicId);
-        var next = (all.Count > 0 ? all.Max(c => c.PaymentNo) : 0) + 1;
+        var next = await _service.NextPaymentNoAsync(clinicId);
         var accounts = await _chartService.ListAsync(clinicId);
         Input = new CashPaymentInput
         {
@@ -84,7 +85,8 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
-        var entity = Input.ToEntity(RecordId);
+        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
+        var entity = Input.ToEntity(isNew ? null : RecordId);
         var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
         return RedirectAfterSave(saved.Id);
     }

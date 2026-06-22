@@ -13,7 +13,7 @@
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
-                <div class="row g-2 mb-2 clinical-form-header">
+                <div class="row g-2 mb-2 clinical-form-header clinical-patient-header-compact">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Request ID</label>
                         <input asp-for="Input.RequestNo" class="clinical-field" readonly />
@@ -22,15 +22,7 @@
                         <label class="clinical-field-label">Request Date</label>
                         <input asp-for="Input.RequestDate" class="clinical-field" type="date" />
                     </div>
-                    <div class="col-md-2">
-                        <label class="clinical-field-label">Prescription No</label>
-                        <input asp-for="Input.PrescriptionNo" class="clinical-field" type="number" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="clinical-field-label">Notes</label>
-                        <input asp-for="Input.Notes" class="clinical-field" />
-                    </div>
-                    <div class="col-md-4">
+                    <div class="col-md-8">
                         <label class="clinical-field-label">Patient Name</label>
                         <input asp-for="Input.PatientName" id="pharmacyRequestPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
                     </div>
@@ -38,29 +30,37 @@
                         <label class="clinical-field-label">Patient Barcode</label>
                         <input asp-for="Input.PatientId" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <label class="clinical-field-label">Age</label>
                         <input asp-for="Input.Age" class="clinical-field" type="number" readonly />
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <label class="clinical-field-label">Gender</label>
                         <input asp-for="Input.Gender" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Phone</label>
                         <input asp-for="Input.Phone" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">City</label>
                         <input asp-for="Input.City" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Doctor Name</label>
                         <input asp-for="Input.DoctorName" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="clinical-field-label">Specialty</label>
                         <input asp-for="Input.Specialty" class="clinical-field" readonly />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">Prescription No</label>
+                        <input asp-for="Input.PrescriptionNo" class="clinical-field" type="number" />
+                    </div>
+                    <div class="col-md-10">
+                        <label class="clinical-field-label">Notes</label>
+                        <input asp-for="Input.Notes" class="clinical-field" />
                     </div>
                 </div>
                 <div class="clinical-form-grid-area">
