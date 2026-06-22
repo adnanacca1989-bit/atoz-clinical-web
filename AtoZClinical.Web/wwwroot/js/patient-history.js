@@ -25,4 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const doctorName = document.querySelector('#patientHistoryDoctorInput')?.value || '';
         openPatientPrintBundle(patientName, patientId, doctorName);
     });
+
+    document.querySelectorAll('[data-print-section]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const patientName = document.querySelector('#patientHistoryPatientInput')?.value || '';
+            const patientId = document.querySelector('#patientHistoryPatientIdInput')?.value || '';
+            const doctorName = document.querySelector('#patientHistoryDoctorInput')?.value || '';
+            openPatientPrintBundle(patientName, patientId, doctorName, btn.getAttribute('data-print-section'));
+        });
+    });
 });

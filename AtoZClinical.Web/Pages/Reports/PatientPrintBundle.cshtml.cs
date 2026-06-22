@@ -24,7 +24,18 @@ public class PatientPrintBundleModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string? DoctorName { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string? Section { get; set; }
+
     public PatientPrintBundle Bundle { get; private set; } = new();
+
+    private static readonly Dictionary<string, string[]> SectionTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["radiology"] = ["Radiology Result"],
+        ["laboratory"] = ["Laboratory Result"],
+        ["prescription"] = ["Doctor's Prescription"],
+        ["cash"] = ["Cash Receipt", "Cash Payment"]
+    };
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -32,6 +43,10 @@ public class PatientPrintBundleModel : PageModel
         if (clinicId is null) return Forbid();
 
         Bundle = await _bundleService.BuildAsync(clinicId.Value, PatientName, PatientId, DoctorName);
+
+        if (!string.IsNullOrWhiteSpace(Section) && SectionTitles.TryGetValue(Section.Trim(), out var titles))
+            Bundle.Sections = Bundle.Sections.Where(s => titles.Contains(s.Title)).ToList();
+
         return Page();
     }
 }

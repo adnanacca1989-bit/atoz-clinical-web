@@ -158,6 +158,54 @@ public sealed class PatientInvoiceService
 
         lines.Insert(0, new PatientChargeLine(serviceName, 1, fee, "Consultation"));
     }
+
+    public async Task RecalculateInvoicePaymentsAsync(Guid clinicId, string? patientName, string? patientId)
+    {
+        if (string.IsNullOrWhiteSpace(patientName) && string.IsNullOrWhiteSpace(patientId))
+            return;
+
+        var invoices = await _db.Invoices
+            .Where(i => i.ClinicId == clinicId)
+            .Where(i =>
+                (!string.IsNullOrWhiteSpace(patientId) && i.PatientId == patientId) ||
+                (!string.IsNullOrWhiteSpace(patientName) && i.PatientName == patientName))
+            .OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo)
+            .ToListAsync();
+
+        if (invoices.Count == 0) return;
+
+        var receipts = await _db.CashReceipts
+            .Where(r => r.ClinicId == clinicId)
+            .Where(r =>
+                (!string.IsNullOrWhiteSpace(patientId) && r.PatientId == patientId) ||
+                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName == patientName))
+            .OrderBy(r => r.ReceiptDate).ThenBy(r => r.ReceiptNo)
+            .ToListAsync();
+
+        foreach (var inv in invoices)
+        {
+            inv.AmountPaid = 0;
+            inv.BalanceDue = inv.TotalAmount;
+            inv.PaymentStatus = inv.BalanceDue > 0 ? "Unpaid" : "Paid";
+        }
+
+        foreach (var receipt in receipts)
+        {
+            var remaining = receipt.Amount;
+            foreach (var inv in invoices.Where(i => i.BalanceDue > 0))
+            {
+                if (remaining <= 0) break;
+                var apply = Math.Min(remaining, inv.BalanceDue);
+                inv.AmountPaid += apply;
+                inv.BalanceDue -= apply;
+                remaining -= apply;
+                inv.PaymentStatus = inv.BalanceDue <= 0 ? "Paid" : "Partial";
+                if (inv.BalanceDue < 0) inv.BalanceDue = 0;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+    }
 }
 
 public sealed record PatientChargeLine(string ServiceName, int Qty, decimal UnitFee, string Category);

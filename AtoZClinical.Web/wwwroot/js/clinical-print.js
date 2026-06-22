@@ -11,7 +11,7 @@ function clinicalPrintReport() {
     window.addEventListener('afterprint', () => document.body.classList.remove('clinical-report-page-printing'), { once: true });
 }
 
-function openPatientPrintBundle(patientName, patientId, doctorName) {
+function openPatientPrintBundle(patientName, patientId, doctorName, section) {
     if (!patientName?.trim() && !patientId?.trim()) {
         alert('Please select a patient before printing all reports.');
         return;
@@ -20,5 +20,6 @@ function openPatientPrintBundle(patientName, patientId, doctorName) {
     if (patientName?.trim()) params.set('patientName', patientName.trim());
     if (patientId?.trim()) params.set('patientId', patientId.trim());
     if (doctorName?.trim()) params.set('doctorName', doctorName.trim());
+    if (section?.trim()) params.set('section', section.trim());
     window.open(`/Reports/PatientPrintBundle?${params}`, '_blank');
 }

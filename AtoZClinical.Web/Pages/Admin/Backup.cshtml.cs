@@ -20,6 +20,11 @@ public class BackupModel : PageModel
 
     public string ClinicName { get; private set; } = string.Empty;
     public string StatusText => $"{DateTime.Now:M/d/yyyy h:mm tt} - Ready";
+    public RestoreSummary? LastRestore { get; private set; }
+    public string? RestoreMessage { get; private set; }
+
+    [BindProperty]
+    public IFormFile? RestoreFile { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -54,6 +59,34 @@ public class BackupModel : PageModel
 
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"{safeName}_Backup_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
+    }
+
+    public async Task<IActionResult> OnPostRestoreAsync()
+    {
+        var clinic = await _clinicContext.GetCurrentClinicAsync();
+        if (clinic is null) return Forbid();
+        ClinicName = clinic.Name;
+
+        if (RestoreFile is null || RestoreFile.Length == 0)
+        {
+            RestoreMessage = "Please select a backup ZIP file to restore.";
+            return Page();
+        }
+
+        try
+        {
+            await using var stream = RestoreFile.OpenReadStream();
+            LastRestore = await _backup.RestoreFromZipAsync(clinic.Id, stream);
+            RestoreMessage =
+                $"Restore complete: {LastRestore.PatientsImported} patients, {LastRestore.DoctorsImported} doctors, {LastRestore.ChartAccountsImported} chart accounts imported.";
+            await _audit.LogAsync(clinic.Id, User.Identity?.Name, "Data Backup", "Restore", RestoreMessage);
+        }
+        catch (Exception ex)
+        {
+            RestoreMessage = $"Restore failed: {ex.Message}";
+        }
+
+        return Page();
     }
 
     private static string SanitizeFileName(string name)

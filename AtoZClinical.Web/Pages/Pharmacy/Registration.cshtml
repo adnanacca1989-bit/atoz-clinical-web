@@ -78,7 +78,7 @@
                         <label class="clinical-field-label">Inventory (Qty on Hand)</label>
                         <input asp-for="Input.QuantityOnHand" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label class="clinical-field-label">Income Account</label>
                         <select asp-for="Input.IncomeAccountName" class="clinical-field">
                             <option value="">-- Select --</option>
@@ -88,11 +88,21 @@
                             }
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <label class="clinical-field-label">Cost / Inventory Account</label>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Cost of Goods</label>
                         <select asp-for="Input.CostAccountName" class="clinical-field">
                             <option value="">-- Select --</option>
-                            @foreach (var acct in Model.CostAccounts)
+                            @foreach (var acct in Model.CostOfGoodsAccounts)
+                            {
+                                <option value="@acct.Name">@acct.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Inventory Account</label>
+                        <select asp-for="Input.InventoryAccountName" class="clinical-field">
+                            <option value="">-- Select --</option>
+                            @foreach (var acct in Model.InventoryAccounts)
                             {
                                 <option value="@acct.Name">@acct.Name</option>
                             }

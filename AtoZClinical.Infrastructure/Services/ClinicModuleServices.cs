@@ -187,7 +187,13 @@ public sealed class ServiceIncomeService
 public sealed class CashReceiptService
 {
     private readonly ClinicalDbContext _db;
-    public CashReceiptService(ClinicalDbContext db) => _db = db;
+    private readonly PatientInvoiceService _invoices;
+
+    public CashReceiptService(ClinicalDbContext db, PatientInvoiceService invoices)
+    {
+        _db = db;
+        _invoices = invoices;
+    }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
         _db.CashReceipts.Where(c => c.ClinicId == clinicId).OrderByDescending(c => c.ReceiptNo).ToListAsync();
@@ -211,6 +217,7 @@ public sealed class CashReceiptService
         }
         else _db.CashReceipts.Update(item);
         await _db.SaveChangesAsync();
+        await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId);
         return item;
     }
 
@@ -218,8 +225,11 @@ public sealed class CashReceiptService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        var patientName = item.PatientName;
+        var patientId = item.PatientId;
         _db.CashReceipts.Remove(item);
         await _db.SaveChangesAsync();
+        await _invoices.RecalculateInvoicePaymentsAsync(clinicId, patientName, patientId);
     }
 }
 

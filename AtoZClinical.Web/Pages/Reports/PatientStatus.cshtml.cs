@@ -68,6 +68,19 @@ public class PatientStatusModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostExportAsync()
+    {
+        await RunAsync();
+        var bytes = ReportExcelService.Export("Patient Status",
+            ["Patient", "Appointment Date", "Time", "Doctor", "Specialty", "Invoice Balance", "Status"],
+            Results.Select(r => new object?[]
+            {
+                r.PatientName, r.AppointmentDate, r.AppointmentTime?.ToString(@"hh\:mm"), r.DoctorName, r.Specialty, r.InvoiceBalance, r.Status
+            }));
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"PatientStatus_{DateTime.Now:yyyyMMdd}.xlsx");
+    }
+
     public sealed record StatusRow(
         string PatientName,
         DateTime? AppointmentDate,

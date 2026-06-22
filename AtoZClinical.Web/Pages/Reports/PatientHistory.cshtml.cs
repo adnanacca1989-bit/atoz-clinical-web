@@ -137,5 +137,15 @@ public class PatientHistoryModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostExportAsync()
+    {
+        await RunSearchAsync();
+        var bytes = ReportExcelService.Export("Patient History",
+            ["Patient", "Form", "Date", "Doctor", "Details"],
+            Results.Select(r => new object?[] { r.Patient, r.Form, r.Date, r.Doctor, r.Details }));
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"PatientHistory_{DateTime.Now:yyyyMMdd}.xlsx");
+    }
+
     public sealed record HistoryRow(string Patient, string Form, DateTime Date, string Doctor, string? Details);
 }

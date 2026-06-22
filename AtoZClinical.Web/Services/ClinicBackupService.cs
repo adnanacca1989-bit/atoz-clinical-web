@@ -91,12 +91,23 @@ public sealed class ClinicBackupService
         return stream.ToArray();
     }
 
+    private static void InsertTableOrEmpty<T>(IXLWorksheet ws, IEnumerable<T> rows)
+    {
+        var list = rows.ToList();
+        if (list.Count == 0)
+        {
+            ws.Cell(1, 1).Value = "No records";
+            return;
+        }
+        ws.Cell(1, 1).InsertTable(list);
+    }
+
     private async Task<byte[]> ExportPatientsAsync(Guid clinicId)
     {
         var rows = await _db.Patients.Where(p => p.ClinicId == clinicId).OrderBy(p => p.PatientNo).ToListAsync();
         return ToBytes(ws =>
         {
-            ws.Cell(1, 1).InsertTable(rows.Select(p => new
+            InsertTableOrEmpty(ws, rows.Select(p => new
             {
                 p.PatientNo,
                 Name = p.FullName,
@@ -113,17 +124,17 @@ public sealed class ClinicBackupService
 
     private static byte[] ExportDoctors(List<Core.Entities.Doctor> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(d => new { d.DoctorNo, d.Name, d.Specialty, d.Phone, d.Email, d.ConsultationFee }));
+        InsertTableOrEmpty(ws, rows.Select(d => new { d.DoctorNo, d.Name, d.Specialty, d.Phone, d.Email, d.ConsultationFee }));
     });
 
     private static byte[] ExportServiceIncomes(List<Core.Entities.ServiceIncome> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(s => new { s.ServiceNo, s.Name, s.AccountName, s.Fee }));
+        InsertTableOrEmpty(ws, rows.Select(s => new { s.ServiceNo, s.Name, s.AccountName, s.Fee }));
     });
 
     private static byte[] ExportLabTests(List<Core.Entities.LabTest> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(t => new { t.TestNo, t.TestCode, t.TestName, t.Category, t.Fee, t.Note }));
+        InsertTableOrEmpty(ws, rows.Select(t => new { t.TestNo, t.TestCode, t.TestName, t.Category, t.Fee, t.Note }));
     });
 
     private async Task<byte[]> ExportLabRequestsAsync(Guid clinicId)
@@ -131,7 +142,7 @@ public sealed class ClinicBackupService
         var rows = await _db.LabRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).ToListAsync();
         return ToBytes(ws =>
         {
-            ws.Cell(1, 1).InsertTable(rows.SelectMany(r => r.Lines.Select(l => new
+            InsertTableOrEmpty(ws, rows.SelectMany(r => r.Lines.Select(l => new
             {
                 r.RequestNo,
                 r.RequestDate,
@@ -148,7 +159,7 @@ public sealed class ClinicBackupService
 
     private static byte[] ExportRadiologyTests(List<Core.Entities.RadiologyTest> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(t => new { t.TestNo, t.TestCode, t.TestName, t.Category, t.Fee, t.Note }));
+        InsertTableOrEmpty(ws, rows.Select(t => new { t.TestNo, t.TestCode, t.TestName, t.Category, t.Fee, t.Note }));
     });
 
     private async Task<byte[]> ExportRadiologyRequestsAsync(Guid clinicId)
@@ -156,7 +167,7 @@ public sealed class ClinicBackupService
         var rows = await _db.RadiologyRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).ToListAsync();
         return ToBytes(ws =>
         {
-            ws.Cell(1, 1).InsertTable(rows.SelectMany(r => r.Lines.Select(l => new
+            InsertTableOrEmpty(ws, rows.SelectMany(r => r.Lines.Select(l => new
             {
                 r.RequestNo,
                 r.RequestDate,
@@ -173,7 +184,7 @@ public sealed class ClinicBackupService
 
     private static byte[] ExportPrescriptions(List<Core.Entities.Prescription> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(p => new
+        InsertTableOrEmpty(ws, rows.Select(p => new
         {
             p.PrescriptionNo,
             p.DatePrescription,
@@ -190,7 +201,7 @@ public sealed class ClinicBackupService
         var rows = await _db.Invoices.Include(i => i.Lines).Where(i => i.ClinicId == clinicId).ToListAsync();
         return ToBytes(ws =>
         {
-            ws.Cell(1, 1).InsertTable(rows.SelectMany(i => i.Lines.Select(l => new
+            InsertTableOrEmpty(ws, rows.SelectMany(i => i.Lines.Select(l => new
             {
                 i.InvoiceNo,
                 i.InvoiceDate,
@@ -208,7 +219,7 @@ public sealed class ClinicBackupService
 
     private static byte[] ExportCashReceipts(List<Core.Entities.CashReceipt> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(c => new
+        InsertTableOrEmpty(ws, rows.Select(c => new
         {
             c.ReceiptNo,
             c.ReceiptDate,
@@ -223,7 +234,7 @@ public sealed class ClinicBackupService
 
     private static byte[] ExportCashPayments(List<Core.Entities.CashPayment> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(c => new
+        InsertTableOrEmpty(ws, rows.Select(c => new
         {
             c.PaymentNo,
             c.PaymentDate,
@@ -240,7 +251,7 @@ public sealed class ClinicBackupService
         var rows = await _db.PharmacyRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).ToListAsync();
         return ToBytes(ws =>
         {
-            ws.Cell(1, 1).InsertTable(rows.SelectMany(r => r.Lines.Select(l => new
+            InsertTableOrEmpty(ws, rows.SelectMany(r => r.Lines.Select(l => new
             {
                 r.RequestNo,
                 r.RequestDate,
@@ -262,7 +273,7 @@ public sealed class ClinicBackupService
         var rows = await _db.PharmacyBills.Include(b => b.Lines).Where(b => b.ClinicId == clinicId).ToListAsync();
         return ToBytes(ws =>
         {
-            ws.Cell(1, 1).InsertTable(rows.SelectMany(b => b.Lines.Select(l => new
+            InsertTableOrEmpty(ws, rows.SelectMany(b => b.Lines.Select(l => new
             {
                 b.BillNo,
                 b.BillDate,
@@ -283,11 +294,157 @@ public sealed class ClinicBackupService
 
     private static byte[] ExportChartAccounts(List<Core.Entities.ChartAccount> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(a => new { a.AccountNo, a.Name, a.CategoryType, a.DetailType, a.Description }));
+        InsertTableOrEmpty(ws, rows.Select(a => new { a.AccountNo, a.Name, a.CategoryType, a.DetailType, a.Description }));
     });
 
     private static byte[] ExportAuditLog(List<Core.Entities.AuditLogEntry> rows) => ToBytes(ws =>
     {
-        ws.Cell(1, 1).InsertTable(rows.Select(a => new { a.Type, a.DateTime, a.UserName, a.FormName, a.Details }));
+        InsertTableOrEmpty(ws, rows.Select(a => new { a.Type, a.DateTime, a.UserName, a.FormName, a.Details }));
     });
+
+    public async Task<RestoreSummary> RestoreFromZipAsync(Guid clinicId, Stream zipStream)
+    {
+        var summary = new RestoreSummary();
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
+
+        foreach (var entry in archive.Entries)
+        {
+            if (entry.Length == 0) continue;
+            await using var entryStream = entry.Open();
+            switch (entry.Name.ToLowerInvariant())
+            {
+                case "patients.xlsx":
+                    summary.PatientsImported += await ImportPatientsAsync(clinicId, entryStream);
+                    break;
+                case "doctors.xlsx":
+                    summary.DoctorsImported += await ImportDoctorsAsync(clinicId, entryStream);
+                    break;
+                case "chartofaccounts.xlsx":
+                    summary.ChartAccountsImported += await ImportChartAccountsAsync(clinicId, entryStream);
+                    break;
+                default:
+                    summary.SkippedFiles.Add(entry.Name);
+                    break;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return summary;
+    }
+
+    private async Task<int> ImportPatientsAsync(Guid clinicId, Stream stream)
+    {
+        using var workbook = new XLWorkbook(stream);
+        var ws = workbook.Worksheet(1);
+        var rows = ws.RangeUsed()?.RowsUsed().Skip(1);
+        if (rows is null) return 0;
+
+        var count = 0;
+        foreach (var row in rows)
+        {
+            if (row.Cell(1).GetString().Equals("No records", StringComparison.OrdinalIgnoreCase)) break;
+            var patientNo = row.Cell(1).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(patientNo)) continue;
+
+            var fullName = row.Cell(2).GetString().Trim();
+            var existing = await _db.Patients.FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.PatientNo == patientNo);
+            if (existing is null)
+            {
+                existing = new Core.Entities.Patient { Id = Guid.NewGuid(), ClinicId = clinicId, PatientNo = patientNo, CreatedAt = DateTime.UtcNow };
+                _db.Patients.Add(existing);
+            }
+
+            var nameParts = fullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            existing.FirstName = nameParts.Length > 0 ? nameParts[0] : fullName;
+            existing.LastName = nameParts.Length > 1 ? nameParts[1] : "";
+            existing.Gender = NullIfEmpty(row.Cell(3).GetString());
+            if (row.Cell(4).TryGetValue(out DateTime dob)) existing.DateOfBirth = dob;
+            existing.Phone = NullIfEmpty(row.Cell(5).GetString());
+            existing.City = NullIfEmpty(row.Cell(6).GetString());
+            existing.DoctorName = NullIfEmpty(row.Cell(7).GetString());
+            existing.Specialty = NullIfEmpty(row.Cell(8).GetString());
+            existing.Status = NullIfEmpty(row.Cell(9).GetString()) ?? "Active";
+            existing.UpdatedAt = DateTime.UtcNow;
+            count++;
+        }
+        return count;
+    }
+
+    private async Task<int> ImportDoctorsAsync(Guid clinicId, Stream stream)
+    {
+        using var workbook = new XLWorkbook(stream);
+        var ws = workbook.Worksheet(1);
+        var rows = ws.RangeUsed()?.RowsUsed().Skip(1);
+        if (rows is null) return 0;
+
+        var count = 0;
+        foreach (var row in rows)
+        {
+            if (row.Cell(1).GetString().Equals("No records", StringComparison.OrdinalIgnoreCase)) break;
+            if (!row.Cell(1).TryGetValue(out int doctorNo) || doctorNo <= 0) continue;
+
+            var name = row.Cell(2).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            var existing = await _db.Doctors.FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.DoctorNo == doctorNo);
+            if (existing is null)
+            {
+                existing = new Core.Entities.Doctor { Id = Guid.NewGuid(), ClinicId = clinicId, DoctorNo = doctorNo, CreatedAt = DateTime.UtcNow };
+                _db.Doctors.Add(existing);
+            }
+
+            existing.Name = name;
+            existing.Specialty = NullIfEmpty(row.Cell(3).GetString());
+            existing.Phone = NullIfEmpty(row.Cell(4).GetString());
+            existing.Email = NullIfEmpty(row.Cell(5).GetString());
+            if (row.Cell(6).TryGetValue(out decimal fee)) existing.ConsultationFee = fee;
+            existing.UpdatedAt = DateTime.UtcNow;
+            count++;
+        }
+        return count;
+    }
+
+    private async Task<int> ImportChartAccountsAsync(Guid clinicId, Stream stream)
+    {
+        using var workbook = new XLWorkbook(stream);
+        var ws = workbook.Worksheet(1);
+        var rows = ws.RangeUsed()?.RowsUsed().Skip(1);
+        if (rows is null) return 0;
+
+        var count = 0;
+        foreach (var row in rows)
+        {
+            if (row.Cell(1).GetString().Equals("No records", StringComparison.OrdinalIgnoreCase)) break;
+            if (!row.Cell(1).TryGetValue(out int accountNo) || accountNo <= 0) continue;
+
+            var name = row.Cell(2).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            var existing = await _db.ChartAccounts.FirstOrDefaultAsync(a => a.ClinicId == clinicId && a.AccountNo == accountNo);
+            if (existing is null)
+            {
+                existing = new Core.Entities.ChartAccount { Id = Guid.NewGuid(), ClinicId = clinicId, AccountNo = accountNo, CreatedAt = DateTime.UtcNow };
+                _db.ChartAccounts.Add(existing);
+            }
+
+            existing.Name = name;
+            existing.CategoryType = row.Cell(3).GetString().Trim();
+            existing.DetailType = NullIfEmpty(row.Cell(4).GetString());
+            existing.Description = NullIfEmpty(row.Cell(5).GetString());
+            existing.UpdatedAt = DateTime.UtcNow;
+            count++;
+        }
+        return count;
+    }
+
+    private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+public sealed class RestoreSummary
+{
+    public int PatientsImported { get; set; }
+    public int DoctorsImported { get; set; }
+    public int ChartAccountsImported { get; set; }
+    public List<string> SkippedFiles { get; set; } = [];
+    public List<string> Messages { get; set; } = [];
 }

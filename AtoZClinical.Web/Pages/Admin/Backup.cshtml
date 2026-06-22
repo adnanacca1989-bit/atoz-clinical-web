@@ -37,6 +37,28 @@
         </div>
     </div>
 
+    <div class="row g-4 mt-2">
+        <div class="col-md-12">
+            <div class="atz-card p-4">
+                <h5>Restore from Backup (ZIP)</h5>
+                <p class="text-muted small">
+                    Upload a ZIP backup file exported from this system. Patients, doctors, and chart of accounts will be imported or updated by ID.
+                    Other files in the archive are skipped for safety.
+                </p>
+                @if (!string.IsNullOrWhiteSpace(Model.RestoreMessage))
+                {
+                    <div class="alert @(Model.RestoreMessage.StartsWith("Restore complete") ? "alert-success" : "alert-warning")">@Model.RestoreMessage</div>
+                }
+                <form method="post" asp-page-handler="Restore" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <input type="file" name="RestoreFile" class="form-control" accept=".zip" />
+                    </div>
+                    <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Restore will update matching records in this clinic. Continue?');">📥 Restore from ZIP</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="clinical-toolbar mt-4">
         <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
     </div>

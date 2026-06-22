@@ -196,6 +196,7 @@ public static class DatabaseInitializer
             """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "ReorderPoint" integer NOT NULL DEFAULT 0;""",
             """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "IncomeAccountName" text;""",
             """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "CostAccountName" text;""",
+            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "InventoryAccountName" text;""",
             """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Age" integer;""",
             """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Gender" text;""",
             """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Phone" text;""",

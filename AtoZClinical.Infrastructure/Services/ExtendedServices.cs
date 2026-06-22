@@ -405,6 +405,9 @@ public sealed class ChartAccountService
     public Task<ChartAccount?> GetAsync(Guid clinicId, Guid id) =>
         _db.ChartAccounts.FirstOrDefaultAsync(a => a.ClinicId == clinicId && a.Id == id);
 
+    public async Task<int> NextAccountNoAsync(Guid clinicId) =>
+        (await _db.ChartAccounts.Where(a => a.ClinicId == clinicId).MaxAsync(a => (int?)a.AccountNo) ?? 1000) + 100;
+
     public async Task<ChartAccount> SaveAsync(Guid clinicId, ChartAccount item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;

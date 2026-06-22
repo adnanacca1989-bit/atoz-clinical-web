@@ -17,6 +17,7 @@ public class PharmacyItem
     public int ReorderPoint { get; set; }
     public string? IncomeAccountName { get; set; }
     public string? CostAccountName { get; set; }
+    public string? InventoryAccountName { get; set; }
     public bool IsActive { get; set; } = true;
     public int QuantityOnHand { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

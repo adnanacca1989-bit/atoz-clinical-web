@@ -1,0 +1,63 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.AccountsPayableModel
+@{
+    ViewData["Title"] = "Accounts Payable";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">Accounts Payable (Vendors)</h1>
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-3">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-4">
+                    <label class="clinical-field-label">Supplier / Vendor Name</label>
+                    <input asp-for="SupplierName" class="clinical-field" placeholder="Filter by supplier..." />
+                </div>
+            </div>
+        </div>
+        <p class="report-hint">Showing @Model.Results.Count vendor purchase balances. Total balance due: <strong>@Model.TotalBalance.ToString("N2")</strong></p>
+        <div class="report-results-scroll">
+            <table class="line-grid report-grid">
+                <thead>
+                    <tr><th>Purchase No</th><th>Date</th><th>Supplier</th><th>Supplier Invoice</th><th>Net Amount</th><th>Paid</th><th>Balance</th><th>Aging Days</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.PurchaseNo</td>
+                        <td>@r.PurchaseDate.ToString("d")</td>
+                        <td>@r.Supplier</td>
+                        <td>@r.SupplierInvoice</td>
+                        <td>@r.NetAmount.ToString("N2")</td>
+                        <td>@r.AmountPaid.ToString("N2")</td>
+                        <td>@r.Balance.ToString("N2")</td>
+                        <td>@r.AgingDays</td>
+                        <td>@r.Status</td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="4">Totals</td>
+                        <td>@Model.TotalNet.ToString("N2")</td>
+                        <td>@Model.TotalPaid.ToString("N2")</td>
+                        <td>@Model.TotalBalance.ToString("N2")</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>

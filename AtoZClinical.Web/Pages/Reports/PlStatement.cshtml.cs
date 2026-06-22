@@ -83,5 +83,15 @@ public class PlStatementModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostExportAsync()
+    {
+        await RunAsync();
+        var bytes = ReportExcelService.Export("PL Statement",
+            ["Section", "Account", "Detail", "Amount"],
+            Results.Select(r => new object?[] { r.Section, r.Account, r.Detail, r.Amount }));
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"PLStatement_{DateTime.Now:yyyyMMdd}.xlsx");
+    }
+
     public sealed record PlRow(string Section, string Account, string Detail, decimal Amount);
 }

@@ -93,6 +93,19 @@ public class OperatingReportModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostExportAsync()
+    {
+        await RunAsync();
+        var bytes = ReportExcelService.Export("Operating Report",
+            ["Patient", "Doctor", "Specialty", "Cash Received", "Cash Paid", "Invoice Net", "Balance", "Status"],
+            Results.Select(r => new object?[]
+            {
+                r.Patient, r.DoctorName, r.DoctorSpecialty, r.CashReceived, r.CashPaid, r.InvoiceNetAmount, r.EndingBalance, r.InvoiceStatus
+            }));
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"OperatingReport_{DateTime.Now:yyyyMMdd}.xlsx");
+    }
+
     public sealed record OpRow(
         string Patient,
         string DoctorName,

@@ -26,7 +26,9 @@ public class IndexModel : ClinicFormPageModel
         await LoadAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (Records.Count > 0 && Input.AccountNo == 0)
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
@@ -62,8 +64,7 @@ public class IndexModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
-        var all = await _service.ListAsync(clinicId);
-        var next = (all.Count > 0 ? all.Max(a => a.AccountNo) : 1000) + 100;
+        var next = await _service.NextAccountNoAsync(clinicId);
         Input = new ChartAccountInput
         {
             AccountNo = next,
@@ -81,16 +82,14 @@ public class IndexModel : ClinicFormPageModel
             await LoadAsync(clinicId.Value);
             return Page();
         }
-        var entity = Input.ToEntity(RecordId);
+        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
+        var entity = Input.ToEntity(isNew ? null : RecordId);
         var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
         return RedirectAfterSave(saved.Id);
     }
 
-    private Task<IActionResult> NewCoreAsync()
-    {
-        RecordId = null;
-        return Task.FromResult<IActionResult>(RedirectToPage());
-    }
+    private Task<IActionResult> NewCoreAsync() =>
+        Task.FromResult<IActionResult>(RedirectToNewForm());
 
     private async Task<IActionResult> DeleteCoreAsync()
     {

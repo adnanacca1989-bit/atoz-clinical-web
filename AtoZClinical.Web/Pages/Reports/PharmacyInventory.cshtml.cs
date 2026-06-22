@@ -43,4 +43,17 @@ public class PharmacyInventoryModel : PageModel
         TotalValue = Results.Sum(r => r.TotalValue);
         return Page();
     }
+
+    public async Task<IActionResult> OnPostExportAsync()
+    {
+        await RunAsync();
+        var bytes = ReportExcelService.Export("Pharmacy Inventory",
+            ["Item No", "Barcode", "Medicine", "Qty In", "Qty Out", "Balance", "Unit Cost", "Total Value"],
+            Results.Select(r => new object?[]
+            {
+                r.ItemNo, r.Barcode, r.MedicineName, r.QtyIn, r.QtyOut, r.QtyBalance, r.MovingAverageCost, r.TotalValue
+            }));
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"PharmacyInventory_{DateTime.Now:yyyyMMdd}.xlsx");
+    }
 }

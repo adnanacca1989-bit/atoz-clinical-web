@@ -53,12 +53,18 @@ public class AccountsReceivableModel : PageModel
         if (!string.IsNullOrWhiteSpace(DoctorName))
             invoices = invoices.Where(i => i.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
-        var receipts = await _db.CashReceipts.Where(c => c.ClinicId == clinicId).ToListAsync();
+        var receipts = await _db.CashReceipts
+            .Where(c => c.ClinicId == clinicId && c.ReceiptDate >= FromDate.Date && c.ReceiptDate <= ToDate.Date)
+            .ToListAsync();
 
         Results = invoices.Select(i =>
         {
-            var cashPaid = receipts.Where(r => r.PatientName == i.PatientName).Sum(r => r.Amount);
+            var cashPaid = receipts.Where(r =>
+                (!string.IsNullOrWhiteSpace(i.PatientId) && r.PatientId == i.PatientId) ||
+                r.PatientName == i.PatientName).Sum(r => r.Amount);
             var aging = (DateTime.Today - i.InvoiceDate.Date).Days;
+            var balance = i.BalanceDue;
+            var status = balance <= 0 ? "Paid" : (i.AmountPaid > 0 || cashPaid > 0 ? "Partial" : (i.PaymentStatus ?? "Unpaid"));
             return new ArRow(
                 i.InvoiceNo,
                 i.InvoiceDate,
@@ -67,12 +73,25 @@ public class AccountsReceivableModel : PageModel
                 i.TotalAmount,
                 i.AmountPaid,
                 cashPaid,
-                i.BalanceDue,
+                balance,
                 aging,
-                i.PaymentStatus ?? (i.BalanceDue > 0 ? "Unpaid" : "Paid"));
+                status);
         }).ToList();
 
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostExportAsync()
+    {
+        await RunAsync();
+        var bytes = ReportExcelService.Export("Accounts Receivable",
+            ["Invoice ID", "Invoice Date", "Patient", "Doctor", "Debit", "Credit", "Cash Paid", "Balance", "Aging Days", "Status"],
+            Results.Select(r => new object?[]
+            {
+                r.InvoiceId, r.InvoiceDate, r.Patient, r.Doctor, r.Debit, r.Credit, r.CashPaid, r.Balance, r.AgingDays, r.Status
+            }));
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"AccountsReceivable_{DateTime.Now:yyyyMMdd}.xlsx");
     }
 
     public sealed record ArRow(

@@ -24,7 +24,8 @@ public class RegistrationModel : ClinicFormPageModel
     public List<PharmacyItem> Records { get; private set; } = [];
     public List<ClinicUom> UomOptions { get; private set; } = [];
     public List<ChartAccount> IncomeAccounts { get; private set; } = [];
-    public List<ChartAccount> CostAccounts { get; private set; } = [];
+    public List<ChartAccount> CostOfGoodsAccounts { get; private set; } = [];
+    public List<ChartAccount> InventoryAccounts { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -54,13 +55,8 @@ public class RegistrationModel : ClinicFormPageModel
     {
         var all = await _accounts.ListAsync(clinicId);
         IncomeAccounts = all.Where(a => a.CategoryType.Equals("Income", StringComparison.OrdinalIgnoreCase)).ToList();
-        CostAccounts = all.Where(a =>
-            a.CategoryType.Equals("Expense", StringComparison.OrdinalIgnoreCase) ||
-            a.CategoryType.Equals("Asset", StringComparison.OrdinalIgnoreCase)).ToList();
-        if (IncomeAccounts.Count == 0)
-            IncomeAccounts = all;
-        if (CostAccounts.Count == 0)
-            CostAccounts = all;
+        CostOfGoodsAccounts = all.Where(a => a.CategoryType.Equals("Expense", StringComparison.OrdinalIgnoreCase)).ToList();
+        InventoryAccounts = all.Where(a => a.CategoryType.Equals("Asset", StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     private async Task LoadUomOptionsAsync(Guid clinicId)
@@ -181,6 +177,7 @@ public class RegistrationModel : ClinicFormPageModel
         public int QuantityOnHand { get; set; }
         public string? IncomeAccountName { get; set; }
         public string? CostAccountName { get; set; }
+        public string? InventoryAccountName { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime? UpdatedAt { get; set; }
 
@@ -200,6 +197,7 @@ public class RegistrationModel : ClinicFormPageModel
             QuantityOnHand = t.QuantityOnHand,
             IncomeAccountName = t.IncomeAccountName,
             CostAccountName = t.CostAccountName,
+            InventoryAccountName = t.InventoryAccountName,
             IsActive = t.IsActive,
             UpdatedAt = t.UpdatedAt
         };
@@ -220,6 +218,7 @@ public class RegistrationModel : ClinicFormPageModel
             ReorderPoint = ReorderPoint,
             IncomeAccountName = IncomeAccountName,
             CostAccountName = CostAccountName,
+            InventoryAccountName = InventoryAccountName,
             IsActive = IsActive
         };
     }

@@ -224,7 +224,18 @@ public class CashReportModel : PageModel
 
     }
 
-
+    public async Task<IActionResult> OnPostExportAsync()
+    {
+        await RunAsync();
+        var bytes = ReportExcelService.Export("Cash Report",
+            ["Type", "Date", "Patient", "Doctor", "Debit", "Credit", "Balance", "Doc No", "Method"],
+            Results.Select(r => new object?[]
+            {
+                r.TransactionType, r.TransactionDate, r.PatientName, r.DoctorName, r.Debit, r.Credit, r.Balance, r.DocumentNo, r.PaymentMethod
+            }));
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"CashReport_{DateTime.Now:yyyyMMdd}.xlsx");
+    }
 
     public sealed class CashReportRow
 
