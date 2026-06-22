@@ -429,7 +429,7 @@ public sealed class ClinicBackupService
 
             existing.Name = name;
             existing.CategoryType = row.Cell(3).GetString().Trim();
-            existing.DetailType = NullIfEmpty(row.Cell(4).GetString());
+            existing.DetailType = NullIfEmpty(row.Cell(4).GetString()) ?? existing.DetailType;
             existing.Description = NullIfEmpty(row.Cell(5).GetString());
             existing.UpdatedAt = DateTime.UtcNow;
             count++;
