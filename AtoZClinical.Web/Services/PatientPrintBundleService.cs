@@ -131,10 +131,10 @@ public sealed class PatientPrintBundleService
 
     private static PrintSection BuildInvoice(Invoice r) => new(
         "Invoice / Billing",
-        Meta(("Invoice No", r.InvoiceNo.ToString()), ("Date", r.InvoiceDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Status", r.PaymentStatus ?? "")),
-        ["No", "Service", "QTY", "Rate", "Total"],
+        Meta(("Invoice No", r.InvoiceNo.ToString()), ("Date", r.InvoiceDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("MRN", r.PatientId ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", r.Specialty ?? ""), ("Payment Method", r.PaymentMethod), ("Status", r.PaymentStatus ?? "")),
+        ["No", "Service", "QTY", "Rate", "Amount"],
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.ServiceName ?? "", l.Qty.ToString(), l.UnitFee.ToString("N2"), l.LineTotal.ToString("N2") }).ToList(),
-        Footer(("Discount", r.Discount.ToString("N2")), ("Cash Paid", r.AmountPaid.ToString("N2")), ("Balance Due", r.BalanceDue.ToString("N2"))));
+        Footer(("Subtotal", r.SubTotal.ToString("N2")), ("Discount", r.Discount.ToString("N2")), ("Total", r.TotalAmount.ToString("N2")), ("Amount Paid", r.AmountPaid.ToString("N2")), ("Balance Due", r.BalanceDue.ToString("N2"))));
 
     private static PrintSection BuildPrescription(Prescription r) => new(
         "Doctor's Prescription",

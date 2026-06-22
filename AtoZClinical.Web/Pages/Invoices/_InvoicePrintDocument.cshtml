@@ -1,0 +1,71 @@
+@model AtoZClinical.Web.Pages.Invoices.IndexModel
+<div id="invoicePrintArea" class="invoice-print-document" aria-hidden="true">
+    <header class="inv-print-header">
+        <div class="inv-print-brand">
+            <div class="inv-print-clinic-name">@Model.ClinicName</div>
+            @if (!string.IsNullOrWhiteSpace(Model.ClinicAddress))
+            {
+                <div class="inv-print-clinic-meta">@Model.ClinicAddress</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.ClinicPhone))
+            {
+                <div class="inv-print-clinic-meta">Tel: @Model.ClinicPhone</div>
+            }
+        </div>
+        <div class="inv-print-title-block">
+            <div class="inv-print-doc-type">INVOICE</div>
+            <div class="inv-print-doc-no">#<span id="invPrintNo">@Model.Input.InvoiceNo</span></div>
+            <div class="inv-print-doc-date">Date: <span id="invPrintDate">@Model.Input.InvoiceDate.ToString("d")</span></div>
+            <div class="inv-print-doc-status">Status: <span id="invPrintStatus">@Model.Input.PaymentStatus</span></div>
+        </div>
+    </header>
+
+    <div class="inv-print-parties">
+        <div class="inv-print-billto">
+            <div class="inv-print-party-label">Bill To</div>
+            <div class="inv-print-party-name" id="invPrintPatient">@Model.Input.PatientName</div>
+            <div class="inv-print-party-lines">
+                <span id="invPrintMrn">MRN: @(Model.Input.PatientId ?? "—")</span>
+                <span id="invPrintDemo">@(Model.Input.Age?.ToString() ?? "—") / @(Model.Input.Gender ?? "—")</span>
+                <span id="invPrintPhone">@(Model.Input.Phone ?? "—")</span>
+                <span id="invPrintCity">@(Model.Input.City ?? "—")</span>
+            </div>
+        </div>
+        <div class="inv-print-provider">
+            <div class="inv-print-party-label">Attending</div>
+            <div class="inv-print-party-name" id="invPrintDoctor">@(Model.Input.DoctorName ?? "—")</div>
+            <div class="inv-print-party-lines">
+                <span id="invPrintSpecialty">@(Model.Input.Specialty ?? "—")</span>
+            </div>
+        </div>
+    </div>
+
+    <table class="inv-print-lines">
+        <thead>
+            <tr>
+                <th class="inv-col-no">#</th>
+                <th class="inv-col-desc">Description</th>
+                <th class="inv-col-qty">Qty</th>
+                <th class="inv-col-rate">Rate</th>
+                <th class="inv-col-amt">Amount</th>
+            </tr>
+        </thead>
+        <tbody id="invPrintLinesBody"></tbody>
+    </table>
+
+    <div class="inv-print-footer">
+        <div class="inv-print-payment-note">
+            <div><strong>Payment Method:</strong> <span id="invPrintMethod">@Model.Input.PaymentMethod</span></div>
+            <div class="inv-print-thanks">Thank you for choosing @Model.ClinicName.</div>
+        </div>
+        <table class="inv-print-totals">
+            <tbody>
+                <tr><td>Subtotal</td><td id="invPrintSubtotal">@Model.LineSubTotal.ToString("N2")</td></tr>
+                <tr><td>Discount</td><td id="invPrintDiscount">@Model.Input.Discount.ToString("N2")</td></tr>
+                <tr class="inv-total-row"><td>Total</td><td id="invPrintTotal">@Model.NetAmount.ToString("N2")</td></tr>
+                <tr><td>Amount Paid</td><td id="invPrintPaid">@Model.Input.AmountPaid.ToString("N2")</td></tr>
+                <tr class="inv-balance-row"><td>Balance Due</td><td id="invPrintBalance">@Model.Balance.ToString("N2")</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

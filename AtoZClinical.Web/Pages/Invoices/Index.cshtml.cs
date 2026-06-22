@@ -30,10 +30,15 @@ public class IndexModel : ClinicFormPageModel
     public decimal NetAmount => LineSubTotal - Input.Discount;
     public decimal Balance => NetAmount - Input.AmountPaid;
 
+    public string ClinicName { get; private set; } = "Clinic";
+    public string? ClinicAddress { get; private set; }
+    public string? ClinicPhone { get; private set; }
+
     public async Task<IActionResult> OnGetAsync()
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+        await LoadClinicBrandingAsync();
         await LoadAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
@@ -55,6 +60,16 @@ public class IndexModel : ClinicFormPageModel
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
     public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
     public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    private async Task LoadClinicBrandingAsync()
+    {
+        var access = await ClinicContext.GetClinicAccessAsync();
+        var clinic = access.Clinic;
+        if (clinic is null) return;
+        ClinicName = clinic.Name;
+        ClinicAddress = string.Join(", ", new[] { clinic.Address, clinic.City, clinic.Country }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        ClinicPhone = clinic.Phone;
+    }
 
     private async Task LoadAsync(Guid clinicId)
     {

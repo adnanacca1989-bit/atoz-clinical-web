@@ -45,12 +45,34 @@ else
             }
             @if (doc.FooterFields is { Count: > 0 })
             {
-                <div class="print-doc-footer">
-                    @foreach (var field in doc.FooterFields)
-                    {
-                        <div><strong>@field.Key:</strong> @field.Value</div>
-                    }
-                </div>
+                @if (doc.Title == "Invoice / Billing")
+                {
+                    <div class="print-bundle-invoice-footer">
+                        <table class="print-bundle-totals">
+                            <tbody>
+                            @foreach (var field in doc.FooterFields)
+                            {
+                                var rowClass = field.Key switch
+                                {
+                                    "Total" => "bundle-total-row",
+                                    "Balance Due" => "bundle-balance-row",
+                                    _ => ""
+                                };
+                                <tr class="@rowClass"><td>@field.Key</td><td>@field.Value</td></tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="print-doc-footer">
+                        @foreach (var field in doc.FooterFields)
+                        {
+                            <div><strong>@field.Key:</strong> @field.Value</div>
+                        }
+                    </div>
+                }
             }
         </section>
     }

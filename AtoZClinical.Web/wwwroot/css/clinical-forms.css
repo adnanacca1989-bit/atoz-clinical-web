@@ -424,6 +424,148 @@ main:has(.clinical-form-page) {
     margin-top: 0.15rem;
 }
 
+/* ERP-style invoice: maximize lines, right-aligned totals (QuickBooks / ERPNext) */
+.invoice-erp-page .invoice-workspace {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: 0.25rem;
+}
+
+.invoice-erp-page .invoice-lines-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.invoice-erp-page .invoice-line-grid-scroll {
+    flex: 1 1 auto;
+    min-height: 180px;
+    max-height: calc(100vh - 300px);
+}
+
+.invoice-erp-page .invoice-line-grid th.col-item,
+.invoice-erp-page .invoice-line-grid td.col-item {
+    min-width: 320px;
+    width: auto;
+}
+
+.invoice-erp-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    flex-shrink: 0;
+    padding: 0.35rem 0.45rem;
+    background: #f8fafc;
+    border: 1px solid #cfd8dc;
+    border-top: 2px solid #1565c0;
+}
+
+.invoice-block-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #546e7a;
+    margin-bottom: 0.25rem;
+}
+
+.invoice-payment-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+}
+
+.invoice-pay-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 7rem;
+    margin: 0;
+}
+
+.invoice-pay-field > span {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #546e7a;
+    margin-bottom: 0.05rem;
+}
+
+.invoice-pay-field .clinical-field {
+    font-size: 0.8rem;
+    padding: 0.22rem 0.35rem;
+    min-height: 1.65rem;
+}
+
+.invoice-totals-table {
+    margin-left: auto;
+    border-collapse: collapse;
+    min-width: 16rem;
+    font-size: 0.82rem;
+}
+
+.invoice-totals-table td {
+    padding: 0.15rem 0.35rem;
+    border: none;
+    vertical-align: middle;
+}
+
+.invoice-totals-table td:first-child {
+    text-align: right;
+    color: #455a64;
+    font-weight: 500;
+    padding-right: 0.75rem;
+    white-space: nowrap;
+}
+
+.invoice-totals-table td:last-child {
+    text-align: right;
+    width: 7.5rem;
+}
+
+.invoice-totals-value,
+.invoice-totals-input {
+    width: 100%;
+    text-align: right;
+    border: 1px solid #cfd8dc;
+    border-radius: 2px;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: #fff;
+}
+
+.invoice-totals-value {
+    background: #fafafa;
+    border-color: #e0e0e0;
+}
+
+.invoice-totals-input {
+    font-weight: 600;
+}
+
+.invoice-totals-table .invoice-totals-grand td {
+    border-top: 1px solid #90a4ae;
+    padding-top: 0.3rem;
+    font-weight: 700;
+}
+
+.invoice-totals-total {
+    color: #1565c0;
+    font-size: 0.92rem !important;
+}
+
+.invoice-totals-table .invoice-totals-balance td {
+    font-weight: 700;
+}
+
+.invoice-totals-balance {
+    color: #c62828 !important;
+    font-size: 0.95rem !important;
+}
+
 .invoice-form-page .section-caption-sm {
     font-size: 0.8rem;
     margin-bottom: 0.15rem;
