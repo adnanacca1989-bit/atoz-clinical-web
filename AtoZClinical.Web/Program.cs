@@ -99,6 +99,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ClinicContextService>();
 builder.Services.AddScoped<ClinicAccessService>();
 builder.Services.AddScoped<VendorClinicService>();
+builder.Services.AddScoped<MasterDataPropagationService>();
 builder.Services.AddScoped<PatientService>();
 builder.Services.AddScoped<AppointmentService>();
 builder.Services.AddScoped<DoctorService>();

@@ -7,8 +7,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class PatientService
 {
     private readonly ClinicalDbContext _db;
+    private readonly MasterDataPropagationService _propagation;
 
-    public PatientService(ClinicalDbContext db) => _db = db;
+    public PatientService(ClinicalDbContext db, MasterDataPropagationService propagation)
+    {
+        _db = db;
+        _propagation = propagation;
+    }
 
     public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null)
     {
@@ -31,6 +36,13 @@ public sealed class PatientService
 
     public async Task<Patient> SaveAsync(Guid clinicId, Patient patient, string? userName = null)
     {
+        Patient? previous = null;
+        if (patient.Id != Guid.Empty)
+        {
+            previous = await _db.Patients.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == patient.Id);
+        }
+
         patient.ClinicId = clinicId;
         patient.UpdatedAt = DateTime.UtcNow;
         patient.UpdatedBy = userName;
@@ -50,6 +62,10 @@ public sealed class PatientService
         }
 
         await _db.SaveChangesAsync();
+
+        if (previous is not null)
+            await _propagation.PropagatePatientAsync(clinicId, previous, patient);
+
         return patient;
     }
 

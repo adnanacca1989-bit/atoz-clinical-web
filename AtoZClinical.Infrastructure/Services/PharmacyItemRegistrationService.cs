@@ -8,11 +8,13 @@ public sealed class PharmacyItemRegistrationService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly MasterDataPropagationService _propagation;
 
-    public PharmacyItemRegistrationService(ClinicalDbContext db, AuditService audit)
+    public PharmacyItemRegistrationService(ClinicalDbContext db, AuditService audit, MasterDataPropagationService propagation)
     {
         _db = db;
         _audit = audit;
+        _propagation = propagation;
     }
 
     public Task<List<PharmacyItem>> ListAsync(Guid clinicId) =>
@@ -30,6 +32,13 @@ public sealed class PharmacyItemRegistrationService
     public async Task<PharmacyItem> SaveAsync(Guid clinicId, PharmacyItem item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        PharmacyItem? previous = null;
+        if (!isNew)
+        {
+            previous = await _db.PharmacyItems.AsNoTracking()
+                .FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         item.Barcode = (item.Barcode ?? string.Empty).Trim();
@@ -62,6 +71,10 @@ public sealed class PharmacyItemRegistrationService
         }
 
         await _db.SaveChangesAsync();
+
+        if (previous is not null)
+            await _propagation.PropagatePharmacyItemAsync(clinicId, previous, item);
+
         await _audit.LogAsync(clinicId, userName, "Pharmacy Registration", isNew ? "Create" : "Update",
             $"Item #{item.ItemNo} — {item.MedicineName} ({item.Barcode})");
         return item;

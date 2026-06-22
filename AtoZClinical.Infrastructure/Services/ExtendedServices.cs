@@ -37,11 +37,13 @@ public sealed class RadiologyTestService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly MasterDataPropagationService _propagation;
 
-    public RadiologyTestService(ClinicalDbContext db, AuditService audit)
+    public RadiologyTestService(ClinicalDbContext db, AuditService audit, MasterDataPropagationService propagation)
     {
         _db = db;
         _audit = audit;
+        _propagation = propagation;
     }
 
     public Task<List<RadiologyTest>> ListAsync(Guid clinicId) =>
@@ -53,6 +55,13 @@ public sealed class RadiologyTestService
     public async Task<RadiologyTest> SaveAsync(Guid clinicId, RadiologyTest item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        RadiologyTest? previous = null;
+        if (!isNew)
+        {
+            previous = await _db.RadiologyTests.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.ClinicId == clinicId && t.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (isNew)
@@ -65,6 +74,10 @@ public sealed class RadiologyTestService
         else _db.RadiologyTests.Update(item);
 
         await _db.SaveChangesAsync();
+
+        if (previous is not null)
+            await _propagation.PropagateRadiologyTestAsync(clinicId, previous, item);
+
         await _audit.LogAsync(clinicId, userName, "Radiology Registration", isNew ? "Create" : "Update",
             $"Test #{item.TestNo}: {item.TestCode} - {item.TestName}");
         return item;

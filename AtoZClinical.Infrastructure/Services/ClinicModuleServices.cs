@@ -75,7 +75,13 @@ public static class ClinicLookup
 public sealed class DoctorService
 {
     private readonly ClinicalDbContext _db;
-    public DoctorService(ClinicalDbContext db) => _db = db;
+    private readonly MasterDataPropagationService _propagation;
+
+    public DoctorService(ClinicalDbContext db, MasterDataPropagationService propagation)
+    {
+        _db = db;
+        _propagation = propagation;
+    }
 
     public Task<List<Doctor>> ListAsync(Guid clinicId) =>
         _db.Doctors.Where(d => d.ClinicId == clinicId).OrderBy(d => d.DoctorNo).ToListAsync();
@@ -85,6 +91,13 @@ public sealed class DoctorService
 
     public async Task<Doctor> SaveAsync(Guid clinicId, Doctor doctor, string? userName)
     {
+        Doctor? previous = null;
+        if (doctor.Id != Guid.Empty)
+        {
+            previous = await _db.Doctors.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.Id == doctor.Id);
+        }
+
         doctor.ClinicId = clinicId;
         doctor.UpdatedAt = DateTime.UtcNow;
         doctor.UpdatedBy = userName;
@@ -98,6 +111,10 @@ public sealed class DoctorService
         }
         else _db.Doctors.Update(doctor);
         await _db.SaveChangesAsync();
+
+        if (previous is not null)
+            await _propagation.PropagateDoctorAsync(clinicId, previous, doctor);
+
         return doctor;
     }
 
@@ -117,7 +134,13 @@ public sealed class DoctorService
 public sealed class ServiceIncomeService
 {
     private readonly ClinicalDbContext _db;
-    public ServiceIncomeService(ClinicalDbContext db) => _db = db;
+    private readonly MasterDataPropagationService _propagation;
+
+    public ServiceIncomeService(ClinicalDbContext db, MasterDataPropagationService propagation)
+    {
+        _db = db;
+        _propagation = propagation;
+    }
 
     public Task<List<ServiceIncome>> ListAsync(Guid clinicId) =>
         _db.ServiceIncomes.Where(s => s.ClinicId == clinicId).OrderBy(s => s.ServiceNo).ToListAsync();
@@ -127,6 +150,13 @@ public sealed class ServiceIncomeService
 
     public async Task<ServiceIncome> SaveAsync(Guid clinicId, ServiceIncome item)
     {
+        ServiceIncome? previous = null;
+        if (item.Id != Guid.Empty)
+        {
+            previous = await _db.ServiceIncomes.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.ClinicId == clinicId && s.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (item.Id == Guid.Empty)
@@ -138,6 +168,10 @@ public sealed class ServiceIncomeService
         }
         else _db.ServiceIncomes.Update(item);
         await _db.SaveChangesAsync();
+
+        if (previous is not null)
+            await _propagation.PropagateServiceIncomeAsync(clinicId, previous, item);
+
         return item;
     }
 
@@ -189,7 +223,13 @@ public sealed class CashReceiptService
 public sealed class LabTestService
 {
     private readonly ClinicalDbContext _db;
-    public LabTestService(ClinicalDbContext db) => _db = db;
+    private readonly MasterDataPropagationService _propagation;
+
+    public LabTestService(ClinicalDbContext db, MasterDataPropagationService propagation)
+    {
+        _db = db;
+        _propagation = propagation;
+    }
 
     public Task<List<LabTest>> ListAsync(Guid clinicId) =>
         _db.LabTests.Where(t => t.ClinicId == clinicId).OrderBy(t => t.TestNo).ToListAsync();
@@ -199,6 +239,13 @@ public sealed class LabTestService
 
     public async Task<LabTest> SaveAsync(Guid clinicId, LabTest item)
     {
+        LabTest? previous = null;
+        if (item.Id != Guid.Empty)
+        {
+            previous = await _db.LabTests.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.ClinicId == clinicId && t.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (item.Id == Guid.Empty)
@@ -210,6 +257,10 @@ public sealed class LabTestService
         }
         else _db.LabTests.Update(item);
         await _db.SaveChangesAsync();
+
+        if (previous is not null)
+            await _propagation.PropagateLabTestAsync(clinicId, previous, item);
+
         return item;
     }
 
