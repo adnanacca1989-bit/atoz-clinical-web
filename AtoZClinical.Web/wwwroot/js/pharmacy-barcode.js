@@ -70,12 +70,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         }
 
-
+        if (typeof window.recalcPharmacyLines === 'function') window.recalcPharmacyLines();
+        else if (typeof window.recalcPurchaseTotals === 'function') window.recalcPurchaseTotals();
 
         const stockEl = row.querySelector('.pharmacy-stock');
-
         if (stockEl && data.qtyOnHand !== undefined)
-
             stockEl.textContent = `Stock: ${data.qtyOnHand}`;
 
     };

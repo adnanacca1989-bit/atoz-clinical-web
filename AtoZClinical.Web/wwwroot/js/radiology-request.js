@@ -104,42 +104,17 @@ function initRadiologyRequestPatientPicker() {
 }
 
 function initRadiologyTestLines() {
-    const updateLineTotal = (row) => {
-        const qty = parseFloat(row.querySelector('.radiology-qty')?.value) || 0;
-        const fee = parseFloat(row.querySelector('.radiology-fee')?.value) || 0;
-        const totalCell = row.querySelector('.radiology-line-total');
-        if (totalCell) totalCell.value = (qty * fee).toFixed(2);
-        updateGrandTotal();
-    };
-
-    const updateGrandTotal = () => {
-        let sum = 0;
-        document.querySelectorAll('.radiology-line').forEach(row => {
-            sum += parseFloat(row.querySelector('.radiology-line-total')?.value) || 0;
-        });
-        const grand = document.getElementById('radiologyRequestTotalAmount');
-        if (grand) grand.value = sum.toFixed(2);
-    };
-
-    const applyTest = (row, opt) => {
-        if (!opt || !opt.dataset.code) return;
-        row.querySelector('.radiology-test-code').value = opt.dataset.code || '';
-        row.querySelector('.radiology-test-name').value = opt.dataset.name || '';
-        row.querySelector('.radiology-test-category').value = opt.dataset.category || '';
-        row.querySelector('.radiology-fee').value = opt.dataset.fee || '0';
-        updateLineTotal(row);
-    };
-
-    document.querySelectorAll('.radiology-line').forEach(row => {
-        const select = row.querySelector('.radiology-test-select');
-        if (select) {
-            select.addEventListener('change', () => {
-                const opt = select.options[select.selectedIndex];
-                applyTest(row, opt);
-            });
+    initClinicalRequestLines({
+        rowClass: 'radiology-line',
+        qtyClass: 'radiology-qty',
+        feeClass: 'radiology-fee',
+        totalClass: 'radiology-line-total',
+        selectClass: 'radiology-test-select',
+        grandTotalId: 'radiologyRequestTotalAmount',
+        fieldMap: {
+            'radiology-test-code': 'code',
+            'radiology-test-name': 'name',
+            'radiology-test-category': 'category'
         }
-        row.querySelector('.radiology-qty')?.addEventListener('input', () => updateLineTotal(row));
-        row.querySelector('.radiology-fee')?.addEventListener('input', () => updateLineTotal(row));
-        updateLineTotal(row);
     });
 }

@@ -60,9 +60,10 @@
                         <input asp-for="Input.PaymentStatus" class="clinical-field" />
                     </div>
                 </div>
+                <div class="clinical-form-grid-area">
                 <div class="line-grid-scroll">
                 <table class="line-grid pharmacy-line-grid clinical-line-grid">
-                    <thead><tr><th>No</th><th class="col-item">Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th>QTY</th><th>Unit Price</th><th>Total</th><th>Del</th></tr></thead>
+                    <thead><tr><th class="col-no">No</th><th class="col-item">Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th class="col-qty">QTY</th><th class="col-fee">Unit Price</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
                     {
@@ -93,32 +94,34 @@
                             <td><input asp-for="Lines[i].MedicineName" class="pharmacy-name" /></td>
                             <td><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" /></td>
                             <td><input asp-for="Lines[i].Uom" class="pharmacy-uom clinical-field" placeholder="Pcs" /></td>
-                            <td><input asp-for="Lines[i].Qty" type="number" min="1" /></td>
-                            <td><input asp-for="Lines[i].UnitPrice" type="number" step="0.01" class="pharmacy-price" /></td>
-                            <td><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="pharmacy-line-total" /></td>
-                            <td class="text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                            <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="1" class="pharmacy-qty" /></td>
+                            <td class="col-fee"><input asp-for="Lines[i].UnitPrice" type="number" step="0.01" class="pharmacy-price" /></td>
+                            <td class="col-total"><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="pharmacy-line-total" /></td>
+                            <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
                         </tr>
                     }
                     </tbody>
                 </table>
                 </div>
+                </div>
+                <div class="section-caption">Bill Totals &amp; Payment</div>
                 <div class="form-summary-panel">
                 <div class="row g-2">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Sub Total</label>
-                        <input value="@Model.LineSubTotal.ToString("N2")" class="clinical-field" readonly />
+                        <input id="pharmacyBillSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="clinical-field" readonly />
                     </div>
                     <div class="col-md-2">
                         <label class="clinical-field-label">Discount</label>
-                        <input asp-for="Input.Discount" class="clinical-field" type="number" step="0.01" />
+                        <input asp-for="Input.Discount" id="pharmacyBillDiscount" class="clinical-field" type="number" step="0.01" />
                     </div>
                     <div class="col-md-2">
                         <label class="clinical-field-label">Net Amount</label>
-                        <input value="@Model.NetAmount.ToString("N2")" class="clinical-field" readonly />
+                        <input id="pharmacyBillNet" value="@Model.NetAmount.ToString("N2")" class="clinical-field" readonly />
                     </div>
                     <div class="col-md-2">
                         <label class="clinical-field-label">Paid Amount</label>
-                        <input asp-for="Input.AmountPaid" class="clinical-field" type="number" step="0.01" />
+                        <input asp-for="Input.AmountPaid" id="pharmacyBillPaid" class="clinical-field" type="number" step="0.01" />
                     </div>
                     <div class="col-md-2">
                         <label class="clinical-field-label">Payment Method</label>
@@ -126,7 +129,7 @@
                     </div>
                     <div class="col-md-2">
                         <label class="clinical-field-label">Balance</label>
-                        <input value="@Model.Balance.ToString("N2")" class="clinical-field" readonly />
+                        <input id="pharmacyBillBalance" value="@Model.Balance.ToString("N2")" class="clinical-field" readonly />
                     </div>
                 </div>
                 </div>
@@ -168,6 +171,7 @@
 
 @section Scripts {
     <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/pharmacy-line-calculations.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-bill.js" asp-append-version="true"></script>
     <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-barcode.js" asp-append-version="true"></script>

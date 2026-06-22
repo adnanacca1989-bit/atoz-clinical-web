@@ -209,83 +209,19 @@ function initLabRequestPatientPicker() {
 
 
 function initLabTestLines() {
-
-    const updateLineTotal = (row) => {
-
-        const qty = parseFloat(row.querySelector('.lab-qty')?.value) || 0;
-
-        const fee = parseFloat(row.querySelector('.lab-fee')?.value) || 0;
-
-        const totalCell = row.querySelector('.lab-line-total');
-
-        if (totalCell) totalCell.value = (qty * fee).toFixed(2);
-
-        updateGrandTotal();
-
-    };
-
-
-
-    const updateGrandTotal = () => {
-
-        let sum = 0;
-
-        document.querySelectorAll('.lab-line').forEach(row => {
-
-            sum += parseFloat(row.querySelector('.lab-line-total')?.value) || 0;
-
-        });
-
-        const grand = document.getElementById('labRequestTotalAmount');
-
-        if (grand) grand.value = sum.toFixed(2);
-
-    };
-
-
-
-    const applyTest = (row, opt) => {
-
-        if (!opt || !opt.dataset.code) return;
-
-        row.querySelector('.lab-test-code').value = opt.dataset.code || '';
-
-        row.querySelector('.lab-test-name').value = opt.dataset.name || '';
-
-        row.querySelector('.lab-test-category').value = opt.dataset.category || '';
-
-        row.querySelector('.lab-fee').value = opt.dataset.fee || '0';
-
-        updateLineTotal(row);
-
-    };
-
-
-
-    document.querySelectorAll('.lab-line').forEach(row => {
-
-        const select = row.querySelector('.lab-test-select');
-
-        if (select) {
-
-            select.addEventListener('change', () => {
-
-                const opt = select.options[select.selectedIndex];
-
-                applyTest(row, opt);
-
-            });
-
+    initClinicalRequestLines({
+        rowClass: 'lab-line',
+        qtyClass: 'lab-qty',
+        feeClass: 'lab-fee',
+        totalClass: 'lab-line-total',
+        selectClass: 'lab-test-select',
+        grandTotalId: 'labRequestTotalAmount',
+        fieldMap: {
+            'lab-test-code': 'code',
+            'lab-test-name': 'name',
+            'lab-test-category': 'category'
         }
-
-        row.querySelector('.lab-qty')?.addEventListener('input', () => updateLineTotal(row));
-
-        row.querySelector('.lab-fee')?.addEventListener('input', () => updateLineTotal(row));
-
-        updateLineTotal(row);
-
     });
-
 }
 
 

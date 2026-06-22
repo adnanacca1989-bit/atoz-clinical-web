@@ -25,10 +25,11 @@
                     </div>
                 </div>
                 <p class="small text-muted">Scan or enter barcode — stock IN uses moving average costing.</p>
+                <div class="clinical-form-grid-area">
                 <div class="line-grid-scroll">
                 <table class="line-grid pharmacy-line-grid clinical-line-grid">
                     <thead>
-                        <tr><th>No</th><th class="col-item">Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th>QTY IN</th><th>Unit Cost</th><th>Total</th><th>Del</th></tr>
+                        <tr><th class="col-no">No</th><th class="col-item">Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th>QTY IN</th><th class="col-fee">Unit Cost</th><th class="col-total">Total</th><th class="col-del">Del</th></tr>
                     </thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
@@ -60,19 +61,20 @@
                             <td><input asp-for="Lines[i].MedicineName" class="pharmacy-name" /></td>
                             <td><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" /></td>
                             <td><input asp-for="Lines[i].Uom" class="pharmacy-uom clinical-field" placeholder="Pcs" /></td>
-                            <td><input asp-for="Lines[i].Qty" type="number" min="0" class="pharmacy-qty" /></td>
-                            <td><input asp-for="Lines[i].UnitCost" type="number" step="0.01" class="pharmacy-cost" /></td>
-                            <td><input value="@(Model.Lines[i].Total.ToString("N2"))" readonly class="pharmacy-line-total" /></td>
-                            <td class="text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                            <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="0" class="pharmacy-qty" /></td>
+                            <td class="col-fee"><input asp-for="Lines[i].UnitCost" type="number" step="0.01" class="pharmacy-cost" /></td>
+                            <td class="col-total"><input value="@(Model.Lines[i].Total.ToString("N2"))" readonly class="pharmacy-line-total" /></td>
+                            <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
                         </tr>
                     }
                     </tbody>
                 </table>
                 </div>
-                <div class="d-flex justify-content-end mt-2">
-                    <div class="text-end" style="min-width: 200px;">
+                </div>
+                <div class="d-flex justify-content-end mt-2 form-summary-panel">
+                    <div class="text-end" style="min-width: 220px;">
                         <label class="clinical-field-label">Total Value</label>
-                        <input value="@Model.LineTotal.ToString("N2")" class="clinical-field text-end" readonly />
+                        <input id="openingBalanceTotal" value="@Model.LineTotal.ToString("N2")" class="clinical-field text-end" readonly />
                     </div>
                 </div>
             </div>
@@ -106,5 +108,7 @@
 
 @section Scripts {
     <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
+    <script src="~/js/pharmacy-line-calculations.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-barcode.js" asp-append-version="true"></script>
+    <script src="~/js/pharmacy-opening-balance.js" asp-append-version="true"></script>
 }

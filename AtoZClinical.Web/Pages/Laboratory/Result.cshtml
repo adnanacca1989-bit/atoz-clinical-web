@@ -122,11 +122,12 @@
 
                 </div>
 
+                <div class="clinical-form-grid-area">
                 <div class="section-caption">Result Lines</div>
                 <div class="line-grid-scroll">
                 <table class="line-grid clinical-line-grid">
                     <thead>
-                        <tr><th>No</th><th class="col-item">Test Name</th><th>Test Code</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th><th>Del</th></tr>
+                        <tr><th class="col-no">No</th><th class="col-item">Test Name</th><th>Test Code</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th><th class="col-del">Del</th></tr>
                     </thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
@@ -139,11 +140,12 @@
                             <td><input asp-for="Lines[i].Result" /></td>
                             <td><input asp-for="Lines[i].NormalRange" /></td>
                             <td><input asp-for="Lines[i].Unit" /></td>
-                            <td class="text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                            <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
                         </tr>
                     }
                     </tbody>
                 </table>
+                </div>
                 </div>
 
             </div>

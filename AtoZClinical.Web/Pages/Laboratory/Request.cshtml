@@ -122,11 +122,12 @@
 
                 </div>
 
+                <div class="clinical-form-grid-area">
                 <div class="section-caption">Test Lines</div>
                 <div class="line-grid-scroll">
                 <table class="line-grid clinical-line-grid">
                     <thead>
-                        <tr><th>No</th><th class="col-item">Lab Test</th><th>Test Code</th><th>Test Name</th><th>Category</th><th>QTY</th><th>Fee</th><th>Total</th><th>Del</th></tr>
+                        <tr><th class="col-no">No</th><th class="col-item">Lab Test</th><th>Test Code</th><th>Test Name</th><th>Category</th><th class="col-qty">QTY</th><th class="col-fee">Fee</th><th class="col-total">Total</th><th class="col-del">Del</th></tr>
                     </thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
@@ -151,17 +152,18 @@
                             <td><input asp-for="Lines[i].TestCode" class="lab-test-code clinical-field" /></td>
                             <td><input asp-for="Lines[i].TestName" class="lab-test-name clinical-field" /></td>
                             <td><input asp-for="Lines[i].Category" class="lab-test-category clinical-field" /></td>
-                            <td><input asp-for="Lines[i].Qty" class="lab-qty" type="number" min="1" /></td>
-                            <td><input asp-for="Lines[i].Fee" class="lab-fee" type="number" step="0.01" /></td>
-                            <td><input class="lab-line-total" value="@(Model.Lines[i].Total.ToString("N2"))" readonly /></td>
-                            <td class="text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                            <td class="col-qty"><input asp-for="Lines[i].Qty" class="lab-qty" type="number" min="1" /></td>
+                            <td class="col-fee"><input asp-for="Lines[i].Fee" class="lab-fee" type="number" step="0.01" /></td>
+                            <td class="col-total"><input class="lab-line-total" value="@(Model.Lines[i].Total.ToString("N2"))" readonly /></td>
+                            <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
                         </tr>
                     }
                     </tbody>
                 </table>
                 </div>
-                <div class="d-flex justify-content-end mt-2">
-                    <div class="text-end" style="min-width: 200px;">
+                </div>
+                <div class="d-flex justify-content-end mt-2 form-summary-panel">
+                    <div class="text-end" style="min-width: 220px;">
                         <label class="clinical-field-label">Total Amount</label>
                         <input id="labRequestTotalAmount" value="@Model.LineTotal.ToString("N2")" class="clinical-field text-end" readonly />
                     </div>
@@ -246,6 +248,7 @@
     <partial name="_ValidationScriptsPartial" />
 
     <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
+    <script src="~/js/clinical-request-lines.js" asp-append-version="true"></script>
     <script src="~/js/laboratory-request.js" asp-append-version="true"></script>
 
 }
