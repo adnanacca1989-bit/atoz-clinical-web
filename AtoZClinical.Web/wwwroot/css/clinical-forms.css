@@ -88,6 +88,7 @@ main:has(.clinical-form-page) {
 .clinical-form-left > .invoice-summary-panel,
 .clinical-form-left > .section-caption + .form-summary-panel,
 .clinical-form-left > .invoice-totals-section,
+.clinical-form-left > .clinical-form-totals-section,
 .clinical-form-left > .section-caption + .invoice-totals-section {
     flex-shrink: 0;
     margin-top: 0.25rem;
@@ -393,45 +394,15 @@ main:has(.clinical-form-page) {
     padding: 0.25rem 0.4rem;
 }
 
-/* Invoice / Billing — scrollable body with totals always reachable */
-.invoice-form-page .clinical-form-body {
+/* Invoice uses same standard form scroll rules as other clinical forms */
+.clinical-standard-form.invoice-form-page .clinical-form-body,
+.invoice-form-page.clinical-standard-form .clinical-form-body {
     max-height: none;
-    min-height: 520px;
     overflow: visible;
 }
 
-.invoice-form-left {
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-gutter: stable;
-    max-height: calc(100vh - 220px);
-}
-
-.invoice-form-header {
-    flex-shrink: 0;
-}
-
-.invoice-form-page .invoice-lines-area {
-    flex: 0 1 auto;
-    max-height: none;
-}
-
-.invoice-form-page .invoice-line-grid-scroll {
-    max-height: min(340px, 38vh);
-    min-height: 200px;
-    flex: 0 0 auto;
-    overflow-y: scroll;
-    overflow-x: auto;
-}
-
-.invoice-totals-section {
-    flex-shrink: 0;
-    margin-top: 0.5rem;
-    padding-bottom: 0.25rem;
-}
-
-.invoice-totals-section .invoice-summary-panel {
-    margin-top: 0.35rem;
+.clinical-standard-form .invoice-line-grid-scroll {
+    max-height: min(360px, 40vh);
 }
 
 .pharmacy-line-grid th.col-item,
@@ -699,8 +670,90 @@ main:has(.clinical-form-page) {
     background: #fdecea;
     border: 1px solid #f5c6cb;
     padding: 0.5rem 0.75rem;
-    margin-bottom: 0.75rem;
+    margin: 0 0.5rem 0.75rem;
     font-size: 0.9rem;
+    min-height: 1.25rem;
+}
+
+/* Unified WinForms-style layout for all line-grid clinical forms */
+.clinical-standard-form .clinical-form-body {
+    max-height: none;
+    min-height: 520px;
+    overflow: visible;
+}
+
+.clinical-standard-form .clinical-form-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    max-height: calc(100vh - 220px);
+}
+
+.clinical-standard-form .clinical-form-header {
+    flex-shrink: 0;
+}
+
+.clinical-standard-form .clinical-form-grid-area {
+    flex: 0 1 auto;
+    max-height: none;
+}
+
+.clinical-standard-form .clinical-line-grid-scroll {
+    max-height: min(360px, 40vh);
+    min-height: 200px;
+    flex: 0 0 auto;
+    overflow-y: scroll;
+    overflow-x: auto;
+}
+
+.clinical-standard-form .line-grid tbody tr:nth-child(even) {
+    background: #f7f7f7;
+}
+
+.clinical-standard-form .line-grid tbody tr:hover {
+    background: #eef6ff;
+}
+
+.clinical-form-totals-section {
+    flex-shrink: 0;
+    margin-top: 0.35rem;
+    padding-bottom: 0.25rem;
+}
+
+.clinical-standard-form .clinical-grand-total-row {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.clinical-grand-total-box {
+    min-width: 240px;
+    text-align: right;
+}
+
+.clinical-grand-total-field {
+    font-weight: 700;
+    font-size: 1.05rem;
+    text-align: right;
+    background: #fff !important;
+    border: 2px solid #c8c8c8 !important;
+}
+
+.clinical-standard-form .section-caption {
+    margin-bottom: 0.35rem;
+    margin-top: 0.15rem;
+}
+
+.clinical-standard-form .form-hint {
+    flex-shrink: 0;
+    margin: 0 0 0.25rem;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.clinical-standard-form .clinical-form-left > .clinical-form-totals-section .form-summary-panel,
+.clinical-standard-form .clinical-form-left > .clinical-form-totals-section .invoice-summary-panel {
+    margin-top: 0.25rem;
 }
 
 @media print {

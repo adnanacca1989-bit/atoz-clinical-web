@@ -5,14 +5,14 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page">
+<div class="clinical-form-page clinical-standard-form">
     <h1 class="page-title">Pharmacy Purchase Bill</h1>
-    <p class="text-muted small">Supplier purchase — stock IN with discount amount or percentage.</p>
-    <div asp-validation-summary="All" class="validation-summary-errors mx-3"></div>
+    <p class="form-hint">Supplier purchase — stock IN with discount amount or percentage.</p>
+    <div asp-validation-summary="All" class="validation-summary-errors"></div>
     <form method="post" id="purchaseBillForm">
         <div class="clinical-form-body">
-            <div class="clinical-form-left">
-                <div class="row g-2 mb-2">
+            <div class="clinical-form-left clinical-form-scroll">
+                <div class="row g-2 mb-2 clinical-form-header">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Purchase ID</label>
                         <input asp-for="Input.PurchaseNo" class="clinical-field" readonly />
@@ -50,7 +50,8 @@
                     </div>
                 </div>
                 <div class="clinical-form-grid-area">
-                <div class="line-grid-scroll">
+                <div class="section-caption">Purchase Lines</div>
+                <div class="line-grid-scroll clinical-line-grid-scroll">
                 <table class="line-grid pharmacy-line-grid clinical-line-grid">
                     <thead><tr><th class="col-no">No</th><th class="col-item">Item</th><th>Barcode</th><th>Code</th><th>Name</th><th>Dosage</th><th>UOM</th><th class="col-qty">QTY IN</th><th class="col-fee">Unit Cost</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
                     <tbody>
@@ -90,6 +91,7 @@
                 </table>
                 </div>
                 </div>
+                <div class="clinical-form-totals-section">
                 <div class="section-caption">Purchase Totals &amp; Payment</div>
                 <div class="form-summary-panel">
                 <div class="row g-2">
@@ -119,6 +121,7 @@
                     </div>
                 </div>
                 </div>
+                </div>
             </div>
             <div class="clinical-form-right">
                 <div class="record-transaction-header">Record Transaction</div>
@@ -146,6 +149,10 @@
         </div>
         <input type="hidden" asp-for="RecordId" />
         <partial name="_FormToolbar" />
+        <div class="clinical-form-footer">
+            <span>Created By: @Model.UserName</span>
+            <span>Last Updated By: @Model.UserName</span>
+        </div>
     </form>
 </div>
 

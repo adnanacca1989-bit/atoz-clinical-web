@@ -5,12 +5,13 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page invoice-form-page">
+<div class="clinical-form-page clinical-standard-form invoice-form-page">
     <h1 class="page-title">Invoice / Billing</h1>
+    <div asp-validation-summary="All" class="validation-summary-errors"></div>
     <form method="post">
         <div class="clinical-form-body">
-            <div class="clinical-form-left invoice-form-left">
-                <div class="row g-2 mb-2 invoice-form-header">
+            <div class="clinical-form-left clinical-form-scroll">
+                <div class="row g-2 mb-2 clinical-form-header">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Invoice ID</label>
                         <input asp-for="Input.InvoiceNo" class="clinical-field" readonly />
@@ -87,7 +88,7 @@
                 </table>
                 </div>
                 </div>
-                <div class="invoice-totals-section">
+                <div class="clinical-form-totals-section">
                 <div class="section-caption">Invoice Totals &amp; Payment</div>
                 <div class="form-summary-panel invoice-summary-panel">
                 <div class="row g-3">

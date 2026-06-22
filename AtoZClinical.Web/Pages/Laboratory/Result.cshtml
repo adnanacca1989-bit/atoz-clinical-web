@@ -12,17 +12,19 @@
 
 
 
-<div class="clinical-form-page">
+<div class="clinical-form-page clinical-standard-form">
 
     <h1 class="page-title">Laboratory Result</h1>
+
+    <div asp-validation-summary="All" class="validation-summary-errors"></div>
 
     <form method="post">
 
         <div class="clinical-form-body">
 
-            <div class="clinical-form-left">
+            <div class="clinical-form-left clinical-form-scroll">
 
-                <div class="row g-3 mb-2">
+                <div class="row g-2 mb-2 clinical-form-header">
 
                     <div class="col-md-3">
 
@@ -124,7 +126,7 @@
 
                 <div class="clinical-form-grid-area">
                 <div class="section-caption">Result Lines</div>
-                <div class="line-grid-scroll">
+                <div class="line-grid-scroll clinical-line-grid-scroll">
                 <table class="line-grid clinical-line-grid">
                     <thead>
                         <tr><th class="col-no">No</th><th class="col-item">Test Name</th><th>Test Code</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th><th class="col-del">Del</th></tr>

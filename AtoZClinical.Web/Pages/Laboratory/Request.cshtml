@@ -12,19 +12,19 @@
 
 
 
-<div class="clinical-form-page">
+<div class="clinical-form-page clinical-standard-form">
 
     <h1 class="page-title">Laboratory Request</h1>
 
-    <div asp-validation-summary="All" class="validation-summary-errors mx-3"></div>
+    <div asp-validation-summary="All" class="validation-summary-errors"></div>
 
     <form method="post">
 
         <div class="clinical-form-body">
 
-            <div class="clinical-form-left">
+            <div class="clinical-form-left clinical-form-scroll">
 
-                <div class="row g-3 mb-2">
+                <div class="row g-2 mb-2 clinical-form-header">
 
                     <div class="col-md-3">
 
@@ -124,7 +124,7 @@
 
                 <div class="clinical-form-grid-area">
                 <div class="section-caption">Test Lines</div>
-                <div class="line-grid-scroll">
+                <div class="line-grid-scroll clinical-line-grid-scroll">
                 <table class="line-grid clinical-line-grid">
                     <thead>
                         <tr><th class="col-no">No</th><th class="col-item">Lab Test</th><th>Test Code</th><th>Test Name</th><th>Category</th><th class="col-qty">QTY</th><th class="col-fee">Fee</th><th class="col-total">Total</th><th class="col-del">Del</th></tr>
@@ -162,10 +162,10 @@
                 </table>
                 </div>
                 </div>
-                <div class="d-flex justify-content-end mt-2 form-summary-panel">
-                    <div class="text-end" style="min-width: 220px;">
+                <div class="clinical-form-totals-section clinical-grand-total-row">
+                    <div class="clinical-grand-total-box">
                         <label class="clinical-field-label">Total Amount</label>
-                        <input id="labRequestTotalAmount" value="@Model.LineTotal.ToString("N2")" class="clinical-field text-end" readonly />
+                        <input id="labRequestTotalAmount" value="@Model.LineTotal.ToString("N2")" class="clinical-field clinical-grand-total-field" readonly />
                     </div>
                 </div>
 
