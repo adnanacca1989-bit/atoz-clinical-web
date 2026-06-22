@@ -8,16 +8,19 @@ namespace AtoZClinical.Web.Pages.ServiceIncomes;
 public class IndexModel : ClinicFormPageModel
 {
     private readonly ServiceIncomeService _service;
+    private readonly ChartAccountService _accounts;
 
-    public IndexModel(ClinicContextService clinicContext, ServiceIncomeService service) : base(clinicContext)
+    public IndexModel(ClinicContextService clinicContext, ServiceIncomeService service, ChartAccountService accounts) : base(clinicContext)
     {
         _service = service;
+        _accounts = accounts;
     }
 
     [BindProperty]
     public ServiceIncomeInput Input { get; set; } = new();
 
     public List<ServiceIncome> Records { get; private set; } = [];
+    public List<ChartAccount> IncomeAccounts { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -44,6 +47,7 @@ public class IndexModel : ClinicFormPageModel
     private async Task LoadAsync(Guid clinicId)
     {
         Records = await _service.ListAsync(clinicId);
+        await LoadIncomeAccountsAsync(clinicId);
         if (!string.IsNullOrWhiteSpace(Search))
             Records = Records.Where(r =>
                 r.Name.Contains(Search, StringComparison.OrdinalIgnoreCase) ||
@@ -63,7 +67,20 @@ public class IndexModel : ClinicFormPageModel
         RecordId = null;
         var all = await _service.ListAsync(clinicId);
         var next = (all.Count > 0 ? all.Max(s => s.ServiceNo) : 0) + 1;
-        Input = new ServiceIncomeInput { ServiceNo = next, AccountName = ClinicLookup.AccountNames[0] };
+        await LoadIncomeAccountsAsync(clinicId);
+        Input = new ServiceIncomeInput
+        {
+            ServiceNo = next,
+            AccountName = IncomeAccounts.FirstOrDefault()?.Name ?? ClinicLookup.GetAccountNamesForCategory("Income").FirstOrDefault() ?? "Clinical Income"
+        };
+    }
+
+    private async Task LoadIncomeAccountsAsync(Guid clinicId)
+    {
+        IncomeAccounts = (await _accounts.ListAsync(clinicId))
+            .Where(a => a.CategoryType.Equals("Income", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.AccountNo)
+            .ToList();
     }
 
     private async Task<IActionResult> SaveCoreAsync()

@@ -21,7 +21,17 @@
                     </div>
                     <div class="col-md-6">
                         <label class="clinical-field-label">Account Name</label>
-                        <select asp-for="Input.AccountName" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.AccountNames))"></select>
+                        <select asp-for="Input.AccountName" class="clinical-field">
+                            @foreach (var acct in Model.IncomeAccounts)
+                            {
+                                <option value="@acct.Name">@acct.Name</option>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Input.AccountName) &&
+                                 !Model.IncomeAccounts.Any(a => a.Name == Model.Input.AccountName))
+                            {
+                                <option value="@Model.Input.AccountName" selected>@Model.Input.AccountName</option>
+                            }
+                        </select>
                     </div>
                     <div class="col-md-6">
                         <label class="clinical-field-label">Fee</label>

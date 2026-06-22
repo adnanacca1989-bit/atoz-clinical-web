@@ -2,6 +2,7 @@ using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
+using AtoZClinical.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -16,7 +17,7 @@ namespace AtoZClinical.Infrastructure.Data;
 
 public static class DatabaseInitializer
 {
-    private const int SchemaVersion = 12;
+    private const int SchemaVersion = 13;
 
     public static async Task InitializeAsync(IServiceProvider services)
     {
@@ -63,21 +64,7 @@ public static class DatabaseInitializer
 
     public static async Task SeedClinicDefaultsAsync(ClinicalDbContext db, Guid clinicId, ILogger? logger = null)
     {
-        if (!await db.ChartAccounts.AnyAsync(a => a.ClinicId == clinicId))
-        {
-            var accounts = new[]
-            {
-                new ChartAccount { ClinicId = clinicId, AccountNo = 1000, Name = "Cash", CategoryType = "Asset", DetailType = "Bank", Description = "Cash on hand" },
-                new ChartAccount { ClinicId = clinicId, AccountNo = 1100, Name = "Accounts Receivable", CategoryType = "Asset", DetailType = "Accounts Receivable", Description = "Patient balances due" },
-                new ChartAccount { ClinicId = clinicId, AccountNo = 4000, Name = "Clinical Revenue", CategoryType = "Income", DetailType = "Service/Fee Income", Description = "General clinical services" },
-                new ChartAccount { ClinicId = clinicId, AccountNo = 4100, Name = "Laboratory Revenue", CategoryType = "Income", DetailType = "Service/Fee Income", Description = "Laboratory test income" },
-                new ChartAccount { ClinicId = clinicId, AccountNo = 4200, Name = "Radiology Revenue", CategoryType = "Income", DetailType = "Service/Fee Income", Description = "Radiology imaging income" },
-                new ChartAccount { ClinicId = clinicId, AccountNo = 4300, Name = "Consultation Revenue", CategoryType = "Income", DetailType = "Service/Fee Income", Description = "Doctor consultation fees" },
-                new ChartAccount { ClinicId = clinicId, AccountNo = 5000, Name = "Operating Expenses", CategoryType = "Expense", DetailType = "Office/General Administrative", Description = "General clinic expenses" }
-            };
-            db.ChartAccounts.AddRange(accounts);
-            logger?.LogInformation("Seeded {Count} default chart accounts for clinic {ClinicId}.", accounts.Length, clinicId);
-        }
+        await EnsureStandardChartAccountsAsync(db, clinicId, logger);
 
         if (!await db.RolePermissions.AnyAsync(r => r.ClinicId == clinicId && r.RoleName == ClinicalRoles.ClinicAdmin))
         {
@@ -140,6 +127,50 @@ public static class DatabaseInitializer
         }
 
         await db.SaveChangesAsync();
+    }
+
+    public static async Task EnsureStandardChartAccountsAsync(ClinicalDbContext db, Guid clinicId, ILogger? logger = null)
+    {
+        var existing = await db.ChartAccounts.Where(a => a.ClinicId == clinicId).ToListAsync();
+        var categoryNextNo = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var template in ClinicLookup.StandardChartAccountTemplates)
+        {
+            var alreadyExists = existing.Any(a =>
+                a.Name.Equals(template.Name, StringComparison.OrdinalIgnoreCase) ||
+                (a.CategoryType.Equals(template.CategoryType, StringComparison.OrdinalIgnoreCase) &&
+                 a.DetailType.Equals(template.DetailType, StringComparison.OrdinalIgnoreCase)));
+            if (alreadyExists) continue;
+
+            if (!categoryNextNo.TryGetValue(template.CategoryType, out var nextNo))
+            {
+                var baseNo = ClinicLookup.GetCategoryBaseAccountNo(template.CategoryType);
+                var maxInCategory = existing
+                    .Where(a => a.CategoryType.Equals(template.CategoryType, StringComparison.OrdinalIgnoreCase))
+                    .Select(a => a.AccountNo)
+                    .DefaultIfEmpty(baseNo - 100)
+                    .Max();
+                nextNo = maxInCategory + 100;
+            }
+
+            var account = new ChartAccount
+            {
+                ClinicId = clinicId,
+                AccountNo = nextNo,
+                Name = template.Name,
+                CategoryType = template.CategoryType,
+                DetailType = template.DetailType,
+                Description = $"{template.CategoryType} account — {template.DetailType}"
+            };
+            categoryNextNo[template.CategoryType] = nextNo + 100;
+            db.ChartAccounts.Add(account);
+            existing.Add(account);
+            logger?.LogInformation("Added standard chart account {Name} ({Category}) for clinic {ClinicId}.",
+                template.Name, template.CategoryType, clinicId);
+        }
+
+        if (categoryNextNo.Count > 0)
+            await db.SaveChangesAsync();
     }
 
     private static async Task EnsureSchemaAsync(ClinicalDbContext db, IHostEnvironment env, ILogger logger)

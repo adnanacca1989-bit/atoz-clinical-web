@@ -50,7 +50,10 @@ public class IndexModel : ClinicFormPageModel
     private async Task LoadAsync(Guid clinicId)
     {
         Records = await _service.ListAsync(clinicId);
-        Accounts = await _chartService.ListAsync(clinicId);
+        Accounts = (await _chartService.ListAsync(clinicId))
+            .OrderBy(a => a.CategoryType)
+            .ThenBy(a => a.AccountNo)
+            .ToList();
         if (!string.IsNullOrWhiteSpace(Search))
             Records = Records.Where(r =>
                 (r.PayeeName?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||

@@ -87,11 +87,32 @@ public static class ClinicLookup
     public static readonly string[] AccountDetailTypes =
         AccountDetailTypesByCategory.Values.SelectMany(t => t).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-    public static readonly string[] ChronicDiseaseTypes =
-        ["Diabetes", "Hypertension", "Asthma", "COPD", "Heart Disease", "Kidney Disease", "Thyroid Disorder", "Arthritis", "Epilepsy"];
+    public sealed record ChartAccountTemplate(string CategoryType, string DetailType, string Name);
+
+    public static IReadOnlyList<ChartAccountTemplate> StandardChartAccountTemplates { get; } =
+        AccountDetailTypesByCategory
+            .SelectMany(kvp => kvp.Value.Select(detail => new ChartAccountTemplate(kvp.Key, detail, detail)))
+            .ToList();
+
+    public static string[] GetAccountNamesForCategory(string? categoryType) =>
+        GetDetailTypesForCategory(categoryType);
 
     public static readonly string[] AccountNames =
-        ["Clinical Revenue", "Laboratory Revenue", "Radiology Revenue", "Consultation Revenue", "Other Revenue"];
+        StandardChartAccountTemplates.Select(t => t.Name).ToArray();
+
+    public static int GetCategoryBaseAccountNo(string categoryType) =>
+        categoryType.ToUpperInvariant() switch
+        {
+            "ASSET" => 1000,
+            "LIABILITY" => 2000,
+            "EQUITY" => 3000,
+            "INCOME" => 4000,
+            "EXPENSE" => 5000,
+            _ => 9000
+        };
+
+    public static readonly string[] ChronicDiseaseTypes =
+        ["Diabetes", "Hypertension", "Asthma", "COPD", "Heart Disease", "Kidney Disease", "Thyroid Disorder", "Arthritis", "Epilepsy"];
 
     public static readonly string[] PaymentMethods =
         ["Cash", "Card", "Bank Transfer", "Cheque"];

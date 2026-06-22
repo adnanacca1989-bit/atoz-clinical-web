@@ -75,9 +75,19 @@
                     <div class="col-md-6">
                         <label class="clinical-field-label">Account Name</label>
                         <select asp-for="Input.ChartAccountName" class="clinical-field">
-                            @foreach (var a in Model.Accounts)
+                            @foreach (var group in Model.Accounts.GroupBy(a => a.CategoryType).OrderBy(g => g.Key))
                             {
-                                <option value="@a.Name">@a.Name</option>
+                                <optgroup label="@group.Key">
+                                @foreach (var a in group.OrderBy(a => a.AccountNo))
+                                {
+                                    <option value="@a.Name">@a.Name (@a.DetailType)</option>
+                                }
+                                </optgroup>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Input.ChartAccountName) &&
+                                 !Model.Accounts.Any(a => a.Name == Model.Input.ChartAccountName))
+                            {
+                                <option value="@Model.Input.ChartAccountName" selected>@Model.Input.ChartAccountName</option>
                             }
                         </select>
                     </div>
