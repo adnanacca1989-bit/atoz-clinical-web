@@ -45,12 +45,15 @@ public class IndexModel : PageModel
         if (clinic is null) return Forbid();
 
         ActiveDoctorCount = await _db.Doctors.CountAsync(d =>
-            d.ClinicId == clinic.Id && d.Status.Equals("Active", StringComparison.OrdinalIgnoreCase));
+            d.ClinicId == clinic.Id && d.Status == "Active");
 
+        var from = FromDate.Date;
+        var to = ToDate.Date;
         var patients = await _db.Patients
             .Where(p => p.ClinicId == clinic.Id &&
-                        p.AppointmentDate >= FromDate.Date &&
-                        p.AppointmentDate <= ToDate.Date)
+                        p.AppointmentDate != null &&
+                        p.AppointmentDate >= from &&
+                        p.AppointmentDate <= to)
             .ToListAsync();
 
         PendingPatients = CountStatus(patients, PatientVisitStatuses.Pending);
