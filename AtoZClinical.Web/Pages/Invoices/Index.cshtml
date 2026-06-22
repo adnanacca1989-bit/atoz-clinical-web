@@ -1,138 +1,266 @@
-@page
-@model AtoZClinical.Web.Pages.Invoices.IndexModel
-@{
-    ViewData["Title"] = "Invoice / Billing";
-    ViewData["FormHint"] = "Select patient to load charges. Edit service lines directly; totals update automatically.";
-    Layout = "_Layout";
-}
-
-<div class="clinical-form-page clinical-standard-form clinical-his-compact invoice-form-page invoice-erp-page">
-    <h1 class="page-title">Invoice / Billing</h1>
-    <div asp-validation-summary="All" class="validation-summary-errors"></div>
-    <partial name="_ClinicalFormHint" />
-    <form method="post" id="invoiceForm">
-        <div class="clinical-form-body">
-            <div class="clinical-form-left clinical-form-scroll invoice-workspace">
-                <div class="clinical-context-strip">
-                    <div class="ctx-row">
-                        <div class="ctx-field ctx-doc">
-                            <label class="clinical-field-label">Invoice ID</label>
-                            <input asp-for="Input.InvoiceNo" class="clinical-field" readonly />
-                        </div>
-                        <div class="ctx-field ctx-date">
-                            <label class="clinical-field-label">Invoice Date</label>
-                            <input asp-for="Input.InvoiceDate" class="clinical-field" type="date" />
-                        </div>
-                        <div class="ctx-field ctx-patient">
-                            <label class="clinical-field-label">Patient Name</label>
-                            <input asp-for="Input.PatientName" id="invoicePatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
-                        </div>
-                    </div>
-                    <div class="ctx-row ctx-demographics">
-                        <div class="ctx-field ctx-sm"><label class="clinical-field-label">MRN</label><input asp-for="Input.PatientId" class="clinical-field" readonly /></div>
-                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Age</label><input asp-for="Input.Age" class="clinical-field" type="number" readonly /></div>
-                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Sex</label><input asp-for="Input.Gender" class="clinical-field" readonly /></div>
-                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Phone</label><input asp-for="Input.Phone" class="clinical-field" readonly /></div>
-                        <div class="ctx-field ctx-md"><label class="clinical-field-label">City</label><input asp-for="Input.City" class="clinical-field" readonly /></div>
-                        <div class="ctx-field ctx-lg"><label class="clinical-field-label">Doctor</label><input asp-for="Input.DoctorName" class="clinical-field" readonly /></div>
-                        <div class="ctx-field ctx-md"><label class="clinical-field-label">Specialty</label><input asp-for="Input.Specialty" class="clinical-field" readonly /></div>
-                    </div>
-                </div>
-
-                <div class="invoice-lines-panel">
-                    <div class="line-grid-scroll clinical-line-grid-scroll invoice-line-grid-scroll">
-                        <table class="line-grid invoice-line-grid clinical-line-grid">
-                            <thead><tr><th class="col-no">#</th><th class="col-item">Service / Charge</th><th class="col-qty">Qty</th><th class="col-rate">Rate</th><th class="col-total">Amount</th><th class="col-del">Del</th></tr></thead>
-                            <tbody>
-                            @for (var i = 0; i < Model.Lines.Count; i++)
-                            {
-                                <tr class="invoice-line">
-                                    <td><input asp-for="Lines[i].LineNo" readonly /></td>
-                                    <td class="col-item">
-                                        <input asp-for="Lines[i].ServiceName" class="clinical-field invoice-service-name" placeholder="Service / charge description" list="invoiceServiceList" />
-                                    </td>
-                                    <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="1" /></td>
-                                    <td class="col-rate"><input asp-for="Lines[i].UnitFee" type="number" step="0.01" /></td>
-                                    <td class="col-total"><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="invoice-line-total" /></td>
-                                    <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="invoice-erp-footer">
-                    <div class="invoice-payment-block">
-                        <div class="invoice-block-label">Payment</div>
-                        <div class="invoice-payment-grid">
-                            <label class="invoice-pay-field">
-                                <span>Method</span>
-                                <select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))"></select>
-                            </label>
-                            <label class="invoice-pay-field">
-                                <span>Amount Paid</span>
-                                <input asp-for="Input.AmountPaid" id="invoiceAmountPaid" class="clinical-field" type="number" step="0.01" />
-                            </label>
-                            <label class="invoice-pay-field">
-                                <span>Status</span>
-                                <input asp-for="Input.PaymentStatus" class="clinical-field" />
-                            </label>
-                        </div>
-                    </div>
-                    <table class="invoice-totals-table" aria-label="Invoice totals">
-                        <tbody>
-                            <tr><td>Subtotal</td><td><input id="invoiceSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="invoice-totals-value" readonly /></td></tr>
-                            <tr><td>Discount</td><td><input asp-for="Input.Discount" id="invoiceDiscount" class="invoice-totals-input" type="number" step="0.01" /></td></tr>
-                            <tr class="invoice-totals-grand"><td>Total</td><td><input id="invoiceNetAmount" value="@Model.NetAmount.ToString("N2")" class="invoice-totals-value invoice-totals-total" readonly /></td></tr>
-                            <tr class="invoice-totals-balance"><td>Balance Due</td><td><input id="invoiceBalance" value="@Model.Balance.ToString("N2")" class="invoice-totals-value invoice-totals-balance" readonly /></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <datalist id="invoiceServiceList">
-                @foreach (var s in Model.Services)
-                {
-                    <option value="@s.Name"></option>
-                }
-            </datalist>
-            <div class="clinical-form-right">
-                <div class="record-transaction-header">Record Transaction</div>
-                <div class="record-transaction-status">@Model.StatusText</div>
-                <div class="p-2">
-                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
-                </div>
-                <div class="clinical-record-grid">
-                    <table>
-                        <thead><tr><th>Invoice No</th><th>Patient</th><th>Balance</th></tr></thead>
-                        <tbody>
-                        @foreach (var r in Model.Records)
-                        {
-                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
-                                <td>@r.InvoiceNo</td>
-                                <td>@r.PatientName</td>
-                                <td class="text-end">@r.BalanceDue.ToString("N2")</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <input type="hidden" asp-for="RecordId" />
-        <partial name="_FormToolbar" />
-        <div class="clinical-form-footer">
-            <span>Created By: @Model.UserName</span>
-            <span>Last Updated By: @Model.UserName</span>
-        </div>
-    </form>
-    <partial name="_InvoicePrintDocument" model="Model" />
-</div>
-
-<partial name="_PatientSelectModal" />
-
-@section Scripts {
-    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
-    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
-    <script src="~/js/invoice-billing.js" asp-append-version="true"></script>
-}
+@page
+
+@model AtoZClinical.Web.Pages.Invoices.IndexModel
+
+@{
+
+    ViewData["Title"] = "Invoice / Billing";
+
+    ViewData["FormHint"] = "Select patient to load charges (required fields marked *). Edit service lines directly; totals update automatically.";
+
+    Layout = "_Layout";
+
+}
+
+
+
+<div class="clinical-form-page clinical-standard-form clinical-his-compact invoice-form-page invoice-erp-page">
+
+    <h1 class="page-title">Invoice / Billing</h1>
+
+    <div asp-validation-summary="All" class="validation-summary-errors"></div>
+
+    <partial name="_ClinicalFormHint" />
+
+    <form method="post" id="invoiceForm">
+
+        <div class="clinical-form-body">
+
+            <div class="clinical-form-left clinical-form-scroll invoice-workspace">
+
+                <div class="clinical-context-strip">
+
+                    <div class="ctx-row">
+
+                        <div class="ctx-field ctx-doc">
+
+                            <label class="clinical-field-label">Invoice ID</label>
+
+                            <input asp-for="Input.InvoiceNo" class="clinical-field" readonly />
+
+                        </div>
+
+                        <div class="ctx-field ctx-date">
+                            <label class="clinical-field-label field-required">Invoice Date</label>
+                            <input asp-for="Input.InvoiceDate" class="clinical-field" type="date" required />
+                            <span asp-validation-for="Input.InvoiceDate" class="text-danger small"></span>
+                        </div>
+                        <div class="ctx-field ctx-patient">
+                            <label class="clinical-field-label field-required">Patient Name</label>
+                            <input asp-for="Input.PatientName" id="invoicePatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." required />
+                            <span asp-validation-for="Input.PatientName" class="text-danger small"></span>
+                        </div>
+
+                    </div>
+
+                    <div class="ctx-row ctx-demographics">
+
+                        <div class="ctx-field ctx-sm"><label class="clinical-field-label">MRN</label><input asp-for="Input.PatientId" class="clinical-field" readonly /></div>
+
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label field-required">Age</label><input asp-for="Input.Age" class="clinical-field" type="number" readonly required /><span asp-validation-for="Input.Age" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label">Sex</label><input asp-for="Input.Gender" class="clinical-field" readonly /></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">Phone</label><input asp-for="Input.Phone" class="clinical-field" readonly required /><span asp-validation-for="Input.Phone" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">City</label><input asp-for="Input.City" class="clinical-field" readonly required /><span asp-validation-for="Input.City" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-lg"><label class="clinical-field-label field-required">Doctor</label><input asp-for="Input.DoctorName" class="clinical-field" readonly required /><span asp-validation-for="Input.DoctorName" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">Specialty</label><input asp-for="Input.Specialty" class="clinical-field" readonly required /><span asp-validation-for="Input.Specialty" class="text-danger small"></span></div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="invoice-lines-panel">
+
+                    <div class="line-grid-scroll clinical-line-grid-scroll invoice-line-grid-scroll">
+
+                        <table class="line-grid invoice-line-grid clinical-line-grid">
+
+                            <thead><tr><th class="col-no">#</th><th class="col-item">Service / Charge</th><th class="col-qty">Qty</th><th class="col-rate">Rate</th><th class="col-total">Amount</th><th class="col-del">Del</th></tr></thead>
+
+                            <tbody>
+
+                            @for (var i = 0; i < Model.Lines.Count; i++)
+
+                            {
+
+                                <tr class="invoice-line">
+
+                                    <td><input asp-for="Lines[i].LineNo" readonly /></td>
+
+                                    <td class="col-item">
+
+                                        <input asp-for="Lines[i].ServiceName" class="clinical-field invoice-service-name" placeholder="Service / charge description" list="invoiceServiceList" />
+
+                                    </td>
+
+                                    <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="1" /></td>
+
+                                    <td class="col-rate"><input asp-for="Lines[i].UnitFee" type="number" step="0.01" /></td>
+
+                                    <td class="col-total"><input value="@(Model.Lines[i].LineTotal.ToString("N2"))" readonly class="invoice-line-total" /></td>
+
+                                    <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+
+                                </tr>
+
+                            }
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="invoice-erp-footer">
+
+                    <div class="invoice-payment-block">
+
+                        <div class="invoice-block-label">Payment</div>
+
+                        <div class="invoice-payment-grid">
+
+                            <label class="invoice-pay-field">
+
+                                <span>Method</span>
+
+                                <select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))"></select>
+
+                            </label>
+
+                            <label class="invoice-pay-field">
+
+                                <span>Amount Paid</span>
+
+                                <input asp-for="Input.AmountPaid" id="invoiceAmountPaid" class="clinical-field" type="number" step="0.01" />
+
+                            </label>
+
+                            <label class="invoice-pay-field">
+
+                                <span>Status</span>
+
+                                <input asp-for="Input.PaymentStatus" class="clinical-field" />
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                    <table class="invoice-totals-table" aria-label="Invoice totals">
+
+                        <tbody>
+
+                            <tr><td>Subtotal</td><td><input id="invoiceSubTotal" value="@Model.LineSubTotal.ToString("N2")" class="invoice-totals-value" readonly /></td></tr>
+
+                            <tr><td>Discount</td><td><input asp-for="Input.Discount" id="invoiceDiscount" class="invoice-totals-input" type="number" step="0.01" /></td></tr>
+
+                            <tr class="invoice-totals-grand"><td>Total</td><td><input id="invoiceNetAmount" value="@Model.NetAmount.ToString("N2")" class="invoice-totals-value invoice-totals-total" readonly /></td></tr>
+
+                            <tr class="invoice-totals-balance"><td>Balance Due</td><td><input id="invoiceBalance" value="@Model.Balance.ToString("N2")" class="invoice-totals-value invoice-totals-balance" readonly /></td></tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <datalist id="invoiceServiceList">
+
+                @foreach (var s in Model.Services)
+
+                {
+
+                    <option value="@s.Name"></option>
+
+                }
+
+            </datalist>
+
+            <div class="clinical-form-right">
+
+                <div class="record-transaction-header">Record Transaction</div>
+
+                <div class="record-transaction-status">@Model.StatusText</div>
+
+                <div class="p-2">
+
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+
+                </div>
+
+                <div class="clinical-record-grid">
+
+                    <table>
+
+                        <thead><tr><th>Invoice No</th><th>Patient</th><th>Balance</th></tr></thead>
+
+                        <tbody>
+
+                        @foreach (var r in Model.Records)
+
+                        {
+
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+
+                                <td>@r.InvoiceNo</td>
+
+                                <td>@r.PatientName</td>
+
+                                <td class="text-end">@r.BalanceDue.ToString("N2")</td>
+
+                            </tr>
+
+                        }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <input type="hidden" asp-for="RecordId" />
+
+        <partial name="_FormToolbar" />
+
+        <div class="clinical-form-footer">
+
+            <span>Created By: @Model.UserName</span>
+
+            <span>Last Updated By: @Model.UserName</span>
+
+        </div>
+
+    </form>
+
+    <partial name="_InvoicePrintDocument" model="Model" />
+
+</div>
+
+
+
+<partial name="_PatientSelectModal" />
+
+
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+
+    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
+
+    <script src="~/js/invoice-billing.js" asp-append-version="true"></script>
+
+}
+

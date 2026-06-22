@@ -2,6 +2,7 @@ using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace AtoZClinical.Web.Pages.Invoices;
 
@@ -110,6 +111,18 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+
+        if (!ModelState.IsValid)
+        {
+            await LoadClinicBrandingAsync();
+            await LoadAsync(clinicId.Value);
+            EnsureLineRows();
+            SetFormViewData("Invoice / Billing", null, null, Input.UpdatedAt);
+            ViewData["OpenPatientSelect"] = true;
+            ViewData["ShowAddLines"] = true;
+            return Page();
+        }
+
         var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
         var entity = Input.ToEntity(isNew ? null : RecordId);
         var lines = Lines
@@ -160,14 +173,34 @@ public class IndexModel : ClinicFormPageModel
     public sealed class InvoiceInput
     {
         public int InvoiceNo { get; set; }
+
+        [Required(ErrorMessage = "Invoice Date is required.")]
+        [Display(Name = "Invoice Date")]
         public DateTime InvoiceDate { get; set; } = DateTime.Today;
+
+        [Required(ErrorMessage = "Patient Name is required.")]
+        [Display(Name = "Patient Name")]
         public string? PatientName { get; set; }
+
         public string? PatientId { get; set; }
+
+        [Required(ErrorMessage = "Age is required.")]
+        [Range(0, 150, ErrorMessage = "Age is required.")]
         public int? Age { get; set; }
+
         public string? Gender { get; set; }
+
+        [Required(ErrorMessage = "Phone is required.")]
         public string? Phone { get; set; }
+
+        [Required(ErrorMessage = "City is required.")]
         public string? City { get; set; }
+
+        [Required(ErrorMessage = "Doctor Name is required.")]
+        [Display(Name = "Doctor Name")]
         public string? DoctorName { get; set; }
+
+        [Required(ErrorMessage = "Specialty is required.")]
         public string? Specialty { get; set; }
         public decimal Discount { get; set; }
         public decimal AmountPaid { get; set; }
