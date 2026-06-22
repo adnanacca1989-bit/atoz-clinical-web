@@ -33,6 +33,7 @@ public class UsersModel : SettingsFormPageModel
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
         if (!string.IsNullOrEmpty(UserRecordId)) await LoadRecord(clinicId.Value, UserRecordId);
+        else if (NewRecord) await PrepareNew();
         else if (Records.Count > 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew();
         SetFormViewData("Define User", null, null, null);
@@ -40,8 +41,8 @@ public class UsersModel : SettingsFormPageModel
     }
 
     public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
-    public Task<IActionResult> OnPostNewAsync() => Task.FromResult<IActionResult>(RedirectToPage());
-    public Task<IActionResult> OnPostClearAsync() => Task.FromResult<IActionResult>(RedirectToPage());
+    public Task<IActionResult> OnPostNewAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true }));
+    public Task<IActionResult> OnPostClearAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true }));
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
     public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
     public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
@@ -96,7 +97,7 @@ public class UsersModel : SettingsFormPageModel
                 });
                 var created = await _users.FindByNameAsync(Input.Username);
                 if (SaveMode == "New")
-                    return RedirectToPage(new { Search });
+                    return RedirectToPage(new { Search, NewRecord = true });
                 return RedirectToPage(new { UserRecordId = created?.Id, Search });
             }
             catch (InvalidOperationException ex)
@@ -120,7 +121,7 @@ public class UsersModel : SettingsFormPageModel
             await _users.AddPasswordAsync(user, Input.Password);
         }
         if (SaveMode == "New")
-            return RedirectToPage(new { Search });
+            return RedirectToPage(new { Search, NewRecord = true });
         return RedirectToPage(new { UserRecordId = user.Id, Search });
     }
 

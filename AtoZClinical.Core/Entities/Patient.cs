@@ -17,6 +17,8 @@ public class Patient
     public string? Allergies { get; set; }
     public string? NationalId { get; set; }
     public string? EmergencyContact { get; set; }
+    public string? HealthInsuranceName { get; set; }
+    public string? HealthInsuranceNumber { get; set; }
     public string? DoctorName { get; set; }
     public string? Specialty { get; set; }
     public string? AppointmentId { get; set; }

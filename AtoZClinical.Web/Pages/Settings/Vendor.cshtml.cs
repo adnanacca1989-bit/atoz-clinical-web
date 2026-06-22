@@ -21,7 +21,8 @@ public class VendorModel : SettingsFormPageModel
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
         if (RecordId.HasValue) await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (Records.Count > 0 && Input.VendorNo == 0) await LoadRecord(clinicId.Value, Records[0].Id);
+        else if (NewRecord) await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);
         SetFormViewData("Define Vendor", null, null, Input.UpdatedAt);
         return Page();

@@ -2,6 +2,7 @@ using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace AtoZClinical.Web.Pages.CashPayments;
 
@@ -91,6 +92,15 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+
+        if (!ModelState.IsValid)
+        {
+            await LoadAsync(clinicId.Value);
+            SetFormViewData("Cash Payment", null, null, Input.UpdatedAt);
+            ViewData["OpenPatientSelect"] = true;
+            return Page();
+        }
+
         if (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase))
             Input.WrittenAmount = AmountWords.Convert(Input.Amount);
         var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
@@ -130,7 +140,11 @@ public class IndexModel : ClinicFormPageModel
     public sealed class CashPaymentInput
     {
         public int PaymentNo { get; set; }
+
+        [Required(ErrorMessage = "Date is required.")]
+        [Display(Name = "Date")]
         public DateTime PaymentDate { get; set; } = DateTime.Today;
+
         public string? PatientId { get; set; }
         public string? PayeeName { get; set; }
         public int? Age { get; set; }
@@ -141,10 +155,19 @@ public class IndexModel : ClinicFormPageModel
         public string? Specialty { get; set; }
         public decimal BalanceDue { get; set; }
         public string? BalanceStatus { get; set; }
+
+        [Required(ErrorMessage = "Amount is required.")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than zero.")]
         public decimal Amount { get; set; }
+
+        [Required(ErrorMessage = "Payment Method is required.")]
         public string PaymentMethod { get; set; } = "Cash";
+
         public string? Description { get; set; }
         public decimal? EndingBalance { get; set; }
+
+        [Required(ErrorMessage = "Account Name is required.")]
+        [Display(Name = "Account Name")]
         public string? ChartAccountName { get; set; }
         public string WrittenAmount { get; set; } = "Zero";
         public string? ReferenceNo { get; set; }

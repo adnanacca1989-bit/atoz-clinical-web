@@ -21,7 +21,8 @@ public class CurrencyModel : SettingsFormPageModel
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
         if (RecordId.HasValue) await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (Records.Count > 0 && Input.CurrencyNo == 0) await LoadRecord(clinicId.Value, Records[0].Id);
+        else if (NewRecord) await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);
         SetFormViewData("Define Currency", null, null, Input.UpdatedAt);
         return Page();
@@ -72,7 +73,7 @@ public class CurrencyModel : SettingsFormPageModel
         return RedirectAfterSave(saved.Id);
     }
 
-    private Task<IActionResult> NewCoreAsync() { RecordId = null; return Task.FromResult<IActionResult>(RedirectToPage()); }
+    private Task<IActionResult> NewCoreAsync() => Task.FromResult<IActionResult>(RedirectToNewForm());
 
     private async Task<IActionResult> DeleteCoreAsync()
     {

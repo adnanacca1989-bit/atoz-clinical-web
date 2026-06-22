@@ -341,6 +341,10 @@ public class IndexModel : ClinicFormPageModel
 
         public string? EmergencyContact { get; set; }
 
+        public string? HealthInsuranceName { get; set; }
+
+        public string? HealthInsuranceNumber { get; set; }
+
         public string? AppointmentId { get; set; }
 
         public string? VisitNumber { get; set; }
@@ -409,6 +413,10 @@ public class IndexModel : ClinicFormPageModel
 
             EmergencyContact = p.EmergencyContact,
 
+            HealthInsuranceName = p.HealthInsuranceName,
+
+            HealthInsuranceNumber = p.HealthInsuranceNumber,
+
             AppointmentId = p.AppointmentId,
 
             VisitNumber = p.VisitNumber,
@@ -460,6 +468,10 @@ public class IndexModel : ClinicFormPageModel
             BloodGroup = BloodGroup,
 
             EmergencyContact = EmergencyContact,
+
+            HealthInsuranceName = HealthInsuranceName,
+
+            HealthInsuranceNumber = HealthInsuranceNumber,
 
             AppointmentId = AppointmentId,
 

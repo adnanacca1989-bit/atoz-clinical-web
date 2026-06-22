@@ -78,6 +78,14 @@
                         <label class="clinical-field-label">Emergency Contact</label>
                         <input asp-for="Input.EmergencyContact" class="clinical-field" />
                     </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Health Insurance</label>
+                        <input asp-for="Input.HealthInsuranceName" class="clinical-field" placeholder="Insurance company / plan name" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="clinical-field-label">Health Insurance No</label>
+                        <input asp-for="Input.HealthInsuranceNumber" class="clinical-field" placeholder="Policy / member number" />
+                    </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Appointment ID</label>
                         <input asp-for="Input.AppointmentId" class="clinical-field" readonly />

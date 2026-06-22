@@ -23,6 +23,7 @@ public class CashReceipt
     public decimal Amount { get; set; }
     public string WrittenAmount { get; set; } = "Zero";
     public string PaymentMethod { get; set; } = "Cash";
+    public string? ChartAccountName { get; set; }
     public string? ReferenceNo { get; set; }
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
