@@ -96,8 +96,13 @@ public class IndexModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
         var entity = Input.ToEntity(RecordId);
         var lines = Lines
-            .Where(l => !string.IsNullOrWhiteSpace(l.ServiceName))
-            .Select(l => l.ToEntity())
+            .Where(l => !string.IsNullOrWhiteSpace(l.ServiceName) || l.UnitFee > 0)
+            .Select(l =>
+            {
+                if (string.IsNullOrWhiteSpace(l.ServiceName))
+                    l.ServiceName = l.UnitFee > 0 ? $"Charge line {l.LineNo}" : l.ServiceName;
+                return l.ToEntity();
+            })
             .ToList();
         var saved = await _invoiceService.SaveAsync(clinicId.Value, entity, lines, UserName);
         return RedirectAfterSave(saved.Id);

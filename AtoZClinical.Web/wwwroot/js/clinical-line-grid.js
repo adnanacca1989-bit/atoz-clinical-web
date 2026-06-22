@@ -22,6 +22,7 @@ function initClinicalLineGrid(options = {}) {
     const clearRow = (row) => {
         row.querySelectorAll('input, select, textarea').forEach(el => {
             if (el.readOnly && el.name?.endsWith('.LineNo')) return;
+            if (el.classList.contains('invoice-service-pick')) { el.selectedIndex = 0; return; }
             if (el.tagName === 'SELECT') el.selectedIndex = 0;
             else if (el.type === 'number') {
                 if (el.classList.contains('pharmacy-qty') || el.classList.contains('purchase-qty') || el.name?.includes('.Qty'))

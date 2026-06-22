@@ -87,7 +87,11 @@ main:has(.clinical-form-page) {
 .clinical-form-left > .form-summary-panel,
 .clinical-form-left > .invoice-summary-panel,
 .clinical-form-left > .section-caption + .form-summary-panel,
-.clinical-form-left > .section-caption + .invoice-summary-panel,
+.clinical-form-left > .invoice-totals-section,
+.clinical-form-left > .section-caption + .invoice-totals-section {
+    flex-shrink: 0;
+    margin-top: 0.25rem;
+}
 .clinical-form-left > .d-flex.justify-content-end,
 .clinical-form-left > .row.g-2.mt-2,
 .clinical-form-left > .row.g-3.mt-1 {
@@ -372,16 +376,71 @@ main:has(.clinical-form-page) {
     font-size: 0.8rem;
 }
 
-.pharmacy-line-grid th.col-item,
-.pharmacy-line-grid td.col-item,
 .invoice-line-grid th.col-item,
 .invoice-line-grid td.col-item {
+    min-width: 280px;
+    width: 280px;
+}
+
+.invoice-line-grid td.col-item .invoice-service-name {
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.invoice-line-grid td.col-item .invoice-service-pick {
+    font-size: 0.78rem;
+    color: #555;
+    padding: 0.25rem 0.4rem;
+}
+
+/* Invoice / Billing — scrollable body with totals always reachable */
+.invoice-form-page .clinical-form-body {
+    max-height: none;
+    min-height: 520px;
+    overflow: visible;
+}
+
+.invoice-form-left {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    max-height: calc(100vh - 220px);
+}
+
+.invoice-form-header {
+    flex-shrink: 0;
+}
+
+.invoice-form-page .invoice-lines-area {
+    flex: 0 1 auto;
+    max-height: none;
+}
+
+.invoice-form-page .invoice-line-grid-scroll {
+    max-height: min(340px, 38vh);
+    min-height: 200px;
+    flex: 0 0 auto;
+    overflow-y: scroll;
+    overflow-x: auto;
+}
+
+.invoice-totals-section {
+    flex-shrink: 0;
+    margin-top: 0.5rem;
+    padding-bottom: 0.25rem;
+}
+
+.invoice-totals-section .invoice-summary-panel {
+    margin-top: 0.35rem;
+}
+
+.pharmacy-line-grid th.col-item,
+.pharmacy-line-grid td.col-item {
     min-width: 220px;
     width: 220px;
 }
 
-.pharmacy-line-grid td.col-item select,
-.invoice-line-grid td.col-item select {
+.pharmacy-line-grid td.col-item select {
     min-width: 200px;
 }
 

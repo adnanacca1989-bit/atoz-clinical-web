@@ -5,12 +5,12 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page">
+<div class="clinical-form-page invoice-form-page">
     <h1 class="page-title">Invoice / Billing</h1>
     <form method="post">
         <div class="clinical-form-body">
-            <div class="clinical-form-left">
-                <div class="row g-2 mb-2">
+            <div class="clinical-form-left invoice-form-left">
+                <div class="row g-2 mb-2 invoice-form-header">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Invoice ID</label>
                         <input asp-for="Input.InvoiceNo" class="clinical-field" readonly />
@@ -56,21 +56,24 @@
                         <input asp-for="Input.PaymentStatus" class="clinical-field" />
                     </div>
                 </div>
-                <div class="clinical-form-grid-area">
-                <div class="line-grid-scroll">
+                <div class="clinical-form-grid-area invoice-lines-area">
+                <div class="section-caption">Invoice Lines</div>
+                <div class="line-grid-scroll invoice-line-grid-scroll">
                 <table class="line-grid invoice-line-grid clinical-line-grid">
                     <thead><tr><th class="col-no">No</th><th class="col-item">Service / Charge</th><th class="col-qty">QTY</th><th class="col-rate">Rate</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
                     {
+                        var lineService = Model.Lines[i].ServiceName ?? "";
                         <tr class="invoice-line">
                             <td><input asp-for="Lines[i].LineNo" readonly /></td>
                             <td class="col-item">
-                                <select asp-for="Lines[i].ServiceName" class="clinical-field">
-                                    <option value="">--</option>
+                                <input asp-for="Lines[i].ServiceName" class="clinical-field invoice-service-name" placeholder="Service / charge description" list="invoiceServiceList" />
+                                <select class="clinical-field invoice-service-pick" title="Pick from registered services">
+                                    <option value="">— Registered service —</option>
                                     @foreach (var s in Model.Services)
                                     {
-                                        <option value="@s.Name" data-fee="@s.Fee" data-no="@s.ServiceNo">@s.Name</option>
+                                        <option value="@s.Name" data-fee="@s.Fee" data-no="@s.ServiceNo" selected="@(lineService == s.Name)">@s.Name</option>
                                     }
                                 </select>
                             </td>
@@ -84,6 +87,7 @@
                 </table>
                 </div>
                 </div>
+                <div class="invoice-totals-section">
                 <div class="section-caption">Invoice Totals &amp; Payment</div>
                 <div class="form-summary-panel invoice-summary-panel">
                 <div class="row g-3">
@@ -115,7 +119,14 @@
                     </div>
                 </div>
                 </div>
+                </div>
             </div>
+            <datalist id="invoiceServiceList">
+                @foreach (var s in Model.Services)
+                {
+                    <option value="@s.Name"></option>
+                }
+            </datalist>
             <div class="clinical-form-right">
                 <div class="record-transaction-header">Record Transaction</div>
                 <div class="record-transaction-status">@Model.StatusText</div>
