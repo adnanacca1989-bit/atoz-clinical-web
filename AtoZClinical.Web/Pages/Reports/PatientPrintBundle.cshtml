@@ -1,0 +1,65 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.PatientPrintBundleModel
+@{
+    Layout = "_PrintLayout";
+    ViewData["Title"] = "Patient Reports";
+}
+
+<div class="print-toolbar-screen no-print">
+    <button type="button" class="btn-form btn-form-primary" onclick="window.print();">🖨️ Print All Reports</button>
+    <button type="button" class="btn-form" onclick="window.close();">✕ Close</button>
+</div>
+
+@if (Model.Bundle.Sections.Count == 0)
+{
+    <section class="a4-page">
+        <h2 class="print-doc-title">Patient Reports</h2>
+        <p>No records found for patient <strong>@Model.Bundle.PatientName</strong> @(string.IsNullOrWhiteSpace(Model.Bundle.PatientId) ? "" : $"({Model.Bundle.PatientId})").</p>
+    </section>
+}
+else
+{
+    @foreach (var doc in Model.Bundle.Sections)
+    {
+        <section class="a4-page">
+            <h2 class="print-doc-title">@doc.Title</h2>
+            <div class="print-doc-meta">
+                @foreach (var field in doc.HeaderFields)
+                {
+                    <span><strong>@field.Key:</strong> @field.Value</span>
+                }
+            </div>
+            @if (doc.Columns is { Length: > 0 } && doc.Rows.Count > 0)
+            {
+                <table class="print-doc-table">
+                    <thead>
+                        <tr>@foreach (var col in doc.Columns) { <th>@col</th> }</tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in doc.Rows)
+                        {
+                            <tr>@foreach (var cell in row) { <td>@cell</td> }</tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (doc.FooterFields is { Count: > 0 })
+            {
+                <div class="print-doc-footer">
+                    @foreach (var field in doc.FooterFields)
+                    {
+                        <div><strong>@field.Key:</strong> @field.Value</div>
+                    }
+                </div>
+            }
+        </section>
+    }
+}
+
+@section Scripts {
+    <script>
+        window.addEventListener('load', () => {
+            if (@Model.Bundle.Sections.Count > 0) setTimeout(() => window.print(), 400);
+        });
+    </script>
+}

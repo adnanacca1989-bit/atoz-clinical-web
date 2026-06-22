@@ -5,46 +5,48 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page">
+<div class="clinical-form-page clinical-report-page">
     <h1 class="page-title">Patient History</h1>
-    <form method="post">
+    <form method="post" id="patientHistoryForm">
+        <button type="submit" asp-page-handler="Run" id="patientHistoryRunSubmit" class="d-none" aria-hidden="true"></button>
         <div class="row g-3 mb-3">
             <div class="col-md-3">
                 <label class="clinical-field-label">Patient Name</label>
-                <input asp-for="PatientName" class="clinical-field" />
+                <input asp-for="PatientName" id="patientHistoryPatientInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
             </div>
             <div class="col-md-3">
                 <label class="clinical-field-label">Doctor Name</label>
-                <input asp-for="DoctorName" class="clinical-field" />
+                <input asp-for="DoctorName" id="patientHistoryDoctorInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
             </div>
-            <div class="col-md-2 d-flex align-items-end gap-2">
-                <button type="submit" asp-page-handler="Run" class="btn btn-primary">🔍 Search</button>
+            <div class="col-md-2 d-flex align-items-end gap-2 no-print">
+                <button type="button" class="btn btn-primary" id="patientHistorySearchPatientBtn">🔍 Search</button>
+                <button type="submit" asp-page-handler="Run" class="btn btn-outline-primary">Run</button>
                 <button type="submit" asp-page-handler="Clear" class="btn btn-outline-secondary">🧹 Clear</button>
             </div>
             <div class="col-md-2">
                 <label class="clinical-field-label">Patient ID</label>
-                <input asp-for="PatientId" class="clinical-field" />
+                <input asp-for="PatientId" id="patientHistoryPatientIdInput" class="clinical-field" readonly />
             </div>
-            <div class="col-md-2">
+            <div class="col-md-1">
                 <label class="clinical-field-label">Age</label>
-                <input asp-for="Age" class="clinical-field" />
+                <input asp-for="Age" id="patientHistoryAgeInput" class="clinical-field" readonly />
             </div>
             <div class="col-md-2">
                 <label class="clinical-field-label">Date of Birth</label>
-                <input asp-for="DateOfBirth" class="clinical-field" />
+                <input asp-for="DateOfBirth" id="patientHistoryDobInput" class="clinical-field" readonly />
             </div>
             <div class="col-md-2">
                 <label class="clinical-field-label">City</label>
-                <input asp-for="City" class="clinical-field" />
+                <input asp-for="City" id="patientHistoryCityInput" class="clinical-field" readonly />
             </div>
             <div class="col-md-3">
                 <label class="clinical-field-label">Phone Number</label>
-                <input asp-for="PhoneNumber" class="clinical-field" />
+                <input asp-for="PhoneNumber" id="patientHistoryPhoneInput" class="clinical-field" readonly />
             </div>
         </div>
-        <div class="clinical-record-grid" style="min-height: 400px;">
-            <table>
-                <thead><tr><th>Patient</th><th>Form</th><th>Date</th><th>Details</th></tr></thead>
+        <div class="report-results-scroll">
+            <table class="line-grid">
+                <thead><tr><th>Patient</th><th>Form</th><th>Date</th><th>Doctor</th><th>Details</th></tr></thead>
                 <tbody>
                 @foreach (var r in Model.Results)
                 {
@@ -52,16 +54,26 @@
                         <td>@r.Patient</td>
                         <td>@r.Form</td>
                         <td>@r.Date.ToString("d")</td>
+                        <td>@r.Doctor</td>
                         <td>@r.Details</td>
                     </tr>
                 }
                 </tbody>
             </table>
         </div>
-        <div class="clinical-toolbar mt-3">
-            <button type="button" class="btn-form btn-form-primary" onclick="window.print();">🖨️ Print</button>
-            <button type="button" class="btn-form">Export</button>
+        <div class="clinical-toolbar mt-3 no-print">
+            <button type="button" class="btn-form btn-form-primary" id="patientHistoryPrintAllBtn">🖨️ Print All Patient Reports</button>
+            <button type="button" class="btn-form" onclick="clinicalPrintReport();">🖨️ Print History</button>
             <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
         </div>
     </form>
 </div>
+
+<partial name="_PatientSelectModal" />
+<partial name="_DoctorSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/patient-history.js" asp-append-version="true"></script>
+}

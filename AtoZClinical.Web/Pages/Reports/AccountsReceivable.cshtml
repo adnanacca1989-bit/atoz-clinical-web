@@ -5,7 +5,7 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page">
+<div class="clinical-form-page clinical-report-page">
     <h1 class="page-title">Accounts Receivable</h1>
     <form method="post">
         <div class="row g-3 mb-2">
@@ -27,7 +27,7 @@
             </div>
         </div>
         <p class="small text-muted mb-2">Showing @Model.Results.Count patient balances</p>
-        <div class="clinical-record-grid" style="min-height: 400px;">
+        <div class="report-results-scroll">
             <table>
                 <thead>
                     <tr><th>Invoice ID</th><th>Invoice Date</th><th>Patient</th><th>Doctor</th><th>Debit</th><th>Credit</th><th>Cash Paid</th><th>Balance</th><th>Aging Days</th><th>Status</th></tr>

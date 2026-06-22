@@ -137,12 +137,24 @@ main:has(.clinical-form-page) {
 }
 
 .line-grid-scroll {
-    max-height: 320px;
+    min-height: 200px;
+    max-height: 380px;
     overflow-y: scroll;
     overflow-x: auto;
+    scrollbar-gutter: stable;
     border: 1px solid #c8c8c8;
     background: #fff;
     margin-bottom: 0.5rem;
+}
+
+.report-results-scroll {
+    min-height: 280px;
+    max-height: 480px;
+    overflow-y: scroll;
+    overflow-x: auto;
+    scrollbar-gutter: stable;
+    border: 1px solid #c8c8c8;
+    background: #fff;
 }
 
 .line-grid-scroll .line-grid {
@@ -447,10 +459,6 @@ main:has(.clinical-form-page) {
 }
 
 @media print {
-    body * {
-        visibility: hidden !important;
-    }
-
     #patientCardPrintArea,
     #patientCardPrintArea * {
         visibility: visible !important;

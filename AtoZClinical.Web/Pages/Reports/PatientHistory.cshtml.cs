@@ -58,6 +58,13 @@ public class PatientHistoryModel : PageModel
         if (!hasFilter)
             return Page();
 
+        bool MatchPatient(string? name, string? barcode) =>
+            (string.IsNullOrWhiteSpace(PatientName) || (name?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true)) &&
+            (string.IsNullOrWhiteSpace(PatientId) || (barcode?.Contains(PatientId, StringComparison.OrdinalIgnoreCase) == true));
+
+        bool MatchDoctor(string? doc) =>
+            string.IsNullOrWhiteSpace(DoctorName) || (doc?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true);
+
         var patients = await _db.Patients.Where(p => p.ClinicId == clinicId).ToListAsync();
         if (!string.IsNullOrWhiteSpace(PatientName))
             patients = patients.Where(p => p.FullName.Contains(PatientName, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -67,48 +74,68 @@ public class PatientHistoryModel : PageModel
             patients = patients.Where(p => (p.Phone ?? "").Contains(PhoneNumber, StringComparison.OrdinalIgnoreCase)).ToList();
         if (!string.IsNullOrWhiteSpace(City))
             patients = patients.Where(p => (p.City ?? "").Contains(City, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (!string.IsNullOrWhiteSpace(DoctorName))
+            patients = patients.Where(p => (p.DoctorName ?? "").Contains(DoctorName, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        foreach (var p in patients)
+        if (patients.Count == 1)
         {
-            Results.Add(new HistoryRow(p.FullName, "Patient Registration", p.UpdatedAt, $"Status: {p.Status}, Doctor: {p.DoctorName}"));
+            var p = patients[0];
+            if (string.IsNullOrWhiteSpace(PatientName)) PatientName = p.FullName;
+            if (string.IsNullOrWhiteSpace(PatientId)) PatientId = p.PatientNo;
+            if (string.IsNullOrWhiteSpace(Age)) Age = p.AgeYears?.ToString();
+            if (string.IsNullOrWhiteSpace(City)) City = p.City;
+            if (string.IsNullOrWhiteSpace(PhoneNumber)) PhoneNumber = p.Phone;
+            if (string.IsNullOrWhiteSpace(DoctorName)) DoctorName = p.DoctorName;
+            if (string.IsNullOrWhiteSpace(DateOfBirth) && p.DateOfBirth.HasValue)
+                DateOfBirth = p.DateOfBirth.Value.ToString("d");
         }
 
-        var prescriptions = await _db.Prescriptions.Where(x => x.ClinicId == clinicId).ToListAsync();
-        foreach (var rx in prescriptions.Where(MatchesPatientFilter))
-            Results.Add(new HistoryRow(rx.PatientName ?? "", "Prescription", rx.DatePrescription, rx.DiseaseName ?? rx.DiagnosisText));
+        foreach (var p in patients)
+            Results.Add(new HistoryRow(p.FullName, "Patient Registration", p.UpdatedAt, p.DoctorName ?? "", $"Status: {p.Status}"));
 
-        var invoices = await _db.Invoices.Where(x => x.ClinicId == clinicId).ToListAsync();
-        foreach (var inv in invoices.Where(MatchesInvoiceFilter))
-            Results.Add(new HistoryRow(inv.PatientName ?? "", "Invoice", inv.InvoiceDate, $"Total {inv.TotalAmount:N2}, Balance {inv.BalanceDue:N2}"));
+        foreach (var rx in await _db.Prescriptions.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(rx.PatientName, null) && MatchDoctor(rx.DoctorName))
+                Results.Add(new HistoryRow(rx.PatientName ?? "", "Doctor's Prescription", rx.DatePrescription, rx.DoctorName ?? "", rx.DiseaseName ?? rx.DiagnosisText));
 
-        var labReqs = await _db.LabRequests.Where(x => x.ClinicId == clinicId).ToListAsync();
-        foreach (var lr in labReqs.Where(MatchesLabRequest))
-            Results.Add(new HistoryRow(lr.PatientName ?? "", "Lab Request", lr.RequestDate, $"Doctor: {lr.DoctorName}"));
+        foreach (var inv in await _db.Invoices.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(inv.PatientName, inv.PatientId) && MatchDoctor(inv.DoctorName))
+                Results.Add(new HistoryRow(inv.PatientName ?? "", "Invoice / Billing", inv.InvoiceDate, inv.DoctorName ?? "", $"Total {inv.TotalAmount:N2}, Balance {inv.BalanceDue:N2}"));
 
-        var radReqs = await _db.RadiologyRequests.Where(x => x.ClinicId == clinicId).ToListAsync();
-        foreach (var rr in radReqs.Where(MatchesRadRequest))
-            Results.Add(new HistoryRow(rr.PatientName ?? "", "Radiology Request", rr.RequestDate, $"Doctor: {rr.DoctorName}"));
+        foreach (var lr in await _db.LabRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(lr.PatientName, lr.PatientBarcode) && MatchDoctor(lr.DoctorName))
+                Results.Add(new HistoryRow(lr.PatientName ?? "", "Laboratory Request", lr.RequestDate, lr.DoctorName ?? "", $"Request #{lr.RequestNo}"));
+
+        foreach (var lr in await _db.LabResults.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(lr.PatientName, null) && MatchDoctor(lr.DoctorName))
+                Results.Add(new HistoryRow(lr.PatientName ?? "", "Laboratory Result", lr.ResultDate, lr.DoctorName ?? "", $"Result #{lr.ResultNo}"));
+
+        foreach (var rr in await _db.RadiologyRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(rr.PatientName, rr.PatientBarcode) && MatchDoctor(rr.DoctorName))
+                Results.Add(new HistoryRow(rr.PatientName ?? "", "Radiology Request", rr.RequestDate, rr.DoctorName ?? "", $"Request #{rr.RequestNo}"));
+
+        foreach (var rr in await _db.RadiologyResults.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(rr.PatientName, null) && MatchDoctor(rr.DoctorName))
+                Results.Add(new HistoryRow(rr.PatientName ?? "", "Radiology Result", rr.ResultDate, rr.DoctorName ?? "", $"Result #{rr.ResultNo}"));
+
+        foreach (var pr in await _db.PharmacyRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(pr.PatientName, pr.PatientId) && MatchDoctor(pr.DoctorName))
+                Results.Add(new HistoryRow(pr.PatientName ?? "", "Pharmacy Request", pr.RequestDate, pr.DoctorName ?? "", $"Request #{pr.RequestNo}"));
+
+        foreach (var pb in await _db.PharmacyBills.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(pb.PatientName, pb.PatientId) && MatchDoctor(pb.DoctorName))
+                Results.Add(new HistoryRow(pb.PatientName ?? "", "Pharmacy Bill", pb.BillDate, pb.DoctorName ?? "", $"Bill #{pb.BillNo}, Total {pb.TotalAmount:N2}"));
+
+        foreach (var cr in await _db.CashReceipts.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(cr.PatientName, cr.PatientId) && MatchDoctor(cr.DoctorName))
+                Results.Add(new HistoryRow(cr.PatientName ?? "", "Cash Receipt", cr.ReceiptDate, cr.DoctorName ?? "", $"Amount {cr.Amount:N2}"));
+
+        foreach (var cp in await _db.CashPayments.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(cp.PayeeName, null))
+                Results.Add(new HistoryRow(cp.PayeeName ?? "", "Cash Payment", cp.PaymentDate, "", $"Amount {cp.Amount:N2}"));
 
         Results = Results.OrderByDescending(r => r.Date).ToList();
         return Page();
-
-        bool MatchesPatientFilter(Prescription p) =>
-            (string.IsNullOrWhiteSpace(PatientName) || (p.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true)) &&
-            (string.IsNullOrWhiteSpace(DoctorName) || (p.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true));
-
-        bool MatchesInvoiceFilter(Invoice i) =>
-            (string.IsNullOrWhiteSpace(PatientName) || (i.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true)) &&
-            (string.IsNullOrWhiteSpace(DoctorName) || (i.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true)) &&
-            (string.IsNullOrWhiteSpace(PatientId) || (i.PatientId?.Contains(PatientId, StringComparison.OrdinalIgnoreCase) == true));
-
-        bool MatchesLabRequest(LabRequest r) =>
-            (string.IsNullOrWhiteSpace(PatientName) || (r.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true)) &&
-            (string.IsNullOrWhiteSpace(DoctorName) || (r.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true));
-
-        bool MatchesRadRequest(RadiologyRequest r) =>
-            (string.IsNullOrWhiteSpace(PatientName) || (r.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true)) &&
-            (string.IsNullOrWhiteSpace(DoctorName) || (r.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true));
     }
 
-    public sealed record HistoryRow(string Patient, string Form, DateTime Date, string? Details);
+    public sealed record HistoryRow(string Patient, string Form, DateTime Date, string Doctor, string? Details);
 }
