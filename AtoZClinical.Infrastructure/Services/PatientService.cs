@@ -29,11 +29,23 @@ public sealed class PatientService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(p =>
-                p.PatientNo.Contains(term) ||
-                p.FirstName.Contains(term) ||
-                p.LastName.Contains(term) ||
-                (p.Phone != null && p.Phone.Contains(term)));
+            if (_db.Database.IsNpgsql())
+            {
+                var pattern = $"%{term}%";
+                query = query.Where(p =>
+                    EF.Functions.ILike(p.PatientNo, pattern) ||
+                    EF.Functions.ILike(p.FirstName, pattern) ||
+                    EF.Functions.ILike(p.LastName, pattern) ||
+                    (p.Phone != null && EF.Functions.ILike(p.Phone, pattern)));
+            }
+            else
+            {
+                query = query.Where(p =>
+                    p.PatientNo.Contains(term) ||
+                    p.FirstName.Contains(term) ||
+                    p.LastName.Contains(term) ||
+                    (p.Phone != null && p.Phone.Contains(term)));
+            }
         }
 
         return query.OrderByDescending(p => p.CreatedAt).ToListAsync();

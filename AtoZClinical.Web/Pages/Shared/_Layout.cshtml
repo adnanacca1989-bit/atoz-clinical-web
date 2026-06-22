@@ -45,50 +45,11 @@
                         }
                         else
                         {
-                            <div class="text-white-50 small mb-2">CLINIC</div>
-                            <a class="sidebar-link" asp-page="/Dashboard/Index">Dashboard</a>
-                            <a class="sidebar-link" asp-page="/PatientRegistration/Index">Patient Registration</a>
-                            <a class="sidebar-link" asp-page="/Doctors/Index">Doctor Registration</a>
-                            <a class="sidebar-link" asp-page="/Prescriptions/Index">Doctor's Prescription</a>
-                            <div class="text-white-50 small mt-3 mb-1">LABORATORY</div>
-                            <a class="sidebar-link" asp-page="/Laboratory/Registration">Lab Registration</a>
-                            <a class="sidebar-link" asp-page="/Laboratory/Request">Lab Request</a>
-                            <a class="sidebar-link" asp-page="/Laboratory/Result">Lab Result</a>
-                            <div class="text-white-50 small mt-3 mb-1">RADIOLOGY</div>
-                            <a class="sidebar-link" asp-page="/Radiology/Registration">Radiology Registration</a>
-                            <a class="sidebar-link" asp-page="/Radiology/Request">Radiology Request</a>
-                            <a class="sidebar-link" asp-page="/Radiology/Result">Radiology Result</a>
-                            <div class="text-white-50 small mt-3 mb-1">PHARMACY</div>
-                            <a class="sidebar-link" asp-page="/Pharmacy/Registration">Pharmacy Registration Item Pharmacy</a>
-                            <a class="sidebar-link" asp-page="/Pharmacy/Request">Pharmacy Request</a>
-                            <a class="sidebar-link" asp-page="/Pharmacy/Bill">Pharmacy Bill</a>
-                            <a class="sidebar-link" asp-page="/Pharmacy/Purchase">Purchase Bill</a>
-                            <a class="sidebar-link" asp-page="/Pharmacy/OpeningBalance">Opening Balance</a>
-                            <div class="text-white-50 small mt-3 mb-1">BILLING</div>
-                            <a class="sidebar-link" asp-page="/ServiceIncomes/Index">Service Income</a>
-                            <a class="sidebar-link" asp-page="/Invoices/Index">Invoice / Billing</a>
-                            <a class="sidebar-link" asp-page="/CashReceipts/Index">Cash Receipt</a>
-                            <a class="sidebar-link" asp-page="/CashPayments/Index">Cash Payment</a>
-                            <a class="sidebar-link" asp-page="/ChartOfAccounts/Index">Chart of Accounts</a>
-                            <div class="text-white-50 small mt-3 mb-1">REPORTS</div>
-                            <a class="sidebar-link" asp-page="/Reports/PatientHistory">Patient History</a>
-                            <a class="sidebar-link" asp-page="/Reports/AppointmentReminders">Appointment Reminders</a>
-                            <a class="sidebar-link" asp-page="/Reports/PatientStatus">Patient Status</a>
-                            <a class="sidebar-link" asp-page="/Reports/PlStatement">PL Statement</a>
-                            <a class="sidebar-link" asp-page="/Reports/BalanceSheet">Balance Sheet</a>
-                            <a class="sidebar-link" asp-page="/Reports/AccountsReceivable">Accounts Receivable</a>
-                            <a class="sidebar-link" asp-page="/Reports/AccountsPayable">Accounts Payable</a>
-                            <a class="sidebar-link" asp-page="/Reports/OperatingReport">Operating Report</a>
-                            <a class="sidebar-link" asp-page="/Reports/CashReport">Cash Report</a>
-                            <a class="sidebar-link" asp-page="/Reports/PharmacyInventory">Pharmacy Inventory</a>
-                            <div class="text-white-50 small mt-3 mb-1">ADMIN</div>
-                            <a class="sidebar-link" asp-page="/Admin/Responsibilities">Responsibilities</a>
-                            <a class="sidebar-link" asp-page="/Admin/AuditLog">Audit Log</a>
-                            <a class="sidebar-link" asp-page="/Admin/Backup">Data Backup</a>
+                            <partial name="_SidebarNav" />
                         }
                     </div>
                 </aside>
-                <main class="col-md-10 col-lg-10 p-4">
+                <main class="col-md-10 col-lg-10 px-3 py-2">
                     @RenderBody()
                 </main>
             </div>

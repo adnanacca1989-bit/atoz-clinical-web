@@ -17,21 +17,25 @@ public static class ClinicalFormKeys
     public const string Prescriptions = "Prescriptions";
     public const string Invoices = "Invoices";
     public const string ChartAccounts = "ChartAccounts";
-    public const string AuditLog = "AuditLog";
-    public const string RolePermissions = "RolePermissions";
-    public const string PatientHistory = "Reports.PatientHistory";
-    public const string PatientStatus = "Reports.PatientStatus";
-    public const string PlStatement = "Reports.PlStatement";
-    public const string AccountsReceivable = "Reports.AccountsReceivable";
-    public const string OperatingReport = "Reports.OperatingReport";
-    public const string CashReport = "Reports.CashReport";
+    public const string PharmacyRegistration = "Pharmacy.Registration";
     public const string PharmacyRequest = "Pharmacy.Request";
     public const string PharmacyBill = "Pharmacy.Bill";
     public const string PharmacyPurchaseBill = "Pharmacy.PurchaseBill";
-    public const string PharmacyRegistration = "Pharmacy.Registration";
     public const string PharmacyOpeningBalance = "Pharmacy.OpeningBalance";
+    public const string AuditLog = "AuditLog";
+    public const string RolePermissions = "RolePermissions";
+    public const string PatientHistory = "Reports.PatientHistory";
+    public const string AppointmentReminders = "Reports.AppointmentReminders";
+    public const string PatientStatus = "Reports.PatientStatus";
+    public const string PlStatement = "Reports.PlStatement";
+    public const string BalanceSheet = "Reports.BalanceSheet";
+    public const string AccountsReceivable = "Reports.AccountsReceivable";
+    public const string AccountsPayable = "Reports.AccountsPayable";
+    public const string OperatingReport = "Reports.OperatingReport";
+    public const string CashReport = "Reports.CashReport";
     public const string PharmacyInventory = "Reports.PharmacyInventory";
     public const string Backup = "Admin.Backup";
+    public const string Settings = "Settings";
 
     public static readonly string[] All =
     [
@@ -40,7 +44,8 @@ public static class ClinicalFormKeys
         RadiologyRegistration, RadiologyRequest, RadiologyResult,
         Prescriptions, Invoices, ChartAccounts,
         PharmacyRegistration, PharmacyRequest, PharmacyBill, PharmacyPurchaseBill, PharmacyOpeningBalance,
-        PatientHistory, PatientStatus, PlStatement, AccountsReceivable, OperatingReport, CashReport, PharmacyInventory,
-        AuditLog, RolePermissions, Backup
+        PatientHistory, AppointmentReminders, PatientStatus, PlStatement, BalanceSheet,
+        AccountsReceivable, AccountsPayable, OperatingReport, CashReport, PharmacyInventory,
+        AuditLog, RolePermissions, Backup, Settings
     ];
 }

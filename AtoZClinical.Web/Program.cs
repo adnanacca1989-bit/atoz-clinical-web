@@ -1,3 +1,4 @@
+using AtoZClinical.Web.Filters;
 using AtoZClinical.Web.Middleware;
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
@@ -6,6 +7,7 @@ using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -128,12 +130,18 @@ builder.Services.AddScoped<PharmacyPurchaseBillService>();
 builder.Services.AddScoped<PatientInvoiceService>();
 builder.Services.AddScoped<InvoiceDeleteGuardService>();
 builder.Services.AddScoped<PatientVisitStatusService>();
+builder.Services.AddScoped<FormPermissionService>();
+builder.Services.AddScoped<FormPermissionPageFilter>();
 builder.Services.AddScoped<AppointmentReminderService>();
 builder.Services.AddScoped<PatientPrintBundleService>();
 builder.Services.AddScoped<ClinicBackupService>();
 builder.Services.AddHostedService<ClinicLicenseMaintenanceService>();
 builder.Services.AddRazorPages(options =>
 {
+    options.Conventions.AddFolderApplicationModelConvention("/", model =>
+    {
+        model.Filters.Add(new ServiceFilterAttribute(typeof(FormPermissionPageFilter)));
+    });
     options.Conventions.AuthorizeFolder("/Vendor", ClinicalRoles.Vendor);
     options.Conventions.AuthorizeFolder("/Dashboard");
     options.Conventions.AuthorizeFolder("/Doctors");
@@ -182,6 +190,7 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<ClinicTenantMiddleware>();
+app.UseMiddleware<FormPermissionMiddleware>();
 app.UseAuthorization();
 app.MapRazorPages();
 app.Run();

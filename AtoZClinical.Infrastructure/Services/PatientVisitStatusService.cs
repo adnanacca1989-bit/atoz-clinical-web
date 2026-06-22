@@ -104,10 +104,12 @@ public sealed class PatientVisitStatusService
         if (!string.IsNullOrWhiteSpace(patientName))
         {
             var name = patientName.Trim();
-            return await query
-                .Where(p => p.FirstName == name || (p.FirstName + " " + p.LastName).Trim() == name)
+            var candidates = await query.ToListAsync();
+            return candidates
+                .Where(p => string.Equals(p.FirstName, name, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(p.FullName, name, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(p => p.UpdatedAt)
-                .FirstOrDefaultAsync();
+                .FirstOrDefault();
         }
 
         return null;

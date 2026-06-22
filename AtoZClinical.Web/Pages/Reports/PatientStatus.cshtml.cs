@@ -40,28 +40,67 @@ public class PatientStatusModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
+        var from = FromDate.Date;
+        var to = ToDate.Date;
+
         var patients = await _db.Patients
-            .Where(p => p.ClinicId == clinicId &&
-                        p.AppointmentDate >= FromDate.Date &&
-                        p.AppointmentDate <= ToDate.Date)
+            .AsNoTracking()
+            .Where(p => p.ClinicId == clinicId)
+            .Select(p => new
+            {
+                p.FirstName,
+                p.LastName,
+                p.PatientNo,
+                p.AppointmentDate,
+                p.AppointmentTime,
+                p.DoctorName,
+                p.Specialty,
+                p.Status
+            })
             .ToListAsync();
 
-        var invoices = await _db.Invoices.Where(i => i.ClinicId == clinicId).ToListAsync();
+        var patientRows = patients
+            .Where(p => p.AppointmentDate.HasValue &&
+                        p.AppointmentDate.Value.Date >= from &&
+                        p.AppointmentDate.Value.Date <= to)
+            .ToList();
 
-        var rows = patients.Select(p =>
+        var invoiceBalances = await _db.Invoices
+            .AsNoTracking()
+            .Where(i => i.ClinicId == clinicId)
+            .Select(i => new { i.PatientId, i.PatientName, i.BalanceDue })
+            .ToListAsync();
+
+        var balanceByPatientId = invoiceBalances
+            .Where(i => !string.IsNullOrWhiteSpace(i.PatientId))
+            .GroupBy(i => i.PatientId!)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.BalanceDue), StringComparer.OrdinalIgnoreCase);
+
+        var balanceByName = invoiceBalances
+            .Where(i => !string.IsNullOrWhiteSpace(i.PatientName))
+            .GroupBy(i => i.PatientName!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.BalanceDue), StringComparer.OrdinalIgnoreCase);
+
+        var rows = patientRows.Select(p =>
         {
-            var inv = invoices.FirstOrDefault(i =>
-                (!string.IsNullOrWhiteSpace(p.PatientNo) && i.PatientId == p.PatientNo) ||
-                string.Equals(i.PatientName, p.FullName, StringComparison.OrdinalIgnoreCase));
-            var visitStatus = PatientVisitStatuses.Normalize(p.Status);
+            var fullName = string.IsNullOrWhiteSpace(p.LastName)
+                ? p.FirstName.Trim()
+                : $"{p.FirstName} {p.LastName}".Trim();
+
+            decimal balance = 0;
+            if (!string.IsNullOrWhiteSpace(p.PatientNo) && balanceByPatientId.TryGetValue(p.PatientNo, out var byId))
+                balance = byId;
+            else if (!string.IsNullOrWhiteSpace(fullName) && balanceByName.TryGetValue(fullName, out var byName))
+                balance = byName;
+
             return new StatusRow(
-                p.FullName,
+                fullName,
                 p.AppointmentDate,
                 p.AppointmentTime,
                 p.DoctorName ?? "",
                 p.Specialty ?? "",
-                inv?.BalanceDue ?? 0,
-                visitStatus);
+                balance,
+                PatientVisitStatuses.Normalize(p.Status));
         }).OrderBy(r => r.AppointmentDate).ToList();
 
         if (!Status.Equals("All", StringComparison.OrdinalIgnoreCase))

@@ -17,7 +17,7 @@ namespace AtoZClinical.Infrastructure.Data;
 
 public static class DatabaseInitializer
 {
-    private const int SchemaVersion = 14;
+    private const int SchemaVersion = 15;
 
     public static async Task InitializeAsync(IServiceProvider services)
     {
@@ -251,7 +251,11 @@ public static class DatabaseInitializer
             """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Specialty" text;""",
             """ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "Age" integer;""",
             """ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "Gender" text;""",
-            """ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "City" text;"""
+            """ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "City" text;""",
+            """CREATE INDEX IF NOT EXISTS "IX_Patients_ClinicId_AppointmentDate" ON "Patients" ("ClinicId", "AppointmentDate");""",
+            """CREATE INDEX IF NOT EXISTS "IX_Patients_ClinicId_Status" ON "Patients" ("ClinicId", "Status");""",
+            """CREATE INDEX IF NOT EXISTS "IX_Invoices_ClinicId_PatientId" ON "Invoices" ("ClinicId", "PatientId");""",
+            """CREATE INDEX IF NOT EXISTS "IX_Invoices_ClinicId_PatientName" ON "Invoices" ("ClinicId", "PatientName");"""
         };
 
         foreach (var sql in patches)
