@@ -1,56 +1,68 @@
-@page
-@model AtoZClinical.Web.Pages.Reports.AccountsReceivableModel
-@{
-    ViewData["Title"] = "Accounts Receivable";
-    Layout = "_Layout";
-}
-
-<div class="clinical-form-page clinical-report-page">
-    <h1 class="page-title">Accounts Receivable</h1>
-    <form method="post">
-        <div class="row g-3 mb-2">
-            <div class="col-md-3">
-                <label class="clinical-field-label">From Date</label>
-                <input asp-for="FromDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">To Date</label>
-                <input asp-for="ToDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">Patient Name</label>
-                <input asp-for="PatientName" class="clinical-field" placeholder="Search patient..." />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">Doctor Name</label>
-                <input asp-for="DoctorName" class="clinical-field" placeholder="Search doctor..." />
-            </div>
-        </div>
-        <p class="small text-muted mb-2">Showing @Model.Results.Count patient balances</p>
-        <div class="report-results-scroll">
-            <table>
-                <thead>
-                    <tr><th>Invoice ID</th><th>Invoice Date</th><th>Patient</th><th>Doctor</th><th>Debit</th><th>Credit</th><th>Cash Paid</th><th>Balance</th><th>Aging Days</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                @foreach (var r in Model.Results)
-                {
-                    <tr>
-                        <td>@r.InvoiceId</td>
-                        <td>@r.InvoiceDate.ToString("d")</td>
-                        <td>@r.Patient</td>
-                        <td>@r.Doctor</td>
-                        <td>@r.Debit.ToString("N2")</td>
-                        <td>@r.Credit.ToString("N2")</td>
-                        <td>@r.CashPaid.ToString("N2")</td>
-                        <td>@r.Balance.ToString("N2")</td>
-                        <td>@r.AgingDays</td>
-                        <td>@r.Status</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-        <partial name="_ReportToolbar" />
-    </form>
-</div>
+@page
+@model AtoZClinical.Web.Pages.Reports.AccountsReceivableModel
+@{
+    ViewData["Title"] = "Accounts Receivable";
+    ViewData["UseReportPickers"] = true;
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">Accounts Receivable</h1>
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="row g-3 mb-2 px-2">
+            <div class="col-md-3">
+                <label class="clinical-field-label">From Date</label>
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">To Date</label>
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Patient Name</label>
+                <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Doctor Name</label>
+                <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
+            </div>
+        </div>
+        <p class="small text-muted mb-2 px-2">Showing @Model.Results.Count patient balances</p>
+        <div class="report-results-scroll mx-2">
+            <table class="line-grid report-grid">
+                <thead>
+                    <tr><th>Invoice ID</th><th>Invoice Date</th><th>Patient</th><th>Doctor</th><th>Debit</th><th>Credit</th><th>Cash Paid</th><th>Balance</th><th>Aging Days</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.InvoiceId</td>
+                        <td>@r.InvoiceDate.ToString("d")</td>
+                        <td>@r.Patient</td>
+                        <td>@r.Doctor</td>
+                        <td>@r.Debit.ToString("N2")</td>
+                        <td>@r.Credit.ToString("N2")</td>
+                        <td>@r.CashPaid.ToString("N2")</td>
+                        <td>@r.Balance.ToString("N2")</td>
+                        <td>@r.AgingDays</td>
+                        <td>@r.Status</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>
+
+<partial name="_PatientSelectModal" />
+<partial name="_DoctorSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
+}

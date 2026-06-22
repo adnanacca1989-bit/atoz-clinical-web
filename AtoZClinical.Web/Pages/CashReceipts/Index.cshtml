@@ -10,6 +10,7 @@
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left">
+                <div class="clinical-form-fields-scroll">
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="clinical-field-label">Receipt No</label>
@@ -92,6 +93,7 @@
                         <input asp-for="Input.Description" class="clinical-field" />
                     </div>
                 </div>
+                </div>
             </div>
             <div class="clinical-form-right">
                 <div class="record-transaction-header">Record Transaction</div>
@@ -99,8 +101,8 @@
                 <div class="p-2">
                     <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
                 </div>
-                <div class="clinical-record-grid">
-                    <table>
+                <div class="line-grid-scroll clinical-record-grid-scroll">
+                    <table class="line-grid">
                         <thead><tr><th>ID</th><th>Date</th><th>Patient I...</th><th>Patie...</th><th>Appoint</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)

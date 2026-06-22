@@ -37,8 +37,10 @@ function bindInvoiceTotals() {
 
     tbody.addEventListener('input', recalc);
     discountEl?.addEventListener('input', recalc);
+    paidEl?.addEventListener('change', recalc);
     paidEl?.addEventListener('input', recalc);
     recalc();
+    window.recalcInvoiceTotals = recalc;
 }
 
 function initInvoiceLineGrid() {
@@ -98,6 +100,7 @@ async function loadPatientInvoiceCharges(patient) {
         fillInvoiceLines(data.lines || []);
         const paidInput = document.querySelector('[name="Input.AmountPaid"]');
         if (paidInput && data.totalPaid != null) paidInput.value = Number(data.totalPaid).toFixed(2);
+        if (typeof window.recalcInvoiceTotals === 'function') window.recalcInvoiceTotals();
     } catch { /* ignore */ }
 }
 
@@ -161,4 +164,5 @@ function fillInvoiceLines(lines) {
         setVal('.Qty', line.qty ?? 1);
         setVal('.UnitFee', line.unitFee ?? 0);
     });
+    if (typeof window.recalcInvoiceTotals === 'function') window.recalcInvoiceTotals();
 }

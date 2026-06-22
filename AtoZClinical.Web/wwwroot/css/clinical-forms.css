@@ -137,8 +137,8 @@ main:has(.clinical-form-page) {
 }
 
 .line-grid-scroll {
-    min-height: 200px;
-    max-height: 380px;
+    min-height: 220px;
+    max-height: 420px;
     overflow-y: scroll;
     overflow-x: auto;
     scrollbar-gutter: stable;
@@ -148,13 +148,73 @@ main:has(.clinical-form-page) {
 }
 
 .report-results-scroll {
-    min-height: 280px;
-    max-height: 480px;
+    min-height: 300px;
+    max-height: 520px;
     overflow-y: scroll;
     overflow-x: auto;
     scrollbar-gutter: stable;
     border: 1px solid #c8c8c8;
     background: #fff;
+}
+
+.report-results-scroll .line-grid,
+.report-results-scroll .report-grid {
+    margin-top: 0;
+    width: 100%;
+    min-width: 900px;
+}
+
+.report-results-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #e8e8e8;
+    white-space: nowrap;
+}
+
+.clinical-form-fields-scroll {
+    min-height: 220px;
+    max-height: 420px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    padding-right: 0.25rem;
+}
+
+.invoice-summary-panel {
+    background: #fff;
+    border: 2px solid #1565c0;
+    padding: 1rem 1.25rem;
+    margin-top: 0.75rem;
+}
+
+.invoice-summary-panel .clinical-field-label {
+    font-weight: 700;
+    color: #1a1a1a;
+    font-size: 0.85rem;
+}
+
+.invoice-summary-field {
+    font-size: 1rem !important;
+    font-weight: 600;
+    background: #f8fbff !important;
+    border: 1px solid #90caf9 !important;
+    padding: 0.5rem 0.65rem !important;
+}
+
+.invoice-net-field {
+    color: #1565c0;
+}
+
+.invoice-balance-field {
+    color: #c62828;
+    font-size: 1.05rem !important;
+}
+
+.clinical-record-grid-scroll {
+    flex: 1;
+    min-height: 180px;
+    max-height: 280px;
 }
 
 .line-grid-scroll .line-grid {

@@ -108,6 +108,8 @@ public sealed class PatientInvoiceService
                          (name != null && r.PatientName == name)))
             .ToListAsync();
 
+        await AddConsultationFeeLineAsync(clinicId, barcode, name, lines);
+
         var totalPaid = receipts.Sum(r => r.Amount);
         var subTotal = lines.Sum(l => l.Qty * l.UnitFee);
 
@@ -118,6 +120,43 @@ public sealed class PatientInvoiceService
             TotalPaid = totalPaid,
             Balance = subTotal - totalPaid
         };
+    }
+
+    private async Task AddConsultationFeeLineAsync(Guid clinicId, string? barcode, string? name, List<PatientChargeLine> lines)
+    {
+        var patientQuery = _db.Patients.Where(p => p.ClinicId == clinicId);
+        if (!string.IsNullOrWhiteSpace(barcode))
+            patientQuery = patientQuery.Where(p => p.PatientNo == barcode);
+        else if (!string.IsNullOrWhiteSpace(name))
+            patientQuery = patientQuery.Where(p => p.FullName == name);
+        else
+            return;
+
+        var patient = await patientQuery.FirstOrDefaultAsync();
+        if (patient is null || string.IsNullOrWhiteSpace(patient.DoctorName)) return;
+
+        var doctor = await _db.Doctors
+            .Where(d => d.ClinicId == clinicId && d.Name == patient.DoctorName)
+            .FirstOrDefaultAsync();
+        if (doctor is null || doctor.ConsultationFee <= 0) return;
+
+        var hasConsultation = lines.Any(l =>
+            l.ServiceName.Contains("Consultation", StringComparison.OrdinalIgnoreCase) ||
+            l.ServiceName.Contains(doctor.Name, StringComparison.OrdinalIgnoreCase));
+        if (hasConsultation) return;
+
+        var services = await _db.ServiceIncomes
+            .Where(s => s.ClinicId == clinicId)
+            .OrderBy(s => s.ServiceNo)
+            .ToListAsync();
+        var serviceIncome = services.FirstOrDefault(s =>
+            s.Name.Contains("Consultation", StringComparison.OrdinalIgnoreCase));
+
+        var serviceName = serviceIncome?.Name ?? $"Consultation Fee - {doctor.Name}";
+        var fee = doctor.ConsultationFee > 0 ? doctor.ConsultationFee : (serviceIncome?.Fee ?? 0);
+        if (fee <= 0) return;
+
+        lines.Insert(0, new PatientChargeLine(serviceName, 1, fee, "Consultation"));
     }
 }
 

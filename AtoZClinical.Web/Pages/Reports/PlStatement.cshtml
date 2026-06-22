@@ -1,58 +1,70 @@
-@page
-@model AtoZClinical.Web.Pages.Reports.PlStatementModel
-@{
-    ViewData["Title"] = "PL Statement";
-    Layout = "_Layout";
-}
-
-<div class="clinical-form-page">
-    <h1 class="page-title">PL Statement</h1>
-    <form method="post">
-        <div class="row g-3 mb-2">
-            <div class="col-md-2">
-                <label class="clinical-field-label">From Date</label>
-                <input asp-for="FromDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-2">
-                <label class="clinical-field-label">To Date</label>
-                <input asp-for="ToDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">Doctor Name</label>
-                <input asp-for="DoctorName" class="clinical-field" placeholder="Search doctor name..." />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">Patient Name</label>
-                <input asp-for="PatientName" class="clinical-field" placeholder="Search patient name..." />
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <div class="form-check">
-                    <input asp-for="NonZero" class="form-check-input" type="checkbox" />
-                    <label class="form-check-label">Non Zero</label>
-                </div>
-            </div>
-        </div>
-        <div class="d-flex justify-content-end gap-4 mb-2 small">
-            <span><strong>Net Revenue:</strong> @Model.NetRevenue.ToString("N2")</span>
-            <span><strong>Expenses:</strong> @Model.Expenses.ToString("N2")</span>
-            <span><strong>Net Profit:</strong> @Model.NetProfit.ToString("N2")</span>
-        </div>
-        <div class="clinical-record-grid" style="min-height: 400px;">
-            <table>
-                <thead><tr><th>Section</th><th>Account</th><th>Detail</th><th>Amount</th></tr></thead>
-                <tbody>
-                @foreach (var r in Model.Results)
-                {
-                    <tr>
-                        <td>@r.Section</td>
-                        <td>@r.Account</td>
-                        <td>@r.Detail</td>
-                        <td>@r.Amount.ToString("N2")</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-        <partial name="_ReportToolbar" />
-    </form>
-</div>
+@page
+@model AtoZClinical.Web.Pages.Reports.PlStatementModel
+@{
+    ViewData["Title"] = "PL Statement";
+    ViewData["UseReportPickers"] = true;
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">PL Statement</h1>
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="row g-3 mb-2 px-2">
+            <div class="col-md-2">
+                <label class="clinical-field-label">From Date</label>
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">To Date</label>
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Doctor Name</label>
+                <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Patient Name</label>
+                <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="form-check">
+                    <input asp-for="NonZero" class="form-check-input" type="checkbox" />
+                    <label class="form-check-label">Non Zero</label>
+                </div>
+            </div>
+        </div>
+        <div class="d-flex justify-content-end gap-4 mb-2 px-2 small">
+            <span><strong>Net Revenue:</strong> @Model.NetRevenue.ToString("N2")</span>
+            <span><strong>Expenses:</strong> @Model.Expenses.ToString("N2")</span>
+            <span><strong>Net Profit:</strong> @Model.NetProfit.ToString("N2")</span>
+        </div>
+        <div class="report-results-scroll mx-2">
+            <table class="line-grid report-grid">
+                <thead><tr><th>Section</th><th>Account</th><th>Detail</th><th>Amount</th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.Section</td>
+                        <td>@r.Account</td>
+                        <td>@r.Detail</td>
+                        <td>@r.Amount.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>
+
+<partial name="_PatientSelectModal" />
+<partial name="_DoctorSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
+}
