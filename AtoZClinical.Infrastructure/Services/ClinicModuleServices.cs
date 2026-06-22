@@ -50,14 +50,42 @@ public static class ClinicLookup
     public static readonly string[] AccountCategoryTypes =
         ["Asset", "Liability", "Equity", "Income", "Expense"];
 
+    public static readonly IReadOnlyDictionary<string, string[]> AccountDetailTypesByCategory =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Asset"] =
+            [
+                "Inventory", "Cash", "Bank", "Visa Card", "Health Insurance", "Pre-Paid Expenses",
+                "Fixed Assets", "Accumulated Depreciation", "Develop Cost"
+            ],
+            ["Liability"] = ["Account Payable", "Accrual Expenses"],
+            ["Equity"] =
+            [
+                "Capital", "Withdrawal", "Additional Capital", "Retained Earnings"
+            ],
+            ["Income"] =
+            [
+                "Clinical Income", "Discount Income", "Pharmacy Income", "Laboratory Income",
+                "Radiology Income", "Consultation Income", "Other Income", "Return to Patient"
+            ],
+            ["Expense"] =
+            [
+                "Cost of Goods Sold", "Salaries", "Incentive", "Rent", "Advertising & Marketing",
+                "Utilities", "Maintenance", "Fuel & Oil", "Development cost", "Other cost"
+            ]
+        };
+
+    public static string[] GetDetailTypesForCategory(string? categoryType)
+    {
+        if (string.IsNullOrWhiteSpace(categoryType))
+            return [];
+        return AccountDetailTypesByCategory.TryGetValue(categoryType.Trim(), out var types)
+            ? types
+            : [];
+    }
+
     public static readonly string[] AccountDetailTypes =
-    [
-        "Bank", "Accounts Receivable", "Other Current Asset", "Fixed Asset",
-        "Accounts Payable", "Credit Card", "Other Current Liability", "Long Term Liability",
-        "Owner's Equity", "Retained Earnings",
-        "Service/Fee Income", "Other Primary Income", "Other Income",
-        "Office/General Administrative", "Payroll Expenses", "Supplies", "Utilities", "Other Expense"
-    ];
+        AccountDetailTypesByCategory.Values.SelectMany(t => t).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     public static readonly string[] ChronicDiseaseTypes =
         ["Diabetes", "Hypertension", "Asthma", "COPD", "Heart Disease", "Kidney Disease", "Thyroid Disorder", "Arthritis", "Epilepsy"];

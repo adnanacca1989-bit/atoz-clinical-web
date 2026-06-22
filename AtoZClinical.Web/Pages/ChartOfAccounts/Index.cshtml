@@ -21,12 +21,20 @@
                     </div>
                     <div class="col-md-6">
                         <label class="clinical-field-label">Category Type</label>
-                        <select asp-for="Input.CategoryType" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.AccountCategoryTypes))"></select>
+                        <select asp-for="Input.CategoryType" id="chartCategoryType" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.AccountCategoryTypes))"></select>
                     </div>
                     <div class="col-md-6">
                         <label class="clinical-field-label">Detail Type <span class="text-danger">*</span></label>
-                        <select asp-for="Input.DetailType" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.AccountDetailTypes))">
+                        <select asp-for="Input.DetailType" id="chartDetailType" class="clinical-field">
                             <option value="">--</option>
+                            @foreach (var detailType in Model.DetailTypeOptions)
+                            {
+                                <option value="@detailType" selected="@(Model.Input.DetailType == detailType)">@detailType</option>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Input.DetailType) && !Model.DetailTypeOptions.Contains(Model.Input.DetailType, StringComparer.OrdinalIgnoreCase))
+                            {
+                                <option value="@Model.Input.DetailType" selected>@Model.Input.DetailType</option>
+                            }
                         </select>
                     </div>
                     <div class="col-md-12">
@@ -68,3 +76,10 @@
         </div>
     </form>
 </div>
+
+@section Scripts {
+    <script>
+        window.chartAccountDetailTypes = @Html.Raw(Model.DetailTypesByCategoryJson);
+    </script>
+    <script src="~/js/chart-of-accounts.js" asp-append-version="true"></script>
+}

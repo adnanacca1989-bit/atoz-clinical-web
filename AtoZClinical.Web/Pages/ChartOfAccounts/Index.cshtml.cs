@@ -19,8 +19,14 @@ public class IndexModel : ClinicFormPageModel
 
     public List<ChartAccount> Records { get; private set; } = [];
 
+    public IReadOnlyList<string> DetailTypeOptions =>
+        ClinicLookup.GetDetailTypesForCategory(Input.CategoryType);
+
+    public string DetailTypesByCategoryJson { get; private set; } = "{}";
+
     public async Task<IActionResult> OnGetAsync()
     {
+        DetailTypesByCategoryJson = System.Text.Json.JsonSerializer.Serialize(ClinicLookup.AccountDetailTypesByCategory);
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
@@ -79,6 +85,24 @@ public class IndexModel : ClinicFormPageModel
         if (string.IsNullOrWhiteSpace(Input.Name))
         {
             ModelState.AddModelError("Input.Name", "Name is required.");
+            DetailTypesByCategoryJson = System.Text.Json.JsonSerializer.Serialize(ClinicLookup.AccountDetailTypesByCategory);
+            await LoadAsync(clinicId.Value);
+            return Page();
+        }
+        if (string.IsNullOrWhiteSpace(Input.DetailType))
+        {
+            ModelState.AddModelError("Input.DetailType", "Detail Type is required.");
+            DetailTypesByCategoryJson = System.Text.Json.JsonSerializer.Serialize(ClinicLookup.AccountDetailTypesByCategory);
+            await LoadAsync(clinicId.Value);
+            return Page();
+        }
+        var allowedDetailTypes = ClinicLookup.GetDetailTypesForCategory(Input.CategoryType);
+        if (allowedDetailTypes.Length > 0 &&
+            !allowedDetailTypes.Contains(Input.DetailType, StringComparer.OrdinalIgnoreCase) &&
+            !RecordId.HasValue)
+        {
+            ModelState.AddModelError("Input.DetailType", "Detail Type does not match the selected Category Type.");
+            DetailTypesByCategoryJson = System.Text.Json.JsonSerializer.Serialize(ClinicLookup.AccountDetailTypesByCategory);
             await LoadAsync(clinicId.Value);
             return Page();
         }
