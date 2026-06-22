@@ -2,6 +2,7 @@
     var showHistory = ViewData["ShowHistory"] as bool? ?? false;
     var showPatientCard = ViewData["ShowPatientCard"] as bool? ?? false;
     var openPatientSelect = ViewData["OpenPatientSelect"] as bool? ?? false;
+    var showAddLines = ViewData["ShowAddLines"] as bool? ?? false;
 }
 <input type="hidden" name="SaveMode" id="saveModeInput" value="Edit" />
 <div class="clinical-toolbar">
@@ -23,6 +24,10 @@
     <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
     <button type="submit" asp-page-handler="Back" class="btn-form">← Back</button>
     <button type="submit" asp-page-handler="Next" class="btn-form">Next →</button>
+    @if (showAddLines)
+    {
+        <button type="button" class="btn-form" id="addClinicalLinesBtn">+ Add Lines</button>
+    }
     @if (showHistory) { <button type="button" class="btn-form">📋 History</button> }
     @if (showPatientCard) { <button type="button" class="btn-form" id="patientCardBtn">Patient Card</button> }
 </div>

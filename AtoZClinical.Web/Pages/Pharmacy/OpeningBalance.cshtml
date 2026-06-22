@@ -25,7 +25,8 @@
                     </div>
                 </div>
                 <p class="small text-muted">Scan or enter barcode — stock IN uses moving average costing.</p>
-                <table class="line-grid pharmacy-line-grid">
+                <div class="line-grid-scroll">
+                <table class="line-grid pharmacy-line-grid clinical-line-grid">
                     <thead>
                         <tr><th>No</th><th class="col-item">Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th>QTY IN</th><th>Unit Cost</th><th>Total</th><th>Del</th></tr>
                     </thead>
@@ -67,8 +68,6 @@
                     }
                     </tbody>
                 </table>
-                <div class="line-grid-actions mt-2">
-                    <button type="button" class="btn-form" id="addPharmacyLinesBtn">+ Add Lines</button>
                 </div>
                 <div class="d-flex justify-content-end mt-2">
                     <div class="text-end" style="min-width: 200px;">
@@ -106,6 +105,6 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/pharmacy-line-grid.js" asp-append-version="true"></script>
+    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-barcode.js" asp-append-version="true"></script>
 }

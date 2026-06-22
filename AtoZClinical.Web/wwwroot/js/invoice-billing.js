@@ -5,11 +5,45 @@ document.addEventListener('DOMContentLoaded', () => {
         onApply: loadPatientInvoiceCharges
     });
     initInvoiceLineGrid();
+    bindInvoiceTotals();
 });
+
+function bindInvoiceTotals() {
+    const subTotalEl = document.getElementById('invoiceSubTotal');
+    const netEl = document.getElementById('invoiceNetAmount');
+    const balanceEl = document.getElementById('invoiceBalance');
+    const discountEl = document.getElementById('invoiceDiscount');
+    const paidEl = document.getElementById('invoiceAmountPaid');
+    const tbody = document.querySelector('.invoice-line-grid tbody');
+    if (!subTotalEl || !netEl || !balanceEl || !tbody) return;
+
+    const recalc = () => {
+        let sub = 0;
+        tbody.querySelectorAll('tr.invoice-line').forEach(row => {
+            const qty = Number(row.querySelector('[name$=".Qty"]')?.value) || 0;
+            const rate = Number(row.querySelector('[name$=".UnitFee"]')?.value) || 0;
+            const total = qty * rate;
+            sub += total;
+            const totalInput = row.querySelector('.invoice-line-total');
+            if (totalInput) totalInput.value = total.toFixed(2);
+        });
+        const discount = Number(discountEl?.value) || 0;
+        const paid = Number(paidEl?.value) || 0;
+        const net = sub - discount;
+        subTotalEl.value = sub.toFixed(2);
+        netEl.value = net.toFixed(2);
+        balanceEl.value = (net - paid).toFixed(2);
+    };
+
+    tbody.addEventListener('input', recalc);
+    discountEl?.addEventListener('input', recalc);
+    paidEl?.addEventListener('input', recalc);
+    recalc();
+}
 
 function initInvoiceLineGrid() {
     const tbody = document.querySelector('.invoice-line-grid tbody');
-    const addBtn = document.getElementById('addInvoiceLinesBtn');
+    const addBtn = document.getElementById('addClinicalLinesBtn');
     if (!tbody) return;
 
     const reindex = () => {

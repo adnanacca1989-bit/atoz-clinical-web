@@ -123,44 +123,28 @@
                 </div>
 
                 <div class="section-caption">Result Lines</div>
-
-                <table class="line-grid">
-
+                <div class="line-grid-scroll">
+                <table class="line-grid clinical-line-grid">
                     <thead>
-
-                        <tr><th>No</th><th>Test Code</th><th>Test Name</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th></tr>
-
+                        <tr><th>No</th><th class="col-item">Test Name</th><th>Test Code</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th><th>Del</th></tr>
                     </thead>
-
                     <tbody>
-
                     @for (var i = 0; i < Model.Lines.Count; i++)
-
                     {
-
-                        <tr>
-
+                        <tr class="lab-line" data-line="@i">
                             <td><input asp-for="Lines[i].LineNo" readonly /></td>
-
+                            <td class="col-item"><input asp-for="Lines[i].TestName" readonly /></td>
                             <td><input asp-for="Lines[i].TestCode" readonly /></td>
-
-                            <td><input asp-for="Lines[i].TestName" readonly /></td>
-
                             <td><input asp-for="Lines[i].Category" readonly /></td>
-
                             <td><input asp-for="Lines[i].Result" /></td>
-
                             <td><input asp-for="Lines[i].NormalRange" /></td>
-
                             <td><input asp-for="Lines[i].Unit" /></td>
-
+                            <td class="text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
                         </tr>
-
                     }
-
                     </tbody>
-
                 </table>
+                </div>
 
             </div>
 
@@ -238,6 +222,7 @@
 
 @section Scripts {
 
+    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
     <script src="~/js/laboratory-result.js" asp-append-version="true"></script>
 
 }

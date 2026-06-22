@@ -133,27 +133,16 @@ public class CashReportModel : PageModel
 
 
             rows.AddRange(receipts.Select(r => new CashReportRow(
-
                 "Cash Receipt",
-
                 r.ReceiptDate,
-
                 r.PatientName ?? "",
-
                 r.DoctorName ?? "",
-
                 r.ReceiptDate,
-
                 null,
-
-                0m,
-
                 r.Amount,
-
                 0m,
-
+                0m,
                 r.ReceiptNo,
-
                 r.PaymentMethod)));
 
         }
@@ -181,27 +170,16 @@ public class CashReportModel : PageModel
 
 
             rows.AddRange(payments.Select(p => new CashReportRow(
-
                 "Cash Payment",
-
                 p.PaymentDate,
-
                 p.PayeeName ?? "",
-
                 "",
-
                 null,
-
                 p.PaymentDate,
-
+                0m,
                 p.Amount,
-
                 0m,
-
-                0m,
-
                 p.PaymentNo,
-
                 p.PaymentMethod)));
 
         }
@@ -226,7 +204,7 @@ public class CashReportModel : PageModel
 
         {
 
-            balance += row.Credit - row.Debit;
+            balance += row.Debit - row.Credit;
 
             row.Balance = balance;
 

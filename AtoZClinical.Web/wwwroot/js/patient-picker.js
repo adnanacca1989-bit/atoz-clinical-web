@@ -1,5 +1,24 @@
 /**
  * Shared patient selection modal. Call initPatientPicker({ ... }) on DOMContentLoaded.
+ */
+function formatDateForInput(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function formatTimeForInput(value) {
+    if (!value) return '';
+    const d = new Date(`2000-01-01 ${value}`);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toTimeString().slice(0, 5);
+}
+
+/**
  * @param {object} options
  * @param {string} options.patientNameSelector - CSS selector for patient name input
  * @param {Record<string, (p: object) => string|number|null|undefined>} [options.fieldMap] - selector -> value getter
@@ -69,7 +88,9 @@ function initPatientPicker(options) {
         for (const [selector, getter] of Object.entries(fieldMap)) {
             const el = document.querySelector(selector);
             if (!el) continue;
-            const val = getter(selectedPatient);
+            let val = getter(selectedPatient);
+            if (el.type === 'date') val = formatDateForInput(val);
+            else if (el.type === 'time') val = formatTimeForInput(val);
             el.value = val != null ? val : '';
         }
         if (options.onApply) await options.onApply(selectedPatient);
@@ -122,6 +143,8 @@ function standardPatientFieldMap(usePatientIdForBarcode) {
         [patientFieldMap.phone]: p => p.phone || '',
         [patientFieldMap.city]: p => p.city || '',
         [patientFieldMap.doctor]: p => p.doctorName || '',
-        [patientFieldMap.specialty]: p => p.specialty || ''
+        [patientFieldMap.specialty]: p => p.specialty || '',
+        [patientFieldMap.appointmentDate]: p => p.appointmentDate || '',
+        [patientFieldMap.appointmentTime]: p => p.appointmentTime || ''
     };
 }

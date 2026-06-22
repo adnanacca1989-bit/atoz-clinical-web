@@ -44,6 +44,7 @@ public class RequestModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
         SetFormViewData("Radiology Request", null, null, Input.UpdatedAt);
         return Page();
     }

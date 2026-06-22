@@ -98,8 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!data) return;
             if (requestNoInput) requestNoInput.value = data.requestNo ?? '';
             if (resultDateInput) resultDateInput.value = new Date().toISOString().slice(0, 10);
-            if (doctorInput) doctorInput.value = data.doctorName || patient.doctorName || '';
-            if (specialtyInput) specialtyInput.value = data.specialty || patient.specialty || '';
+            if (doctorInput) doctorInput.value = data.doctorName || patient.doctorName || doctorInput.value || '';
+            if (specialtyInput) specialtyInput.value = data.specialty || patient.specialty || specialtyInput.value || '';
             if (data.lines?.length) fillResultLines(data.lines);
         } catch { /* ignore */ }
     };
@@ -112,10 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (genderInput) genderInput.value = selectedPatient.gender || '';
         if (phoneInput) phoneInput.value = selectedPatient.phone || '';
         if (cityInput) cityInput.value = selectedPatient.city || '';
+        if (doctorInput) doctorInput.value = selectedPatient.doctorName || '';
+        if (specialtyInput) specialtyInput.value = selectedPatient.specialty || '';
         if (resultDateInput && !resultDateInput.value) {
             resultDateInput.value = new Date().toISOString().slice(0, 10);
         }
         await loadRadiologyRequest(selectedPatient);
+        if (doctorInput && !doctorInput.value) doctorInput.value = selectedPatient.doctorName || '';
+        if (specialtyInput && !specialtyInput.value) specialtyInput.value = selectedPatient.specialty || '';
         modal.hide();
     };
 

@@ -41,6 +41,7 @@ public class OpeningBalanceModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Opening Balance", null, null, Input.UpdatedAt);
+        ViewData["ShowAddLines"] = true;
         return Page();
     }
 

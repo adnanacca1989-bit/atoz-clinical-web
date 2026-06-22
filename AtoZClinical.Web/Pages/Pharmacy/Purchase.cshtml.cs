@@ -43,6 +43,7 @@ public class PurchaseModel : ClinicFormPageModel
         else if (Records.Count > 0 && Input.PurchaseNo == 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Purchase Bill", null, null, Input.UpdatedAt);
+        ViewData["ShowAddLines"] = true;
         return Page();
     }
 

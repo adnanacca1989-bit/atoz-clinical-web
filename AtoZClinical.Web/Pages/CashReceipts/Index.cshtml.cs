@@ -58,6 +58,8 @@ public class IndexModel : ClinicFormPageModel
         if (item is null) return;
         RecordId = item.Id;
         Input = CashReceiptInput.FromEntity(item);
+        if (Input.Amount > 0 && (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase)))
+            Input.WrittenAmount = AmountWords.Convert(Input.Amount);
     }
 
     private async Task PrepareNew(Guid clinicId)
@@ -79,6 +81,8 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+        if (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase))
+            Input.WrittenAmount = AmountWords.Convert(Input.Amount);
         var entity = Input.ToEntity(RecordId);
         var saved = await _service.SaveAsync(clinicId.Value, entity);
         return RedirectAfterSave(saved.Id);
@@ -142,6 +146,11 @@ public class IndexModel : ClinicFormPageModel
             PatientSearch = c.PatientSearch,
             PatientName = c.PatientName,
             PatientId = c.PatientId,
+            Age = c.Age,
+            Gender = c.Gender,
+            Phone = c.Phone,
+            City = c.City,
+            Specialty = c.Specialty,
             AppointmentDate = c.AppointmentDate,
             AppointmentTime = c.AppointmentTime,
             DoctorName = c.DoctorName,
@@ -164,6 +173,11 @@ public class IndexModel : ClinicFormPageModel
             PatientSearch = PatientSearch,
             PatientName = PatientName,
             PatientId = PatientId,
+            Age = Age,
+            Gender = Gender,
+            Phone = Phone,
+            City = City,
+            Specialty = Specialty,
             AppointmentDate = AppointmentDate,
             AppointmentTime = AppointmentTime,
             DoctorName = DoctorName,

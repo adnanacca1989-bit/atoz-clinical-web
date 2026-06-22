@@ -44,6 +44,7 @@ public class BillModel : ClinicFormPageModel
             await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt);
         ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
         return Page();
     }
 

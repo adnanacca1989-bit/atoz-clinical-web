@@ -43,6 +43,7 @@ public class IndexModel : ClinicFormPageModel
             await PrepareNew(clinicId.Value);
         SetFormViewData("Invoice / Billing", null, null, Input.UpdatedAt);
         ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
         return Page();
     }
 
@@ -162,7 +163,10 @@ public class IndexModel : ClinicFormPageModel
             InvoiceDate = i.InvoiceDate,
             PatientName = i.PatientName,
             PatientId = i.PatientId,
+            Age = i.Age,
+            Gender = i.Gender,
             Phone = i.Phone,
+            City = i.City,
             DoctorName = i.DoctorName,
             Specialty = i.Specialty,
             Discount = i.Discount,
@@ -180,7 +184,10 @@ public class IndexModel : ClinicFormPageModel
             InvoiceDate = InvoiceDate,
             PatientName = PatientName,
             PatientId = PatientId,
+            Age = Age,
+            Gender = Gender,
             Phone = Phone,
+            City = City,
             DoctorName = DoctorName,
             Specialty = Specialty,
             Discount = Discount,

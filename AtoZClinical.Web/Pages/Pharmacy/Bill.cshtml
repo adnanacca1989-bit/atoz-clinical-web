@@ -60,7 +60,8 @@
                         <input asp-for="Input.PaymentStatus" class="clinical-field" />
                     </div>
                 </div>
-                <table class="line-grid pharmacy-line-grid">
+                <div class="line-grid-scroll">
+                <table class="line-grid pharmacy-line-grid clinical-line-grid">
                     <thead><tr><th>No</th><th class="col-item">Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th>QTY</th><th>Unit Price</th><th>Total</th><th>Del</th></tr></thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
@@ -100,10 +101,9 @@
                     }
                     </tbody>
                 </table>
-                <div class="line-grid-actions mt-2">
-                    <button type="button" class="btn-form" id="addPharmacyLinesBtn">+ Add Lines</button>
                 </div>
-                <div class="row g-2 mt-2">
+                <div class="form-summary-panel">
+                <div class="row g-2">
                     <div class="col-md-2">
                         <label class="clinical-field-label">Sub Total</label>
                         <input value="@Model.LineSubTotal.ToString("N2")" class="clinical-field" readonly />
@@ -128,6 +128,7 @@
                         <label class="clinical-field-label">Balance</label>
                         <input value="@Model.Balance.ToString("N2")" class="clinical-field" readonly />
                     </div>
+                </div>
                 </div>
             </div>
             <div class="clinical-form-right">
@@ -168,6 +169,6 @@
 @section Scripts {
     <script src="~/js/patient-picker.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-bill.js" asp-append-version="true"></script>
-    <script src="~/js/pharmacy-line-grid.js" asp-append-version="true"></script>
+    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-barcode.js" asp-append-version="true"></script>
 }

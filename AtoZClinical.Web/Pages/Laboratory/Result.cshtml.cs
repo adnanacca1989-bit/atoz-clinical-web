@@ -8,11 +8,13 @@ namespace AtoZClinical.Web.Pages.Laboratory;
 public class ResultModel : ClinicFormPageModel
 {
     private readonly LabResultService _service;
+    private readonly LabRequestService _requestService;
     private const int DefaultLineCount = 6;
 
-    public ResultModel(ClinicContextService clinicContext, LabResultService service) : base(clinicContext)
+    public ResultModel(ClinicContextService clinicContext, LabResultService service, LabRequestService requestService) : base(clinicContext)
     {
         _service = service;
+        _requestService = requestService;
     }
 
     [BindProperty]
@@ -37,6 +39,7 @@ public class ResultModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
         SetFormViewData("Laboratory Result", null, null, Input.UpdatedAt);
         return Page();
     }
@@ -67,6 +70,36 @@ public class ResultModel : ClinicFormPageModel
         Input = LabResultInput.FromEntity(item);
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(LabResultLineInput.FromEntity).ToList();
         EnsureLineRows();
+        await BackfillFromLabRequestAsync(clinicId);
+    }
+
+    private async Task BackfillFromLabRequestAsync(Guid clinicId)
+    {
+        var needsDoctor = string.IsNullOrWhiteSpace(Input.DoctorName);
+        var needsLines = Lines.All(l => string.IsNullOrWhiteSpace(l.TestCode) && string.IsNullOrWhiteSpace(l.TestName));
+        if (!needsDoctor && !needsLines && Input.RequestNo.HasValue) return;
+
+        var request = await _requestService.GetLatestByPatientAsync(clinicId, Input.PatientName, Input.PatientBarcode);
+        if (request is null) return;
+
+        if (!Input.RequestNo.HasValue) Input.RequestNo = request.RequestNo;
+        if (needsDoctor)
+        {
+            Input.DoctorName ??= request.DoctorName;
+            Input.Specialty ??= request.Specialty;
+        }
+
+        if (needsLines && request.Lines.Count > 0)
+        {
+            Lines = request.Lines.OrderBy(l => l.LineNo).Select(l => new LabResultLineInput
+            {
+                LineNo = l.LineNo,
+                TestCode = l.TestCode,
+                TestName = l.TestName,
+                Category = l.Category
+            }).ToList();
+            EnsureLineRows();
+        }
     }
 
     private async Task PrepareNew(Guid clinicId)

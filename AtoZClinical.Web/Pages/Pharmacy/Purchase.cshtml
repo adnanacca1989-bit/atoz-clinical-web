@@ -49,7 +49,8 @@
                         <input asp-for="Input.SupplierInvoiceNo" class="clinical-field" />
                     </div>
                 </div>
-                <table class="line-grid pharmacy-line-grid">
+                <div class="line-grid-scroll">
+                <table class="line-grid pharmacy-line-grid clinical-line-grid">
                     <thead><tr><th>No</th><th class="col-item">Item</th><th>Barcode</th><th>Code</th><th>Name</th><th>Dosage</th><th>UOM</th><th>QTY IN</th><th>Unit Cost</th><th>Total</th><th>Del</th></tr></thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
@@ -86,8 +87,6 @@
                     }
                     </tbody>
                 </table>
-                <div class="line-grid-actions mt-2">
-                    <button type="button" class="btn-form" id="addPharmacyLinesBtn">+ Add Lines</button>
                 </div>
                 <div class="row g-2 mt-2">
                     <div class="col-md-2">
@@ -146,7 +145,7 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/pharmacy-line-grid.js" asp-append-version="true"></script>
+    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-barcode.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-purchase-discount.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-purchase-vendor.js" asp-append-version="true"></script>

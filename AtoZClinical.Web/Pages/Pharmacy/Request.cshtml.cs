@@ -42,6 +42,7 @@ public class RequestModel : ClinicFormPageModel
             await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Request", null, null, Input.UpdatedAt);
         ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
         return Page();
     }
 

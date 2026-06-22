@@ -9,6 +9,11 @@ public class CashReceipt
     public string? PatientSearch { get; set; }
     public string? PatientId { get; set; }
     public string? PatientName { get; set; }
+    public int? Age { get; set; }
+    public string? Gender { get; set; }
+    public string? Phone { get; set; }
+    public string? City { get; set; }
+    public string? Specialty { get; set; }
     public DateTime? AppointmentDate { get; set; }
     public TimeSpan? AppointmentTime { get; set; }
     public string? DoctorName { get; set; }
