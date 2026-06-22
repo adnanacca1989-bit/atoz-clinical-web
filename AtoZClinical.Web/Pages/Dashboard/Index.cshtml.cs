@@ -11,11 +11,13 @@ public class IndexModel : PageModel
 {
     private readonly ClinicContextService _context;
     private readonly ClinicalDbContext _db;
+    private readonly ILogger<IndexModel> _logger;
 
-    public IndexModel(ClinicContextService context, ClinicalDbContext db)
+    public IndexModel(ClinicContextService context, ClinicalDbContext db, ILogger<IndexModel> logger)
     {
         _context = context;
         _db = db;
+        _logger = logger;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -40,32 +42,55 @@ public class IndexModel : PageModel
 
     private async Task<IActionResult> RunAsync()
     {
-        var clinic = await _context.GetCurrentClinicAsync();
-        ClinicName = clinic?.Name ?? "Clinic";
-        if (clinic is null) return Forbid();
+        try
+        {
+            var clinic = await _context.GetCurrentClinicAsync();
+            ClinicName = clinic?.Name ?? "Clinic";
+            if (clinic is null)
+                return Page();
 
-        ActiveDoctorCount = await _db.Doctors.CountAsync(d =>
-            d.ClinicId == clinic.Id && d.Status == "Active");
+            var from = FromDate.Date;
+            var to = ToDate.Date;
+            if (to < from)
+                (from, to) = (to, from);
 
-        var from = FromDate.Date;
-        var to = ToDate.Date;
-        var patients = await _db.Patients
-            .Where(p => p.ClinicId == clinic.Id &&
-                        p.AppointmentDate != null &&
-                        p.AppointmentDate >= from &&
-                        p.AppointmentDate <= to)
-            .ToListAsync();
+            var doctors = await _db.Doctors
+                .AsNoTracking()
+                .Where(d => d.ClinicId == clinic.Id)
+                .Select(d => d.Status)
+                .ToListAsync();
 
-        PendingPatients = CountStatus(patients, PatientVisitStatuses.Pending);
-        CancelledPatients = CountStatus(patients, PatientVisitStatuses.Cancelled);
-        ConfirmedPatients = CountStatus(patients, PatientVisitStatuses.Confirmed);
-        UnderProcessPatients = CountStatus(patients, PatientVisitStatuses.UnderProcess);
-        CompletedPatients = CountStatus(patients, PatientVisitStatuses.Completed);
+            ActiveDoctorCount = doctors.Count(status =>
+                string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase));
+
+            var patientRows = await _db.Patients
+                .AsNoTracking()
+                .Where(p => p.ClinicId == clinic.Id)
+                .Select(p => new { p.Status, p.AppointmentDate })
+                .ToListAsync();
+
+            var statusesInRange = patientRows
+                .Where(p => p.AppointmentDate.HasValue &&
+                            p.AppointmentDate.Value.Date >= from &&
+                            p.AppointmentDate.Value.Date <= to)
+                .Select(p => p.Status);
+
+            PendingPatients = CountStatus(statusesInRange, PatientVisitStatuses.Pending);
+            CancelledPatients = CountStatus(statusesInRange, PatientVisitStatuses.Cancelled);
+            ConfirmedPatients = CountStatus(statusesInRange, PatientVisitStatuses.Confirmed);
+            UnderProcessPatients = CountStatus(statusesInRange, PatientVisitStatuses.UnderProcess);
+            CompletedPatients = CountStatus(statusesInRange, PatientVisitStatuses.Completed);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dashboard failed for request {TraceId}", HttpContext.TraceIdentifier);
+            throw;
+        }
 
         return Page();
     }
 
-    private static int CountStatus(IEnumerable<Core.Entities.Patient> patients, string status) =>
-        patients.Count(p => PatientVisitStatuses.Normalize(p.Status)
+    private static int CountStatus(IEnumerable<string?> statuses, string status) =>
+        statuses.Count(value => PatientVisitStatuses.Normalize(value)
             .Equals(status, StringComparison.OrdinalIgnoreCase));
 }
