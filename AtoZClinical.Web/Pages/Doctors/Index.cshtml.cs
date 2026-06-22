@@ -95,8 +95,13 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null || !RecordId.HasValue) return RedirectToPage();
-        await _service.DeleteAsync(clinicId.Value, RecordId.Value);
-        return RedirectToPage();
+        return await SafeDeleteAsync(
+            () => _service.DeleteAsync(clinicId.Value, RecordId.Value),
+            async () =>
+            {
+                await LoadAsync(clinicId.Value);
+                if (RecordId.HasValue) await LoadRecord(clinicId.Value, RecordId.Value);
+            });
     }
 
     private async Task<IActionResult> NavigateCoreAsync(int delta)

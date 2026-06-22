@@ -994,6 +994,81 @@ main:has(.clinical-form-page) {
     background: #fff;
 }
 
+.appt-reminder-nav-btn {
+    font-weight: 600;
+}
+
+.appt-reminder-toast {
+    position: fixed;
+    top: 4.5rem;
+    right: 1rem;
+    z-index: 1080;
+    min-width: 320px;
+    max-width: 420px;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.appt-reminders-title {
+    color: #0d6efd;
+    margin: 1rem 0.5rem 0.75rem;
+}
+
+.appt-reminders-grid tr.appt-row-alert td {
+    background: #f0f7ff;
+}
+
+.appt-adjust-btn {
+    background: #d9ecff;
+    border-color: #9ec5fe;
+    color: #084298;
+    font-weight: 600;
+}
+
+.appt-remaining-pill,
+.appt-status-pill {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 0.25rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.appt-remaining-overdue {
+    background: #0b3d91;
+    color: #fff;
+}
+
+.appt-remaining-active {
+    background: #e7f1ff;
+    color: #0b3d91;
+}
+
+.appt-status-overdue {
+    background: #f8d7da;
+    color: #b02a37;
+}
+
+.appt-status-process {
+    background: #fff3cd;
+    color: #997404;
+}
+
+.appt-status-scheduled {
+    background: #e7f1ff;
+    color: #0b3d91;
+}
+
+.appt-status-completed {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.appt-status-cancelled {
+    background: #e2e3e5;
+    color: #41464b;
+}
+
 @media print {
     #patientCardPrintArea,
     #patientCardPrintArea * {

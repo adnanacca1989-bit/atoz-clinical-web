@@ -1,0 +1,148 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.AppointmentRemindersModel
+@{
+    ViewData["Title"] = "Appointment Reminders";
+    Layout = "_Layout";
+    string StatusClass(string status) => status switch
+    {
+        "Overdue" => "appt-status-overdue",
+        "Under Process" => "appt-status-process",
+        "Completed" => "appt-status-completed",
+        "Cancelled" => "appt-status-cancelled",
+        _ => "appt-status-scheduled"
+    };
+    string RemainingClass(string status) => status == "Overdue" ? "appt-remaining-overdue" : "appt-remaining-active";
+}
+
+<div class="clinical-form-page clinical-report-page clinical-standard-form appt-reminders-page">
+    <form method="post">
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-2">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">Gender</label>
+                    <select asp-for="Gender" class="clinical-field">
+                        <option>All</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">Doctor</label>
+                    <select asp-for="DoctorName" class="clinical-field">
+                        <option>All</option>
+                        @foreach (var d in Model.DoctorOptions)
+                        {
+                            <option value="@d">@d</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">Specialty</label>
+                    <select asp-for="Specialty" class="clinical-field">
+                        <option>All</option>
+                        @foreach (var s in Model.SpecialtyOptions)
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">City</label>
+                    <select asp-for="City" class="clinical-field">
+                        <option>All</option>
+                        @foreach (var c in Model.CityOptions)
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">Status</label>
+                    <select asp-for="Status" class="clinical-field">
+                        <option>All</option>
+                        <option>Scheduled</option>
+                        <option>Under Process</option>
+                        <option>Overdue</option>
+                        <option>Completed</option>
+                        <option>Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="clinical-field-label">Patient Search</label>
+                    <input asp-for="PatientSearch" class="clinical-field" placeholder="Select patient..." />
+                </div>
+                <div class="col-md-4 d-flex align-items-end gap-2">
+                    <button type="submit" asp-page-handler="Clear" class="btn btn-outline-secondary">Clear</button>
+                    <button type="submit" asp-page-handler="Search" class="btn btn-primary">Search</button>
+                </div>
+            </div>
+        </div>
+
+        <h1 class="page-title appt-reminders-title">Appointment Reminders</h1>
+
+        <div class="clinical-record-grid">
+            <table class="report-grid appt-reminders-grid">
+                <thead>
+                    <tr>
+                        <th>No.</th>
+                        <th>Patient ID</th>
+                        <th>Patient Name</th>
+                        <th>Mobile</th>
+                        <th>Doctor Name</th>
+                        <th>Appt. Date</th>
+                        <th>Appt. Time</th>
+                        <th>Re-Book Appt. Time</th>
+                        <th>Remaining Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @{ var n = 0; }
+                @foreach (var r in Model.Results)
+                {
+                    n++;
+                    var timeText = r.AppointmentTime.HasValue
+                        ? DateTime.Today.Add(r.AppointmentTime.Value).ToString("h:mm tt")
+                        : "";
+                    <tr class="@(r.ShouldNotify ? "appt-row-alert" : "")">
+                        <td>@n</td>
+                        <td>@r.PatientNo</td>
+                        <td>@r.PatientName</td>
+                        <td>@r.Mobile</td>
+                        <td>@r.DoctorName</td>
+                        <td>@r.AppointmentDate.ToString("M/d/yyyy")</td>
+                        <td>@timeText</td>
+                        <td>
+                            <a class="btn btn-sm appt-adjust-btn"
+                               asp-page="/PatientRegistration/Index"
+                               asp-route-RecordId="@r.PatientId">Adjust Time</a>
+                        </td>
+                        <td><span class="appt-remaining-pill @RemainingClass(r.Status)">@r.RemainingLabel</span></td>
+                        <td><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="text-muted">Showing @Model.Results.Count reminders</span>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="location.reload()">Refresh</button>
+                <a class="btn btn-outline-secondary btn-sm" asp-page="/Dashboard/Index">Close</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
+}

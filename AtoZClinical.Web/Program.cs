@@ -126,6 +126,8 @@ builder.Services.AddScoped<ClinicSettingsService>();
 builder.Services.AddScoped<ClinicLookupService>();
 builder.Services.AddScoped<PharmacyPurchaseBillService>();
 builder.Services.AddScoped<PatientInvoiceService>();
+builder.Services.AddScoped<InvoiceDeleteGuardService>();
+builder.Services.AddScoped<AppointmentReminderService>();
 builder.Services.AddScoped<PatientPrintBundleService>();
 builder.Services.AddScoped<ClinicBackupService>();
 builder.Services.AddHostedService<ClinicLicenseMaintenanceService>();

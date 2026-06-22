@@ -1,4 +1,3 @@
-using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -40,21 +39,21 @@ public class PatientStatusModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
+        var now = DateTime.Now;
         var patients = await _db.Patients
             .Where(p => p.ClinicId == clinicId &&
                         p.AppointmentDate >= FromDate.Date &&
                         p.AppointmentDate <= ToDate.Date)
             .ToListAsync();
 
-        if (Status != "All")
-            patients = patients.Where(p => string.Equals(p.Status, Status, StringComparison.OrdinalIgnoreCase)).ToList();
-
         var invoices = await _db.Invoices.Where(i => i.ClinicId == clinicId).ToListAsync();
 
-        Results = patients.Select(p =>
+        var rows = patients.Select(p =>
         {
             var inv = invoices.FirstOrDefault(i =>
+                (!string.IsNullOrWhiteSpace(p.PatientNo) && i.PatientId == p.PatientNo) ||
                 string.Equals(i.PatientName, p.FullName, StringComparison.OrdinalIgnoreCase));
+            var visitStatus = AppointmentReminderService.ResolveVisitStatus(p, now);
             return new StatusRow(
                 p.FullName,
                 p.AppointmentDate,
@@ -62,9 +61,13 @@ public class PatientStatusModel : PageModel
                 p.DoctorName ?? "",
                 p.Specialty ?? "",
                 inv?.BalanceDue ?? 0,
-                p.Status);
+                visitStatus);
         }).OrderBy(r => r.AppointmentDate).ToList();
 
+        if (!Status.Equals("All", StringComparison.OrdinalIgnoreCase))
+            rows = rows.Where(r => r.Status.Equals(Status, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        Results = rows;
         return Page();
     }
 

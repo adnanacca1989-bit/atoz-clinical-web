@@ -8,11 +8,13 @@ public sealed class PatientService
 {
     private readonly ClinicalDbContext _db;
     private readonly MasterDataPropagationService _propagation;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public PatientService(ClinicalDbContext db, MasterDataPropagationService propagation)
+    public PatientService(ClinicalDbContext db, MasterDataPropagationService propagation, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _propagation = propagation;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null)
@@ -92,6 +94,7 @@ public sealed class PatientService
     {
         var patient = await GetAsync(clinicId, id);
         if (patient is null) return;
+        await _invoiceGuard.EnsureCanDeletePatientAsync(clinicId, patient);
         _db.Patients.Remove(patient);
         await _db.SaveChangesAsync();
     }

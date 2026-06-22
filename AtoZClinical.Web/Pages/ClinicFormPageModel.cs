@@ -55,4 +55,20 @@ public abstract class ClinicFormPageModel : PageModel
 
     protected IActionResult RedirectAfterSave(Guid savedId) =>
         SaveMode == "New" ? RedirectToNewForm() : RedirectToRecord(savedId);
+
+    protected async Task<IActionResult> SafeDeleteAsync(Func<Task> deleteAction, Func<Task>? reloadAsync = null)
+    {
+        try
+        {
+            await deleteAction();
+            return RedirectToPage();
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.Message);
+            if (reloadAsync is not null)
+                await reloadAsync();
+            return Page();
+        }
+    }
 }

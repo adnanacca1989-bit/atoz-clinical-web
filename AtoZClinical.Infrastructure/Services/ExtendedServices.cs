@@ -98,11 +98,13 @@ public sealed class RadiologyRequestService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public RadiologyRequestService(ClinicalDbContext db, AuditService audit)
+    public RadiologyRequestService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _audit = audit;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<RadiologyRequest>> ListAsync(Guid clinicId) =>
@@ -149,6 +151,7 @@ public sealed class RadiologyRequestService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeleteRadiologyRequestAsync(clinicId, item.RequestNo);
         _db.RadiologyRequests.Remove(item);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Radiology Request", "Delete", $"Request #{item.RequestNo}");
@@ -169,11 +172,13 @@ public sealed class RadiologyResultService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public RadiologyResultService(ClinicalDbContext db, AuditService audit)
+    public RadiologyResultService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _audit = audit;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<RadiologyResult>> ListAsync(Guid clinicId) =>
@@ -219,6 +224,7 @@ public sealed class RadiologyResultService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeleteRadiologyResultAsync(clinicId, item);
         _db.RadiologyResults.Remove(item);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Radiology Result", "Delete", $"Result #{item.ResultNo}");
@@ -229,11 +235,13 @@ public sealed class PrescriptionService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public PrescriptionService(ClinicalDbContext db, AuditService audit)
+    public PrescriptionService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _audit = audit;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<Prescription>> ListAsync(Guid clinicId) =>
@@ -266,6 +274,7 @@ public sealed class PrescriptionService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeletePrescriptionAsync(clinicId, item);
         _db.Prescriptions.Remove(item);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Prescription", "Delete", $"Prescription #{item.PrescriptionNo}");
@@ -342,11 +351,13 @@ public sealed class CashPaymentService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public CashPaymentService(ClinicalDbContext db, AuditService audit)
+    public CashPaymentService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _audit = audit;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<CashPayment>> ListAsync(Guid clinicId) =>
@@ -382,6 +393,7 @@ public sealed class CashPaymentService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeleteCashPaymentAsync(clinicId, item);
         _db.CashPayments.Remove(item);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Cash Payment", "Delete", $"Payment #{item.PaymentNo}");
@@ -507,11 +519,13 @@ public sealed class PharmacyRequestService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public PharmacyRequestService(ClinicalDbContext db, AuditService audit)
+    public PharmacyRequestService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _audit = audit;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<PharmacyRequest>> ListAsync(Guid clinicId) =>
@@ -558,6 +572,7 @@ public sealed class PharmacyRequestService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeletePharmacyRequestAsync(clinicId, item.RequestNo);
         _db.PharmacyRequests.Remove(item);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Pharmacy Request", "Delete", $"Request #{item.RequestNo}");
@@ -569,12 +584,14 @@ public sealed class PharmacyBillService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly PharmacyInventoryService _inventory;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public PharmacyBillService(ClinicalDbContext db, AuditService audit, PharmacyInventoryService inventory)
+    public PharmacyBillService(ClinicalDbContext db, AuditService audit, PharmacyInventoryService inventory, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _audit = audit;
         _inventory = inventory;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<PharmacyBill>> ListAsync(Guid clinicId) =>
@@ -627,6 +644,7 @@ public sealed class PharmacyBillService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeletePharmacyBillAsync(clinicId, item.BillNo);
         await _inventory.RemoveReferenceMovementsAsync(clinicId, PharmacyInventoryTypes.ReferenceBill, id);
         _db.PharmacyBills.Remove(item);
         await _db.SaveChangesAsync();

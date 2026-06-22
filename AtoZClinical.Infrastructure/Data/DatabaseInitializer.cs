@@ -17,7 +17,7 @@ namespace AtoZClinical.Infrastructure.Data;
 
 public static class DatabaseInitializer
 {
-    private const int SchemaVersion = 13;
+    private const int SchemaVersion = 14;
 
     public static async Task InitializeAsync(IServiceProvider services)
     {
@@ -64,7 +64,14 @@ public static class DatabaseInitializer
 
     public static async Task SeedClinicDefaultsAsync(ClinicalDbContext db, Guid clinicId, ILogger? logger = null)
     {
-        await EnsureStandardChartAccountsAsync(db, clinicId, logger);
+        try
+        {
+            await EnsureStandardChartAccountsAsync(db, clinicId, logger);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Could not seed standard chart accounts for clinic {ClinicId}.", clinicId);
+        }
 
         if (!await db.RolePermissions.AnyAsync(r => r.ClinicId == clinicId && r.RoleName == ClinicalRoles.ClinicAdmin))
         {
@@ -132,7 +139,7 @@ public static class DatabaseInitializer
     public static async Task EnsureStandardChartAccountsAsync(ClinicalDbContext db, Guid clinicId, ILogger? logger = null)
     {
         var existing = await db.ChartAccounts.Where(a => a.ClinicId == clinicId).ToListAsync();
-        var categoryNextNo = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var added = 0;
 
         foreach (var template in ClinicLookup.StandardChartAccountTemplates)
         {
@@ -142,35 +149,44 @@ public static class DatabaseInitializer
                  a.DetailType.Equals(template.DetailType, StringComparison.OrdinalIgnoreCase)));
             if (alreadyExists) continue;
 
-            if (!categoryNextNo.TryGetValue(template.CategoryType, out var nextNo))
-            {
-                var baseNo = ClinicLookup.GetCategoryBaseAccountNo(template.CategoryType);
-                var maxInCategory = existing
-                    .Where(a => a.CategoryType.Equals(template.CategoryType, StringComparison.OrdinalIgnoreCase))
-                    .Select(a => a.AccountNo)
-                    .DefaultIfEmpty(baseNo - 100)
-                    .Max();
-                nextNo = maxInCategory + 100;
-            }
-
+            var accountNo = AllocateAccountNo(existing, template.CategoryType);
             var account = new ChartAccount
             {
                 ClinicId = clinicId,
-                AccountNo = nextNo,
+                AccountNo = accountNo,
                 Name = template.Name,
                 CategoryType = template.CategoryType,
                 DetailType = template.DetailType,
                 Description = $"{template.CategoryType} account — {template.DetailType}"
             };
-            categoryNextNo[template.CategoryType] = nextNo + 100;
             db.ChartAccounts.Add(account);
             existing.Add(account);
-            logger?.LogInformation("Added standard chart account {Name} ({Category}) for clinic {ClinicId}.",
-                template.Name, template.CategoryType, clinicId);
+            added++;
+            logger?.LogInformation("Added standard chart account {AccountNo} {Name} ({Category}) for clinic {ClinicId}.",
+                accountNo, template.Name, template.CategoryType, clinicId);
         }
 
-        if (categoryNextNo.Count > 0)
+        if (added > 0)
             await db.SaveChangesAsync();
+    }
+
+    private static int AllocateAccountNo(List<ChartAccount> existing, string categoryType)
+    {
+        var used = existing.Select(a => a.AccountNo).ToHashSet();
+        var baseNo = ClinicLookup.GetCategoryBaseAccountNo(categoryType);
+        var ceiling = baseNo + 999;
+
+        for (var no = baseNo; no <= ceiling; no++)
+        {
+            if (!used.Contains(no))
+                return no;
+        }
+
+        var candidate = existing.Count > 0 ? existing.Max(a => a.AccountNo) + 1 : baseNo;
+        while (used.Contains(candidate))
+            candidate++;
+
+        return candidate;
     }
 
     private static async Task EnsureSchemaAsync(ClinicalDbContext db, IHostEnvironment env, ILogger logger)

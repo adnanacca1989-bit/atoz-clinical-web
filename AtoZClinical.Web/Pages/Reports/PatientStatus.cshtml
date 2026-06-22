@@ -3,6 +3,14 @@
 @{
     ViewData["Title"] = "Patient Status Report";
     Layout = "_Layout";
+    string StatusClass(string status) => status switch
+    {
+        "Overdue" => "appt-status-overdue",
+        "Under Process" => "appt-status-process",
+        "Completed" => "appt-status-completed",
+        "Cancelled" => "appt-status-cancelled",
+        _ => "appt-status-scheduled"
+    };
 }
 
 <div class="clinical-form-page clinical-report-page clinical-standard-form">
@@ -22,14 +30,16 @@
                 <label class="clinical-field-label">Status</label>
                 <select asp-for="Status" class="clinical-field">
                     <option>All</option>
-                    <option>Active</option>
+                    <option>Scheduled</option>
+                    <option>Under Process</option>
+                    <option>Overdue</option>
                     <option>Completed</option>
                     <option>Cancelled</option>
                 </select>
             </div>
         </div>
         </div>
-        <p class="report-hint">Showing @Model.Results.Count appointment status records. Click <strong>Search</strong> or <strong>Run</strong> after changing dates or status.</p>
+        <p class="report-hint">Showing @Model.Results.Count patient status records. Click <strong>Search</strong> or <strong>Run</strong> after changing dates or status.</p>
         <div class="clinical-record-grid">
             <table class="report-grid">
                 <thead>
@@ -40,15 +50,18 @@
                 @foreach (var r in Model.Results)
                 {
                     n++;
+                    var timeText = r.AppointmentTime.HasValue
+                        ? DateTime.Today.Add(r.AppointmentTime.Value).ToString("h:mm tt")
+                        : "";
                     <tr>
                         <td>@n</td>
                         <td>@r.PatientName</td>
-                        <td>@(r.AppointmentDate?.ToString("d") ?? "")</td>
-                        <td>@(r.AppointmentTime?.ToString(@"hh\:mm") ?? "")</td>
+                        <td>@(r.AppointmentDate?.ToString("M/d/yyyy") ?? "")</td>
+                        <td>@timeText</td>
                         <td>@r.DoctorName</td>
                         <td>@r.Specialty</td>
                         <td class="text-end">@r.InvoiceBalance.ToString("N2")</td>
-                        <td>@r.Status</td>
+                        <td><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>
                     </tr>
                 }
                 </tbody>

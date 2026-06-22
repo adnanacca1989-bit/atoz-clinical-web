@@ -125,11 +125,13 @@ public sealed class DoctorService
 {
     private readonly ClinicalDbContext _db;
     private readonly MasterDataPropagationService _propagation;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public DoctorService(ClinicalDbContext db, MasterDataPropagationService propagation)
+    public DoctorService(ClinicalDbContext db, MasterDataPropagationService propagation, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _propagation = propagation;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<Doctor>> ListAsync(Guid clinicId) =>
@@ -171,6 +173,7 @@ public sealed class DoctorService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeleteDoctorAsync(clinicId, item.Name);
         _db.Doctors.Remove(item);
         await _db.SaveChangesAsync();
     }
@@ -237,11 +240,13 @@ public sealed class CashReceiptService
 {
     private readonly ClinicalDbContext _db;
     private readonly PatientInvoiceService _invoices;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
 
-    public CashReceiptService(ClinicalDbContext db, PatientInvoiceService invoices)
+    public CashReceiptService(ClinicalDbContext db, PatientInvoiceService invoices, InvoiceDeleteGuardService invoiceGuard)
     {
         _db = db;
         _invoices = invoices;
+        _invoiceGuard = invoiceGuard;
     }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
@@ -274,6 +279,7 @@ public sealed class CashReceiptService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeleteCashReceiptAsync(clinicId, item);
         var patientName = item.PatientName;
         var patientId = item.PatientId;
         _db.CashReceipts.Remove(item);
@@ -338,7 +344,13 @@ public sealed class LabTestService
 public sealed class LabRequestService
 {
     private readonly ClinicalDbContext _db;
-    public LabRequestService(ClinicalDbContext db) => _db = db;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
+
+    public LabRequestService(ClinicalDbContext db, InvoiceDeleteGuardService invoiceGuard)
+    {
+        _db = db;
+        _invoiceGuard = invoiceGuard;
+    }
 
     public Task<List<LabRequest>> ListAsync(Guid clinicId) =>
         _db.LabRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
@@ -381,6 +393,7 @@ public sealed class LabRequestService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeleteLabRequestAsync(clinicId, item.RequestNo);
         _db.LabRequests.Remove(item);
         await _db.SaveChangesAsync();
     }
@@ -399,7 +412,13 @@ public sealed class LabRequestService
 public sealed class LabResultService
 {
     private readonly ClinicalDbContext _db;
-    public LabResultService(ClinicalDbContext db) => _db = db;
+    private readonly InvoiceDeleteGuardService _invoiceGuard;
+
+    public LabResultService(ClinicalDbContext db, InvoiceDeleteGuardService invoiceGuard)
+    {
+        _db = db;
+        _invoiceGuard = invoiceGuard;
+    }
 
     public Task<List<LabResult>> ListAsync(Guid clinicId) =>
         _db.LabResults.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
@@ -441,6 +460,7 @@ public sealed class LabResultService
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
+        await _invoiceGuard.EnsureCanDeleteLabResultAsync(clinicId, item);
         _db.LabResults.Remove(item);
         await _db.SaveChangesAsync();
     }
