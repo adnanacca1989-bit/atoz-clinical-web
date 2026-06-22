@@ -4,44 +4,72 @@
     ViewData["Title"] = "Dashboard";
 }
 
-<h2 class="atz-section-title">Dashboard</h2>
-<p class="text-muted">@Model.ClinicName</p>
-
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="atz-card p-3 stat-card">
-            <div class="text-muted small">Patients</div>
-            <div class="display-6">@Model.PatientCount</div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="atz-card p-3 stat-card">
-            <div class="text-muted small">Today's Appointments</div>
-            <div class="display-6">@Model.TodayAppointments</div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="atz-card p-3 stat-card">
-            <div class="text-muted small">Upcoming (7 days)</div>
-            <div class="display-6">@Model.UpcomingAppointments</div>
-        </div>
-    </div>
-</div>
-
-<div class="atz-card p-3">
-    <h5 class="mb-3">All Forms</h5>
-    <p class="text-muted small mb-3">Open any clinic form from here, or use the sidebar on the left.</p>
-
-    @foreach (var group in Model.FormGroups)
-    {
-        <div class="mb-3">
-            <div class="fw-semibold text-secondary small text-uppercase mb-2">@group.Title</div>
-            <div class="d-flex flex-wrap gap-2">
-                @foreach (var form in group.Forms)
-                {
-                    <a class="btn btn-outline-primary btn-sm" asp-page="@form.Page">@form.Label</a>
-                }
+<div class="clinical-dashboard-page">
+    <form method="post" class="dashboard-filter-bar">
+        <div class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="clinical-field-label mb-1">From Date</label>
+                <input asp-for="FromDate" class="clinical-field dashboard-date-field" type="date" />
+            </div>
+            <div class="col-auto">
+                <label class="clinical-field-label mb-1">To Date</label>
+                <input asp-for="ToDate" class="clinical-field dashboard-date-field" type="date" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" asp-page-handler="Run" class="btn btn-primary dashboard-run-btn">Run</button>
+            </div>
+            <div class="col-auto">
+                <button type="submit" asp-page-handler="Refresh" class="btn btn-outline-secondary">Refresh</button>
             </div>
         </div>
-    }
+    </form>
+
+    <div class="row g-3 dashboard-stat-grid">
+        <div class="col-md-4">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-title">Number of Doctor</div>
+                <div class="dashboard-stat-value text-primary">@Model.ActiveDoctorCount</div>
+                <div class="dashboard-stat-foot">Active only</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-title">Number of Patient Pending</div>
+                <div class="dashboard-stat-value text-warning">@Model.PendingPatients</div>
+                <div class="dashboard-stat-foot">Pending</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-title">Number of Patient Cancelled</div>
+                <div class="dashboard-stat-value text-danger">@Model.CancelledPatients</div>
+                <div class="dashboard-stat-foot">Cancelled</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-title">Number of Patient Confirmed</div>
+                <div class="dashboard-stat-value text-success">@Model.ConfirmedPatients</div>
+                <div class="dashboard-stat-foot">Confirmed</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-title">Number of Patient Under</div>
+                <div class="dashboard-stat-value text-info">@Model.UnderProcessPatients</div>
+                <div class="dashboard-stat-foot">Under Process</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="dashboard-stat-card">
+                <div class="dashboard-stat-title">Number of Patient Completed</div>
+                <div class="dashboard-stat-value text-success-emphasis">@Model.CompletedPatients</div>
+                <div class="dashboard-stat-foot">Completed</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-brand-footer">
+        Designed By The Chartered Accountant (Mohammed Adnan) 07885555888 07866090003
+    </div>
 </div>

@@ -99,12 +99,18 @@ public sealed class RadiologyRequestService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public RadiologyRequestService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
+    public RadiologyRequestService(
+        ClinicalDbContext db,
+        AuditService audit,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<RadiologyRequest>> ListAsync(Guid clinicId) =>
@@ -142,6 +148,7 @@ public sealed class RadiologyRequestService
         }
 
         await _db.SaveChangesAsync();
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Radiology Request", isNew ? "Create" : "Update",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
@@ -173,12 +180,18 @@ public sealed class RadiologyResultService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public RadiologyResultService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
+    public RadiologyResultService(
+        ClinicalDbContext db,
+        AuditService audit,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<RadiologyResult>> ListAsync(Guid clinicId) =>
@@ -215,6 +228,7 @@ public sealed class RadiologyResultService
         }
 
         await _db.SaveChangesAsync();
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Radiology Result", isNew ? "Create" : "Update",
             $"Result #{item.ResultNo} — {item.PatientName}");
         return item;
@@ -236,12 +250,18 @@ public sealed class PrescriptionService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public PrescriptionService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
+    public PrescriptionService(
+        ClinicalDbContext db,
+        AuditService audit,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<Prescription>> ListAsync(Guid clinicId) =>
@@ -265,6 +285,7 @@ public sealed class PrescriptionService
         else _db.Prescriptions.Update(item);
 
         await _db.SaveChangesAsync();
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Prescription", isNew ? "Create" : "Update",
             $"Prescription #{item.PrescriptionNo} — {item.PatientName}");
         return item;
@@ -285,11 +306,13 @@ public sealed class InvoiceService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public InvoiceService(ClinicalDbContext db, AuditService audit)
+    public InvoiceService(ClinicalDbContext db, AuditService audit, PatientVisitStatusService visitStatus)
     {
         _db = db;
         _audit = audit;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<Invoice>> ListAsync(Guid clinicId) =>
@@ -332,6 +355,7 @@ public sealed class InvoiceService
         }
 
         await _db.SaveChangesAsync();
+        await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Invoice", isNew ? "Create" : "Update",
             $"Invoice #{item.InvoiceNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
@@ -520,12 +544,18 @@ public sealed class PharmacyRequestService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public PharmacyRequestService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
+    public PharmacyRequestService(
+        ClinicalDbContext db,
+        AuditService audit,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<PharmacyRequest>> ListAsync(Guid clinicId) =>
@@ -563,6 +593,7 @@ public sealed class PharmacyRequestService
         }
 
         await _db.SaveChangesAsync();
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Pharmacy Request", isNew ? "Create" : "Update",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
@@ -585,13 +616,20 @@ public sealed class PharmacyBillService
     private readonly AuditService _audit;
     private readonly PharmacyInventoryService _inventory;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public PharmacyBillService(ClinicalDbContext db, AuditService audit, PharmacyInventoryService inventory, InvoiceDeleteGuardService invoiceGuard)
+    public PharmacyBillService(
+        ClinicalDbContext db,
+        AuditService audit,
+        PharmacyInventoryService inventory,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _audit = audit;
         _inventory = inventory;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<PharmacyBill>> ListAsync(Guid clinicId) =>
@@ -634,6 +672,7 @@ public sealed class PharmacyBillService
 
         var validLines = lines.Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName))).ToList();
         await _inventory.SyncBillOutAsync(clinicId, item, validLines);
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName);
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Bill", isNew ? "Create" : "Update",
             $"Bill #{item.BillNo} — {item.PatientName}, total {item.TotalAmount:N2}");

@@ -9,12 +9,18 @@ public sealed class PatientService
     private readonly ClinicalDbContext _db;
     private readonly MasterDataPropagationService _propagation;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public PatientService(ClinicalDbContext db, MasterDataPropagationService propagation, InvoiceDeleteGuardService invoiceGuard)
+    public PatientService(
+        ClinicalDbContext db,
+        MasterDataPropagationService propagation,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _propagation = propagation;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null)
@@ -56,6 +62,7 @@ public sealed class PatientService
                 : patient.PatientNo.Trim();
             patient.CreatedAt = DateTime.UtcNow;
             patient.CreatedBy = userName;
+            await _visitStatus.OnPatientRegisteredAsync(clinicId, patient);
             _db.Patients.Add(patient);
         }
         else
@@ -85,10 +92,13 @@ public sealed class PatientService
     }
 
     public Task<int> CountActiveAsync(Guid clinicId) =>
-        _db.Patients.CountAsync(p => p.ClinicId == clinicId && p.Status == "Active");
+        _db.Patients.CountAsync(p => p.ClinicId == clinicId &&
+            p.Status != PatientVisitStatuses.Cancelled &&
+            p.Status != "Inactive");
 
     public Task<int> CountInactiveAsync(Guid clinicId) =>
-        _db.Patients.CountAsync(p => p.ClinicId == clinicId && p.Status == "Inactive");
+        _db.Patients.CountAsync(p => p.ClinicId == clinicId &&
+            (p.Status == PatientVisitStatuses.Cancelled || p.Status == "Inactive"));
 
     public async Task DeleteAsync(Guid clinicId, Guid id)
     {

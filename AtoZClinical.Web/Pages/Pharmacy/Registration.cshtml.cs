@@ -36,7 +36,9 @@ public class RegistrationModel : ClinicFormPageModel
         await LoadAccountsAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (Records.Count > 0 && Input.ItemNo == 0)
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
@@ -87,8 +89,7 @@ public class RegistrationModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
-        var all = await _service.ListAsync(clinicId);
-        var next = (all.Count > 0 ? all.Max(t => t.ItemNo) : 0) + 1;
+        var next = await _service.NextItemNoAsync(clinicId);
         var defaultBase = UomOptions.FirstOrDefault(u => u.Code.Equals("Pcs", StringComparison.OrdinalIgnoreCase))?.Code
             ?? UomOptions.First().Code;
         var defaultAlt = UomOptions.FirstOrDefault(u => u.Code.Equals("Box", StringComparison.OrdinalIgnoreCase))?.Code
@@ -127,7 +128,7 @@ public class RegistrationModel : ClinicFormPageModel
     private Task<IActionResult> NewCoreAsync()
     {
         RecordId = null;
-        return Task.FromResult<IActionResult>(RedirectToPage());
+        return Task.FromResult<IActionResult>(RedirectToNewForm());
     }
 
     private async Task<IActionResult> DeleteCoreAsync()

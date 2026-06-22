@@ -154,7 +154,7 @@ public class IndexModel : ClinicFormPageModel
 
             AppointmentId = nextAppt,
 
-            Status = "Active",
+            Status = "Pending",
 
             Gender = "Male",
 

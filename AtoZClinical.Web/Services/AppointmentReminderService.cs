@@ -1,5 +1,6 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Services;
@@ -48,7 +49,8 @@ public sealed class AppointmentReminderService
             .ToList();
 
         if (!string.IsNullOrWhiteSpace(statusFilter) && !statusFilter.Equals("All", StringComparison.OrdinalIgnoreCase))
-            rows = rows.Where(r => r.Status.Equals(statusFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+            rows = rows.Where(r =>
+                PatientVisitStatuses.Normalize(r.Status).Equals(statusFilter, StringComparison.OrdinalIgnoreCase)).ToList();
 
         return rows.OrderBy(r => r.AppointmentDateTime).ToList();
     }
@@ -89,7 +91,7 @@ public sealed class AppointmentReminderService
         if (appointmentAt is null) return null;
 
         var minutes = (int)Math.Round((appointmentAt.Value - now).TotalMinutes);
-        var status = ResolveVisitStatus(patient, now);
+        var status = PatientVisitStatuses.Normalize(patient.Status);
         var shouldNotify = minutes <= 15 && minutes >= 0 &&
                            !status.Equals("Completed", StringComparison.OrdinalIgnoreCase) &&
                            !status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase);

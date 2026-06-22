@@ -1,7 +1,9 @@
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Dashboard;
 
@@ -16,71 +18,51 @@ public class IndexModel : PageModel
         _db = db;
     }
 
+    [BindProperty(SupportsGet = true)]
+    public DateTime FromDate { get; set; } = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    [BindProperty(SupportsGet = true)]
+    public DateTime ToDate { get; set; } = DateTime.Today;
+
     public string ClinicName { get; private set; } = string.Empty;
-    public int PatientCount { get; private set; }
-    public int TodayAppointments { get; private set; }
-    public int UpcomingAppointments { get; private set; }
+    public int ActiveDoctorCount { get; private set; }
+    public int PendingPatients { get; private set; }
+    public int CancelledPatients { get; private set; }
+    public int ConfirmedPatients { get; private set; }
+    public int UnderProcessPatients { get; private set; }
+    public int CompletedPatients { get; private set; }
 
-    public IReadOnlyList<FormGroup> FormGroups { get; } =
-    [
-        new("Clinic", [
-            new("/PatientRegistration/Index", "Patient Registration"),
-            new("/Doctors/Index", "Doctor Registration"),
-            new("/Prescriptions/Index", "Doctor's Prescription")
-        ]),
-        new("Laboratory", [
-            new("/Laboratory/Registration", "Lab Registration"),
-            new("/Laboratory/Request", "Lab Request"),
-            new("/Laboratory/Result", "Lab Result")
-        ]),
-        new("Radiology", [
-            new("/Radiology/Registration", "Radiology Registration"),
-            new("/Radiology/Request", "Radiology Request"),
-            new("/Radiology/Result", "Radiology Result")
-        ]),
-        new("Pharmacy", [
-            new("/Pharmacy/Registration", "Pharmacy Registration Item Pharmacy"),
-            new("/Pharmacy/Request", "Pharmacy Request"),
-            new("/Pharmacy/Bill", "Pharmacy Bill"),
-            new("/Pharmacy/Purchase", "Purchase Bill"),
-            new("/Pharmacy/OpeningBalance", "Opening Balance")
-        ]),
-        new("Billing", [
-            new("/ServiceIncomes/Index", "Service Income"),
-            new("/Invoices/Index", "Invoice / Billing"),
-            new("/CashReceipts/Index", "Cash Receipt"),
-            new("/CashPayments/Index", "Cash Payment"),
-            new("/ChartOfAccounts/Index", "Chart of Accounts")
-        ]),
-        new("Reports", [
-            new("/Reports/PatientHistory", "Patient History"),
-            new("/Reports/PatientStatus", "Patient Status"),
-            new("/Reports/PlStatement", "PL Statement"),
-            new("/Reports/AccountsReceivable", "Accounts Receivable"),
-            new("/Reports/OperatingReport", "Operating Report"),
-            new("/Reports/CashReport", "Cash Report"),
-            new("/Reports/PharmacyInventory", "Pharmacy Inventory")
-        ]),
-        new("Admin", [
-            new("/Admin/Responsibilities", "Responsibilities"),
-            new("/Admin/AuditLog", "Audit Log"),
-            new("/Admin/Backup", "Data Backup")
-        ])
-    ];
+    public async Task<IActionResult> OnGetAsync() => await RunAsync();
 
-    public sealed record FormLink(string Page, string Label);
-    public sealed record FormGroup(string Title, FormLink[] Forms);
+    public Task<IActionResult> OnPostRunAsync() => RunAsync();
 
-    public async Task OnGetAsync()
+    public IActionResult OnPostRefreshAsync() => RedirectToPage(new { FromDate, ToDate });
+
+    private async Task<IActionResult> RunAsync()
     {
         var clinic = await _context.GetCurrentClinicAsync();
         ClinicName = clinic?.Name ?? "Clinic";
-        if (clinic is null) return;
+        if (clinic is null) return Forbid();
 
-        var today = DateTime.Today;
-        PatientCount = await _db.Patients.CountAsync(p => p.ClinicId == clinic.Id);
-        TodayAppointments = await _db.Appointments.CountAsync(a => a.ClinicId == clinic.Id && a.AppointmentDate == today);
-        UpcomingAppointments = await _db.Appointments.CountAsync(a =>
-            a.ClinicId == clinic.Id && a.AppointmentDate > today && a.AppointmentDate <= today.AddDays(7));
+        ActiveDoctorCount = await _db.Doctors.CountAsync(d =>
+            d.ClinicId == clinic.Id && d.Status.Equals("Active", StringComparison.OrdinalIgnoreCase));
+
+        var patients = await _db.Patients
+            .Where(p => p.ClinicId == clinic.Id &&
+                        p.AppointmentDate >= FromDate.Date &&
+                        p.AppointmentDate <= ToDate.Date)
+            .ToListAsync();
+
+        PendingPatients = CountStatus(patients, PatientVisitStatuses.Pending);
+        CancelledPatients = CountStatus(patients, PatientVisitStatuses.Cancelled);
+        ConfirmedPatients = CountStatus(patients, PatientVisitStatuses.Confirmed);
+        UnderProcessPatients = CountStatus(patients, PatientVisitStatuses.UnderProcess);
+        CompletedPatients = CountStatus(patients, PatientVisitStatuses.Completed);
+
+        return Page();
     }
+
+    private static int CountStatus(IEnumerable<Core.Entities.Patient> patients, string status) =>
+        patients.Count(p => PatientVisitStatuses.Normalize(p.Status)
+            .Equals(status, StringComparison.OrdinalIgnoreCase));
 }

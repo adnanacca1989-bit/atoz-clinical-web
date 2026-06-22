@@ -29,6 +29,10 @@ public sealed class PharmacyItemRegistrationService
     public Task<PharmacyItem?> GetByBarcodeAsync(Guid clinicId, string barcode) =>
         _db.PharmacyItems.FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Barcode == barcode.Trim());
 
+    public Task<int> NextItemNoAsync(Guid clinicId) =>
+        _db.PharmacyItems.Where(i => i.ClinicId == clinicId).Select(i => (int?)i.ItemNo).MaxAsync()
+            .ContinueWith(t => (t.Result ?? 0) + 1);
+
     public async Task<PharmacyItem> SaveAsync(Guid clinicId, PharmacyItem item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;

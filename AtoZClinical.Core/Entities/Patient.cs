@@ -23,7 +23,7 @@ public class Patient
     public string? VisitNumber { get; set; }
     public DateTime? AppointmentDate { get; set; }
     public TimeSpan? AppointmentTime { get; set; }
-    public string Status { get; set; } = "Active";
+    public string Status { get; set; } = "Pending";
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

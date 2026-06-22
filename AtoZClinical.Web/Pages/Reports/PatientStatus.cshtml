@@ -1,14 +1,16 @@
 @page
+@using AtoZClinical.Infrastructure.Services
 @model AtoZClinical.Web.Pages.Reports.PatientStatusModel
 @{
     ViewData["Title"] = "Patient Status Report";
     Layout = "_Layout";
-    string StatusClass(string status) => status switch
+    string StatusClass(string status) => PatientVisitStatuses.Normalize(status) switch
     {
-        "Overdue" => "appt-status-overdue",
-        "Under Process" => "appt-status-process",
-        "Completed" => "appt-status-completed",
-        "Cancelled" => "appt-status-cancelled",
+        PatientVisitStatuses.Cancelled => "appt-status-cancelled",
+        PatientVisitStatuses.Completed => "appt-status-completed",
+        PatientVisitStatuses.Confirmed => "appt-status-scheduled",
+        PatientVisitStatuses.UnderProcess => "appt-status-process",
+        PatientVisitStatuses.Pending => "appt-status-scheduled",
         _ => "appt-status-scheduled"
     };
 }
@@ -30,9 +32,9 @@
                 <label class="clinical-field-label">Status</label>
                 <select asp-for="Status" class="clinical-field">
                     <option>All</option>
-                    <option>Scheduled</option>
+                    <option>Pending</option>
+                    <option>Confirmed</option>
                     <option>Under Process</option>
-                    <option>Overdue</option>
                     <option>Completed</option>
                     <option>Cancelled</option>
                 </select>

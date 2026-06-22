@@ -241,12 +241,18 @@ public sealed class CashReceiptService
     private readonly ClinicalDbContext _db;
     private readonly PatientInvoiceService _invoices;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public CashReceiptService(ClinicalDbContext db, PatientInvoiceService invoices, InvoiceDeleteGuardService invoiceGuard)
+    public CashReceiptService(
+        ClinicalDbContext db,
+        PatientInvoiceService invoices,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _invoices = invoices;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
@@ -272,6 +278,7 @@ public sealed class CashReceiptService
         else _db.CashReceipts.Update(item);
         await _db.SaveChangesAsync();
         await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId);
+        await _visitStatus.OnCashReceiptAsync(clinicId, item);
         return item;
     }
 
@@ -345,11 +352,16 @@ public sealed class LabRequestService
 {
     private readonly ClinicalDbContext _db;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public LabRequestService(ClinicalDbContext db, InvoiceDeleteGuardService invoiceGuard)
+    public LabRequestService(
+        ClinicalDbContext db,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<LabRequest>> ListAsync(Guid clinicId) =>
@@ -386,6 +398,7 @@ public sealed class LabRequestService
         }
 
         await _db.SaveChangesAsync();
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName);
         return item;
     }
 
@@ -413,11 +426,16 @@ public sealed class LabResultService
 {
     private readonly ClinicalDbContext _db;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public LabResultService(ClinicalDbContext db, InvoiceDeleteGuardService invoiceGuard)
+    public LabResultService(
+        ClinicalDbContext db,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _invoiceGuard = invoiceGuard;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<LabResult>> ListAsync(Guid clinicId) =>
@@ -453,6 +471,7 @@ public sealed class LabResultService
         }
 
         await _db.SaveChangesAsync();
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
         return item;
     }
 
