@@ -1,93 +1,190 @@
-@page
-@model AtoZClinical.Web.Pages.Reports.CashReportModel
-@{
-    ViewData["Title"] = "Cash Report";
-    ViewData["UseReportPickers"] = true;
-    Layout = "_Layout";
-}
-
-<div class="clinical-form-page clinical-report-page">
-    <h1 class="page-title">Cash Report</h1>
-    <form method="post" id="clinicalReportForm">
-        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
-        <div class="row g-3 mb-2 px-2">
-            <div class="col-md-2">
-                <label class="clinical-field-label">From Date</label>
-                <input asp-for="FromDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-2">
-                <label class="clinical-field-label">To Date</label>
-                <input asp-for="ToDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">Patient / Payee Name</label>
-                <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">Doctor Name</label>
-                <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
-            </div>
-            <div class="col-md-2">
-                <label class="clinical-field-label">Transaction Type</label>
-                <select asp-for="TransactionType" class="clinical-field">
-                    <option>All</option>
-                    <option>Receipt</option>
-                    <option>Payment</option>
-                </select>
-            </div>
-        </div>
-        <div class="d-flex justify-content-end gap-4 mb-2 px-2 small">
-            <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
-            <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
-            <span><strong>Closing Balance:</strong> @Model.ClosingBalance.ToString("N2")</span>
-        </div>
-        <div class="report-results-scroll mx-2">
-            <table class="line-grid report-grid">
-                <thead>
-                    <tr>
-                        <th>Transaction Type</th>
-                        <th>Date</th>
-                        <th>Doc No</th>
-                        <th>Patient Name</th>
-                        <th>Doctor Name</th>
-                        <th>Receipt Date</th>
-                        <th>Payment Date</th>
-                        <th>Payment Method</th>
-                        <th>Debit</th>
-                        <th>Credit</th>
-                        <th>Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @foreach (var r in Model.Results)
-                {
-                    <tr>
-                        <td>@r.TransactionType</td>
-                        <td>@r.TransactionDate.ToString("d")</td>
-                        <td>@r.DocumentNo</td>
-                        <td>@r.PatientName</td>
-                        <td>@r.DoctorName</td>
-                        <td>@(r.ReceiptDate?.ToString("d") ?? "")</td>
-                        <td>@(r.PaymentDate?.ToString("d") ?? "")</td>
-                        <td>@r.PaymentMethod</td>
-                        <td>@(r.Debit > 0 ? r.Debit.ToString("N2") : "")</td>
-                        <td>@(r.Credit > 0 ? r.Credit.ToString("N2") : "")</td>
-                        <td>@r.Balance.ToString("N2")</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-        <partial name="_ReportToolbar" />
-    </form>
-</div>
-
-<partial name="_PatientSelectModal" />
-<partial name="_DoctorSelectModal" />
-
-@section Scripts {
-    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
-    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
-    <script src="~/js/report-filters.js" asp-append-version="true"></script>
-    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
-}
+@page
+
+@model AtoZClinical.Web.Pages.Reports.CashReportModel
+
+@{
+
+    ViewData["Title"] = "Cash Report";
+
+    ViewData["UseReportPickers"] = true;
+
+    Layout = "_Layout";
+
+}
+
+
+
+<div class="clinical-form-page clinical-report-page">
+
+    <h1 class="page-title">Cash Report</h1>
+
+    <form method="post" id="clinicalReportForm">
+
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+
+        <div class="report-filter-panel">
+        <div class="row g-2 mb-0">
+
+            <div class="col-md-2">
+
+                <label class="clinical-field-label">From Date</label>
+
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+
+            </div>
+
+            <div class="col-md-2">
+
+                <label class="clinical-field-label">To Date</label>
+
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+
+            </div>
+
+            <div class="col-md-3">
+
+                <label class="clinical-field-label">Patient / Payee Name</label>
+
+                <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+
+            </div>
+
+            <div class="col-md-3">
+
+                <label class="clinical-field-label">Doctor Name</label>
+
+                <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
+
+            </div>
+
+            <div class="col-md-2">
+
+                <label class="clinical-field-label">Transaction Type</label>
+
+                <select asp-for="TransactionType" class="clinical-field">
+
+                    <option>All</option>
+
+                    <option>Receipt</option>
+
+                    <option>Payment</option>
+
+                </select>
+
+            </div>
+
+        </div>
+        </div>
+
+        <p class="report-hint">Receipts post as <strong>Debit</strong>; payments post as <strong>Credit</strong>. Use Run to refresh after changing filters.</p>
+
+        <div class="report-summary-panel">
+
+            <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
+
+            <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
+
+            <span><strong>Closing Balance:</strong> @Model.ClosingBalance.ToString("N2")</span>
+
+        </div>
+
+        <div class="report-results-scroll">
+
+            <table class="line-grid report-grid">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Transaction Type</th>
+
+                        <th>Date</th>
+
+                        <th>Doc No</th>
+
+                        <th>Patient Name</th>
+
+                        <th>Doctor Name</th>
+
+                        <th>Receipt Date</th>
+
+                        <th>Payment Date</th>
+
+                        <th>Payment Method</th>
+
+                        <th>Debit</th>
+
+                        <th>Credit</th>
+
+                        <th>Balance</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                @foreach (var r in Model.Results)
+
+                {
+
+                    <tr>
+
+                        <td>@r.TransactionType</td>
+
+                        <td>@r.TransactionDate.ToString("d")</td>
+
+                        <td>@r.DocumentNo</td>
+
+                        <td>@r.PatientName</td>
+
+                        <td>@r.DoctorName</td>
+
+                        <td>@(r.ReceiptDate?.ToString("d") ?? "")</td>
+
+                        <td>@(r.PaymentDate?.ToString("d") ?? "")</td>
+
+                        <td>@r.PaymentMethod</td>
+
+                        <td>@(r.Debit > 0 ? r.Debit.ToString("N2") : "")</td>
+
+                        <td>@(r.Credit > 0 ? r.Credit.ToString("N2") : "")</td>
+
+                        <td>@r.Balance.ToString("N2")</td>
+
+                    </tr>
+
+                }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <partial name="_ReportToolbar" />
+
+    </form>
+
+</div>
+
+
+
+<partial name="_PatientSelectModal" />
+
+<partial name="_DoctorSelectModal" />
+
+
+
+@section Scripts {
+
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
+
+}
+

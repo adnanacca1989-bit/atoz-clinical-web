@@ -2,12 +2,14 @@
 @model AtoZClinical.Web.Pages.Invoices.IndexModel
 @{
     ViewData["Title"] = "Invoice / Billing";
+    ViewData["FormHint"] = "Click Patient Name to load lab, radiology, pharmacy charges and doctor consultation fee. Use Add Service below for registered services, or type any charge description.";
     Layout = "_Layout";
 }
 
 <div class="clinical-form-page clinical-standard-form invoice-form-page">
     <h1 class="page-title">Invoice / Billing</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
+    <partial name="_ClinicalFormHint" />
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
@@ -59,24 +61,27 @@
                 </div>
                 <div class="clinical-form-grid-area invoice-lines-area">
                 <div class="section-caption">Invoice Lines</div>
-                <div class="line-grid-scroll invoice-line-grid-scroll">
+                <div class="line-toolbar invoice-line-toolbar">
+                    <select id="invoiceQuickServicePick" class="clinical-field" title="Registered services">
+                        <option value="">— Pick registered service —</option>
+                        @foreach (var s in Model.Services)
+                        {
+                            <option value="@s.Name" data-fee="@s.Fee" data-no="@s.ServiceNo">@s.Name (@s.Fee.ToString("N0"))</option>
+                        }
+                    </select>
+                    <button type="button" id="invoiceQuickServiceAdd" class="btn-form btn-form-sm">+ Add Service Line</button>
+                    <span class="line-toolbar-hint">Or type a description directly in each row (e.g. Lab #1: CBC).</span>
+                </div>
+                <div class="line-grid-scroll clinical-line-grid-scroll invoice-line-grid-scroll">
                 <table class="line-grid invoice-line-grid clinical-line-grid">
                     <thead><tr><th class="col-no">No</th><th class="col-item">Service / Charge</th><th class="col-qty">QTY</th><th class="col-rate">Rate</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
                     {
-                        var lineService = Model.Lines[i].ServiceName ?? "";
                         <tr class="invoice-line">
                             <td><input asp-for="Lines[i].LineNo" readonly /></td>
                             <td class="col-item">
                                 <input asp-for="Lines[i].ServiceName" class="clinical-field invoice-service-name" placeholder="Service / charge description" list="invoiceServiceList" />
-                                <select class="clinical-field invoice-service-pick" title="Pick from registered services">
-                                    <option value="">— Registered service —</option>
-                                    @foreach (var s in Model.Services)
-                                    {
-                                        <option value="@s.Name" data-fee="@s.Fee" data-no="@s.ServiceNo" selected="@(lineService == s.Name)">@s.Name</option>
-                                    }
-                                </select>
                             </td>
                             <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="1" /></td>
                             <td class="col-rate"><input asp-for="Lines[i].UnitFee" type="number" step="0.01" /></td>
@@ -136,7 +141,7 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>Invoic...</th><th>Patie...</th><th>Doctor</th></tr></thead>
+                        <thead><tr><th>Invoice No</th><th>Patient</th><th>Doctor</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {

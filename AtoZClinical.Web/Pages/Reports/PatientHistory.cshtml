@@ -9,7 +9,8 @@
     <h1 class="page-title">Patient History</h1>
     <form method="post" id="patientHistoryForm">
         <button type="submit" asp-page-handler="Run" id="patientHistoryRunSubmit" class="d-none" aria-hidden="true"></button>
-        <div class="row g-3 mb-3">
+        <div class="report-filter-panel">
+        <div class="row g-2 mb-0">
             <div class="col-md-3">
                 <label class="clinical-field-label">Patient Name</label>
                 <input asp-for="PatientName" id="patientHistoryPatientInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
@@ -44,8 +45,10 @@
                 <input asp-for="PhoneNumber" id="patientHistoryPhoneInput" class="clinical-field" readonly />
             </div>
         </div>
+        </div>
+        <p class="report-hint">Select a patient (and optional doctor), then click <strong>Run</strong>. Use <strong>Print All Patient Reports</strong> for a full A4 bundle.</p>
         <div class="report-results-scroll">
-            <table class="line-grid">
+            <table class="line-grid report-grid">
                 <thead><tr><th>Patient</th><th>Form</th><th>Date</th><th>Doctor</th><th>Details</th></tr></thead>
                 <tbody>
                 @foreach (var r in Model.Results)

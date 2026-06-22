@@ -1,0 +1,5 @@
+@{
+    var hint = ViewData["FormHint"] as string;
+    if (string.IsNullOrWhiteSpace(hint)) return;
+}
+<div class="clinical-form-hint" role="note">@hint</div>

@@ -8,6 +8,10 @@
 
     Layout = "_Layout";
 
+    ViewData["FormHint"] = "Select a patient to load test lines from their lab request. Enter result values, normal range, and unit for each test.";
+
+
+
 }
 
 
@@ -17,6 +21,8 @@
     <h1 class="page-title">Laboratory Result</h1>
 
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
+
+    <partial name="_ClinicalFormHint" />
 
     <form method="post">
 
@@ -168,7 +174,7 @@
 
                     <table>
 
-                        <thead><tr><th>ID</th><th>Requ...</th><th>Date</th><th>Patie...</th><th>Doc</th></tr></thead>
+                        <thead><tr><th>Result No</th><th>Request No</th><th>Date</th><th>Patient</th><th>Doctor</th></tr></thead>
 
                         <tbody>
 

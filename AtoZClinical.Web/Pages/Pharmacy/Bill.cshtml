@@ -2,12 +2,14 @@
 @model AtoZClinical.Web.Pages.Pharmacy.BillModel
 @{
     ViewData["Title"] = "Pharmacy Bill";
+    ViewData["FormHint"] = "Click Patient Name to search. Pick an item from the dropdown (or show barcode & details to scan). QTY × Unit Price updates line totals and bill summary.";
     Layout = "_Layout";
 }
 
 <div class="clinical-form-page clinical-standard-form">
     <h1 class="page-title">Pharmacy Bill</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
+    <partial name="_ClinicalFormHint" />
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
@@ -62,10 +64,13 @@
                     </div>
                 </div>
                 <div class="clinical-form-grid-area">
-                <div class="section-caption">Bill Lines</div>
+                <div class="section-caption-row">
+                    <div class="section-caption">Bill Lines</div>
+                    <button type="button" class="btn-form btn-form-sm pharmacy-toggle-details">Show barcode &amp; details</button>
+                </div>
                 <div class="line-grid-scroll clinical-line-grid-scroll">
-                <table class="line-grid pharmacy-line-grid clinical-line-grid">
-                    <thead><tr><th class="col-no">No</th><th class="col-item">Item</th><th>Barcode</th><th>Medicine Code</th><th>Medicine Name</th><th>Dosage</th><th>UOM</th><th class="col-qty">QTY</th><th class="col-fee">Unit Price</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
+                <table class="line-grid pharmacy-line-grid pharmacy-line-grid-compact clinical-line-grid">
+                    <thead><tr><th class="col-no">No</th><th class="col-item">Item</th><th class="pharmacy-col-detail">Barcode</th><th class="pharmacy-col-detail">Medicine Code</th><th class="col-medicine">Medicine Name</th><th class="pharmacy-col-detail">Dosage</th><th>UOM</th><th class="col-qty">QTY</th><th class="col-fee">Unit Price</th><th class="col-total">Total</th><th class="col-del">Del</th></tr></thead>
                     <tbody>
                     @for (var i = 0; i < Model.Lines.Count; i++)
                     {
@@ -91,10 +96,10 @@
                                     }
                                 </select>
                             </td>
-                            <td><input asp-for="Lines[i].Barcode" class="pharmacy-barcode" /></td>
-                            <td><input asp-for="Lines[i].MedicineCode" class="pharmacy-code" /></td>
-                            <td><input asp-for="Lines[i].MedicineName" class="pharmacy-name" /></td>
-                            <td><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" /></td>
+                            <td class="pharmacy-col-detail"><input asp-for="Lines[i].Barcode" class="pharmacy-barcode" /></td>
+                            <td class="pharmacy-col-detail"><input asp-for="Lines[i].MedicineCode" class="pharmacy-code" /></td>
+                            <td class="col-medicine"><input asp-for="Lines[i].MedicineName" class="pharmacy-name" readonly /></td>
+                            <td class="pharmacy-col-detail"><input asp-for="Lines[i].Dosage" class="pharmacy-dosage" readonly /></td>
                             <td><input asp-for="Lines[i].Uom" class="pharmacy-uom clinical-field" placeholder="Pcs" /></td>
                             <td class="col-qty"><input asp-for="Lines[i].Qty" type="number" min="1" class="pharmacy-qty" /></td>
                             <td class="col-fee"><input asp-for="Lines[i].UnitPrice" type="number" step="0.01" class="pharmacy-price" /></td>
@@ -146,7 +151,7 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>Bill</th><th>Patient</th><th>Doctor</th><th>Net</th></tr></thead>
+                        <thead><tr><th>Bill No</th><th>Patient</th><th>Doctor</th><th>Net</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
@@ -175,6 +180,7 @@
 
 @section Scripts {
     <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/pharmacy-grid-enhancements.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-line-calculations.js" asp-append-version="true"></script>
     <script src="~/js/pharmacy-bill.js" asp-append-version="true"></script>
     <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>

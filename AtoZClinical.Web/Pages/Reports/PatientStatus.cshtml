@@ -5,10 +5,11 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page">
+<div class="clinical-form-page clinical-report-page clinical-standard-form">
     <h1 class="page-title">Patient Status Report</h1>
-    <form method="post">
-        <div class="row g-3 mb-2">
+    <form method="post" id="clinicalReportForm">
+        <div class="report-filter-panel">
+        <div class="row g-2 mb-0">
             <div class="col-md-3">
                 <label class="clinical-field-label">From Date</label>
                 <input asp-for="FromDate" class="clinical-field" type="date" />
@@ -27,11 +28,12 @@
                 </select>
             </div>
         </div>
-        <p class="small text-muted mb-2">Showing @Model.Results.Count patient status records</p>
-        <div class="clinical-record-grid" style="min-height: 400px;">
-            <table>
+        </div>
+        <p class="report-hint">Showing @Model.Results.Count appointment status records. Click <strong>Search</strong> or <strong>Run</strong> after changing dates or status.</p>
+        <div class="clinical-record-grid">
+            <table class="report-grid">
                 <thead>
-                    <tr><th>No.</th><th>Patient Name</th><th>Appointment Date</th><th>Appointment Time</th><th>Doctor Name</th><th>Specialty</th><th>Invoice Balance</th><th>Status</th></tr>
+                    <tr><th>No.</th><th>Patient Name</th><th>Appointment Date</th><th>Appointment Time</th><th>Doctor Name</th><th>Specialty</th><th class="text-end">Invoice Balance</th><th>Status</th></tr>
                 </thead>
                 <tbody>
                 @{ var n = 0; }
@@ -45,7 +47,7 @@
                         <td>@(r.AppointmentTime?.ToString(@"hh\:mm") ?? "")</td>
                         <td>@r.DoctorName</td>
                         <td>@r.Specialty</td>
-                        <td>@r.InvoiceBalance.ToString("N2")</td>
+                        <td class="text-end">@r.InvoiceBalance.ToString("N2")</td>
                         <td>@r.Status</td>
                     </tr>
                 }

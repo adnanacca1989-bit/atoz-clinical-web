@@ -2,12 +2,14 @@
 @model AtoZClinical.Web.Pages.Radiology.ResultModel
 @{
     ViewData["Title"] = "Radiology Result";
+    ViewData["FormHint"] = "Select a patient to load radiology lines from their request. Enter result, impression, and findings for each study.";
     Layout = "_Layout";
 }
 
 <div class="clinical-form-page clinical-standard-form">
     <h1 class="page-title">Radiology Result</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
+    <partial name="_ClinicalFormHint" />
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
@@ -95,7 +97,7 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>ID</th><th>Requ...</th><th>Date</th><th>Patie...</th><th>Doc</th></tr></thead>
+                        <thead><tr><th>Result No</th><th>Request No</th><th>Date</th><th>Patient</th><th>Doctor</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {

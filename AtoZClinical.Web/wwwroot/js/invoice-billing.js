@@ -5,7 +5,42 @@ document.addEventListener('DOMContentLoaded', () => {
         onApply: loadPatientInvoiceCharges
     });
     bindInvoiceTotals();
+    bindInvoiceQuickService();
 });
+
+function bindInvoiceQuickService() {
+    const pick = document.getElementById('invoiceQuickServicePick');
+    const addBtn = document.getElementById('invoiceQuickServiceAdd');
+    const tbody = document.querySelector('.invoice-line-grid tbody');
+    if (!pick || !addBtn || !tbody) return;
+
+    const findTargetRow = () => {
+        const rows = tbody.querySelectorAll('tr.invoice-line');
+        for (const row of rows) {
+            const name = row.querySelector('.invoice-service-name')?.value?.trim();
+            const rate = Number(row.querySelector('[name$=".UnitFee"]')?.value) || 0;
+            if (!name && rate <= 0) return row;
+        }
+        return rows[rows.length - 1];
+    };
+
+    addBtn.addEventListener('click', () => {
+        const opt = pick.selectedOptions[0];
+        if (!opt?.value) {
+            pick.focus();
+            return;
+        }
+        const row = findTargetRow();
+        if (!row) return;
+        const nameInput = row.querySelector('.invoice-service-name');
+        const rateInput = row.querySelector('[name$=".UnitFee"]');
+        const qtyInput = row.querySelector('[name$=".Qty"]');
+        if (nameInput) nameInput.value = opt.value;
+        if (rateInput && opt.dataset.fee) rateInput.value = opt.dataset.fee;
+        if (qtyInput && !qtyInput.value) qtyInput.value = '1';
+        if (typeof window.recalcInvoiceTotals === 'function') window.recalcInvoiceTotals();
+    });
+}
 
 function bindInvoiceTotals() {
     const subTotalEl = document.getElementById('invoiceSubTotal');
@@ -15,17 +50,6 @@ function bindInvoiceTotals() {
     const paidEl = document.getElementById('invoiceAmountPaid');
     const tbody = document.querySelector('.invoice-line-grid tbody');
     if (!subTotalEl || !netEl || !balanceEl || !tbody) return;
-
-    const applyServicePick = (pick) => {
-        if (!pick) return;
-        const opt = pick.selectedOptions[0];
-        if (!opt?.value) return;
-        const row = pick.closest('tr.invoice-line');
-        const nameInput = row?.querySelector('.invoice-service-name');
-        const rateInput = row?.querySelector('[name$=".UnitFee"]');
-        if (nameInput) nameInput.value = opt.value;
-        if (rateInput && opt.dataset.fee) rateInput.value = opt.dataset.fee;
-    };
 
     const recalc = () => {
         let sub = 0;
@@ -46,12 +70,6 @@ function bindInvoiceTotals() {
     };
 
     tbody.addEventListener('input', recalc);
-    tbody.addEventListener('change', (e) => {
-        if (e.target.matches('.invoice-service-pick')) {
-            applyServicePick(e.target);
-            recalc();
-        }
-    });
     discountEl?.addEventListener('input', recalc);
     paidEl?.addEventListener('change', recalc);
     paidEl?.addEventListener('input', recalc);
@@ -86,8 +104,7 @@ function fillInvoiceLines(lines) {
         while (rows.length < count) {
             const clone = rows[rows.length - 1].cloneNode(true);
             clone.querySelectorAll('input, select').forEach(el => {
-                if (el.classList.contains('invoice-service-pick')) el.selectedIndex = 0;
-                else if (el.readOnly) return;
+                if (el.readOnly) return;
                 else el.value = el.type === 'number' ? (el.name?.includes('.Qty') ? '1' : '0') : '';
             });
             tbody.appendChild(clone);
@@ -109,30 +126,17 @@ function fillInvoiceLines(lines) {
     rows.forEach((row, i) => {
         const line = lines[i];
         const nameInput = row.querySelector('.invoice-service-name');
-        const pickSelect = row.querySelector('.invoice-service-pick');
         const qtyInput = row.querySelector('[name$=".Qty"]');
         const rateInput = row.querySelector('[name$=".UnitFee"]');
 
         if (!line) {
             if (nameInput) nameInput.value = '';
-            if (pickSelect) pickSelect.selectedIndex = 0;
             if (qtyInput) qtyInput.value = '1';
             if (rateInput) rateInput.value = '0';
             return;
         }
 
         if (nameInput) nameInput.value = line.serviceName ?? '';
-        if (pickSelect) {
-            let matched = false;
-            for (const opt of pickSelect.options) {
-                if (opt.value && opt.value === line.serviceName) {
-                    pickSelect.value = opt.value;
-                    matched = true;
-                    break;
-                }
-            }
-            if (!matched) pickSelect.selectedIndex = 0;
-        }
         if (qtyInput) qtyInput.value = line.qty ?? 1;
         if (rateInput) rateInput.value = line.unitFee ?? 0;
     });

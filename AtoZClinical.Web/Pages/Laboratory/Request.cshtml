@@ -8,6 +8,10 @@
 
     Layout = "_Layout";
 
+    ViewData["FormHint"] = "Click Patient Name to search, then pick tests from the Lab Test dropdown. QTY × Fee updates line totals automatically.";
+
+
+
 }
 
 
@@ -17,6 +21,8 @@
     <h1 class="page-title">Laboratory Request</h1>
 
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
+
+    <partial name="_ClinicalFormHint" />
 
     <form method="post">
 
@@ -187,7 +193,7 @@
 
                     <table>
 
-                        <thead><tr><th>ID</th><th>Date</th><th>Patie...</th><th>Doctor</th><th>Spe</th></tr></thead>
+                        <thead><tr><th>Request No</th><th>Date</th><th>Patient</th><th>Doctor</th><th>Specialty</th></tr></thead>
 
                         <tbody>
 

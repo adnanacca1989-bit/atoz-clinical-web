@@ -2,12 +2,14 @@
 @model AtoZClinical.Web.Pages.Radiology.RequestModel
 @{
     ViewData["Title"] = "Radiology Request";
+    ViewData["FormHint"] = "Click Patient Name to search, then pick radiology tests from the dropdown. QTY × Fee updates the total automatically.";
     Layout = "_Layout";
 }
 
 <div class="clinical-form-page clinical-standard-form">
     <h1 class="page-title">Radiology Request</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
+    <partial name="_ClinicalFormHint" />
     <form method="post">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
@@ -115,7 +117,7 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>ID</th><th>Date</th><th>Patie...</th><th>Doctor</th><th>Spe...</th></tr></thead>
+                        <thead><tr><th>Request No</th><th>Date</th><th>Patient</th><th>Doctor</th><th>Specialty</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
