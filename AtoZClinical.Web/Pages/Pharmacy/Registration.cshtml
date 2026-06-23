@@ -75,6 +75,10 @@
                         <input asp-for="Input.ReorderPoint" class="clinical-field" type="number" min="0" />
                     </div>
                     <div class="col-md-3">
+                        <label class="clinical-field-label">Expiry Date</label>
+                        <input asp-for="Input.ExpiryDate" class="clinical-field" type="date" />
+                    </div>
+                    <div class="col-md-3">
                         <label class="clinical-field-label">Inventory (Qty on Hand)</label>
                         <input asp-for="Input.QuantityOnHand" class="clinical-field" readonly />
                     </div>
@@ -118,7 +122,7 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>ID</th><th>Barcode</th><th>Name</th><th>UOM</th><th>Price</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Barcode</th><th>Name</th><th>Expiry</th><th>UOM</th><th>Price</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
@@ -126,6 +130,7 @@
                                 <td>@r.ItemNo</td>
                                 <td>@r.Barcode</td>
                                 <td>@r.MedicineName</td>
+                                <td>@(r.ExpiryDate?.ToString("yyyy-MM-dd") ?? "—")</td>
                                 <td>@r.BaseUom@(r.AlternateUom != null ? $" / {r.AlternateUom}" : "")</td>
                                 <td>@r.DefaultUnitPrice.ToString("N2")</td>
                             </tr>

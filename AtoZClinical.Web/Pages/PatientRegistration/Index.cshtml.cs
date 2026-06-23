@@ -19,15 +19,12 @@ public class IndexModel : ClinicFormPageModel
 {
 
     private readonly PatientService _service;
+    private readonly PatientVisitHistoryService _history;
 
-
-
-    public IndexModel(ClinicContextService clinicContext, PatientService service) : base(clinicContext)
-
+    public IndexModel(ClinicContextService clinicContext, PatientService service, PatientVisitHistoryService history) : base(clinicContext)
     {
-
         _service = service;
-
+        _history = history;
     }
 
 
@@ -99,6 +96,26 @@ public class IndexModel : ClinicFormPageModel
     public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
 
     public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    public async Task<IActionResult> OnGetHistoryAsync(string? patientNo, string? patientName, string? nationalId, string? phone)
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return Forbid();
+
+        var summary = await _history.GetHistoryAsync(clinicId.Value, patientNo, patientName, nationalId, phone);
+        return new JsonResult(new
+        {
+            rows = summary.Rows.Select(r => new
+            {
+                visitDate = r.VisitDate.ToString("yyyy-MM-dd"),
+                doctorName = r.DoctorName,
+                totalRevenue = r.TotalRevenue,
+                amountReceived = r.AmountReceived
+            }),
+            grandTotalRevenue = summary.GrandTotalRevenue,
+            grandAmountReceived = summary.GrandAmountReceived
+        });
+    }
 
 
 

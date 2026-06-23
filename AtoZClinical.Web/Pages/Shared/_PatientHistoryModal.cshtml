@@ -1,0 +1,39 @@
+<div class="modal fade" id="patientHistoryModal" tabindex="-1" aria-labelledby="patientHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="patientHistoryModalLabel">Patient Visit History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="patientHistoryLoading" class="text-muted py-3">Loading history...</div>
+                <div id="patientHistoryEmpty" class="text-muted py-3 d-none">No visit history found for this patient.</div>
+                <div id="patientHistoryContent" class="d-none">
+                    <div class="clinical-record-grid mb-3">
+                        <table class="report-grid">
+                            <thead>
+                                <tr>
+                                    <th>Visit Date</th>
+                                    <th>Doctor</th>
+                                    <th class="text-end">Total Revenue</th>
+                                    <th class="text-end">Amount Received</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patientHistoryTableBody"></tbody>
+                            <tfoot>
+                                <tr class="fw-bold">
+                                    <td colspan="2">Grand Total</td>
+                                    <td class="text-end" id="patientHistoryGrandRevenue">0.00</td>
+                                    <td class="text-end" id="patientHistoryGrandReceived">0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

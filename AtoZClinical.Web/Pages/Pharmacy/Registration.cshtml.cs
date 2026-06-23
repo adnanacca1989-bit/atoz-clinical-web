@@ -180,6 +180,7 @@ public class RegistrationModel : ClinicFormPageModel
         public string? CostAccountName { get; set; }
         public string? InventoryAccountName { get; set; }
         public bool IsActive { get; set; } = true;
+        public DateTime? ExpiryDate { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
         public static PharmacyItemInput FromEntity(PharmacyItem t) => new()
@@ -200,6 +201,7 @@ public class RegistrationModel : ClinicFormPageModel
             CostAccountName = t.CostAccountName,
             InventoryAccountName = t.InventoryAccountName,
             IsActive = t.IsActive,
+            ExpiryDate = t.ExpiryDate,
             UpdatedAt = t.UpdatedAt
         };
 
@@ -220,7 +222,8 @@ public class RegistrationModel : ClinicFormPageModel
             IncomeAccountName = IncomeAccountName,
             CostAccountName = CostAccountName,
             InventoryAccountName = InventoryAccountName,
-            IsActive = IsActive
+            IsActive = IsActive,
+            ExpiryDate = ExpiryDate
         };
     }
 }

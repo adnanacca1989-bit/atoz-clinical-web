@@ -51,101 +51,101 @@ document.addEventListener('DOMContentLoaded', () => {
     nationalIdInput?.addEventListener('blur', updateVisitNumber);
     phoneInput?.addEventListener('blur', updateVisitNumber);
 
-    // Doctor select modal
-    const modalEl = document.getElementById('doctorSelectModal');
-    if (!modalEl || !doctorNameInput) return;
-
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    const searchInput = document.getElementById('doctorSearchInput');
-    const tableBody = document.getElementById('doctorSelectTableBody');
-    let doctors = [];
-    let selectedDoctor = null;
-
-    const renderDoctors = () => {
-        if (!tableBody) return;
-        tableBody.innerHTML = '';
-        doctors.forEach(d => {
-            const tr = document.createElement('tr');
-            tr.dataset.doctorId = d.id;
-            if (selectedDoctor?.id === d.id) tr.classList.add('selected');
-            tr.innerHTML = `
-                <td>${d.doctorNo}</td>
-                <td>${escapeHtml(d.name)}</td>
-                <td>${escapeHtml(d.specialty || '')}</td>
-                <td>${escapeHtml(d.phone || '')}</td>
-                <td>${escapeHtml(d.email || '')}</td>
-                <td>${Number(d.consultationFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                <td>${escapeHtml(d.status || '')}</td>`;
-            tr.addEventListener('click', () => {
-                tableBody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
-                tr.classList.add('selected');
-                selectedDoctor = d;
-            });
-            tr.addEventListener('dblclick', () => {
-                selectedDoctor = d;
-                applyDoctor();
-            });
-            tableBody.appendChild(tr);
-        });
-    };
-
     const escapeHtml = (s) => {
         const d = document.createElement('div');
         d.textContent = s;
         return d.innerHTML;
     };
 
-    const loadDoctors = async () => {
-        const q = searchInput?.value?.trim() || '';
-        try {
-            const res = await fetch(`/Doctors/Lookup?search=${encodeURIComponent(q)}`);
-            if (!res.ok) return;
-            doctors = await res.json();
-            selectedDoctor = null;
-            renderDoctors();
-        } catch { /* ignore */ }
-    };
+    // Doctor select modal
+    const modalEl = document.getElementById('doctorSelectModal');
+    if (modalEl && doctorNameInput) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const searchInput = document.getElementById('doctorSearchInput');
+        const tableBody = document.getElementById('doctorSelectTableBody');
+        let doctors = [];
+        let selectedDoctor = null;
 
-    const applyDoctor = () => {
-        if (!selectedDoctor) return;
-        doctorNameInput.value = selectedDoctor.name;
-        if (specialtySelect && selectedDoctor.specialty) {
-            for (const opt of specialtySelect.options) {
-                if (opt.value === selectedDoctor.specialty || opt.text === selectedDoctor.specialty) {
-                    specialtySelect.value = opt.value;
-                    break;
+        const renderDoctors = () => {
+            if (!tableBody) return;
+            tableBody.innerHTML = '';
+            doctors.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.dataset.doctorId = d.id;
+                if (selectedDoctor?.id === d.id) tr.classList.add('selected');
+                tr.innerHTML = `
+                    <td>${d.doctorNo}</td>
+                    <td>${escapeHtml(d.name)}</td>
+                    <td>${escapeHtml(d.specialty || '')}</td>
+                    <td>${escapeHtml(d.phone || '')}</td>
+                    <td>${escapeHtml(d.email || '')}</td>
+                    <td>${Number(d.consultationFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td>${escapeHtml(d.status || '')}</td>`;
+                tr.addEventListener('click', () => {
+                    tableBody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+                    tr.classList.add('selected');
+                    selectedDoctor = d;
+                });
+                tr.addEventListener('dblclick', () => {
+                    selectedDoctor = d;
+                    applyDoctor();
+                });
+                tableBody.appendChild(tr);
+            });
+        };
+
+        const loadDoctors = async () => {
+            const q = searchInput?.value?.trim() || '';
+            try {
+                const res = await fetch(`/Doctors/Lookup?search=${encodeURIComponent(q)}`);
+                if (!res.ok) return;
+                doctors = await res.json();
+                selectedDoctor = null;
+                renderDoctors();
+            } catch { /* ignore */ }
+        };
+
+        const applyDoctor = () => {
+            if (!selectedDoctor) return;
+            doctorNameInput.value = selectedDoctor.name;
+            if (specialtySelect && selectedDoctor.specialty) {
+                for (const opt of specialtySelect.options) {
+                    if (opt.value === selectedDoctor.specialty || opt.text === selectedDoctor.specialty) {
+                        specialtySelect.value = opt.value;
+                        break;
+                    }
                 }
+                if (!specialtySelect.value) specialtySelect.value = selectedDoctor.specialty;
             }
-            if (!specialtySelect.value) specialtySelect.value = selectedDoctor.specialty;
-        }
-        modal.hide();
-    };
+            modal.hide();
+        };
 
-    doctorNameInput.addEventListener('click', () => {
-        modal.show();
-        loadDoctors();
-    });
-    doctorNameInput.addEventListener('focus', (e) => {
-        e.preventDefault();
-        doctorNameInput.blur();
-        modal.show();
-        loadDoctors();
-    });
+        doctorNameInput.addEventListener('click', () => {
+            modal.show();
+            loadDoctors();
+        });
+        doctorNameInput.addEventListener('focus', (e) => {
+            e.preventDefault();
+            doctorNameInput.blur();
+            modal.show();
+            loadDoctors();
+        });
 
-    searchInput?.addEventListener('input', () => {
-        clearTimeout(searchInput._timer);
-        searchInput._timer = setTimeout(loadDoctors, 250);
-    });
+        searchInput?.addEventListener('input', () => {
+            clearTimeout(searchInput._timer);
+            searchInput._timer = setTimeout(loadDoctors, 250);
+        });
 
-    document.getElementById('doctorSelectAddBtn')?.addEventListener('click', applyDoctor);
-    document.getElementById('doctorSelectRefreshBtn')?.addEventListener('click', loadDoctors);
-    document.getElementById('doctorSelectClearBtn')?.addEventListener('click', () => {
-        if (searchInput) searchInput.value = '';
-        selectedDoctor = null;
-        loadDoctors();
-    });
+        document.getElementById('doctorSelectAddBtn')?.addEventListener('click', applyDoctor);
+        document.getElementById('doctorSelectRefreshBtn')?.addEventListener('click', loadDoctors);
+        document.getElementById('doctorSelectClearBtn')?.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            selectedDoctor = null;
+            loadDoctors();
+        });
 
-    modalEl.addEventListener('shown.bs.modal', () => searchInput?.focus());
+        modalEl.addEventListener('shown.bs.modal', () => searchInput?.focus());
+    }
 
     // Patient card modal
     const patientCardBtn = document.getElementById('patientCardBtn');
@@ -188,6 +188,75 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('patientCardPrintBtn')?.addEventListener('click', () => {
             fillPatientCard();
             window.print();
+        });
+    }
+
+    // Patient visit history modal
+    const historyBtn = document.getElementById('patientHistoryBtn');
+    const historyModalEl = document.getElementById('patientHistoryModal');
+    if (historyBtn && historyModalEl) {
+        const historyModal = bootstrap.Modal.getOrCreateInstance(historyModalEl);
+        const loadingEl = document.getElementById('patientHistoryLoading');
+        const emptyEl = document.getElementById('patientHistoryEmpty');
+        const contentEl = document.getElementById('patientHistoryContent');
+        const tableBody = document.getElementById('patientHistoryTableBody');
+        const grandRevenueEl = document.getElementById('patientHistoryGrandRevenue');
+        const grandReceivedEl = document.getElementById('patientHistoryGrandReceived');
+
+        const formatMoney = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        historyBtn.addEventListener('click', async () => {
+            const patientNo = document.querySelector('[name="Input.PatientNo"]')?.value?.trim() || '';
+            const patientName = document.querySelector('[name="Input.PatientName"]')?.value?.trim() || '';
+            const nationalId = nationalIdInput?.value?.trim() || '';
+            const phone = phoneInput?.value?.trim() || '';
+
+            if (!patientNo && !patientName && !nationalId && !phone) {
+                alert('Please select or enter a patient before viewing history.');
+                return;
+            }
+
+            loadingEl?.classList.remove('d-none');
+            emptyEl?.classList.add('d-none');
+            contentEl?.classList.add('d-none');
+            if (tableBody) tableBody.innerHTML = '';
+            historyModal.show();
+
+            const params = new URLSearchParams({ handler: 'History' });
+            if (patientNo) params.set('patientNo', patientNo);
+            if (patientName) params.set('patientName', patientName);
+            if (nationalId) params.set('nationalId', nationalId);
+            if (phone) params.set('phone', phone);
+
+            try {
+                const res = await fetch(`/PatientRegistration?${params}`);
+                if (!res.ok) throw new Error('Failed to load history');
+                const data = await res.json();
+                loadingEl?.classList.add('d-none');
+
+                if (!data.rows || data.rows.length === 0) {
+                    emptyEl?.classList.remove('d-none');
+                    return;
+                }
+
+                data.rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${escapeHtml(row.visitDate || '')}</td>
+                        <td>${escapeHtml(row.doctorName || '—')}</td>
+                        <td class="text-end">${formatMoney(row.totalRevenue)}</td>
+                        <td class="text-end">${formatMoney(row.amountReceived)}</td>`;
+                    tableBody?.appendChild(tr);
+                });
+
+                if (grandRevenueEl) grandRevenueEl.textContent = formatMoney(data.grandTotalRevenue);
+                if (grandReceivedEl) grandReceivedEl.textContent = formatMoney(data.grandAmountReceived);
+                contentEl?.classList.remove('d-none');
+            } catch {
+                loadingEl?.classList.add('d-none');
+                emptyEl?.classList.remove('d-none');
+                if (emptyEl) emptyEl.textContent = 'Could not load patient history. Please try again.';
+            }
         });
     }
 });

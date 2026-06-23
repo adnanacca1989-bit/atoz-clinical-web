@@ -1,63 +1,151 @@
-@page
-@model AtoZClinical.Web.Pages.Reports.PharmacyInventoryModel
-@{
-    ViewData["Title"] = "Pharmacy Inventory Report";
-    Layout = "_Layout";
-}
-
-<div class="clinical-form-page clinical-report-page clinical-standard-form">
-    <h1 class="page-title">Pharmacy Inventory Report</h1>
-    <form method="post" id="clinicalReportForm">
-        <div class="report-filter-panel">
-        <div class="row g-2 mb-0">
-            <div class="col-md-3">
-                <label class="clinical-field-label">From Date</label>
-                <input asp-for="FromDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-3">
-                <label class="clinical-field-label">To Date</label>
-                <input asp-for="ToDate" class="clinical-field" type="date" />
-            </div>
-            <div class="col-md-4">
-                <label class="clinical-field-label">Search (Barcode / Code / Name)</label>
-                <input asp-for="Search" class="clinical-field" placeholder="Search item..." />
-            </div>
-        </div>
-        </div>
-        <p class="report-hint">Moving average costing — QTY IN from opening balance and purchases; QTY OUT from pharmacy bills.</p>
-        <div class="report-summary-panel">
-            <span><strong>Total Inventory Value:</strong> @Model.TotalValue.ToString("N2")</span>
-            <span><strong>Items:</strong> @Model.Results.Count</span>
-        </div>
-        <div class="clinical-record-grid">
-            <table class="report-grid">
-                <thead>
-                    <tr>
-                        <th>No</th><th>Barcode</th><th>Code</th><th>Medicine Name</th><th>Dosage</th>
-                        <th class="text-end">QTY IN</th><th class="text-end">QTY OUT</th><th class="text-end">Balance</th><th class="text-end">Avg Cost</th><th class="text-end">Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @{ var n = 0; }
-                @foreach (var r in Model.Results)
-                {
-                    n++;
-                    <tr>
-                        <td>@n</td>
-                        <td>@r.Barcode</td>
-                        <td>@r.MedicineCode</td>
-                        <td>@r.MedicineName</td>
-                        <td>@r.Dosage</td>
-                        <td class="text-end">@r.QtyIn</td>
-                        <td class="text-end">@r.QtyOut</td>
-                        <td class="text-end">@r.QtyBalance</td>
-                        <td class="text-end">@r.MovingAverageCost.ToString("N2")</td>
-                        <td class="text-end">@r.TotalValue.ToString("N2")</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-        <partial name="_ReportToolbar" />
-    </form>
-</div>
+@page
+
+@model AtoZClinical.Web.Pages.Reports.PharmacyInventoryModel
+
+@{
+
+    ViewData["Title"] = "Pharmacy Inventory Report";
+
+    Layout = "_Layout";
+
+}
+
+
+
+<div class="clinical-form-page clinical-report-page clinical-standard-form">
+
+    <h1 class="page-title">Pharmacy Inventory Report</h1>
+
+    <form method="post" id="clinicalReportForm">
+
+        <div class="report-filter-panel">
+
+        <div class="row g-2 mb-0">
+
+            <div class="col-md-3">
+
+                <label class="clinical-field-label">From Date</label>
+
+                <input asp-for="FromDate" class="clinical-field" type="date" />
+
+            </div>
+
+            <div class="col-md-3">
+
+                <label class="clinical-field-label">To Date</label>
+
+                <input asp-for="ToDate" class="clinical-field" type="date" />
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label class="clinical-field-label">Search (Barcode / Code / Name)</label>
+
+                <input asp-for="Search" class="clinical-field" placeholder="Search item..." />
+
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+
+                <div class="form-check mb-2">
+
+                    <input asp-for="ExpiredOnly" class="form-check-input" type="checkbox" />
+
+                    <label class="form-check-label" asp-for="ExpiredOnly">Expired only</label>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        </div>
+
+        <p class="report-hint">Moving average costing — QTY IN from opening balance and purchases; QTY OUT from pharmacy bills.</p>
+
+        <div class="report-summary-panel">
+
+            <span><strong>Total Inventory Value:</strong> @Model.TotalValue.ToString("N2")</span>
+
+            <span><strong>Items:</strong> @Model.Results.Count</span>
+
+            <span><strong>Expired:</strong> @Model.ExpiredCount</span>
+
+            <span><strong>Expiring within 30 days:</strong> @Model.ExpiringSoonCount</span>
+
+        </div>
+
+        <div class="clinical-record-grid">
+
+            <table class="report-grid">
+
+                <thead>
+
+                    <tr>
+
+                        <th>No</th><th>Barcode</th><th>Code</th><th>Medicine Name</th><th>Dosage</th><th>Expiry Date</th>
+
+                        <th class="text-end">QTY IN</th><th class="text-end">QTY OUT</th><th class="text-end">Balance</th><th class="text-end">Avg Cost</th><th class="text-end">Value</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                @{ var n = 0; }
+
+                @foreach (var r in Model.Results)
+
+                {
+
+                    n++;
+
+                    var expiryClass = "";
+                    if (r.ExpiryDate.HasValue)
+                    {
+                        if (r.ExpiryDate.Value.Date < DateTime.Today) expiryClass = "report-row-expired";
+                        else if (r.ExpiryDate.Value.Date <= DateTime.Today.AddDays(30)) expiryClass = "report-row-expiring";
+                    }
+
+                    <tr class="@expiryClass">
+
+                        <td>@n</td>
+
+                        <td>@r.Barcode</td>
+
+                        <td>@r.MedicineCode</td>
+
+                        <td>@r.MedicineName</td>
+
+                        <td>@r.Dosage</td>
+
+                        <td>@(r.ExpiryDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+
+                        <td class="text-end">@r.QtyIn</td>
+
+                        <td class="text-end">@r.QtyOut</td>
+
+                        <td class="text-end">@r.QtyBalance</td>
+
+                        <td class="text-end">@r.MovingAverageCost.ToString("N2")</td>
+
+                        <td class="text-end">@r.TotalValue.ToString("N2")</td>
+
+                    </tr>
+
+                }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <partial name="_ReportToolbar" />
+
+    </form>
+
+</div>
+

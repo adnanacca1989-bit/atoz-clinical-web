@@ -212,7 +212,7 @@ public sealed class PharmacyInventoryService
             await RecalculateItemAsync(itemId);
     }
 
-    public async Task<List<PharmacyInventoryReportRow>> GetReportAsync(Guid clinicId, DateTime? fromDate, DateTime? toDate, string? search)
+    public async Task<List<PharmacyInventoryReportRow>> GetReportAsync(Guid clinicId, DateTime? fromDate, DateTime? toDate, string? search, bool expiredOnly = false)
     {
         var items = await _db.PharmacyItems.Where(i => i.ClinicId == clinicId).OrderBy(i => i.ItemNo).ToListAsync();
         if (!string.IsNullOrWhiteSpace(search))
@@ -222,6 +222,9 @@ public sealed class PharmacyInventoryService
                 i.MedicineCode.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                 i.MedicineName.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
         }
+
+        if (expiredOnly)
+            items = items.Where(i => i.ExpiryDate.HasValue && i.ExpiryDate.Value.Date < DateTime.Today).ToList();
 
         var movements = await _db.PharmacyInventoryMovements.Where(m => m.ClinicId == clinicId).ToListAsync();
         if (fromDate.HasValue)
@@ -244,8 +247,9 @@ public sealed class PharmacyInventoryService
                 qtyOut,
                 item.QuantityOnHand,
                 item.MovingAverageCost,
-                item.QuantityOnHand * item.MovingAverageCost);
-        }).Where(r => r.QtyIn > 0 || r.QtyOut > 0 || r.QtyBalance > 0).ToList();
+                item.QuantityOnHand * item.MovingAverageCost,
+                item.ExpiryDate);
+        }).Where(r => r.QtyIn > 0 || r.QtyOut > 0 || r.QtyBalance > 0 || expiredOnly).ToList();
     }
 
     private async Task RecalculateItemAsync(Guid itemId)
@@ -299,7 +303,8 @@ public sealed class PharmacyInventoryService
         int QtyOut,
         int QtyBalance,
         decimal MovingAverageCost,
-        decimal TotalValue);
+        decimal TotalValue,
+        DateTime? ExpiryDate);
 }
 
 public sealed class PharmacyOpeningBalanceService

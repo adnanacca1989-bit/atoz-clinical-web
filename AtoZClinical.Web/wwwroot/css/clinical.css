@@ -222,6 +222,75 @@ body {
     border-radius: 4px;
 }
 
+.dashboard-clinic-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dashboard-clinic-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--atz-primary-dark);
+}
+
+.dashboard-scope-toggle {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.dashboard-scope-btn {
+    display: inline-block;
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--atz-border);
+    border-radius: 6px;
+    background: #fff;
+    color: #333;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.dashboard-scope-btn.active {
+    background: var(--atz-primary);
+    border-color: var(--atz-primary);
+    color: #fff;
+}
+
+.dashboard-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #444;
+    margin: 0 0 0.75rem;
+}
+
+.dashboard-stat-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+}
+
+.dashboard-stat-link:hover .dashboard-stat-card {
+    border-color: var(--atz-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-money {
+    font-size: 2.25rem !important;
+}
+
+.report-row-expired {
+    background: #fde8e8;
+}
+
+.report-row-expiring {
+    background: #fff8e6;
+}
+
 .text-success-emphasis {
     color: #146c43 !important;
 }
