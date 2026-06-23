@@ -7,6 +7,7 @@
     ViewData["Title"] = "Operating Report";
 
     ViewData["UseReportPickers"] = true;
+    ViewData["ReportColumnKey"] = "Operating Report";
 
     Layout = "_Layout";
 
@@ -41,7 +42,15 @@
 
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
+
+                <label class="clinical-field-label">Patient Barcode</label>
+
+                <input asp-for="PatientBarcode" id="reportPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" />
+
+            </div>
+
+            <div class="col-md-2">
 
                 <label class="clinical-field-label">Patient Name</label>
 
@@ -49,7 +58,7 @@
 
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
 
                 <label class="clinical-field-label">Doctor Name</label>
 
@@ -100,7 +109,16 @@
 
                 <thead>
 
-                    <tr><th>Patient</th><th>Doctor Name</th><th>Doctor Specialty</th><th>Cash Received</th><th>Cash Paid</th><th>Invoice Net Amount</th><th>Ending Balance</th><th>Invoice Status</th></tr>
+                    <tr>
+                        <th data-col="patient">Patient</th>
+                        <th data-col="doctorName">Doctor Name</th>
+                        <th data-col="doctorSpecialty">Doctor Specialty</th>
+                        <th data-col="cashReceived">Cash Received</th>
+                        <th data-col="cashPaid">Cash Paid</th>
+                        <th data-col="invoiceNet">Invoice Net Amount</th>
+                        <th data-col="endingBalance">Ending Balance</th>
+                        <th data-col="invoiceStatus">Invoice Status</th>
+                    </tr>
 
                 </thead>
 
@@ -156,6 +174,8 @@
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
 
     <script src="~/js/report-filters.js" asp-append-version="true"></script>
+
+    <partial name="_ReportColumnFilterScript" />
 
     <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
 

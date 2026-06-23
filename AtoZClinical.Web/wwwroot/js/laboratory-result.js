@@ -290,6 +290,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modalEl.addEventListener('shown.bs.modal', () => searchInput?.focus());
 
+    initPatientBarcodeScanner({
+        barcodeSelector: '#labResultPatientBarcodeInput',
+        patientNameSelector: '#labResultPatientNameInput',
+        fieldMap: standardPatientFieldMap(false),
+        onApply: loadLabRequest
+    });
+
 });
 
 

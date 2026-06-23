@@ -204,6 +204,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modalEl.addEventListener('shown.bs.modal', () => searchInput?.focus());
 
+    initPatientBarcodeScanner({
+        barcodeSelector: '#prescriptionPatientBarcodeInput',
+        patientNameSelector: '#prescriptionPatientNameInput',
+        fieldMap: {
+            ...standardPatientFieldMap(false),
+            '#prescriptionAgeInput': p => p.age != null ? p.age : '',
+            '#prescriptionDoctorNameInput': p => p.doctorName || '',
+            '#prescriptionSpecialtyInput': p => p.specialty || ''
+        }
+    });
 });
 
 

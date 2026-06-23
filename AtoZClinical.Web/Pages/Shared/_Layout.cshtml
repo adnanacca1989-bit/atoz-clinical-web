@@ -23,9 +23,23 @@
                     <a class="btn btn-sm btn-warning position-relative appt-reminder-nav-btn"
                        asp-page="/Reports/AppointmentReminders"
                        title="Appointment Reminders">
-                        Appointment Reminders
+                        🗓️ Reminders
                         <span id="apptReminderBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
                     </a>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light position-relative dropdown-toggle clinical-notify-bell"
+                                type="button" id="clinicalNotifyBell" data-bs-toggle="dropdown" aria-expanded="false"
+                                title="Notifications">
+                            🔔
+                            <span id="clinicalNotifyBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end clinical-notify-menu" id="clinicalNotifyMenu" aria-labelledby="clinicalNotifyBell">
+                            <li class="dropdown-header">Notifications</li>
+                            <div id="clinicalNotifyList"></div>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item small" asp-page="/Reports/AppointmentReminders">Open Appointment Reminders</a></li>
+                        </ul>
+                    </div>
                     <form method="post" asp-page="/Account/Logout" class="m-0">
                         <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
                     </form>
@@ -62,12 +76,19 @@
         </main>
     }
 
+    @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("Vendor"))
+    {
+        <partial name="_ColumnFilterModal" />
+    }
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/clinical-print.js" asp-append-version="true"></script>
     @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("Vendor"))
     {
+        <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+        <script src="~/js/clinical-column-filter.js" asp-append-version="true"></script>
         <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
+        <script src="~/js/clinical-notifications.js" asp-append-version="true"></script>
     }
     @await RenderSectionAsync("Scripts", required: false)
 </body>

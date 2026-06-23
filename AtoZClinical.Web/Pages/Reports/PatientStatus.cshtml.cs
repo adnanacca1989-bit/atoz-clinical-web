@@ -27,6 +27,12 @@ public class PatientStatusModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string Status { get; set; } = "All";
 
+    [BindProperty(SupportsGet = true)]
+    public string? PatientBarcode { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? PatientName { get; set; }
+
     public List<StatusRow> Results { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync() => await RunAsync();
@@ -95,6 +101,7 @@ public class PatientStatusModel : PageModel
 
             return new StatusRow(
                 fullName,
+                p.PatientNo,
                 p.AppointmentDate,
                 p.AppointmentTime,
                 p.DoctorName ?? "",
@@ -106,6 +113,11 @@ public class PatientStatusModel : PageModel
         if (!Status.Equals("All", StringComparison.OrdinalIgnoreCase))
             rows = rows.Where(r =>
                 PatientVisitStatuses.Normalize(r.Status).Equals(Status, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (!string.IsNullOrWhiteSpace(PatientBarcode))
+            rows = rows.Where(r => r.PatientNo?.Equals(PatientBarcode.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
+        if (!string.IsNullOrWhiteSpace(PatientName))
+            rows = rows.Where(r => r.PatientName.Contains(PatientName.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
 
         Results = rows;
         return Page();
@@ -126,6 +138,7 @@ public class PatientStatusModel : PageModel
 
     public sealed record StatusRow(
         string PatientName,
+        string? PatientNo,
         DateTime? AppointmentDate,
         TimeSpan? AppointmentTime,
         string DoctorName,

@@ -28,7 +28,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Patient Barcode</label>
-                        <input asp-for="Input.PatientId" class="clinical-field" readonly />
+                        <input asp-for="Input.PatientId" id="cashReceiptPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan or type barcode..." autocomplete="off" />
                     </div>
                     <div class="col-md-1">
                         <label class="clinical-field-label">Age</label>

@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     initRadiologyRequestPatientPicker();
     initRadiologyTestLines();
+    initPatientBarcodeScanner({
+        barcodeSelector: '#radiologyRequestPatientBarcodeInput',
+        patientNameSelector: '#radiologyRequestPatientNameInput',
+        fieldMap: standardPatientFieldMap(false)
+    });
 });
 
 function initRadiologyRequestPatientPicker() {

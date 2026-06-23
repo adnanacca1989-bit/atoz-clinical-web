@@ -24,6 +24,7 @@
                         </div>
                     </div>
                     <div class="ctx-row ctx-demographics">
+                        <div class="ctx-field ctx-sm"><label class="clinical-field-label">MRN / Barcode</label><input asp-for="Input.PatientBarcode" id="prescriptionPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" /></div>
                         <div class="ctx-field ctx-xs"><label class="clinical-field-label field-required">Age</label><input asp-for="Input.Age" id="prescriptionAgeInput" class="clinical-field" type="number" readonly required /><span asp-validation-for="Input.Age" class="text-danger small"></span></div>
                         <div class="ctx-field ctx-xs"><label class="clinical-field-label field-required">Sex</label><select asp-for="Input.Gender" class="clinical-field" required><option>Male</option><option>Female</option></select><span asp-validation-for="Input.Gender" class="text-danger small"></span></div>
                         <div class="ctx-field ctx-lg"><label class="clinical-field-label field-required">Doctor</label><input asp-for="Input.DoctorName" id="prescriptionDoctorNameInput" class="clinical-field" readonly required /><span asp-validation-for="Input.DoctorName" class="text-danger small"></span></div>

@@ -1,9 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     initLabRequestPatientPicker();
-
     initLabTestLines();
-
+    initPatientBarcodeScanner({
+        barcodeSelector: '#labRequestPatientBarcodeInput',
+        patientNameSelector: '#labRequestPatientNameInput',
+        fieldMap: standardPatientFieldMap(false)
+    });
 });
 
 

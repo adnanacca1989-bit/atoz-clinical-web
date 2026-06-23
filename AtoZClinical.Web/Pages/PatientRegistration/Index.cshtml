@@ -16,6 +16,10 @@
                         <label class="clinical-field-label">Patient No</label>
                         <input asp-for="Input.PatientNo" class="clinical-field" readonly />
                     </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Scan Barcode</label>
+                        <input id="patientRegistrationBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan to load patient..." autocomplete="off" />
+                    </div>
                     <div class="col-md-5">
                         <label class="clinical-field-label field-required">Patient Name</label>
                         <input asp-for="Input.PatientName" class="clinical-field" required />

@@ -1,0 +1,8 @@
+@{
+    var reportKey = ViewData["ReportColumnKey"] as string ?? "Report";
+}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initReportColumnFilter('@reportKey', '.report-grid');
+    });
+</script>

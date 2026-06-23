@@ -52,6 +52,10 @@ public class CashReportModel : PageModel
 
     public string? PatientName { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+
+    public string? PatientBarcode { get; set; }
+
 
 
     [BindProperty(SupportsGet = true)]
@@ -125,6 +129,10 @@ public class CashReportModel : PageModel
             if (!string.IsNullOrWhiteSpace(PatientName))
 
                 receipts = receipts.Where(r => r.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
+
+            if (!string.IsNullOrWhiteSpace(PatientBarcode))
+
+                receipts = receipts.Where(r => r.PatientId?.Equals(PatientBarcode.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
 
             if (!string.IsNullOrWhiteSpace(DoctorName))
 

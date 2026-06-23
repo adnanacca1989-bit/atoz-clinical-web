@@ -564,6 +564,16 @@ public sealed class PharmacyRequestService
     public Task<PharmacyRequest?> GetAsync(Guid clinicId, Guid id) =>
         _db.PharmacyRequests.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
 
+    public Task<PharmacyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientId) =>
+        _db.PharmacyRequests
+            .Include(r => r.Lines)
+            .Where(r => r.ClinicId == clinicId)
+            .Where(r =>
+                (!string.IsNullOrWhiteSpace(patientId) && r.PatientId == patientId.Trim()) ||
+                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName == patientName.Trim()))
+            .OrderByDescending(r => r.RequestNo)
+            .FirstOrDefaultAsync();
+
     public async Task<PharmacyRequest> SaveAsync(Guid clinicId, PharmacyRequest item, List<PharmacyRequestLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;

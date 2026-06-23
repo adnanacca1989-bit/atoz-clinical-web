@@ -144,4 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
         loadPatients();
     });
     modalEl.addEventListener('shown.bs.modal', () => searchInput?.focus());
+
+    initPatientBarcodeScanner({
+        barcodeSelector: '#radiologyResultPatientBarcodeInput',
+        patientNameSelector: '#radiologyResultPatientNameInput',
+        fieldMap: standardPatientFieldMap(false),
+        onApply: loadRadiologyRequest
+    });
 });

@@ -159,6 +159,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Admin");
     options.Conventions.AuthorizeFolder("/Pharmacy");
     options.Conventions.AuthorizeFolder("/Settings");
+    options.Conventions.AuthorizeFolder("/Notifications");
     options.Conventions.AllowAnonymousToPage("/Account/Login");
     options.Conventions.AllowAnonymousToPage("/Account/LicenseBlocked");
     options.Conventions.AllowAnonymousToPage("/Register/Clinic");

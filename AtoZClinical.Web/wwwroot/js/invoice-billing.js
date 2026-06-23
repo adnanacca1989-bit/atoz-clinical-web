@@ -6,6 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
         fieldMap: standardPatientFieldMap(true),
         onApply: loadPatientInvoiceCharges
     });
+    initPatientBarcodeScanner({
+        barcodeSelector: '#invoicePatientBarcodeInput',
+        patientNameSelector: '#invoicePatientNameInput',
+        fieldMap: standardPatientFieldMap(true),
+        onApply: loadPatientInvoiceCharges
+    });
     bindInvoiceTotals();
     bindInvoicePrint();
 });

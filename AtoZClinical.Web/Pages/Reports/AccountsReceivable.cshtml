@@ -7,6 +7,7 @@
     ViewData["Title"] = "Accounts Receivable";
 
     ViewData["UseReportPickers"] = true;
+    ViewData["ReportColumnKey"] = "Accounts Receivable";
 
     Layout = "_Layout";
 
@@ -43,6 +44,14 @@
 
             <div class="col-md-3">
 
+                <label class="clinical-field-label">Patient Barcode</label>
+
+                <input asp-for="PatientBarcode" id="reportPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" />
+
+            </div>
+
+            <div class="col-md-3">
+
                 <label class="clinical-field-label">Patient Name</label>
 
                 <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
@@ -68,7 +77,18 @@
 
                 <thead>
 
-                    <tr><th>Invoice ID</th><th>Invoice Date</th><th>Patient</th><th>Doctor</th><th>Debit</th><th>Credit</th><th>Cash Paid</th><th>Balance</th><th>Aging Days</th><th>Status</th></tr>
+                    <tr>
+                        <th data-col="invoiceId">Invoice ID</th>
+                        <th data-col="invoiceDate">Invoice Date</th>
+                        <th data-col="patient">Patient</th>
+                        <th data-col="doctor">Doctor</th>
+                        <th data-col="debit">Debit</th>
+                        <th data-col="credit">Credit</th>
+                        <th data-col="cashPaid">Cash Paid</th>
+                        <th data-col="balance">Balance</th>
+                        <th data-col="agingDays">Aging Days</th>
+                        <th data-col="status">Status</th>
+                    </tr>
 
                 </thead>
 
@@ -131,6 +151,8 @@
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
 
     <script src="~/js/report-filters.js" asp-append-version="true"></script>
+
+    <partial name="_ReportColumnFilterScript" />
 
     <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
 

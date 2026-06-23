@@ -11,6 +11,19 @@ document.addEventListener('DOMContentLoaded', () => {
         onApply: () => document.getElementById('patientHistoryRunSubmit')?.click()
     });
 
+    initPatientBarcodeScanner({
+        barcodeSelector: '#patientHistoryPatientIdInput',
+        patientNameSelector: '#patientHistoryPatientInput',
+        fieldMap: {
+            '#patientHistoryPatientIdInput': p => p.patientNo || '',
+            '#patientHistoryAgeInput': p => p.age != null ? p.age : '',
+            '#patientHistoryPhoneInput': p => p.phone || '',
+            '#patientHistoryCityInput': p => p.city || '',
+            '#patientHistoryDoctorInput': p => p.doctorName || ''
+        },
+        onApply: () => document.getElementById('patientHistoryRunSubmit')?.click()
+    });
+
     initDoctorPicker({
         doctorNameSelector: '#patientHistoryDoctorInput'
     });

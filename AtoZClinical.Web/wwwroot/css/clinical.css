@@ -291,6 +291,26 @@ body {
     background: #fff8e6;
 }
 
+.patient-barcode-input {
+    border-left: 3px solid var(--atz-primary);
+}
+
+.clinical-notify-menu {
+    min-width: 320px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.clinical-notify-item {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.column-filter-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
 .text-success-emphasis {
     color: #146c43 !important;
 }

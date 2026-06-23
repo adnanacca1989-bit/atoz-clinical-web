@@ -28,6 +28,9 @@ public class AccountsReceivableModel : PageModel
     public string? PatientName { get; set; }
 
     [BindProperty(SupportsGet = true)]
+    public string? PatientBarcode { get; set; }
+
+    [BindProperty(SupportsGet = true)]
     public string? DoctorName { get; set; }
 
     public List<ArRow> Results { get; private set; } = [];
@@ -50,6 +53,8 @@ public class AccountsReceivableModel : PageModel
 
         if (!string.IsNullOrWhiteSpace(PatientName))
             invoices = invoices.Where(i => i.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
+        if (!string.IsNullOrWhiteSpace(PatientBarcode))
+            invoices = invoices.Where(i => i.PatientId?.Equals(PatientBarcode.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
         if (!string.IsNullOrWhiteSpace(DoctorName))
             invoices = invoices.Where(i => i.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 

@@ -258,5 +258,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (emptyEl) emptyEl.textContent = 'Could not load patient history. Please try again.';
             }
         });
+    // Barcode scan — load existing patient record
+    const regBarcodeInput = document.getElementById('patientRegistrationBarcodeInput');
+    if (regBarcodeInput) {
+        const loadPatient = async () => {
+            const patient = await lookupPatientByBarcode(regBarcodeInput.value);
+            if (patient?.id) window.location.href = `?RecordId=${patient.id}`;
+        };
+        regBarcodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); loadPatient(); }
+        });
+        regBarcodeInput.addEventListener('change', loadPatient);
     }
 });

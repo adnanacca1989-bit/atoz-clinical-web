@@ -7,6 +7,7 @@
     ViewData["Title"] = "Cash Report";
 
     ViewData["UseReportPickers"] = true;
+    ViewData["ReportColumnKey"] = "Cash Report";
 
     Layout = "_Layout";
 
@@ -41,7 +42,15 @@
 
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
+
+                <label class="clinical-field-label">Patient Barcode</label>
+
+                <input asp-for="PatientBarcode" id="reportPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" />
+
+            </div>
+
+            <div class="col-md-2">
 
                 <label class="clinical-field-label">Patient / Payee Name</label>
 
@@ -49,7 +58,7 @@
 
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
 
                 <label class="clinical-field-label">Doctor Name</label>
 
@@ -96,27 +105,27 @@
 
                     <tr>
 
-                        <th>Transaction Type</th>
+                        <th data-col="transactionType">Transaction Type</th>
 
-                        <th>Date</th>
+                        <th data-col="date">Date</th>
 
-                        <th>Doc No</th>
+                        <th data-col="docNo">Doc No</th>
 
-                        <th>Patient Name</th>
+                        <th data-col="patientName">Patient Name</th>
 
-                        <th>Doctor Name</th>
+                        <th data-col="doctorName">Doctor Name</th>
 
-                        <th>Receipt Date</th>
+                        <th data-col="receiptDate">Receipt Date</th>
 
-                        <th>Payment Date</th>
+                        <th data-col="paymentDate">Payment Date</th>
 
-                        <th>Payment Method</th>
+                        <th data-col="paymentMethod">Payment Method</th>
 
-                        <th>Debit</th>
+                        <th data-col="debit">Debit</th>
 
-                        <th>Credit</th>
+                        <th data-col="credit">Credit</th>
 
-                        <th>Balance</th>
+                        <th data-col="balance">Balance</th>
 
                     </tr>
 
@@ -183,6 +192,8 @@
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
 
     <script src="~/js/report-filters.js" asp-append-version="true"></script>
+
+    <partial name="_ReportColumnFilterScript" />
 
     <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
 

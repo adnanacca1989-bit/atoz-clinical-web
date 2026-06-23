@@ -5,6 +5,7 @@
 @{
 
     ViewData["Title"] = "Pharmacy Inventory Report";
+    ViewData["ReportColumnKey"] = "Pharmacy Inventory Report";
 
     Layout = "_Layout";
 
@@ -40,9 +41,9 @@
 
             <div class="col-md-4">
 
-                <label class="clinical-field-label">Search (Barcode / Code / Name)</label>
+                <label class="clinical-field-label">Barcode / Code / Name</label>
 
-                <input asp-for="Search" class="clinical-field" placeholder="Search item..." />
+                <input asp-for="Search" id="reportItemBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan item barcode..." autocomplete="off" />
 
             </div>
 
@@ -84,9 +85,9 @@
 
                     <tr>
 
-                        <th>No</th><th>Barcode</th><th>Code</th><th>Medicine Name</th><th>Dosage</th><th>Expiry Date</th>
+                        <th data-col="no">No</th><th data-col="barcode">Barcode</th><th data-col="code">Code</th><th data-col="medicineName">Medicine Name</th><th data-col="dosage">Dosage</th><th data-col="expiryDate">Expiry Date</th>
 
-                        <th class="text-end">QTY IN</th><th class="text-end">QTY OUT</th><th class="text-end">Balance</th><th class="text-end">Avg Cost</th><th class="text-end">Value</th>
+                        <th data-col="qtyIn" class="text-end">QTY IN</th><th data-col="qtyOut" class="text-end">QTY OUT</th><th data-col="balance" class="text-end">Balance</th><th data-col="avgCost" class="text-end">Avg Cost</th><th data-col="value" class="text-end">Value</th>
 
                     </tr>
 
@@ -149,3 +150,6 @@
 
 </div>
 
+@section Scripts {
+    <partial name="_ReportColumnFilterScript" />
+}

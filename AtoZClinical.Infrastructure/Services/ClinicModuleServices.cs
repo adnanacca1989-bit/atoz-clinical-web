@@ -115,7 +115,7 @@ public static class ClinicLookup
         ["Diabetes", "Hypertension", "Asthma", "COPD", "Heart Disease", "Kidney Disease", "Thyroid Disorder", "Arthritis", "Epilepsy"];
 
     public static readonly string[] PaymentMethods =
-        ["Cash", "Card", "Bank Transfer", "Cheque"];
+        ["Cash", "Card", "Bank Transfer", "Cheque", "Health Insurance Co"];
 
     public static readonly string[] PayeeTypes =
         ["Vendor", "Employee", "Supplier", "Other"];

@@ -81,27 +81,6 @@ public sealed class PatientInvoiceService
             }
         }
 
-        var pharmacyRequests = await _db.PharmacyRequests
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId &&
-                        ((barcode != null && r.PatientId == barcode) ||
-                         (name != null && r.PatientName == name)))
-            .OrderByDescending(r => r.RequestDate)
-            .ToListAsync();
-
-        foreach (var req in pharmacyRequests)
-        {
-            foreach (var line in req.Lines.OrderBy(l => l.LineNo))
-            {
-                if (string.IsNullOrWhiteSpace(line.MedicineName) && line.UnitPrice <= 0) continue;
-                lines.Add(new PatientChargeLine(
-                    $"Pharmacy Req #{req.RequestNo}: {line.MedicineName ?? line.MedicineCode ?? "Medicine"}",
-                    line.Qty,
-                    line.UnitPrice,
-                    "Pharmacy"));
-            }
-        }
-
         var receipts = await _db.CashReceipts
             .Where(r => r.ClinicId == clinicId &&
                         ((barcode != null && r.PatientId == barcode) ||

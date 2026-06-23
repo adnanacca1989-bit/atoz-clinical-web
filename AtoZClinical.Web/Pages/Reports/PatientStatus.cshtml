@@ -3,6 +3,7 @@
 @model AtoZClinical.Web.Pages.Reports.PatientStatusModel
 @{
     ViewData["Title"] = "Patient Status Report";
+    ViewData["ReportColumnKey"] = "Patient Status Report";
     Layout = "_Layout";
     string StatusClass(string status) => PatientVisitStatuses.Normalize(status) switch
     {
@@ -18,17 +19,18 @@
 <div class="clinical-form-page clinical-report-page clinical-standard-form">
     <h1 class="page-title">Patient Status Report</h1>
     <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
         <div class="report-filter-panel">
         <div class="row g-2 mb-0">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="clinical-field-label">From Date</label>
                 <input asp-for="FromDate" class="clinical-field" type="date" />
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="clinical-field-label">To Date</label>
                 <input asp-for="ToDate" class="clinical-field" type="date" />
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="clinical-field-label">Status</label>
                 <select asp-for="Status" class="clinical-field">
                     <option>All</option>
@@ -39,13 +41,30 @@
                     <option>Cancelled</option>
                 </select>
             </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Patient Barcode</label>
+                <input asp-for="PatientBarcode" id="reportPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" />
+            </div>
+            <div class="col-md-3">
+                <label class="clinical-field-label">Patient Name</label>
+                <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+            </div>
         </div>
         </div>
-        <p class="report-hint">Showing @Model.Results.Count patient status records. Click <strong>Search</strong> or <strong>Run</strong> after changing dates or status.</p>
+        <p class="report-hint">Showing @Model.Results.Count patient status records. Click <strong>Run</strong> after changing filters.</p>
         <div class="clinical-record-grid">
             <table class="report-grid">
                 <thead>
-                    <tr><th>No.</th><th>Patient Name</th><th>Appointment Date</th><th>Appointment Time</th><th>Doctor Name</th><th>Specialty</th><th class="text-end">Invoice Balance</th><th>Status</th></tr>
+                    <tr>
+                        <th data-col="no">No.</th>
+                        <th data-col="patientName">Patient Name</th>
+                        <th data-col="appointmentDate">Appointment Date</th>
+                        <th data-col="appointmentTime">Appointment Time</th>
+                        <th data-col="doctorName">Doctor Name</th>
+                        <th data-col="specialty">Specialty</th>
+                        <th data-col="invoiceBalance" class="text-end">Invoice Balance</th>
+                        <th data-col="status">Status</th>
+                    </tr>
                 </thead>
                 <tbody>
                 @{ var n = 0; }
@@ -56,14 +75,14 @@
                         ? DateTime.Today.Add(r.AppointmentTime.Value).ToString("h:mm tt")
                         : "";
                     <tr>
-                        <td>@n</td>
-                        <td>@r.PatientName</td>
-                        <td>@(r.AppointmentDate?.ToString("M/d/yyyy") ?? "")</td>
-                        <td>@timeText</td>
-                        <td>@r.DoctorName</td>
-                        <td>@r.Specialty</td>
-                        <td class="text-end">@r.InvoiceBalance.ToString("N2")</td>
-                        <td><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>
+                        <td data-col="no">@n</td>
+                        <td data-col="patientName">@r.PatientName</td>
+                        <td data-col="appointmentDate">@(r.AppointmentDate?.ToString("M/d/yyyy") ?? "")</td>
+                        <td data-col="appointmentTime">@timeText</td>
+                        <td data-col="doctorName">@r.DoctorName</td>
+                        <td data-col="specialty">@r.Specialty</td>
+                        <td data-col="invoiceBalance" class="text-end">@r.InvoiceBalance.ToString("N2")</td>
+                        <td data-col="status"><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>
                     </tr>
                 }
                 </tbody>
@@ -72,3 +91,12 @@
         <partial name="_ReportToolbar" />
     </form>
 </div>
+
+<partial name="_PatientSelectModal" />
+
+@section Scripts {
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <partial name="_ReportColumnFilterScript" />
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
+}
