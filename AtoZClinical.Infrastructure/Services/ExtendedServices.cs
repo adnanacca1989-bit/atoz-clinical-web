@@ -564,15 +564,38 @@ public sealed class PharmacyRequestService
     public Task<PharmacyRequest?> GetAsync(Guid clinicId, Guid id) =>
         _db.PharmacyRequests.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
 
-    public Task<PharmacyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientId) =>
+    public Task<PharmacyRequest?> GetByRequestNoAsync(Guid clinicId, int requestNo) =>
         _db.PharmacyRequests
             .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
-            .Where(r =>
-                (!string.IsNullOrWhiteSpace(patientId) && r.PatientId == patientId.Trim()) ||
-                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName == patientName.Trim()))
-            .OrderByDescending(r => r.RequestNo)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.RequestNo == requestNo);
+
+    public async Task<PharmacyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientId)
+    {
+        var query = _db.PharmacyRequests
+            .Include(r => r.Lines)
+            .Where(r => r.ClinicId == clinicId);
+
+        if (!string.IsNullOrWhiteSpace(patientId))
+        {
+            var id = patientId.Trim();
+            var byId = await query
+                .Where(r => r.PatientId != null && EF.Functions.ILike(r.PatientId, id))
+                .OrderByDescending(r => r.RequestNo)
+                .FirstOrDefaultAsync();
+            if (byId is not null) return byId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var name = patientName.Trim();
+            return await query
+                .Where(r => r.PatientName != null && EF.Functions.ILike(r.PatientName, name))
+                .OrderByDescending(r => r.RequestNo)
+                .FirstOrDefaultAsync();
+        }
+
+        return null;
+    }
 
     public async Task<PharmacyRequest> SaveAsync(Guid clinicId, PharmacyRequest item, List<PharmacyRequestLine> lines, string? userName = null)
     {

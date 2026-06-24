@@ -9,14 +9,23 @@ namespace AtoZClinical.Web.Pages.Pharmacy;
 public class BillModel : ClinicFormPageModel
 {
     private readonly PharmacyBillService _service;
+    private readonly PharmacyRequestService _requests;
     private readonly PharmacyItemRegistrationService _items;
     private const int DefaultLineCount = 8;
 
-    public BillModel(ClinicContextService clinicContext, PharmacyBillService service, PharmacyItemRegistrationService items) : base(clinicContext)
+    public BillModel(
+        ClinicContextService clinicContext,
+        PharmacyBillService service,
+        PharmacyRequestService requests,
+        PharmacyItemRegistrationService items) : base(clinicContext)
     {
         _service = service;
+        _requests = requests;
         _items = items;
     }
+
+    [BindProperty(SupportsGet = true)]
+    public int? LoadRequestNo { get; set; }
 
     [BindProperty]
     public PharmacyBillInput Input { get; set; } = new();
@@ -45,6 +54,10 @@ public class BillModel : ClinicFormPageModel
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
+
+        if (LoadRequestNo.HasValue && LoadRequestNo.Value > 0 && !RecordId.HasValue)
+            await ApplyPharmacyRequestAsync(clinicId.Value, LoadRequestNo.Value);
+
         SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt);
         ViewData["OpenPatientSelect"] = true;
         ViewData["ShowAddLines"] = true;
@@ -57,6 +70,42 @@ public class BillModel : ClinicFormPageModel
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
     public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
     public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);
+
+    private async Task ApplyPharmacyRequestAsync(Guid clinicId, int requestNo)
+    {
+        var request = await _requests.GetByRequestNoAsync(clinicId, requestNo);
+        if (request is null) return;
+
+        Input.RequestNo = request.RequestNo;
+        Input.PatientName = request.PatientName;
+        Input.PatientId = request.PatientId;
+        Input.Age = request.Age;
+        Input.Gender = request.Gender;
+        Input.Phone = request.Phone;
+        Input.City = request.City;
+        Input.DoctorName = request.DoctorName;
+        Input.Specialty = request.Specialty;
+
+        var requestLines = request.Lines
+            .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.MedicineName) || !string.IsNullOrWhiteSpace(l.MedicineCode)))
+            .OrderBy(l => l.LineNo)
+            .ToList();
+
+        if (requestLines.Count == 0) return;
+
+        Lines = requestLines.Select(l => new PharmacyBillLineInput
+        {
+            LineNo = l.LineNo,
+            Barcode = l.Barcode,
+            MedicineCode = l.MedicineCode,
+            MedicineName = l.MedicineName,
+            Dosage = l.Dosage,
+            Uom = l.Uom,
+            Qty = l.Qty,
+            UnitPrice = l.UnitPrice
+        }).ToList();
+        EnsureLineRows();
+    }
 
     private async Task LoadAsync(Guid clinicId)
     {

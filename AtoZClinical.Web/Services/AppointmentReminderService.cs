@@ -41,7 +41,7 @@ public sealed class AppointmentReminderService
                 p.FullName.Contains(patientSearch, StringComparison.OrdinalIgnoreCase) ||
                 p.PatientNo.Contains(patientSearch, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        var now = DateTime.Now;
+        var now = ClinicClock.Now;
         var rows = patients
             .Select(p => BuildRow(p, now))
             .Where(r => r is not null)
@@ -57,12 +57,14 @@ public sealed class AppointmentReminderService
 
     public async Task<int> GetUpcomingReminderCountAsync(Guid clinicId)
     {
-        var today = DateTime.Today;
+        var today = ClinicClock.Today;
         var patients = await _db.Patients
-            .Where(p => p.ClinicId == clinicId && p.AppointmentDate == today)
+            .Where(p => p.ClinicId == clinicId &&
+                        p.AppointmentDate.HasValue &&
+                        p.AppointmentDate.Value.Date == today)
             .ToListAsync();
 
-        var now = DateTime.Now;
+        var now = ClinicClock.Now;
         return patients.Count(p =>
         {
             var row = BuildRow(p, now);
@@ -76,7 +78,7 @@ public sealed class AppointmentReminderService
             patient.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
             return patient.Status;
 
-        var appointmentAt = CombineDateTime(patient.AppointmentDate, patient.AppointmentTime);
+        var appointmentAt = ClinicClock.CombineAppointment(patient.AppointmentDate, patient.AppointmentTime);
         if (appointmentAt is null) return string.IsNullOrWhiteSpace(patient.Status) ? "Scheduled" : patient.Status;
 
         var minutes = (appointmentAt.Value - now).TotalMinutes;
@@ -87,7 +89,7 @@ public sealed class AppointmentReminderService
 
     private static AppointmentReminderRow? BuildRow(Patient patient, DateTime now)
     {
-        var appointmentAt = CombineDateTime(patient.AppointmentDate, patient.AppointmentTime);
+        var appointmentAt = ClinicClock.CombineAppointment(patient.AppointmentDate, patient.AppointmentTime);
         if (appointmentAt is null) return null;
 
         var minutes = (int)Math.Round((appointmentAt.Value - now).TotalMinutes);
@@ -120,12 +122,6 @@ public sealed class AppointmentReminderService
             remainingLabel,
             status,
             shouldNotify);
-    }
-
-    private static DateTime? CombineDateTime(DateTime? date, TimeSpan? time)
-    {
-        if (!date.HasValue) return null;
-        return date.Value.Date + (time ?? TimeSpan.Zero);
     }
 }
 
