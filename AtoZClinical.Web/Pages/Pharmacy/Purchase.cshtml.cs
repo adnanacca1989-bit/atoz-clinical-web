@@ -40,6 +40,7 @@ public class PurchaseModel : ClinicFormPageModel
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         RegisteredVendors = await _lookup.ListVendorsAsync(clinicId.Value, activeOnly: true);
         if (RecordId.HasValue) await LoadRecord(clinicId.Value, RecordId.Value);
+        else if (NewRecord) await PrepareNew(clinicId.Value);
         else if (Records.Count > 0 && Input.PurchaseNo == 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Purchase Bill", null, null, Input.UpdatedAt);
@@ -126,7 +127,7 @@ public class PurchaseModel : ClinicFormPageModel
         SetFormViewData("Pharmacy Purchase Bill", null, null, Input.UpdatedAt);
     }
 
-    private Task<IActionResult> NewCoreAsync() { RecordId = null; return Task.FromResult<IActionResult>(RedirectToPage()); }
+    private Task<IActionResult> NewCoreAsync() => Task.FromResult(RedirectToNewForm());
 
     private async Task<IActionResult> DeleteCoreAsync()
     {

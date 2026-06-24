@@ -235,9 +235,20 @@ public class IndexModel : ClinicFormPageModel
 
         var entity = Input.ToEntity(RecordId);
 
-        var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
-
-        return RedirectAfterSave(saved.Id);
+        try
+        {
+            var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
+            return RedirectAfterSave(saved.Id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.Message);
+            await LoadAsync(clinicId.Value);
+            ViewData["ShowHistory"] = true;
+            ViewData["ShowPatientCard"] = true;
+            SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            return Page();
+        }
 
     }
 

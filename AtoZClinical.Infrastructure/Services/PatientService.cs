@@ -66,12 +66,19 @@ public sealed class PatientService
         patient.ClinicId = clinicId;
         patient.UpdatedAt = DateTime.UtcNow;
         patient.UpdatedBy = userName;
+
+        var patientNo = string.IsNullOrWhiteSpace(patient.PatientNo)
+            ? await GeneratePatientNoAsync(clinicId)
+            : patient.PatientNo.Trim();
+
+        if (await _db.Patients.AnyAsync(p => p.ClinicId == clinicId && p.PatientNo == patientNo && p.Id != patient.Id))
+            throw new InvalidOperationException($"Barcode/Patient No '{patientNo}' is already assigned to another patient.");
+
+        patient.PatientNo = patientNo;
+
         if (patient.Id == Guid.Empty)
         {
             patient.Id = Guid.NewGuid();
-            patient.PatientNo = string.IsNullOrWhiteSpace(patient.PatientNo)
-                ? await GeneratePatientNoAsync(clinicId)
-                : patient.PatientNo.Trim();
             patient.CreatedAt = DateTime.UtcNow;
             patient.CreatedBy = userName;
             await _visitStatus.OnPatientRegisteredAsync(clinicId, patient);

@@ -258,6 +258,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (emptyEl) emptyEl.textContent = 'Could not load patient history. Please try again.';
             }
         });
+    }
+
     // Barcode scan — load existing patient record
     const regBarcodeInput = document.getElementById('patientRegistrationBarcodeInput');
     if (regBarcodeInput) {

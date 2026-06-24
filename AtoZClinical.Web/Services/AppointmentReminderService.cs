@@ -97,7 +97,10 @@ public sealed class AppointmentReminderService
                            !status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase);
 
         string remainingLabel;
-        if (minutes < 0)
+        if (status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ||
+            status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+            remainingLabel = "—";
+        else if (minutes < 0)
             remainingLabel = $"Overdue {Math.Abs(minutes)} min";
         else if (minutes == 0)
             remainingLabel = "Now";
@@ -110,6 +113,7 @@ public sealed class AppointmentReminderService
             patient.FullName,
             patient.Phone ?? "",
             patient.DoctorName ?? "",
+            patient.Specialty ?? "",
             patient.AppointmentDate!.Value,
             patient.AppointmentTime,
             appointmentAt.Value,
@@ -131,6 +135,7 @@ public sealed record AppointmentReminderRow(
     string PatientName,
     string Mobile,
     string DoctorName,
+    string Specialty,
     DateTime AppointmentDate,
     TimeSpan? AppointmentTime,
     DateTime AppointmentDateTime,

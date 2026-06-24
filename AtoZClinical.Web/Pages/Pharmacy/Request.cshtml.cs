@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
@@ -36,6 +37,8 @@ public class RequestModel : ClinicFormPageModel
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
         else if (Records.Count > 0 && Input.RequestNo == 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
@@ -86,6 +89,11 @@ public class RequestModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+        if (!ModelState.IsValid)
+        {
+            await ReloadFormAsync(clinicId.Value);
+            return Page();
+        }
         var entity = Input.ToEntity(RecordId);
         var lines = Lines
             .Where(l => !string.IsNullOrWhiteSpace(l.MedicineCode) || !string.IsNullOrWhiteSpace(l.MedicineName))
@@ -95,10 +103,16 @@ public class RequestModel : ClinicFormPageModel
         return RedirectAfterSave(saved.Id);
     }
 
-    private Task<IActionResult> NewCoreAsync()
+    private Task<IActionResult> NewCoreAsync() => Task.FromResult(RedirectToNewForm());
+
+    private async Task ReloadFormAsync(Guid clinicId)
     {
-        RecordId = null;
-        return Task.FromResult<IActionResult>(RedirectToPage());
+        await LoadAsync(clinicId);
+        RegisteredItems = await _items.ListActiveAsync(clinicId);
+        EnsureLineRows();
+        SetFormViewData("Pharmacy Request", null, null, Input.UpdatedAt);
+        ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
     }
 
     private async Task<IActionResult> DeleteCoreAsync()
@@ -138,15 +152,30 @@ public class RequestModel : ClinicFormPageModel
     public sealed class PharmacyRequestInput
     {
         public int RequestNo { get; set; }
+
+        [Required(ErrorMessage = "Request Date is required.")]
         public DateTime RequestDate { get; set; } = DateTime.Today;
+
         public int? PrescriptionNo { get; set; }
+
+        [Required(ErrorMessage = "Patient Name is required.")]
         public string? PatientName { get; set; }
+
         public string? PatientId { get; set; }
+
+        [Required(ErrorMessage = "Age is required.")]
         public int? Age { get; set; }
+
+        [Required(ErrorMessage = "Sex is required.")]
         public string? Gender { get; set; }
+
         public string? Phone { get; set; }
         public string? City { get; set; }
+
+        [Required(ErrorMessage = "Doctor is required.")]
         public string? DoctorName { get; set; }
+
+        [Required(ErrorMessage = "Specialty is required.")]
         public string? Specialty { get; set; }
         public string? Notes { get; set; }
         public DateTime? UpdatedAt { get; set; }

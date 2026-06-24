@@ -36,6 +36,8 @@ public class OpeningBalanceModel : ClinicFormPageModel
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
         else if (Records.Count > 0 && Input.BalanceNo == 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
         else
@@ -91,11 +93,7 @@ public class OpeningBalanceModel : ClinicFormPageModel
         return RedirectAfterSave(saved.Id);
     }
 
-    private Task<IActionResult> NewCoreAsync()
-    {
-        RecordId = null;
-        return Task.FromResult<IActionResult>(RedirectToPage());
-    }
+    private Task<IActionResult> NewCoreAsync() => Task.FromResult(RedirectToNewForm());
 
     private async Task<IActionResult> DeleteCoreAsync()
     {

@@ -85,7 +85,6 @@ public class PatientHistoryModel : PageModel
             if (string.IsNullOrWhiteSpace(Age)) Age = p.AgeYears?.ToString();
             if (string.IsNullOrWhiteSpace(City)) City = p.City;
             if (string.IsNullOrWhiteSpace(PhoneNumber)) PhoneNumber = p.Phone;
-            if (string.IsNullOrWhiteSpace(DoctorName)) DoctorName = p.DoctorName;
             if (string.IsNullOrWhiteSpace(DateOfBirth) && p.DateOfBirth.HasValue)
                 DateOfBirth = p.DateOfBirth.Value.ToString("d");
         }

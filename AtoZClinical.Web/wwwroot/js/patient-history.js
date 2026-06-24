@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '#patientHistoryAgeInput': p => p.age != null ? p.age : '',
             '#patientHistoryPhoneInput': p => p.phone || '',
             '#patientHistoryCityInput': p => p.city || '',
-            '#patientHistoryDoctorInput': p => p.doctorName || ''
+            '#patientHistoryDobInput': p => p.dateOfBirth || ''
         },
         onApply: () => document.getElementById('patientHistoryRunSubmit')?.click()
     });
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '#patientHistoryAgeInput': p => p.age != null ? p.age : '',
             '#patientHistoryPhoneInput': p => p.phone || '',
             '#patientHistoryCityInput': p => p.city || '',
-            '#patientHistoryDoctorInput': p => p.doctorName || ''
+            '#patientHistoryDobInput': p => p.dateOfBirth || ''
         },
         onApply: () => document.getElementById('patientHistoryRunSubmit')?.click()
     });

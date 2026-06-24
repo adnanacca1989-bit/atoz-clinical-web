@@ -13,12 +13,12 @@
             <div class="clinical-form-left">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label class="clinical-field-label">Patient No</label>
-                        <input asp-for="Input.PatientNo" class="clinical-field" readonly />
+                        <label class="clinical-field-label">Patient No / Barcode</label>
+                        <input asp-for="Input.PatientNo" class="clinical-field" readonly title="Auto-generated unique barcode" />
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Scan Barcode</label>
-                        <input id="patientRegistrationBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan to load patient..." autocomplete="off" />
+                        <input id="patientRegistrationBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan to load existing patient..." autocomplete="off" />
                     </div>
                     <div class="col-md-5">
                         <label class="clinical-field-label field-required">Patient Name</label>
