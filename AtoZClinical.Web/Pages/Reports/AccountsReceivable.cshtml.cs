@@ -62,11 +62,26 @@ public class AccountsReceivableModel : PageModel
             .Where(c => c.ClinicId == clinicId && c.ReceiptDate >= FromDate.Date && c.ReceiptDate <= ToDate.Date)
             .ToListAsync();
 
+        var patientPayments = await _db.CashPayments
+            .Where(p => p.ClinicId == clinicId && p.PaymentDate >= FromDate.Date && p.PaymentDate <= ToDate.Date)
+            .Where(p => p.PayeeName != null || p.PatientId != null)
+            .ToListAsync();
+
         Results = invoices.Select(i =>
         {
-            var cashPaid = receipts.Where(r =>
+            bool MatchesPatient(CashReceipt r) =>
                 (!string.IsNullOrWhiteSpace(i.PatientId) && r.PatientId == i.PatientId) ||
-                r.PatientName == i.PatientName).Sum(r => r.Amount);
+                r.PatientName == i.PatientName;
+            bool MatchesDoctor(string? doc) =>
+                string.IsNullOrWhiteSpace(i.DoctorName) ||
+                string.Equals(doc?.Trim(), i.DoctorName.Trim(), StringComparison.OrdinalIgnoreCase);
+
+            var cashPaid = receipts.Where(r => MatchesPatient(r) && MatchesDoctor(r.DoctorName)).Sum(r => r.Amount);
+            cashPaid += patientPayments.Where(p =>
+                    ((!string.IsNullOrWhiteSpace(i.PatientId) && p.PatientId == i.PatientId) ||
+                     p.PayeeName == i.PatientName) &&
+                    MatchesDoctor(p.DoctorName))
+                .Sum(p => p.Amount);
             var aging = (DateTime.Today - i.InvoiceDate.Date).Days;
             var balance = i.BalanceDue;
             var status = balance <= 0 ? "Paid" : (i.AmountPaid > 0 || cashPaid > 0 ? "Partial" : (i.PaymentStatus ?? "Unpaid"));

@@ -29,8 +29,10 @@ else
                     <span><strong>@field.Key:</strong> @field.Value</span>
                 }
             </div>
-            @if (doc.Columns is { Length: > 0 } && doc.Rows.Count > 0)
+            @if (doc.Columns is { Length: > 0 })
             {
+                @if (doc.Rows.Count > 0)
+                {
                 <table class="print-doc-table">
                     <thead>
                         <tr>@foreach (var col in doc.Columns) { <th>@col</th> }</tr>
@@ -42,6 +44,11 @@ else
                         }
                     </tbody>
                 </table>
+                }
+                else
+                {
+                    <p class="print-doc-empty">No line items on file for this report.</p>
+                }
             }
             @if (doc.FooterFields is { Count: > 0 })
             {

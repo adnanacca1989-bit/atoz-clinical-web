@@ -263,7 +263,9 @@ public static class DatabaseInitializer
             """ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "UserNo" integer NOT NULL DEFAULT 0;""",
             """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "MarriedStatus" text;""",
             """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "MotherName" text;""",
-            """ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "EnabledFormKeys" text;"""
+            """ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "EnabledFormKeys" text;""",
+            """ALTER TABLE "CashPayments" ADD COLUMN IF NOT EXISTS "PatientId" text;""",
+            """ALTER TABLE "CashPayments" ADD COLUMN IF NOT EXISTS "DoctorName" text;"""
         };
 
         foreach (var sql in patches)

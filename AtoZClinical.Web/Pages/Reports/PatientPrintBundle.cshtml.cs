@@ -33,7 +33,9 @@ public class PatientPrintBundleModel : PageModel
     {
         ["registration"] = ["Patient Registration"],
         ["radiology"] = ["Radiology Request", "Radiology Result"],
+        ["radiologyresult"] = ["Radiology Result"],
         ["laboratory"] = ["Laboratory Request", "Laboratory Result"],
+        ["laboratoryresult"] = ["Laboratory Result"],
         ["prescription"] = ["Doctor's Prescription"],
         ["cashreceipt"] = ["Cash Receipt"],
         ["cashpayment"] = ["Cash Payment"],

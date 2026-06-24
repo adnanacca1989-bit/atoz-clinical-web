@@ -7,6 +7,8 @@ public class CashPayment
     public int PaymentNo { get; set; }
     public DateTime PaymentDate { get; set; } = DateTime.Today;
     public string? PayeeName { get; set; }
+    public string? PatientId { get; set; }
+    public string? DoctorName { get; set; }
     public string? PayeeType { get; set; }
     public string? ChartAccountName { get; set; }
     public decimal Amount { get; set; }

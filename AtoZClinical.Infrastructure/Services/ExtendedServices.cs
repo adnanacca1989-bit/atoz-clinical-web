@@ -376,12 +376,18 @@ public sealed class CashPaymentService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly PatientInvoiceService _invoices;
 
-    public CashPaymentService(ClinicalDbContext db, AuditService audit, InvoiceDeleteGuardService invoiceGuard)
+    public CashPaymentService(
+        ClinicalDbContext db,
+        AuditService audit,
+        InvoiceDeleteGuardService invoiceGuard,
+        PatientInvoiceService invoices)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
+        _invoices = invoices;
     }
 
     public Task<List<CashPayment>> ListAsync(Guid clinicId) =>
@@ -410,6 +416,8 @@ public sealed class CashPaymentService
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Cash Payment", isNew ? "Create" : "Update",
             $"Payment #{item.PaymentNo} — {item.PayeeName}, {item.Amount:N2}");
+        if (!string.IsNullOrWhiteSpace(item.PayeeName) || !string.IsNullOrWhiteSpace(item.PatientId))
+            await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PayeeName, item.PatientId, item.DoctorName);
         return item;
     }
 
@@ -418,9 +426,14 @@ public sealed class CashPaymentService
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
         await _invoiceGuard.EnsureCanDeleteCashPaymentAsync(clinicId, item);
+        var patientName = item.PayeeName;
+        var patientId = item.PatientId;
+        var doctorName = item.DoctorName;
         _db.CashPayments.Remove(item);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Cash Payment", "Delete", $"Payment #{item.PaymentNo}");
+        if (!string.IsNullOrWhiteSpace(patientName) || !string.IsNullOrWhiteSpace(patientId))
+            await _invoices.RecalculateInvoicePaymentsAsync(clinicId, patientName, patientId, doctorName);
     }
 }
 

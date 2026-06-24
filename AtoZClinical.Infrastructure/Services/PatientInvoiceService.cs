@@ -94,9 +94,16 @@ public sealed class PatientInvoiceService
             .ToListAsync();
         receipts = receipts.Where(r => MatchDoctor(r.DoctorName)).ToList();
 
+        var patientPayments = await _db.CashPayments
+            .Where(p => p.ClinicId == clinicId &&
+                        ((barcode != null && p.PatientId == barcode) ||
+                         (name != null && p.PayeeName == name)))
+            .ToListAsync();
+        patientPayments = patientPayments.Where(p => MatchDoctor(p.DoctorName)).ToList();
+
         await AddConsultationFeeLineAsync(clinicId, barcode, name, doctor, lines);
 
-        var totalPaid = receipts.Sum(r => r.Amount);
+        var totalPaid = receipts.Sum(r => r.Amount) + patientPayments.Sum(p => p.Amount);
         var subTotal = lines.Sum(l => l.Qty * l.UnitFee);
 
         return new PatientChargeSummary
@@ -179,6 +186,15 @@ public sealed class PatientInvoiceService
             .ToListAsync();
         receipts = receipts.Where(r => MatchDoctor(r.DoctorName)).ToList();
 
+        var patientPayments = await _db.CashPayments
+            .Where(p => p.ClinicId == clinicId)
+            .Where(p =>
+                (!string.IsNullOrWhiteSpace(patientId) && p.PatientId == patientId) ||
+                (!string.IsNullOrWhiteSpace(patientName) && p.PayeeName == patientName))
+            .OrderBy(p => p.PaymentDate).ThenBy(p => p.PaymentNo)
+            .ToListAsync();
+        patientPayments = patientPayments.Where(p => MatchDoctor(p.DoctorName)).ToList();
+
         foreach (var inv in invoices)
         {
             inv.AmountPaid = 0;
@@ -186,9 +202,15 @@ public sealed class PatientInvoiceService
             inv.PaymentStatus = inv.BalanceDue > 0 ? "Unpaid" : "Paid";
         }
 
-        foreach (var receipt in receipts)
+        var credits = receipts
+            .Select(r => new { Date = r.ReceiptDate, r.Amount, SortKey = r.ReceiptNo })
+            .Concat(patientPayments.Select(p => new { Date = p.PaymentDate, p.Amount, SortKey = p.PaymentNo }))
+            .OrderBy(c => c.Date).ThenBy(c => c.SortKey)
+            .ToList();
+
+        foreach (var credit in credits)
         {
-            var remaining = receipt.Amount;
+            var remaining = credit.Amount;
             foreach (var inv in invoices.Where(i => i.BalanceDue > 0))
             {
                 if (remaining <= 0) break;

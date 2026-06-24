@@ -177,8 +177,9 @@ public class IndexModel : ClinicFormPageModel
         {
             PaymentNo = c.PaymentNo,
             PaymentDate = c.PaymentDate,
+            PatientId = c.PatientId,
             PayeeName = c.PayeeName,
-            DoctorName = c.Description,
+            DoctorName = c.DoctorName,
             BalanceStatus = c.PayeeType,
             Amount = c.Amount,
             PaymentMethod = c.PaymentMethod,
@@ -194,14 +195,16 @@ public class IndexModel : ClinicFormPageModel
             Id = id ?? Guid.Empty,
             PaymentNo = PaymentNo,
             PaymentDate = PaymentDate,
+            PatientId = PatientId,
             PayeeName = PayeeName,
+            DoctorName = DoctorName,
             PayeeType = BalanceStatus,
             ChartAccountName = ChartAccountName,
             Amount = Amount,
             WrittenAmount = WrittenAmount,
             PaymentMethod = PaymentMethod,
             ReferenceNo = ReferenceNo,
-            Description = string.IsNullOrWhiteSpace(DoctorName) ? Description : $"{DoctorName} — {Description}".Trim(' ', '—')
+            Description = Description
         };
     }
 }
