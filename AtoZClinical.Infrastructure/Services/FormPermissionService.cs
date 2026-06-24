@@ -52,6 +52,7 @@ public sealed class FormPermissionService
         return path switch
         {
             "/dashboard" or "/dashboard/index" => ClinicalFormKeys.Dashboard,
+            "/workflow" or "/workflow/index" => ClinicalFormKeys.Workflow,
             "/patientregistration" or "/patientregistration/index" => ClinicalFormKeys.PatientRegistration,
             "/doctors" or "/doctors/index" => ClinicalFormKeys.Doctors,
             "/prescriptions" or "/prescriptions/index" => ClinicalFormKeys.Prescriptions,
@@ -75,6 +76,7 @@ public sealed class FormPermissionService
             "/reports/appointmentreminders" => ClinicalFormKeys.AppointmentReminders,
             "/reports/patientstatus" => ClinicalFormKeys.PatientStatus,
             "/reports/plstatement" => ClinicalFormKeys.PlStatement,
+            "/reports/costofgoodssold" => ClinicalFormKeys.CostOfGoodsSold,
             "/reports/balancesheet" => ClinicalFormKeys.BalanceSheet,
             "/reports/accountsreceivable" => ClinicalFormKeys.AccountsReceivable,
             "/reports/accountspayable" => ClinicalFormKeys.AccountsPayable,

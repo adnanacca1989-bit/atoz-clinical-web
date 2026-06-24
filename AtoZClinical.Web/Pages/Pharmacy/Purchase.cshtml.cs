@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
@@ -92,6 +93,12 @@ public class PurchaseModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+        if (!ModelState.IsValid)
+        {
+            await ReloadFormAsync(clinicId.Value);
+            EnsureLineRows();
+            return Page();
+        }
         var entity = Input.ToEntity(RecordId);
         var lines = Lines
             .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName)))
@@ -162,8 +169,13 @@ public class PurchaseModel : ClinicFormPageModel
     {
         public int PurchaseNo { get; set; }
         public DateTime PurchaseDate { get; set; } = DateTime.Today;
+
+        [Required(ErrorMessage = "Supplier Name is required.")]
         public string? SupplierName { get; set; }
+
         public string? SupplierPhone { get; set; }
+
+        [Required(ErrorMessage = "Supplier Invoice No is required.")]
         public string? SupplierInvoiceNo { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal DiscountPercent { get; set; }

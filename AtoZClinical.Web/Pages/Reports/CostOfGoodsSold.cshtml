@@ -1,0 +1,91 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.CostOfGoodsSoldModel
+@{
+    ViewData["Title"] = "Cost of Goods Sold";
+    ViewData["UseReportPickers"] = true;
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">Cost of Goods Sold</h1>
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-2">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Patient Name</label>
+                    <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Doctor Name</label>
+                    <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
+                </div>
+            </div>
+        </div>
+        <p class="report-hint">Pharmacy cost of goods sold from bill lines (qty × moving average cost). Filter by patient and/or doctor.</p>
+        <div class="report-summary-panel">
+            <span><strong>Total COGS:</strong> @Model.TotalCost.ToString("N2")</span>
+            <span><strong>Total Sales:</strong> @Model.TotalSales.ToString("N2")</span>
+            <span><strong>Gross Margin:</strong> @Model.GrossMargin.ToString("N2")</span>
+        </div>
+        <div class="report-results-scroll">
+            <table class="line-grid report-grid">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Bill No</th>
+                        <th>Patient</th>
+                        <th>Doctor</th>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Unit Cost</th>
+                        <th>COGS</th>
+                        <th>Sales</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.BillDate.ToString("d")</td>
+                        <td>@r.BillNo</td>
+                        <td>@r.PatientName</td>
+                        <td>@r.DoctorName</td>
+                        <td>@r.ItemName</td>
+                        <td>@r.Qty</td>
+                        <td>@r.UnitCost.ToString("N2")</td>
+                        <td>@r.TotalCost.ToString("N2")</td>
+                        <td>@r.SalesAmount.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="7">Totals</td>
+                        <td>@Model.TotalCost.ToString("N2")</td>
+                        <td>@Model.TotalSales.ToString("N2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>
+
+<partial name="_PatientSelectModal" />
+<partial name="_DoctorSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
+}

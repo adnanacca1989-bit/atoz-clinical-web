@@ -133,6 +133,7 @@ builder.Services.AddScoped<InvoiceDeleteGuardService>();
 builder.Services.AddScoped<PatientVisitStatusService>();
 builder.Services.AddScoped<FormPermissionService>();
 builder.Services.AddScoped<FormPermissionPageFilter>();
+builder.Services.AddScoped<PharmacyCogsService>();
 builder.Services.AddScoped<AppointmentReminderService>();
 builder.Services.AddScoped<PatientPrintBundleService>();
 builder.Services.AddScoped<ClinicBackupService>();

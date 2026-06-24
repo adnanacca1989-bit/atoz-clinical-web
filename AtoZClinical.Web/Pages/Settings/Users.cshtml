@@ -14,6 +14,10 @@
         <div class="clinical-form-body">
             <div class="clinical-form-left">
                 <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="clinical-field-label">User ID</label>
+                        <input asp-for="Input.UserNo" class="clinical-field" readonly />
+                    </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Username *</label>
                         <input asp-for="Input.Username" class="clinical-field" readonly="@(!Model.IsNewUser)" />
@@ -50,11 +54,12 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Active</th></tr></thead>
+                        <thead><tr><th>User ID</th><th>Username</th><th>Full Name</th><th>Role</th><th>Active</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
                             <tr class="@(Model.UserRecordId == r.Id ? "selected" : "")" onclick="location.href='?UserRecordId=@r.Id'">
+                                <td>@r.UserNo</td>
                                 <td>@r.UserName</td>
                                 <td>@r.FullName</td>
                                 <td>@r.ClinicRole</td>

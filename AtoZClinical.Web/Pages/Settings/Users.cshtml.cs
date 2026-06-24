@@ -33,9 +33,12 @@ public class UsersModel : SettingsFormPageModel
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
         if (!string.IsNullOrEmpty(UserRecordId)) await LoadRecord(clinicId.Value, UserRecordId);
-        else if (NewRecord) await PrepareNew();
-        else if (Records.Count > 0) await LoadRecord(clinicId.Value, Records[0].Id);
-        else await PrepareNew();
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0)
+            await LoadRecord(clinicId.Value, Records[0].Id);
+        else
+            await PrepareNew(clinicId.Value);
         SetFormViewData("Define User", null, null, null);
         return Page();
     }
@@ -64,11 +67,17 @@ public class UsersModel : SettingsFormPageModel
         Input = UserInput.FromEntity(user);
     }
 
-    private Task PrepareNew()
+    private async Task PrepareNew(Guid clinicId)
     {
         UserRecordId = null;
-        Input = new UserInput { IsActive = true, Role = ClinicUserRole.Receptionist };
-        return Task.CompletedTask;
+        var clinicUsers = await _users.Users.Where(u => u.ClinicId == clinicId).ToListAsync();
+        var nextNo = clinicUsers.Count > 0 ? clinicUsers.Max(u => u.UserNo) + 1 : 1;
+        Input = new UserInput
+        {
+            UserNo = nextNo,
+            IsActive = true,
+            Role = ClinicUserRole.Receptionist
+        };
     }
 
     private async Task<IActionResult> SaveCoreAsync()
@@ -89,6 +98,7 @@ public class UsersModel : SettingsFormPageModel
                 var (_, _) = await _vendor.CreateClinicUserAsync(new CreateClinicUserRequest
                 {
                     ClinicId = clinicId.Value,
+                    UserNo = Input.UserNo,
                     Username = Input.Username,
                     FullName = Input.FullName,
                     Email = Input.Email,
@@ -156,6 +166,7 @@ public class UsersModel : SettingsFormPageModel
 
     public sealed class UserInput
     {
+        public int UserNo { get; set; }
         public string Username { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public string? Email { get; set; }
@@ -165,6 +176,7 @@ public class UsersModel : SettingsFormPageModel
 
         public static UserInput FromEntity(ApplicationUser u) => new()
         {
+            UserNo = u.UserNo,
             Username = u.UserName ?? "",
             FullName = u.FullName ?? "",
             Email = u.Email,

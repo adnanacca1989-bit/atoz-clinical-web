@@ -10,5 +10,6 @@ public class ApplicationUser : IdentityUser
     public Guid? ClinicId { get; set; }
     public ClinicUserRole? ClinicRole { get; set; }
     public bool IsActive { get; set; } = true;
+    public int UserNo { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

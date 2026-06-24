@@ -1,59 +1,64 @@
-@page
-@model AtoZClinical.Web.Pages.Reports.BalanceSheetModel
-@{
-    ViewData["Title"] = "Balance Sheet";
-    Layout = "_Layout";
-}
-
-<div class="clinical-form-page clinical-report-page">
-    <h1 class="page-title">Balance Sheet Statement</h1>
-    <form method="post" id="clinicalReportForm">
-        <div class="report-filter-panel">
-            <div class="row g-2 mb-0">
-                <div class="col-md-3">
-                    <label class="clinical-field-label">As Of Date</label>
-                    <input asp-for="AsOfDate" class="clinical-field" type="date" />
-                </div>
-            </div>
-        </div>
-        <p class="report-hint">Statement as of <strong>@Model.AsOfDate.ToString("d")</strong>. Assets = @Model.TotalAssets.ToString("N2") · Liabilities + Equity = @((Model.TotalLiabilities + Model.TotalEquity).ToString("N2"))</p>
-        <div class="report-results-scroll">
-            <h5 class="mt-2">Assets</h5>
-            <table class="line-grid report-grid mb-3">
-                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
-                <tbody>
-                @foreach (var r in Model.Assets)
-                {
-                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
-                }
-                </tbody>
-                <tfoot><tr class="fw-bold"><td>Total Assets</td><td>@Model.TotalAssets.ToString("N2")</td></tr></tfoot>
-            </table>
-
-            <h5>Liabilities</h5>
-            <table class="line-grid report-grid mb-3">
-                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
-                <tbody>
-                @foreach (var r in Model.Liabilities)
-                {
-                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
-                }
-                </tbody>
-                <tfoot><tr class="fw-bold"><td>Total Liabilities</td><td>@Model.TotalLiabilities.ToString("N2")</td></tr></tfoot>
-            </table>
-
-            <h5>Equity</h5>
-            <table class="line-grid report-grid mb-3">
-                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
-                <tbody>
-                @foreach (var r in Model.Equity)
-                {
-                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
-                }
-                </tbody>
-                <tfoot><tr class="fw-bold"><td>Total Equity</td><td>@Model.TotalEquity.ToString("N2")</td></tr></tfoot>
-            </table>
-        </div>
-        <partial name="_ReportToolbar" />
-    </form>
-</div>
+@page
+@model AtoZClinical.Web.Pages.Reports.BalanceSheetModel
+@{
+    ViewData["Title"] = "Balance Sheet";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">Balance Sheet Statement</h1>
+    <form method="post" id="clinicalReportForm">
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-2">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+            </div>
+        </div>
+        <p class="report-hint">Statement of financial position as of <strong>@Model.ToDate.ToString("d")</strong> (period @Model.FromDate.ToString("d") – @Model.ToDate.ToString("d")). Assets = @Model.TotalAssets.ToString("N2") · Liabilities + Equity = @((Model.TotalLiabilities + Model.TotalEquity).ToString("N2"))</p>
+        <div class="report-results-scroll">
+            <h5 class="mt-2">Assets</h5>
+            <table class="line-grid report-grid mb-3">
+                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.Assets)
+                {
+                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
+                }
+                </tbody>
+                <tfoot><tr class="fw-bold"><td>Total Assets</td><td>@Model.TotalAssets.ToString("N2")</td></tr></tfoot>
+            </table>
+
+            <h5>Liabilities</h5>
+            <table class="line-grid report-grid mb-3">
+                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.Liabilities)
+                {
+                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
+                }
+                </tbody>
+                <tfoot><tr class="fw-bold"><td>Total Liabilities</td><td>@Model.TotalLiabilities.ToString("N2")</td></tr></tfoot>
+            </table>
+
+            <h5>Equity</h5>
+            <table class="line-grid report-grid mb-3">
+                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.Equity)
+                {
+                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
+                }
+                </tbody>
+                <tfoot><tr class="fw-bold"><td>Total Equity</td><td>@Model.TotalEquity.ToString("N2")</td></tr></tfoot>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>
+

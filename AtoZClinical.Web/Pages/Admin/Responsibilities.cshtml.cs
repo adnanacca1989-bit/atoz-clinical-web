@@ -28,6 +28,7 @@ public class ResponsibilitiesModel : PageModel
     public static readonly (string Key, string Label)[] FormDefinitions =
     [
         (ClinicalFormKeys.Dashboard, "Dashboard"),
+        (ClinicalFormKeys.Workflow, "Patient Process Workflow"),
         (ClinicalFormKeys.PatientRegistration, "Patient Registration"),
         (ClinicalFormKeys.Doctors, "Doctor Registration"),
         (ClinicalFormKeys.Prescriptions, "Doctor's Prescription"),
@@ -51,6 +52,7 @@ public class ResponsibilitiesModel : PageModel
         (ClinicalFormKeys.AppointmentReminders, "Appointment Reminders"),
         (ClinicalFormKeys.PatientStatus, "Patient Status Report"),
         (ClinicalFormKeys.PlStatement, "PL Statement"),
+        (ClinicalFormKeys.CostOfGoodsSold, "Cost of Goods Sold"),
         (ClinicalFormKeys.BalanceSheet, "Balance Sheet"),
         (ClinicalFormKeys.AccountsReceivable, "Accounts Receivable"),
         (ClinicalFormKeys.AccountsPayable, "Accounts Payable"),

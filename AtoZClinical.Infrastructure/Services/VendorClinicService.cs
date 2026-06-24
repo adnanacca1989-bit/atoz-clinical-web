@@ -126,6 +126,7 @@ public sealed class VendorClinicService
             FullName = request.FullName.Trim(),
             ClinicId = request.ClinicId,
             ClinicRole = request.Role,
+            UserNo = request.UserNo,
             EmailConfirmed = true
         };
 
@@ -288,6 +289,7 @@ public sealed class CreateClinicUserRequest
     public string? Email { get; set; }
     public string? Password { get; set; }
     public ClinicUserRole Role { get; set; } = ClinicUserRole.Receptionist;
+    public int UserNo { get; set; }
 }
 
 public sealed class PublicClinicRegistrationRequest

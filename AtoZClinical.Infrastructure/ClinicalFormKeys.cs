@@ -3,6 +3,7 @@ namespace AtoZClinical.Infrastructure;
 public static class ClinicalFormKeys
 {
     public const string Dashboard = "Dashboard";
+    public const string Workflow = "Workflow";
     public const string Doctors = "Doctors";
     public const string ServiceIncomes = "ServiceIncomes";
     public const string PatientRegistration = "PatientRegistration";
@@ -28,6 +29,7 @@ public static class ClinicalFormKeys
     public const string AppointmentReminders = "Reports.AppointmentReminders";
     public const string PatientStatus = "Reports.PatientStatus";
     public const string PlStatement = "Reports.PlStatement";
+    public const string CostOfGoodsSold = "Reports.CostOfGoodsSold";
     public const string BalanceSheet = "Reports.BalanceSheet";
     public const string AccountsReceivable = "Reports.AccountsReceivable";
     public const string AccountsPayable = "Reports.AccountsPayable";
@@ -39,12 +41,12 @@ public static class ClinicalFormKeys
 
     public static readonly string[] All =
     [
-        Dashboard, Doctors, ServiceIncomes, PatientRegistration, CashReceipts, CashPayments,
+        Dashboard, Workflow, Doctors, ServiceIncomes, PatientRegistration, CashReceipts, CashPayments,
         LabRegistration, LabRequest, LabResult,
         RadiologyRegistration, RadiologyRequest, RadiologyResult,
         Prescriptions, Invoices, ChartAccounts,
         PharmacyRegistration, PharmacyRequest, PharmacyBill, PharmacyPurchaseBill, PharmacyOpeningBalance,
-        PatientHistory, AppointmentReminders, PatientStatus, PlStatement, BalanceSheet,
+        PatientHistory, AppointmentReminders, PatientStatus, PlStatement, CostOfGoodsSold, BalanceSheet,
         AccountsReceivable, AccountsPayable, OperatingReport, CashReport, PharmacyInventory,
         AuditLog, RolePermissions, Backup, Settings
     ];

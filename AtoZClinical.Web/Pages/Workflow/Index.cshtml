@@ -1,0 +1,66 @@
+@page
+@model AtoZClinical.Web.Pages.Workflow.IndexModel
+@{
+    ViewData["Title"] = "Patient Process Workflow";
+    Layout = "_Layout";
+    var steps = new (int No, string Title, string Icon, string Page, string ColorClass)[]
+    {
+        (1, "Patient Registration", "👤", "/PatientRegistration/Index", "workflow-step--1"),
+        (2, "Cash Receipt", "💵", "/CashReceipts/Index", "workflow-step--2"),
+        (3, "Laboratory Request", "🧪", "/Laboratory/Request", "workflow-step--3"),
+        (4, "Laboratory Result", "🧫", "/Laboratory/Result", "workflow-step--4"),
+        (5, "Radiology Request", "🩻", "/Radiology/Request", "workflow-step--5"),
+        (6, "Radiology Result", "📋", "/Radiology/Result", "workflow-step--6"),
+        (7, "Prescription", "💊", "/Prescriptions/Index", "workflow-step--7"),
+        (8, "Pharmacy Request", "💉", "/Pharmacy/Request", "workflow-step--8"),
+        (9, "Pharmacy Bill", "🧾", "/Pharmacy/Bill", "workflow-step--9"),
+        (10, "Patient History", "📁", "/Reports/PatientHistory", "workflow-step--10")
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/workflow.css" asp-append-version="true" />
+}
+
+<div class="workflow-page">
+    <header class="workflow-header">
+        <h1>Patient Process Workflow</h1>
+        <div class="workflow-rule" aria-hidden="true"></div>
+    </header>
+
+    <div class="workflow-steps">
+        @for (var i = 0; i < steps.Length; i++)
+        {
+            var s = steps[i];
+            <a class="workflow-step @s.ColorClass" href="@s.Page">
+                <span class="workflow-step-icon" aria-hidden="true">@s.Icon</span>
+                <span class="workflow-step-num">@s.No</span>
+                <span class="workflow-step-title">@s.Title</span>
+            </a>
+            @if (i < steps.Length - 1)
+            {
+                <div class="workflow-arrow" aria-hidden="true">▼</div>
+            }
+        }
+    </div>
+
+    <footer class="workflow-footer">
+        <div class="workflow-footer-designer">
+            <div class="workflow-footer-avatar" aria-hidden="true">👨‍💼</div>
+            <div>
+                <div class="workflow-footer-label">Designed By</div>
+                <div class="workflow-footer-value">The Chartered Accountant Mohammed Adnan</div>
+            </div>
+        </div>
+        <div class="workflow-footer-contact">
+            <div class="workflow-footer-avatar" aria-hidden="true">🎧</div>
+            <div>
+                <div class="workflow-footer-label">For Any Query Just Contact Me</div>
+                <div class="workflow-footer-phones">
+                    +9647885555888<br />
+                    +964766090003
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>

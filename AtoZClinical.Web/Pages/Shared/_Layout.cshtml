@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="~/css/clinical-forms.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/clinical-print.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     @if (User.Identity?.IsAuthenticated == true)

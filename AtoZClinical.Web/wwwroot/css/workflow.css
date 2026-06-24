@@ -1,0 +1,191 @@
+.workflow-page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 2rem;
+}
+
+.workflow-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.workflow-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin: 0;
+    letter-spacing: 0.02em;
+}
+
+.workflow-header .workflow-rule {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    color: #5a7a9a;
+}
+
+.workflow-header .workflow-rule::before,
+.workflow-header .workflow-rule::after {
+    content: "";
+    flex: 1;
+    max-width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #b8cfe0, transparent);
+}
+
+.workflow-steps {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.workflow-step {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 720px;
+    min-height: 72px;
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: inherit;
+    border: 2px solid transparent;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.workflow-step:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    color: inherit;
+}
+
+.workflow-step-icon {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+}
+
+.workflow-step-num {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #fff;
+    margin-right: 1rem;
+}
+
+.workflow-step-title {
+    flex: 1;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.workflow-arrow {
+    color: #9ab;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0.35rem 0;
+    user-select: none;
+}
+
+.workflow-step--1 { background: #e8f4fc; border-color: #5ba3d0; }
+.workflow-step--1 .workflow-step-num { background: #2b7cb8; }
+
+.workflow-step--2 { background: #e8f8ee; border-color: #5cb87a; }
+.workflow-step--2 .workflow-step-num { background: #2d9d52; }
+
+.workflow-step--3 { background: #f0e8f8; border-color: #9b6fd0; }
+.workflow-step--3 .workflow-step-num { background: #7b4fbf; }
+
+.workflow-step--4 { background: #e0f5f3; border-color: #4db8a8; }
+.workflow-step--4 .workflow-step-num { background: #2a9d8f; }
+
+.workflow-step--5 { background: #fff3e8; border-color: #e8a05c; }
+.workflow-step--5 .workflow-step-num { background: #d97b2b; }
+
+.workflow-step--6 { background: #e8eef5; border-color: #6b8fc4; }
+.workflow-step--6 .workflow-step-num { background: #3d6a9e; }
+
+.workflow-step--7 { background: #fce8f0; border-color: #d47ba8; }
+.workflow-step--7 .workflow-step-num { background: #c44d88; }
+
+.workflow-step--8 { background: #e5f5f0; border-color: #4db896; }
+.workflow-step--8 .workflow-step-num { background: #2a8f6a; }
+
+.workflow-step--9 { background: #fff8e8; border-color: #d4b84d; }
+.workflow-step--9 .workflow-step-num { background: #b8942e; }
+
+.workflow-step--10 { background: #e8f0f8; border-color: #5b8fd0; }
+.workflow-step--10 .workflow-step-num { background: #2b6cb8; }
+
+.workflow-footer {
+    margin-top: 2.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: #f0f6fa;
+    border-radius: 12px;
+    border: 1px solid #d0e0ec;
+}
+
+.workflow-footer-designer,
+.workflow-footer-contact {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.workflow-footer-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: #dce8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+}
+
+.workflow-footer-label {
+    font-size: 0.8rem;
+    color: #6a8090;
+    margin-bottom: 0.15rem;
+}
+
+.workflow-footer-value {
+    font-weight: 600;
+    color: #1a3a5c;
+    font-size: 0.95rem;
+}
+
+.workflow-footer-phones {
+    font-weight: 600;
+    color: #1a3a5c;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+    .workflow-footer {
+        grid-template-columns: 1fr;
+    }
+    .workflow-step-title {
+        font-size: 1rem;
+    }
+}

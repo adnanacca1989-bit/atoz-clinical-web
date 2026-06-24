@@ -13,6 +13,10 @@
 {
     <a class="sidebar-link" asp-page="/Dashboard/Index">Dashboard</a>
 }
+@if (NavCan(ClinicalFormKeys.Workflow))
+{
+    <a class="sidebar-link" asp-page="/Workflow/Index">Workflow</a>
+}
 @if (NavCan(ClinicalFormKeys.PatientRegistration))
 {
     <a class="sidebar-link" asp-page="/PatientRegistration/Index">Patient Registration</a>
@@ -129,6 +133,10 @@
 @if (NavCan(ClinicalFormKeys.PlStatement))
 {
     <a class="sidebar-link" asp-page="/Reports/PlStatement">PL Statement</a>
+}
+@if (NavCan(ClinicalFormKeys.CostOfGoodsSold))
+{
+    <a class="sidebar-link" asp-page="/Reports/CostOfGoodsSold">Cost of Goods Sold</a>
 }
 @if (NavCan(ClinicalFormKeys.BalanceSheet))
 {

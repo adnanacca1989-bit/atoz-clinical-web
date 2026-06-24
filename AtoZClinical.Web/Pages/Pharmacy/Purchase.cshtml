@@ -23,8 +23,8 @@
                         <input asp-for="Input.PurchaseDate" class="clinical-field" type="date" />
                     </div>
                     <div class="col-md-3">
-                        <label class="clinical-field-label">Supplier Name</label>
-                        <select asp-for="Input.SupplierName" id="supplierSelect" class="clinical-field">
+                        <label class="clinical-field-label field-required">Supplier Name</label>
+                        <select asp-for="Input.SupplierName" id="supplierSelect" class="clinical-field" required>
                             <option value="">-- Select Supplier --</option>
                             @{
                                 var vendorNames = Model.RegisteredVendors.Select(v => v.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -46,8 +46,8 @@
                         <input asp-for="Input.SupplierPhone" id="supplierPhoneInput" class="clinical-field" readonly />
                     </div>
                     <div class="col-md-3">
-                        <label class="clinical-field-label">Supplier Invoice No</label>
-                        <input asp-for="Input.SupplierInvoiceNo" class="clinical-field" />
+                        <label class="clinical-field-label field-required">Supplier Invoice No</label>
+                        <input asp-for="Input.SupplierInvoiceNo" class="clinical-field" required />
                     </div>
                 </div>
                 <div class="clinical-form-grid-area">
