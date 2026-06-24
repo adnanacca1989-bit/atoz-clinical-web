@@ -10,6 +10,15 @@
 
     Layout = "_Layout";
 
+    var invoiceGridRecords = Model.Records.AsEnumerable();
+    if (!string.IsNullOrWhiteSpace(Model.Input.PatientId))
+        invoiceGridRecords = invoiceGridRecords.Where(r => r.PatientId == Model.Input.PatientId);
+    else if (!string.IsNullOrWhiteSpace(Model.Input.PatientName))
+        invoiceGridRecords = invoiceGridRecords.Where(r => r.PatientName == Model.Input.PatientName);
+    if (!string.IsNullOrWhiteSpace(Model.Input.DoctorName))
+        invoiceGridRecords = invoiceGridRecords.Where(r => string.Equals(r.DoctorName, Model.Input.DoctorName, StringComparison.OrdinalIgnoreCase));
+    invoiceGridRecords = invoiceGridRecords.ToList();
+
 }
 
 
@@ -204,7 +213,7 @@
 
                         <tbody>
 
-                        @foreach (var r in Model.Records)
+                        @foreach (var r in invoiceGridRecords)
 
                         {
 

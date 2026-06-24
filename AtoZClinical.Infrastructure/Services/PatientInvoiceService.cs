@@ -9,12 +9,18 @@ public sealed class PatientInvoiceService
 
     public PatientInvoiceService(ClinicalDbContext db) => _db = db;
 
-    public async Task<PatientChargeSummary> GetChargesAsync(Guid clinicId, string? patientBarcode, string? patientName)
+    public async Task<PatientChargeSummary> GetChargesAsync(
+        Guid clinicId, string? patientBarcode, string? patientName, string? doctorName = null)
     {
         var barcode = patientBarcode?.Trim();
         var name = patientName?.Trim();
+        var doctor = doctorName?.Trim();
         if (string.IsNullOrEmpty(barcode) && string.IsNullOrEmpty(name))
             return new PatientChargeSummary();
+
+        bool MatchDoctor(string? doc) =>
+            string.IsNullOrWhiteSpace(doctor) ||
+            string.Equals(doc?.Trim(), doctor, StringComparison.OrdinalIgnoreCase);
 
         var lines = new List<PatientChargeLine>();
 
@@ -26,7 +32,7 @@ public sealed class PatientInvoiceService
             .OrderByDescending(r => r.RequestDate)
             .ToListAsync();
 
-        foreach (var req in labRequests)
+        foreach (var req in labRequests.Where(r => MatchDoctor(r.DoctorName)))
         {
             foreach (var line in req.Lines.OrderBy(l => l.LineNo))
             {
@@ -47,7 +53,7 @@ public sealed class PatientInvoiceService
             .OrderByDescending(r => r.RequestDate)
             .ToListAsync();
 
-        foreach (var req in radioRequests)
+        foreach (var req in radioRequests.Where(r => MatchDoctor(r.DoctorName)))
         {
             foreach (var line in req.Lines.OrderBy(l => l.LineNo))
             {
@@ -68,7 +74,7 @@ public sealed class PatientInvoiceService
             .OrderByDescending(b => b.BillDate)
             .ToListAsync();
 
-        foreach (var bill in pharmacyBills)
+        foreach (var bill in pharmacyBills.Where(b => MatchDoctor(b.DoctorName)))
         {
             foreach (var line in bill.Lines.OrderBy(l => l.LineNo))
             {
@@ -86,8 +92,9 @@ public sealed class PatientInvoiceService
                         ((barcode != null && r.PatientId == barcode) ||
                          (name != null && r.PatientName == name)))
             .ToListAsync();
+        receipts = receipts.Where(r => MatchDoctor(r.DoctorName)).ToList();
 
-        await AddConsultationFeeLineAsync(clinicId, barcode, name, lines);
+        await AddConsultationFeeLineAsync(clinicId, barcode, name, doctor, lines);
 
         var totalPaid = receipts.Sum(r => r.Amount);
         var subTotal = lines.Sum(l => l.Qty * l.UnitFee);
@@ -101,7 +108,8 @@ public sealed class PatientInvoiceService
         };
     }
 
-    private async Task AddConsultationFeeLineAsync(Guid clinicId, string? barcode, string? name, List<PatientChargeLine> lines)
+    private async Task AddConsultationFeeLineAsync(
+        Guid clinicId, string? barcode, string? name, string? doctorName, List<PatientChargeLine> lines)
     {
         var patientQuery = _db.Patients.Where(p => p.ClinicId == clinicId);
         if (!string.IsNullOrWhiteSpace(barcode))
@@ -111,7 +119,10 @@ public sealed class PatientInvoiceService
         else
             return;
 
-        var patient = await patientQuery.FirstOrDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(doctorName))
+            patientQuery = patientQuery.Where(p => p.DoctorName == doctorName);
+
+        var patient = await patientQuery.OrderByDescending(p => p.CreatedAt).FirstOrDefaultAsync();
         if (patient is null || string.IsNullOrWhiteSpace(patient.DoctorName)) return;
 
         var doctor = await _db.Doctors
@@ -138,10 +149,15 @@ public sealed class PatientInvoiceService
         lines.Insert(0, new PatientChargeLine(serviceName, 1, fee, "Consultation"));
     }
 
-    public async Task RecalculateInvoicePaymentsAsync(Guid clinicId, string? patientName, string? patientId)
+    public async Task RecalculateInvoicePaymentsAsync(
+        Guid clinicId, string? patientName, string? patientId, string? doctorName = null)
     {
         if (string.IsNullOrWhiteSpace(patientName) && string.IsNullOrWhiteSpace(patientId))
             return;
+
+        bool MatchDoctor(string? doc) =>
+            string.IsNullOrWhiteSpace(doctorName) ||
+            string.Equals(doc?.Trim(), doctorName.Trim(), StringComparison.OrdinalIgnoreCase);
 
         var invoices = await _db.Invoices
             .Where(i => i.ClinicId == clinicId)
@@ -150,6 +166,7 @@ public sealed class PatientInvoiceService
                 (!string.IsNullOrWhiteSpace(patientName) && i.PatientName == patientName))
             .OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo)
             .ToListAsync();
+        invoices = invoices.Where(i => MatchDoctor(i.DoctorName)).ToList();
 
         if (invoices.Count == 0) return;
 
@@ -160,6 +177,7 @@ public sealed class PatientInvoiceService
                 (!string.IsNullOrWhiteSpace(patientName) && r.PatientName == patientName))
             .OrderBy(r => r.ReceiptDate).ThenBy(r => r.ReceiptNo)
             .ToListAsync();
+        receipts = receipts.Where(r => MatchDoctor(r.DoctorName)).ToList();
 
         foreach (var inv in invoices)
         {

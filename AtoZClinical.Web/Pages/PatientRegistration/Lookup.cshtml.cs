@@ -102,6 +102,8 @@ public class LookupModel : PageModel
 
                 : null,
 
+            dateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
+
             status = p.Status
 
         }));

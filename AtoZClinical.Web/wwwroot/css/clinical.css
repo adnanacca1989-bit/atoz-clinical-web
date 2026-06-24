@@ -326,6 +326,20 @@ body {
     border-left: 3px solid var(--atz-primary);
 }
 
+.pl-statement-grid th:first-child,
+.pl-statement-grid td:first-child {
+    min-width: 28rem;
+    width: 75%;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.pl-statement-grid th:last-child,
+.pl-statement-grid td:last-child {
+    width: 25%;
+    white-space: nowrap;
+}
+
 .clinical-notify-menu {
     min-width: 320px;
     max-height: 360px;

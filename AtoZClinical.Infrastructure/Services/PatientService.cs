@@ -48,7 +48,7 @@ public sealed class PatientService
             }
         }
 
-        return query.OrderBy(p => p.FirstName).ThenBy(p => p.DoctorName).ThenByDescending(p => p.CreatedAt).ToListAsync();
+        return query.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.FirstName).ThenBy(p => p.DoctorName).ToListAsync();
     }
 
     public Task<Patient?> GetAsync(Guid clinicId, Guid id) =>

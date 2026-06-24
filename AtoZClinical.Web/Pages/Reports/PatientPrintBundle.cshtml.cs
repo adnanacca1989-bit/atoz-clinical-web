@@ -31,9 +31,12 @@ public class PatientPrintBundleModel : PageModel
 
     private static readonly Dictionary<string, string[]> SectionTitles = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["radiology"] = ["Radiology Result"],
-        ["laboratory"] = ["Laboratory Result"],
+        ["registration"] = ["Patient Registration"],
+        ["radiology"] = ["Radiology Request", "Radiology Result"],
+        ["laboratory"] = ["Laboratory Request", "Laboratory Result"],
         ["prescription"] = ["Doctor's Prescription"],
+        ["cashreceipt"] = ["Cash Receipt"],
+        ["cashpayment"] = ["Cash Payment"],
         ["cash"] = ["Cash Receipt", "Cash Payment"]
     };
 

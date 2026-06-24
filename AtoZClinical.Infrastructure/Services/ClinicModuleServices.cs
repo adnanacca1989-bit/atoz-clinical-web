@@ -280,7 +280,7 @@ public sealed class CashReceiptService
         }
         else _db.CashReceipts.Update(item);
         await _db.SaveChangesAsync();
-        await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId);
+        await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId, item.DoctorName);
         await _visitStatus.OnCashReceiptAsync(clinicId, item);
         return item;
     }
@@ -292,9 +292,10 @@ public sealed class CashReceiptService
         await _invoiceGuard.EnsureCanDeleteCashReceiptAsync(clinicId, item);
         var patientName = item.PatientName;
         var patientId = item.PatientId;
+        var doctorName = item.DoctorName;
         _db.CashReceipts.Remove(item);
         await _db.SaveChangesAsync();
-        await _invoices.RecalculateInvoicePaymentsAsync(clinicId, patientName, patientId);
+        await _invoices.RecalculateInvoicePaymentsAsync(clinicId, patientName, patientId, doctorName);
     }
 }
 

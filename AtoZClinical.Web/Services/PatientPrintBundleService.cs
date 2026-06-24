@@ -30,6 +30,19 @@ public sealed class PatientPrintBundleService
         bool MatchDoctor(string? doc) =>
             string.IsNullOrWhiteSpace(doctorName) || (doc?.Contains(doctorName, StringComparison.OrdinalIgnoreCase) == true);
 
+        bool MatchCashPaymentPatient(CashPayment r) =>
+            MatchPatient(r.PayeeName, null) ||
+            (!string.IsNullOrWhiteSpace(patientName) &&
+             (r.Description?.Contains(patientName, StringComparison.OrdinalIgnoreCase) == true ||
+              r.PayeeName?.Contains(patientName, StringComparison.OrdinalIgnoreCase) == true));
+
+        var patients = await _db.Patients
+            .Where(p => p.ClinicId == clinicId)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+        foreach (var p in patients.Where(p => MatchPatient(p.FullName, p.PatientNo) && MatchDoctor(p.DoctorName)))
+            bundle.Sections.Add(BuildPatientRegistration(p));
+
         var labRequests = await _db.LabRequests.Include(r => r.Lines)
             .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestDate).ToListAsync();
         foreach (var r in labRequests.Where(r => MatchPatient(r.PatientName, r.PatientBarcode) && MatchDoctor(r.DoctorName)))
@@ -77,15 +90,34 @@ public sealed class PatientPrintBundleService
 
         var payments = await _db.CashPayments
             .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.PaymentDate).ToListAsync();
-        foreach (var r in payments.Where(r => MatchPatient(r.PayeeName, null)))
+        foreach (var r in payments.Where(MatchCashPaymentPatient))
             bundle.Sections.Add(BuildCashPayment(r));
 
         var patientInvoices = invoices.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)).ToList();
+        var patientReceipts = receipts.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)).ToList();
         if (patientInvoices.Count > 0)
-            bundle.Sections.Add(BuildArStatement(patientName ?? patientInvoices[0].PatientName ?? "", patientInvoices, receipts));
+            bundle.Sections.Add(BuildArStatement(patientName ?? patientInvoices[0].PatientName ?? "", patientInvoices, patientReceipts));
 
         return bundle;
     }
+
+    private static PrintSection BuildPatientRegistration(Patient p) => new(
+        "Patient Registration",
+        Meta(
+            ("Patient No", p.PatientNo),
+            ("Patient Name", p.FullName),
+            ("Gender", p.Gender ?? ""),
+            ("Date of Birth", p.DateOfBirth?.ToString("d") ?? ""),
+            ("Age", p.AgeYears?.ToString() ?? ""),
+            ("Phone", p.Phone ?? ""),
+            ("City", p.City ?? ""),
+            ("Doctor", p.DoctorName ?? ""),
+            ("Specialty", p.Specialty ?? ""),
+            ("National ID", p.NationalId ?? ""),
+            ("Visit Number", p.VisitNumber ?? ""),
+            ("Appointment Date", p.AppointmentDate?.ToString("d") ?? ""),
+            ("Status", p.Status)),
+        null, [], Footer(("Address", p.Address ?? ""), ("Emergency Contact", p.EmergencyContact ?? "")));
 
     private static PrintSection BuildLabRequest(LabRequest r) => new(
         "Laboratory Request",
@@ -159,7 +191,9 @@ public sealed class PatientPrintBundleService
         ["Invoice No", "Date", "Doctor", "Invoice Amount", "Paid", "Balance"],
         invoices.Select(i =>
         {
-            var paid = receipts.Where(r => r.PatientName == i.PatientName).Sum(r => r.Amount);
+            var paid = receipts.Where(r =>
+                r.PatientName == i.PatientName &&
+                (string.IsNullOrWhiteSpace(i.DoctorName) || r.DoctorName == i.DoctorName)).Sum(r => r.Amount);
             return new[] { i.InvoiceNo.ToString(), i.InvoiceDate.ToString("d"), i.DoctorName ?? "", i.TotalAmount.ToString("N2"), paid.ToString("N2"), i.BalanceDue.ToString("N2") };
         }).ToList(),
         Footer(("Total Balance Due", invoices.Sum(i => i.BalanceDue).ToString("N2"))));

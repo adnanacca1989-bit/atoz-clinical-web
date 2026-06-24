@@ -145,6 +145,8 @@ async function loadPatientInvoiceCharges(patient) {
     const params = new URLSearchParams();
     if (patient.patientNo) params.set('patientBarcode', patient.patientNo);
     if (patient.name) params.set('patientName', patient.name);
+    const doctor = patient.doctorName || document.querySelector('[name="Input.DoctorName"]')?.value?.trim();
+    if (doctor) params.set('doctorName', doctor);
     try {
         const res = await fetch(`/Invoices/PatientCharges?${params}`);
         if (!res.ok) return;
