@@ -41,6 +41,9 @@ public static class ClinicLookup
     public static readonly string[] BloodGroups =
         ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
+    public static readonly string[] MarriedStatuses =
+        ["Single", "Married", "Divorced", "Widowed"];
+
     public static readonly string[] LabCategories =
         ["Hematology", "Microbiology", "Biochemistry", "Immunology", "Radiology", "Pathology"];
 

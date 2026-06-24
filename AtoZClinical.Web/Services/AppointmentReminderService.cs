@@ -57,6 +57,12 @@ public sealed class AppointmentReminderService
 
     public async Task<int> GetUpcomingReminderCountAsync(Guid clinicId)
     {
+        var notifications = await GetActiveNotificationsAsync(clinicId);
+        return notifications.Count;
+    }
+
+    public async Task<List<ClinicalNotificationItem>> GetActiveNotificationsAsync(Guid clinicId)
+    {
         var today = ClinicClock.Today;
         var patients = await _db.Patients
             .Where(p => p.ClinicId == clinicId &&
@@ -65,12 +71,21 @@ public sealed class AppointmentReminderService
             .ToListAsync();
 
         var now = ClinicClock.Now;
-        return patients.Count(p =>
-        {
-            var row = BuildRow(p, now);
-            return row is not null && row.ShouldNotify;
-        });
+        return patients
+            .Select(p => BuildRow(p, now))
+            .Where(r => r is not null && r.ShouldNotify)
+            .Select(r => new ClinicalNotificationItem(
+                $"appt-{r!.PatientId:N}",
+                "appointment",
+                "Appointment Reminder",
+                $"{r.PatientName} — {FormatAppointmentTime(r.AppointmentTime)} ({r.RemainingLabel})",
+                "/Reports/AppointmentReminders",
+                r.AppointmentDateTime.ToUniversalTime()))
+            .ToList();
     }
+
+    private static string FormatAppointmentTime(TimeSpan? time) =>
+        time.HasValue ? DateTime.Today.Add(time.Value).ToString("h:mm tt") : "—";
 
     public static string ResolveVisitStatus(Patient patient, DateTime now)
     {
@@ -138,3 +153,11 @@ public sealed record AppointmentReminderRow(
     string RemainingLabel,
     string Status,
     bool ShouldNotify);
+
+public sealed record ClinicalNotificationItem(
+    string Id,
+    string Kind,
+    string Title,
+    string Detail,
+    string Link,
+    DateTime AtUtc);

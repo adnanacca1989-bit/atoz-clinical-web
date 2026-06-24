@@ -77,6 +77,8 @@ public class IndexModel : ClinicFormPageModel
 
         ViewData["ShowPatientCard"] = true;
 
+        ViewData["OpenPatientSelect"] = true;
+
         SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
 
         return Page();
@@ -367,6 +369,10 @@ public class IndexModel : ClinicFormPageModel
 
         public string? BloodGroup { get; set; }
 
+        public string? MarriedStatus { get; set; }
+
+        public string? MotherName { get; set; }
+
         public string? EmergencyContact { get; set; }
 
         public string? HealthInsuranceName { get; set; }
@@ -439,6 +445,10 @@ public class IndexModel : ClinicFormPageModel
 
             BloodGroup = p.BloodGroup,
 
+            MarriedStatus = p.MarriedStatus,
+
+            MotherName = p.MotherName,
+
             EmergencyContact = p.EmergencyContact,
 
             HealthInsuranceName = p.HealthInsuranceName,
@@ -494,6 +504,10 @@ public class IndexModel : ClinicFormPageModel
             Address = Address,
 
             BloodGroup = BloodGroup,
+
+            MarriedStatus = MarriedStatus,
+
+            MotherName = MotherName,
 
             EmergencyContact = EmergencyContact,
 

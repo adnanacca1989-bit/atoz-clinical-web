@@ -588,8 +588,14 @@ public sealed class PharmacyRequestService
         if (!string.IsNullOrWhiteSpace(patientName))
         {
             var name = patientName.Trim();
-            return await query
+            var exact = await query
                 .Where(r => r.PatientName != null && EF.Functions.ILike(r.PatientName, name))
+                .OrderByDescending(r => r.RequestNo)
+                .FirstOrDefaultAsync();
+            if (exact is not null) return exact;
+
+            return await query
+                .Where(r => r.PatientName != null && EF.Functions.ILike(r.PatientName, $"%{name}%"))
                 .OrderByDescending(r => r.RequestNo)
                 .FirstOrDefaultAsync();
         }

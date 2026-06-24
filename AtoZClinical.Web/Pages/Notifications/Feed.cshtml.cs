@@ -12,12 +12,15 @@ public class FeedModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly AppointmentReminderService _reminders;
 
-    private static readonly string[] WatchedForms =
-    [
-        "Cash Receipt", "Cash Payment", "Laboratory Request", "Laboratory Result",
-        "Radiology Request", "Radiology Result", "Pharmacy Request", "Pharmacy Bill",
-        "Invoice", "Patient Registration", "Prescription"
-    ];
+    private static readonly Dictionary<string, (string Title, string Link)> FormMeta = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Invoice"] = ("Invoice Billing", "/Invoices"),
+        ["Radiology Request"] = ("Radiology Request", "/Radiology/Request"),
+        ["Radiology Result"] = ("Radiology Result", "/Radiology/Result"),
+        ["Prescription"] = ("Doctor's Prescription", "/Prescriptions"),
+        ["Laboratory Request"] = ("Laboratory Request", "/Laboratory/Request"),
+        ["Laboratory Result"] = ("Laboratory Result", "/Laboratory/Result")
+    };
 
     public FeedModel(ClinicContextService clinicContext, ClinicalDbContext db, AppointmentReminderService reminders)
     {
@@ -26,47 +29,117 @@ public class FeedModel : PageModel
         _reminders = reminders;
     }
 
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(long? sinceTicks)
     {
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var apptCount = await _reminders.GetUpcomingReminderCountAsync(clinicId.Value);
+        var since = sinceTicks.HasValue
+            ? new DateTime(sinceTicks.Value, DateTimeKind.Utc)
+            : DateTime.UtcNow.AddDays(-30);
 
-        var since = DateTime.UtcNow.AddHours(-24);
-        var entries = await _db.AuditLogEntries
-            .AsNoTracking()
-            .Where(a => a.ClinicId == clinicId && a.DateTime >= since)
-            .Where(a => a.Type == "Create" || a.Type == "Update")
-            .OrderByDescending(a => a.DateTime)
-            .Take(40)
-            .ToListAsync();
+        var items = new List<NotificationPayload>();
 
-        var items = entries
-            .Where(e => WatchedForms.Any(f => (e.FormName ?? "").Contains(f, StringComparison.OrdinalIgnoreCase)))
-            .Take(15)
-            .Select(e => new
-            {
-                kind = "activity",
-                title = $"{e.FormName} {e.Type}",
-                detail = e.Details ?? "",
-                at = e.DateTime.ToLocalTime().ToString("g")
-            })
-            .ToList<object>();
-
-        if (apptCount > 0)
+        foreach (var appt in await _reminders.GetActiveNotificationsAsync(clinicId.Value))
         {
-            items.Insert(0, new
-            {
-                kind = "appointment",
-                title = "Appointment Reminder",
-                detail = apptCount == 1
-                    ? "1 appointment is within 15 minutes."
-                    : $"{apptCount} appointments are within 15 minutes.",
-                at = DateTime.Now.ToString("g")
-            });
+            if (appt.AtUtc < since) continue;
+            items.Add(new NotificationPayload(appt.Id, appt.Kind, appt.Title, appt.Detail, appt.Link, appt.AtUtc));
         }
 
-        return new JsonResult(new { appointmentCount = apptCount, items });
+        var auditEntries = await _db.AuditLogEntries
+            .AsNoTracking()
+            .Where(a => a.ClinicId == clinicId && a.DateTime >= since && a.Type == "Create")
+            .OrderByDescending(a => a.DateTime)
+            .Take(100)
+            .ToListAsync();
+
+        foreach (var entry in auditEntries)
+        {
+            var formName = entry.FormName ?? "";
+            var meta = FormMeta.FirstOrDefault(kv => formName.Contains(kv.Key, StringComparison.OrdinalIgnoreCase));
+            if (meta.Key is null) continue;
+
+            var detail = string.IsNullOrWhiteSpace(entry.Details) ? $"{meta.Value.Title} created" : entry.Details;
+            items.Add(new NotificationPayload(
+                $"audit-{entry.Id:N}",
+                "activity",
+                meta.Value.Title,
+                detail,
+                meta.Value.Link,
+                entry.DateTime.ToUniversalTime()));
+        }
+
+        await AddLabNotificationsAsync(_db, clinicId.Value, since, items);
+
+        var ordered = items
+            .OrderByDescending(i => i.AtUtc)
+            .Take(50)
+            .Select(i => i.ToJson())
+            .ToList();
+
+        return new JsonResult(new
+        {
+            serverTime = DateTime.UtcNow.Ticks,
+            items = ordered
+        });
+    }
+
+    private static async Task AddLabNotificationsAsync(ClinicalDbContext db, Guid clinicId, DateTime since, List<NotificationPayload> items)
+    {
+        var requests = await db.LabRequests
+            .AsNoTracking()
+            .Where(r => r.ClinicId == clinicId && r.CreatedAt >= since)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+
+        foreach (var r in requests)
+        {
+            items.Add(new NotificationPayload(
+                $"lab-req-{r.Id:N}",
+                "activity",
+                "Laboratory Request",
+                $"Request #{r.RequestNo} — {r.PatientName}",
+                "/Laboratory/Request",
+                r.CreatedAt));
+        }
+
+        var results = await db.LabResults
+            .AsNoTracking()
+            .Where(r => r.ClinicId == clinicId && r.CreatedAt >= since)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+
+        foreach (var r in results)
+        {
+            items.Add(new NotificationPayload(
+                $"lab-res-{r.Id:N}",
+                "activity",
+                "Laboratory Result",
+                $"Result #{r.ResultNo} — {r.PatientName}",
+                "/Laboratory/Result",
+                r.CreatedAt));
+        }
+    }
+
+    private sealed record NotificationPayload(
+        string Id,
+        string Kind,
+        string Title,
+        string Detail,
+        string Link,
+        DateTime AtUtc)
+    {
+        public object ToJson() => new
+        {
+            id = Id,
+            kind = Kind,
+            title = Title,
+            detail = Detail,
+            link = Link,
+            at = AtUtc.ToLocalTime().ToString("g"),
+            atUtc = AtUtc.Ticks
+        };
     }
 }

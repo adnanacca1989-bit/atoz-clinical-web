@@ -27,6 +27,9 @@ public class BillModel : ClinicFormPageModel
     [BindProperty(SupportsGet = true)]
     public int? LoadRequestNo { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string? LoadPatientId { get; set; }
+
     [BindProperty]
     public PharmacyBillInput Input { get; set; } = new();
 
@@ -55,8 +58,17 @@ public class BillModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
 
-        if (LoadRequestNo.HasValue && LoadRequestNo.Value > 0 && !RecordId.HasValue)
-            await ApplyPharmacyRequestAsync(clinicId.Value, LoadRequestNo.Value);
+        if (!RecordId.HasValue)
+        {
+            if (LoadRequestNo.HasValue && LoadRequestNo.Value > 0)
+                await ApplyPharmacyRequestAsync(clinicId.Value, LoadRequestNo.Value);
+            else if (!string.IsNullOrWhiteSpace(LoadPatientId))
+            {
+                var request = await _requests.GetLatestByPatientAsync(clinicId.Value, null, LoadPatientId.Trim());
+                if (request is not null)
+                    await ApplyPharmacyRequestAsync(clinicId.Value, request.RequestNo);
+            }
+        }
 
         SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt);
         ViewData["OpenPatientSelect"] = true;
@@ -87,22 +99,41 @@ public class BillModel : ClinicFormPageModel
         Input.Specialty = request.Specialty;
 
         var requestLines = request.Lines
-            .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.MedicineName) || !string.IsNullOrWhiteSpace(l.MedicineCode)))
+            .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.MedicineName) || !string.IsNullOrWhiteSpace(l.MedicineCode) || !string.IsNullOrWhiteSpace(l.Barcode)))
             .OrderBy(l => l.LineNo)
             .ToList();
 
         if (requestLines.Count == 0) return;
 
-        Lines = requestLines.Select(l => new PharmacyBillLineInput
+        var items = await _items.ListActiveAsync(clinicId);
+        var priceByBarcode = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
+            .GroupBy(i => i.Barcode!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
+        var priceByCode = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.MedicineCode))
+            .GroupBy(i => i.MedicineCode!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
+
+        Lines = requestLines.Select(l =>
         {
-            LineNo = l.LineNo,
-            Barcode = l.Barcode,
-            MedicineCode = l.MedicineCode,
-            MedicineName = l.MedicineName,
-            Dosage = l.Dosage,
-            Uom = l.Uom,
-            Qty = l.Qty,
-            UnitPrice = l.UnitPrice
+            decimal defaultPrice = l.UnitPrice;
+            if (!string.IsNullOrWhiteSpace(l.Barcode) && priceByBarcode.TryGetValue(l.Barcode, out var byBarcode))
+                defaultPrice = byBarcode;
+            else if (!string.IsNullOrWhiteSpace(l.MedicineCode) && priceByCode.TryGetValue(l.MedicineCode, out var byCode))
+                defaultPrice = byCode;
+
+            return new PharmacyBillLineInput
+            {
+                LineNo = l.LineNo,
+                Barcode = l.Barcode,
+                MedicineCode = l.MedicineCode,
+                MedicineName = l.MedicineName,
+                Dosage = l.Dosage,
+                Uom = l.Uom,
+                Qty = l.Qty,
+                UnitPrice = defaultPrice
+            };
         }).ToList();
         EnsureLineRows();
     }

@@ -58,6 +58,16 @@
                             <option value="">--</option>
                         </select>
                     </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Married Status</label>
+                        <select asp-for="Input.MarriedStatus" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.MarriedStatuses))">
+                            <option value="">--</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label">Mother Name</label>
+                        <input asp-for="Input.MotherName" class="clinical-field" />
+                    </div>
                     <div class="col-md-4">
                         <label class="clinical-field-label field-required">Doctor Name</label>
                         <input asp-for="Input.DoctorName" id="doctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." required />
@@ -161,11 +171,13 @@
 </div>
 
 <partial name="_DoctorSelectModal" />
+<partial name="_PatientSelectModal" />
 <partial name="_PatientCardModal" />
 <partial name="_PatientHistoryModal" />
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
     <script src="~/js/patient-registration.js" asp-append-version="true"></script>
 }

@@ -10,11 +10,16 @@ public class RequestByPatientModel : PageModel
 {
     private readonly ClinicContextService _clinicContext;
     private readonly PharmacyRequestService _requests;
+    private readonly PharmacyItemRegistrationService _items;
 
-    public RequestByPatientModel(ClinicContextService clinicContext, PharmacyRequestService requests)
+    public RequestByPatientModel(
+        ClinicContextService clinicContext,
+        PharmacyRequestService requests,
+        PharmacyItemRegistrationService items)
     {
         _clinicContext = clinicContext;
         _requests = requests;
+        _items = items;
     }
 
     public async Task<IActionResult> OnGetAsync(string? patientName, string? patientId, int? requestNo)
@@ -30,6 +35,16 @@ public class RequestByPatientModel : PageModel
 
         if (request is null) return new JsonResult(null);
 
+        var registeredItems = await _items.ListActiveAsync(clinicId.Value);
+        var priceByBarcode = registeredItems
+            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
+            .GroupBy(i => i.Barcode!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
+        var priceByCode = registeredItems
+            .Where(i => !string.IsNullOrWhiteSpace(i.MedicineCode))
+            .GroupBy(i => i.MedicineCode!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
+
         return new JsonResult(new
         {
             requestNo = request.RequestNo,
@@ -43,19 +58,29 @@ public class RequestByPatientModel : PageModel
             doctorName = request.DoctorName,
             specialty = request.Specialty,
             lines = request.Lines
-                .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.MedicineName) || !string.IsNullOrWhiteSpace(l.MedicineCode)))
+                .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.MedicineName) || !string.IsNullOrWhiteSpace(l.MedicineCode) || !string.IsNullOrWhiteSpace(l.Barcode)))
                 .OrderBy(l => l.LineNo)
-                .Select(l => new
+                .Select(l =>
                 {
-                    lineNo = l.LineNo,
-                    barcode = l.Barcode,
-                    medicineCode = l.MedicineCode,
-                    medicineName = l.MedicineName,
-                    dosage = l.Dosage,
-                    uom = l.Uom,
-                    qty = l.Qty,
-                    unitPrice = l.UnitPrice,
-                    total = l.Total
+                    decimal defaultPrice = l.UnitPrice;
+                    if (!string.IsNullOrWhiteSpace(l.Barcode) && priceByBarcode.TryGetValue(l.Barcode, out var byBarcode))
+                        defaultPrice = byBarcode;
+                    else if (!string.IsNullOrWhiteSpace(l.MedicineCode) && priceByCode.TryGetValue(l.MedicineCode, out var byCode))
+                        defaultPrice = byCode;
+
+                    return new
+                    {
+                        lineNo = l.LineNo,
+                        barcode = l.Barcode,
+                        medicineCode = l.MedicineCode,
+                        medicineName = l.MedicineName,
+                        dosage = l.Dosage,
+                        uom = l.Uom,
+                        qty = l.Qty,
+                        unitPrice = defaultPrice,
+                        defaultUnitPrice = defaultPrice,
+                        total = l.Qty * defaultPrice
+                    };
                 })
         });
     }

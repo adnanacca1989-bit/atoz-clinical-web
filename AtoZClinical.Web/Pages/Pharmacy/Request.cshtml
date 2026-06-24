@@ -108,6 +108,15 @@
             </div>
         </div>
         <input type="hidden" asp-for="RecordId" />
+        @if (Model.Input.RequestNo > 0 && !string.IsNullOrWhiteSpace(Model.Input.PatientName))
+        {
+            <div class="px-3 pb-2">
+                <a class="btn-form text-decoration-none text-dark"
+                   asp-page="/Pharmacy/Bill"
+                   asp-route-NewRecord="true"
+                   asp-route-LoadRequestNo="@Model.Input.RequestNo">💊 Create Pharmacy Bill</a>
+            </div>
+        }
         <partial name="_FormToolbar" />
         <div class="clinical-form-footer">
             <span>Created By: @Model.UserName</span>

@@ -17,7 +17,7 @@ namespace AtoZClinical.Infrastructure.Data;
 
 public static class DatabaseInitializer
 {
-    private const int SchemaVersion = 18;
+    private const int SchemaVersion = 19;
 
     public static async Task InitializeAsync(IServiceProvider services)
     {
@@ -260,7 +260,9 @@ public static class DatabaseInitializer
             """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "HealthInsuranceName" text;""",
             """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "HealthInsuranceNumber" text;""",
             """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "ExpiryDate" timestamp with time zone;""",
-            """ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "UserNo" integer NOT NULL DEFAULT 0;"""
+            """ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "UserNo" integer NOT NULL DEFAULT 0;""",
+            """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "MarriedStatus" text;""",
+            """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "MotherName" text;"""
         };
 
         foreach (var sql in patches)

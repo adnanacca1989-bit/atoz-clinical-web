@@ -272,4 +272,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         regBarcodeInput.addEventListener('change', loadPatient);
     }
+
+    initPatientPicker({
+        patientNameSelector: '[name="Input.PatientName"]',
+        fieldMap: {},
+        onApply: (patient) => {
+            if (patient?.id) window.location.href = `?RecordId=${patient.id}`;
+        }
+    });
 });
