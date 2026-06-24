@@ -322,7 +322,46 @@ body {
     background: #fff8e6;
 }
 
-.patient-barcode-input {
+.clinical-lang-toggle .btn {
+    min-width: 2.25rem;
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+}
+
+.company-profile-btn,
+.settings-gear-btn {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+}
+
+.company-profile-menu {
+    min-width: 280px;
+    max-width: 340px;
+}
+
+.company-profile-dl dt {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-bottom: 0.1rem;
+}
+
+.company-profile-dl dd {
+    font-weight: 600;
+    margin-bottom: 0.65rem;
+}
+
+html[dir="rtl"] .atz-sidebar {
+    border-right: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+html[dir="rtl"] .clinical-form-left {
+    border-right: 0;
+    border-left: 1px solid var(--atz-border);
+}
+
+.patient-barcode-input { {
     border-left: 3px solid var(--atz-primary);
 }
 

@@ -52,6 +52,7 @@ function initPatientPicker(options) {
             tr.innerHTML = `
                 <td>${escapeHtml(p.patientNo)}</td>
                 <td>${escapeHtml(p.name)}</td>
+                <td>${escapeHtml(p.motherName || '')}</td>
                 <td>${escapeHtml(p.gender || '')}</td>
                 <td>${p.age != null ? p.age + ' Years' : ''}</td>
                 <td>${escapeHtml(p.phone || '')}</td>

@@ -166,7 +166,9 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Notifications");
     options.Conventions.AllowAnonymousToPage("/Account/Login");
     options.Conventions.AllowAnonymousToPage("/Account/LicenseBlocked");
+    options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
     options.Conventions.AllowAnonymousToPage("/Register/Clinic");
+    options.Conventions.AllowAnonymousToPage("/Register/Trial");
     options.Conventions.AllowAnonymousToPage("/Index");
 });
 
@@ -193,6 +195,7 @@ else if (builder.Configuration.GetValue("UseHttpsRedirection", true))
     app.UseHttpsRedirection();
 }
 app.UseStaticFiles();
+app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<ClinicTenantMiddleware>();

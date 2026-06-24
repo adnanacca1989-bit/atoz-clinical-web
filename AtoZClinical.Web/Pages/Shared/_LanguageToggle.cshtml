@@ -1,0 +1,8 @@
+@{
+    var lang = Context.Request.Cookies["clinical_lang"] ?? "en";
+    var isAr = lang.Equals("ar", StringComparison.OrdinalIgnoreCase);
+}
+<div class="clinical-lang-toggle btn-group btn-group-sm" role="group" aria-label="Language">
+    <a class="btn btn-sm @(isAr ? "btn-outline-light" : "btn-warning")" href="?lang=en" title="English">EN</a>
+    <a class="btn btn-sm @(isAr ? "btn-warning" : "btn-outline-light")" href="?lang=ar" title="Arabic">AR</a>
+</div>

@@ -1,5 +1,9 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+@{
+    var uiLang = Context.Request.Cookies["clinical_lang"] ?? "en";
+    var isRtl = uiLang.Equals("ar", StringComparison.OrdinalIgnoreCase);
+}
+<html lang="@uiLang" dir="@(isRtl ? "rtl" : "ltr")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -29,6 +33,11 @@
                 <div class="d-flex align-items-center gap-2 text-white small">
                     <span class="text-white-50">@AppBuildInfo.Version</span>
                     <span class="navbar-user-name">@User.Identity.Name</span>
+                    @if (!User.IsInRole("Vendor"))
+                    {
+                        @await Component.InvokeAsync("CompanyProfile")
+                    }
+                    <partial name="_LanguageToggle" />
                     <partial name="_SettingsGear" />
                     <a class="btn btn-sm btn-warning position-relative appt-reminder-nav-btn"
                        asp-page="/Reports/AppointmentReminders"
@@ -104,6 +113,7 @@
         <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
         <script src="~/js/clinical-notifications.js" asp-append-version="true"></script>
         <script src="~/js/global-search.js" asp-append-version="true"></script>
+        <script src="~/js/clinical-lang.js" asp-append-version="true"></script>
     }
     @await RenderSectionAsync("Scripts", required: false)
 </body>

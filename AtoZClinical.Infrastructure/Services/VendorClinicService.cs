@@ -1,5 +1,6 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Core.Enums;
+using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -178,6 +179,24 @@ public sealed class VendorClinicService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<(Clinic Clinic, ApplicationUser Admin, string PlainPassword)> RegisterTrialClinicAsync(TrialClinicRegistrationRequest request)
+    {
+        return await CreateClinicAsync(new CreateClinicRequest
+        {
+            Name = request.ClinicName.Trim(),
+            Email = request.Email?.Trim(),
+            ContactPerson = request.ClinicName.Trim(),
+            AdminUsername = request.AdminUsername.Trim(),
+            AdminPassword = request.AdminPassword,
+            PlanName = "Trial",
+            MaxUsers = 10,
+            LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
+            ActivateImmediately = true,
+            Notes = "30-day self-service trial registration.",
+            EnabledFormKeys = ClinicModuleService.SerializeEnabledForms(ClinicalModuleCatalog.AllFormKeys())
+        });
+    }
+
     public async Task<(Clinic Clinic, ApplicationUser Admin, string PlainPassword)> RegisterPublicClinicAsync(PublicClinicRegistrationRequest request)
     {
         return await CreateClinicAsync(new CreateClinicRequest
@@ -306,4 +325,12 @@ public sealed class PublicClinicRegistrationRequest
     public string AdminUsername { get; set; } = string.Empty;
     public string AdminPassword { get; set; } = string.Empty;
     public string[]? EnabledModuleGroups { get; set; }
+}
+
+public sealed class TrialClinicRegistrationRequest
+{
+    public string ClinicName { get; set; } = string.Empty;
+    public string AdminUsername { get; set; } = string.Empty;
+    public string AdminPassword { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
 }

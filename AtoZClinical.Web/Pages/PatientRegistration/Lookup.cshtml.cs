@@ -103,6 +103,7 @@ public class LookupModel : PageModel
                 : null,
 
             dateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
+            motherName = p.MotherName,
 
             status = p.Status
 

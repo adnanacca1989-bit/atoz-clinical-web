@@ -1,0 +1,22 @@
+@model AtoZClinical.Web.ViewComponents.CompanyProfileModel
+<div class="dropdown">
+    <button class="btn btn-sm btn-outline-light company-profile-btn d-flex align-items-center justify-content-center"
+            type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Company Profile">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 2.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-11zM4 3v10h8V3H4z"/>
+            <path d="M6 5.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
+        </svg>
+    </button>
+    <div class="dropdown-menu dropdown-menu-end company-profile-menu shadow p-3">
+        <div class="dropdown-header px-0 pt-0">Company Profile</div>
+        <dl class="company-profile-dl mb-0">
+            <dt>Clinical Name</dt><dd>@Model.Name</dd>
+            <dt>Address</dt><dd>@(string.IsNullOrWhiteSpace(Model.Address) ? "—" : Model.Address)</dd>
+            <dt>Email</dt><dd>@(string.IsNullOrWhiteSpace(Model.Email) ? "—" : Model.Email)</dd>
+            <dt>Mobile</dt><dd>@(string.IsNullOrWhiteSpace(Model.Mobile) ? "—" : Model.Mobile)</dd>
+            <dt>Country</dt><dd>@(string.IsNullOrWhiteSpace(Model.Country) ? "—" : Model.Country)</dd>
+            <dt>City</dt><dd>@(string.IsNullOrWhiteSpace(Model.City) ? "—" : Model.City)</dd>
+            <dt>Owner Name</dt><dd>@(string.IsNullOrWhiteSpace(Model.OwnerName) ? "—" : Model.OwnerName)</dd>
+        </dl>
+    </div>
+</div>

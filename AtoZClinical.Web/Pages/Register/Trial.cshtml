@@ -1,0 +1,79 @@
+@page
+@model AtoZClinical.Web.Pages.Register.TrialModel
+@{
+    ViewData["Title"] = "30-Day Trial Registration";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>30-Day Trial - A to Z Clinical</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="text-center mb-4">
+                    <h1 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h1>
+                    <p class="lead mb-1">Clinical Management System — Web Edition</p>
+                    <p class="text-muted">30-day trial · Register and login immediately</p>
+                </div>
+
+                @if (Model.Registered)
+                {
+                    <div class="atz-card p-4">
+                        <div class="alert alert-success">Your 30-day trial clinic is ready.</div>
+                        <p>Clinical: <strong>@Model.ClinicName</strong></p>
+                        <p>Username: <strong>@Model.AdminUsername</strong></p>
+                        <p class="text-muted small mb-0">Trial expires 30 days from today. Use Login below with your username and password.</p>
+                        <div class="mt-4 d-flex flex-wrap gap-2">
+                            <a class="btn btn-atz-primary" asp-page="/Account/Login">Login</a>
+                            <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="atz-card p-4">
+                        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                        <form method="post" asp-page-handler="Register">
+                            <div class="mb-3">
+                                <label asp-for="Input.ClinicName" class="form-label"></label>
+                                <input asp-for="Input.ClinicName" class="form-control" />
+                                <span asp-validation-for="Input.ClinicName" class="text-danger"></span>
+                            </div>
+                            <div class="mb-3">
+                                <label asp-for="Input.AdminUsername" class="form-label"></label>
+                                <input asp-for="Input.AdminUsername" class="form-control" autocomplete="username" />
+                                <span asp-validation-for="Input.AdminUsername" class="text-danger"></span>
+                            </div>
+                            <div class="mb-3">
+                                <label asp-for="Input.AdminPassword" class="form-label"></label>
+                                <input asp-for="Input.AdminPassword" class="form-control" type="password" autocomplete="new-password" />
+                                <span asp-validation-for="Input.AdminPassword" class="text-danger"></span>
+                            </div>
+                            <div class="mb-3">
+                                <label asp-for="Input.Email" class="form-label"></label>
+                                <input asp-for="Input.Email" class="form-control" type="email" autocomplete="email" />
+                                <span asp-validation-for="Input.Email" class="text-danger"></span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mt-4">
+                                <button type="submit" class="btn btn-atz-primary">Register Trial</button>
+                                <a class="btn btn-outline-primary" asp-page="/Account/Login">Login</a>
+                                <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+                                <a class="btn btn-link" asp-page="/Account/ForgotPassword">Forgot Password</a>
+                            </div>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <partial name="_ValidationScriptsPartial" />
+</body>
+</html>
