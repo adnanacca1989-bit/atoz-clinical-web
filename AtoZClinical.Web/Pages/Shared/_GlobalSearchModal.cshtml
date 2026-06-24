@@ -1,0 +1,37 @@
+<div class="modal fade" id="globalSearchModal" tabindex="-1" aria-labelledby="globalSearchTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="globalSearchTitle">Advanced Transaction Search</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="clinical-field-label" for="globalSearchInput">Search all transactions</label>
+                    <input id="globalSearchInput" class="clinical-field" placeholder="Patient, doctor, invoice #, receipt #, medicine, supplier..." autocomplete="off" />
+                    <div class="small text-muted mt-1">Invoice, Cash Receipt/Payment, Prescription, Lab, Pharmacy, Radiology, Opening Balance</div>
+                </div>
+                <div id="globalSearchStatus" class="small text-muted mb-2"></div>
+                <div class="clinical-record-grid global-search-results">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Reference</th>
+                            <th>Date</th>
+                            <th>Patient / Party</th>
+                            <th>Doctor</th>
+                            <th class="text-end">Amount</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody id="globalSearchTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

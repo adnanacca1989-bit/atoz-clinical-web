@@ -9,7 +9,7 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
 {
     private static readonly string[] SkipPrefixes =
     [
-        "/Account", "/Vendor", "/Register", "/Error", "/Index", "/Privacy"
+        "/Account", "/Vendor", "/Register", "/Error", "/Index", "/Privacy", "/Search"
     ];
 
     public async Task OnPageHandlerExecutionAsync(PageHandlerExecutingContext context, PageHandlerExecutionDelegate next)

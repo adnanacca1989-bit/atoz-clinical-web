@@ -17,6 +17,15 @@
         <nav class="navbar navbar-dark atz-navbar mb-0">
             <div class="container-fluid">
                 <a class="navbar-brand atz-brand" asp-page="/Dashboard/Index">A to Z Clinical</a>
+                @if (!User.IsInRole("Vendor"))
+                {
+                    <div class="global-nav-search flex-grow-1 mx-3">
+                        <div class="input-group input-group-sm global-nav-search-group">
+                            <input id="globalNavSearchInput" type="search" class="form-control" placeholder="Search transactions (patient, doctor, invoice #, medicine...)" autocomplete="off" />
+                            <button type="button" class="btn btn-warning" id="globalNavSearchBtn" title="Advanced search">Search</button>
+                        </div>
+                    </div>
+                }
                 <div class="d-flex align-items-center gap-2 text-white small">
                     <span class="text-white-50">@AppBuildInfo.Version</span>
                     <span class="navbar-user-name">@User.Identity.Name</span>
@@ -83,6 +92,7 @@
     @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("Vendor"))
     {
         <partial name="_ColumnFilterModal" />
+        <partial name="_GlobalSearchModal" />
     }
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
@@ -93,6 +103,7 @@
         <script src="~/js/clinical-column-filter.js" asp-append-version="true"></script>
         <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
         <script src="~/js/clinical-notifications.js" asp-append-version="true"></script>
+        <script src="~/js/global-search.js" asp-append-version="true"></script>
     }
     @await RenderSectionAsync("Scripts", required: false)
 </body>

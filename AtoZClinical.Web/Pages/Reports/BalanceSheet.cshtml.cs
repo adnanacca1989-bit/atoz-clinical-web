@@ -30,6 +30,7 @@ public class BalanceSheetModel : PageModel
     public decimal TotalAssets { get; private set; }
     public decimal TotalLiabilities { get; private set; }
     public decimal TotalEquity { get; private set; }
+    public string? ErrorMessage { get; private set; }
 
     public async Task<IActionResult> OnGetAsync() => await RunAsync();
     public Task<IActionResult> OnPostRunAsync() => RunAsync();
@@ -37,51 +38,113 @@ public class BalanceSheetModel : PageModel
 
     private async Task<IActionResult> RunAsync()
     {
-        var clinicId = await _clinicContext.GetClinicIdAsync();
-        if (clinicId is null) return Forbid();
+        try
+        {
+            var clinicId = await _clinicContext.GetClinicIdAsync();
+            if (clinicId is null) return Forbid();
 
-        var id = clinicId.Value;
-        var asOf = ToDate.Date;
+            var id = clinicId.Value;
+            var asOf = ToDate.Date;
 
-        var cashReceipts = await _db.CashReceipts
-            .Where(c => c.ClinicId == id && c.ReceiptDate <= asOf)
-            .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+            var cashReceipts = await SafeSumAsync(() => SumCashReceiptsAsync(id, asOf));
+            var cashPayments = await SafeSumAsync(() => SumCashPaymentsAsync(id, asOf));
+            var cashOnHand = cashReceipts - cashPayments;
 
-        var cashPayments = await _db.CashPayments
-            .Where(c => c.ClinicId == id && c.PaymentDate <= asOf)
-            .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+            var accountsReceivable = await SafeSumAsync(() => SumAccountsReceivableAsync(id, asOf));
+            var inventoryValue = await SafeSumAsync(() => SumInventoryValueAsync(id));
+            var accountsPayable = await SafeSumAsync(() => SumAccountsPayableAsync(id, asOf));
 
-        var cashOnHand = cashReceipts - cashPayments;
+            Assets =
+            [
+                new BsRow("Cash on Hand", cashOnHand),
+                new BsRow("Accounts Receivable", accountsReceivable),
+                new BsRow("Pharmacy Inventory", inventoryValue)
+            ];
 
-        var accountsReceivable = await _db.Invoices
-            .Where(i => i.ClinicId == id && i.InvoiceDate <= asOf)
-            .SumAsync(i => (decimal?)i.BalanceDue) ?? 0m;
+            Liabilities = [new BsRow("Accounts Payable", accountsPayable)];
 
-        var inventoryValue = await _db.PharmacyItems
-            .Where(p => p.ClinicId == id && p.IsActive)
-            .SumAsync(p => (decimal?)(p.QuantityOnHand * p.MovingAverageCost)) ?? 0m;
+            TotalAssets = Assets.Sum(r => r.Amount);
+            TotalLiabilities = Liabilities.Sum(r => r.Amount);
+            var retainedEarnings = TotalAssets - TotalLiabilities;
 
-        var accountsPayable = await _db.PharmacyPurchaseBills
-            .Where(b => b.ClinicId == id && b.PurchaseDate <= asOf)
-            .SumAsync(b => (decimal?)b.BalanceDue) ?? 0m;
-
-        Assets =
-        [
-            new BsRow("Cash on Hand", cashOnHand),
-            new BsRow("Accounts Receivable", accountsReceivable),
-            new BsRow("Pharmacy Inventory", inventoryValue)
-        ];
-
-        Liabilities = [new BsRow("Accounts Payable", accountsPayable)];
-
-        TotalAssets = Assets.Sum(r => r.Amount);
-        TotalLiabilities = Liabilities.Sum(r => r.Amount);
-        var retainedEarnings = TotalAssets - TotalLiabilities;
-
-        Equity = [new BsRow("Retained Earnings", retainedEarnings)];
-        TotalEquity = Equity.Sum(r => r.Amount);
+            Equity = [new BsRow("Retained Earnings", retainedEarnings)];
+            TotalEquity = Equity.Sum(r => r.Amount);
+            ErrorMessage = null;
+        }
+        catch
+        {
+            ErrorMessage = "Could not load balance sheet data. Please try again or contact support.";
+            Assets = [];
+            Liabilities = [];
+            Equity = [];
+            TotalAssets = TotalLiabilities = TotalEquity = 0;
+        }
 
         return Page();
+    }
+
+    private static async Task<decimal> SafeSumAsync(Func<Task<decimal>> sum)
+    {
+        try
+        {
+            return await sum();
+        }
+        catch
+        {
+            return 0m;
+        }
+    }
+
+    private async Task<decimal> SumCashReceiptsAsync(Guid clinicId, DateTime asOf)
+    {
+        var rows = await _db.CashReceipts.AsNoTracking()
+            .Where(c => c.ClinicId == clinicId)
+            .Select(c => new { c.ReceiptDate, c.Amount })
+            .ToListAsync();
+        return rows.Where(c => c.ReceiptDate.Date <= asOf).Sum(c => c.Amount);
+    }
+
+    private async Task<decimal> SumCashPaymentsAsync(Guid clinicId, DateTime asOf)
+    {
+        var rows = await _db.CashPayments.AsNoTracking()
+            .Where(c => c.ClinicId == clinicId)
+            .Select(c => new { c.PaymentDate, c.Amount })
+            .ToListAsync();
+        return rows.Where(c => c.PaymentDate.Date <= asOf).Sum(c => c.Amount);
+    }
+
+    private async Task<decimal> SumAccountsReceivableAsync(Guid clinicId, DateTime asOf)
+    {
+        var rows = await _db.Invoices.AsNoTracking()
+            .Where(i => i.ClinicId == clinicId)
+            .Select(i => new { i.InvoiceDate, i.BalanceDue })
+            .ToListAsync();
+        return rows.Where(i => i.InvoiceDate.Date <= asOf).Sum(i => i.BalanceDue);
+    }
+
+    private async Task<decimal> SumInventoryValueAsync(Guid clinicId)
+    {
+        var items = await _db.PharmacyItems.AsNoTracking()
+            .Where(p => p.ClinicId == clinicId)
+            .Select(p => new { p.QuantityOnHand, p.MovingAverageCost })
+            .ToListAsync();
+        return items.Sum(p => p.QuantityOnHand * p.MovingAverageCost);
+    }
+
+    private async Task<decimal> SumAccountsPayableAsync(Guid clinicId, DateTime asOf)
+    {
+        try
+        {
+            var rows = await _db.PharmacyPurchaseBills.AsNoTracking()
+                .Where(b => b.ClinicId == clinicId)
+                .Select(b => new { b.PurchaseDate, b.BalanceDue })
+                .ToListAsync();
+            return rows.Where(b => b.PurchaseDate.Date <= asOf).Sum(b => b.BalanceDue);
+        }
+        catch
+        {
+            return 0m;
+        }
     }
 
     public async Task<IActionResult> OnPostExportAsync()

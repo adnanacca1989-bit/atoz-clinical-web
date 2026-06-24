@@ -97,21 +97,25 @@ function initPatientPicker(options) {
         modal.hide();
     };
 
-    const openPatientSelect = () => {
-        if (options.disableNameClick) return;
+    const showPatientSelectModal = () => {
         modal.show();
         loadPatients();
     };
 
+    const openPatientSelectFromName = () => {
+        if (options.disableNameClick) return;
+        showPatientSelectModal();
+    };
+
     if (!options.disableNameClick) {
-        patientNameInput.addEventListener('click', openPatientSelect);
+        patientNameInput.addEventListener('click', openPatientSelectFromName);
         patientNameInput.addEventListener('focus', (e) => {
             e.preventDefault();
             patientNameInput.blur();
-            openPatientSelect();
+            openPatientSelectFromName();
         });
     }
-    document.getElementById('openPatientSelectBtn')?.addEventListener('click', openPatientSelect);
+    document.getElementById('openPatientSelectBtn')?.addEventListener('click', showPatientSelectModal);
     searchInput?.addEventListener('input', () => {
         clearTimeout(searchInput._timer);
         searchInput._timer = setTimeout(loadPatients, 250);
