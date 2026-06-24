@@ -36,6 +36,7 @@ public static class ClinicalFormKeys
     public const string OperatingReport = "Reports.OperatingReport";
     public const string CashReport = "Reports.CashReport";
     public const string PharmacyInventory = "Reports.PharmacyInventory";
+    public const string DoctorReport = "Reports.DoctorReport";
     public const string Backup = "Admin.Backup";
     public const string Settings = "Settings";
 
@@ -47,7 +48,7 @@ public static class ClinicalFormKeys
         Prescriptions, Invoices, ChartAccounts,
         PharmacyRegistration, PharmacyRequest, PharmacyBill, PharmacyPurchaseBill, PharmacyOpeningBalance,
         PatientHistory, AppointmentReminders, PatientStatus, PlStatement, CostOfGoodsSold, BalanceSheet,
-        AccountsReceivable, AccountsPayable, OperatingReport, CashReport, PharmacyInventory,
+        AccountsReceivable, AccountsPayable, OperatingReport, CashReport, PharmacyInventory, DoctorReport,
         AuditLog, RolePermissions, Backup, Settings
     ];
 }

@@ -1,0 +1,99 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.DoctorReportModel
+@{
+    ViewData["Title"] = "Doctor Report";
+    ViewData["UseReportPickers"] = true;
+    ViewData["ReportColumnKey"] = "DoctorReport";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">Doctor Report</h1>
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-2">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Doctor Name</label>
+                    <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Patient Name</label>
+                    <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+                </div>
+            </div>
+        </div>
+        <p class="report-hint">Doctor visits and billing summary. Same patient may appear multiple times when visiting different doctors. Use Filter to show/hide columns.</p>
+        <div class="report-results-scroll">
+            <table class="line-grid report-grid">
+                <thead>
+                <tr>
+                    <th data-col="doctor">Doctor Name</th>
+                    <th data-col="specialty">Specialty</th>
+                    <th data-col="patient">Patient Name</th>
+                    <th data-col="consultation" class="text-end">Consultation Fee</th>
+                    <th data-col="phone">Phone</th>
+                    <th data-col="age">Age</th>
+                    <th data-col="insurance">Health Insurance</th>
+                    <th data-col="insuranceNo">Health Insurance No</th>
+                    <th data-col="gender">Gender</th>
+                    <th data-col="city">City</th>
+                    <th data-col="married">Married Status</th>
+                    <th data-col="mother">Mother Name</th>
+                    <th data-col="invoice" class="text-end">Invoice Billing</th>
+                    <th data-col="receipt" class="text-end">Cash Receipt</th>
+                    <th data-col="payment" class="text-end">Cash Payment</th>
+                    <th data-col="visit">Visit Number</th>
+                    <th data-col="apptDate">Appointment Date</th>
+                    <th data-col="apptTime">Appointment Time</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td data-col="doctor">@r.DoctorName</td>
+                        <td data-col="specialty">@r.Specialty</td>
+                        <td data-col="patient">@r.PatientName</td>
+                        <td data-col="consultation" class="text-end">@r.ConsultationFee.ToString("N2")</td>
+                        <td data-col="phone">@r.Phone</td>
+                        <td data-col="age">@(r.Age?.ToString() ?? "")</td>
+                        <td data-col="insurance">@r.HealthInsurance</td>
+                        <td data-col="insuranceNo">@r.HealthInsuranceNo</td>
+                        <td data-col="gender">@r.Gender</td>
+                        <td data-col="city">@r.City</td>
+                        <td data-col="married">@r.MarriedStatus</td>
+                        <td data-col="mother">@r.MotherName</td>
+                        <td data-col="invoice" class="text-end">@r.InvoiceBillingAmount.ToString("N2")</td>
+                        <td data-col="receipt" class="text-end">@r.CashReceipt.ToString("N2")</td>
+                        <td data-col="payment" class="text-end">@r.CashPayment.ToString("N2")</td>
+                        <td data-col="visit">@r.VisitNumber</td>
+                        <td data-col="apptDate">@(r.AppointmentDate?.ToString("d") ?? "")</td>
+                        <td data-col="apptTime">@(r.AppointmentTime.HasValue ? DateTime.Today.Add(r.AppointmentTime.Value).ToString("h:mm tt") : "")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>
+
+<partial name="_PatientSelectModal" />
+<partial name="_DoctorSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <partial name="_ReportColumnFilterScript" />
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
+}

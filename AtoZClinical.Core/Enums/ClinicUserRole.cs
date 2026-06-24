@@ -7,5 +7,6 @@ public enum ClinicUserRole
     Nurse = 2,
     Receptionist = 3,
     Pharmacist = 4,
-    LabTechnician = 5
+    LabTechnician = 5,
+    Radiology = 6
 }

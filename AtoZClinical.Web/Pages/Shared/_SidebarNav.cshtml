@@ -162,6 +162,10 @@
 {
     <a class="sidebar-link" asp-page="/Reports/PharmacyInventory">Pharmacy Inventory</a>
 }
+@if (NavCan(ClinicalFormKeys.DoctorReport))
+{
+    <a class="sidebar-link" asp-page="/Reports/DoctorReport">Doctor Report</a>
+}
 
 @if (NavCan(ClinicalFormKeys.RolePermissions) || NavCan(ClinicalFormKeys.AuditLog) || NavCan(ClinicalFormKeys.Backup))
 {

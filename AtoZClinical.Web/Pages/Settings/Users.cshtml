@@ -42,7 +42,12 @@
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Role</label>
-                        <select asp-for="Input.Role" class="clinical-field" asp-items="Html.GetEnumSelectList<ClinicUserRole>()"></select>
+                        <select asp-for="Input.Role" class="clinical-field">
+                            @foreach (var role in AtoZClinical.Infrastructure.Services.ClinicUserRoleHelper.DefineUserRoles)
+                            {
+                                <option value="@role.Value" selected="@(Model.Input.Role == role.Value)">@role.Label</option>
+                            }
+                        </select>
                     </div>
                 </div>
             </div>
@@ -62,7 +67,7 @@
                                 <td>@r.UserNo</td>
                                 <td>@r.UserName</td>
                                 <td>@r.FullName</td>
-                                <td>@r.ClinicRole</td>
+                                <td>@AtoZClinical.Infrastructure.Services.ClinicUserRoleHelper.GetLabel(r.ClinicRole ?? AtoZClinical.Core.Enums.ClinicUserRole.Receptionist)</td>
                                 <td>@(r.IsActive ? "Yes" : "No")</td>
                             </tr>
                         }

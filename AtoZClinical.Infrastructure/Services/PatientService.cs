@@ -48,7 +48,7 @@ public sealed class PatientService
             }
         }
 
-        return query.OrderByDescending(p => p.CreatedAt).ToListAsync();
+        return query.OrderBy(p => p.FirstName).ThenBy(p => p.DoctorName).ThenByDescending(p => p.CreatedAt).ToListAsync();
     }
 
     public Task<Patient?> GetAsync(Guid clinicId, Guid id) =>
@@ -128,11 +128,13 @@ public sealed class PatientService
         await _db.SaveChangesAsync();
     }
 
-    public async Task<int> GetNextVisitNumberAsync(Guid clinicId, string? nationalId, string? phone, Guid? excludePatientId = null)
+    public async Task<int> GetNextVisitNumberAsync(
+        Guid clinicId,
+        string? nationalId,
+        string? phone,
+        Guid? excludePatientId = null,
+        string? patientName = null)
     {
-        if (string.IsNullOrWhiteSpace(nationalId) && string.IsNullOrWhiteSpace(phone))
-            return 1;
-
         var query = _db.Patients.Where(p => p.ClinicId == clinicId);
         if (excludePatientId.HasValue)
             query = query.Where(p => p.Id != excludePatientId.Value);
@@ -142,17 +144,23 @@ public sealed class PatientService
             var nid = nationalId.Trim();
             query = query.Where(p => p.NationalId != null && p.NationalId == nid);
         }
+        else if (!string.IsNullOrWhiteSpace(phone))
+        {
+            var ph = phone.Trim();
+            query = query.Where(p => p.Phone != null && p.Phone == ph);
+        }
+        else if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var name = patientName.Trim();
+            query = query.Where(p => p.FirstName == name);
+        }
         else
         {
-            var ph = phone!.Trim();
-            query = query.Where(p => p.Phone != null && p.Phone == ph);
+            return 1;
         }
 
         var count = await query.CountAsync();
-        var maxVisit = await query
-            .Select(p => p.VisitNumber)
-            .ToListAsync();
-
+        var maxVisit = await query.Select(p => p.VisitNumber).ToListAsync();
         var parsedMax = maxVisit
             .Select(v => int.TryParse(v, out var n) ? n : 0)
             .DefaultIfEmpty(0)

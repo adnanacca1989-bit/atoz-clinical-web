@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams();
         if (nationalId) params.set('nationalId', nationalId);
         if (phone) params.set('phone', phone);
+        const patientName = document.querySelector('[name="Input.PatientName"]')?.value?.trim();
+        if (patientName) params.set('patientName', patientName);
         if (recordIdInput?.value) params.set('excludeId', recordIdInput.value);
 
         try {
@@ -50,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     nationalIdInput?.addEventListener('blur', updateVisitNumber);
     phoneInput?.addEventListener('blur', updateVisitNumber);
+    document.querySelector('[name="Input.PatientName"]')?.addEventListener('blur', updateVisitNumber);
 
     const escapeHtml = (s) => {
         const d = document.createElement('div');
@@ -275,6 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initPatientPicker({
         patientNameSelector: '[name="Input.PatientName"]',
+        disableNameClick: true,
         fieldMap: {},
         onApply: (patient) => {
             if (patient?.id) window.location.href = `?RecordId=${patient.id}`;

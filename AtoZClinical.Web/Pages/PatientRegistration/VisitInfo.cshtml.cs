@@ -16,12 +16,13 @@ public class VisitInfoModel : PageModel
         _patients = patients;
     }
 
-    public async Task<IActionResult> OnGetAsync(string? nationalId, string? phone, Guid? excludeId)
+    public async Task<IActionResult> OnGetAsync(string? nationalId, string? phone, string? patientName, Guid? excludeId)
     {
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var nextVisit = await _patients.GetNextVisitNumberAsync(clinicId.Value, nationalId, phone, excludeId);
+        var nextVisit = await _patients.GetNextVisitNumberAsync(
+            clinicId.Value, nationalId, phone, excludeId, patientName);
         var existing = await _patients.FindByNationalIdOrPhoneAsync(clinicId.Value, nationalId, phone);
 
         return new JsonResult(new

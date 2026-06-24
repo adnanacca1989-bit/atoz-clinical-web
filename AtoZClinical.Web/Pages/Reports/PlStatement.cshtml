@@ -1,146 +1,116 @@
 @page
-
 @model AtoZClinical.Web.Pages.Reports.PlStatementModel
-
 @{
-
     ViewData["Title"] = "PL Statement";
-
     ViewData["UseReportPickers"] = true;
-
     Layout = "_Layout";
-
+    var revenueRows = Model.Results.Where(r => r.Section == "Revenue").ToList();
+    var cogsRows = Model.Results.Where(r => r.Section == "COGS").ToList();
+    var expenseRows = Model.Results.Where(r => r.Section == "Expense").ToList();
+    var grossProfit = Model.NetRevenue - Model.CostOfGoodsSold;
 }
-
-
 
 <div class="clinical-form-page clinical-report-page">
-
     <h1 class="page-title">PL Statement</h1>
-
     <form method="post" id="clinicalReportForm">
-
         <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
-
         <div class="report-filter-panel">
-        <div class="row g-2 mb-0">
-
-            <div class="col-md-2">
-
-                <label class="clinical-field-label">From Date</label>
-
-                <input asp-for="FromDate" class="clinical-field" type="date" />
-
-            </div>
-
-            <div class="col-md-2">
-
-                <label class="clinical-field-label">To Date</label>
-
-                <input asp-for="ToDate" class="clinical-field" type="date" />
-
-            </div>
-
-            <div class="col-md-3">
-
-                <label class="clinical-field-label">Doctor Name</label>
-
-                <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
-
-            </div>
-
-            <div class="col-md-3">
-
-                <label class="clinical-field-label">Patient Name</label>
-
-                <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
-
-            </div>
-
-            <div class="col-md-2 d-flex align-items-end">
-
-                <div class="form-check">
-
-                    <input asp-for="NonZero" class="form-check-input" type="checkbox" />
-
-                    <label class="form-check-label">Non Zero</label>
-
+            <div class="row g-2 mb-0">
+                <div class="col-md-2">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
                 </div>
-
+                <div class="col-md-2">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Doctor Name</label>
+                    <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Patient Name</label>
+                    <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-check">
+                        <input asp-for="NonZero" class="form-check-input" type="checkbox" />
+                        <label class="form-check-label">Non Zero</label>
+                    </div>
+                </div>
             </div>
-
         </div>
-        </div>
-
-        <p class="report-hint">Profit &amp; loss for the selected period. Filter by doctor or patient, or show only non-zero lines.</p>
-
+        <p class="report-hint">Profit &amp; loss statement (QuickBooks style) for the selected period.</p>
         <div class="report-summary-panel">
-
-            <span><strong>Net Revenue:</strong> @Model.NetRevenue.ToString("N2")</span>
-
+            <span><strong>Total Revenue:</strong> @Model.NetRevenue.ToString("N2")</span>
             <span><strong>Cost of Goods Sold:</strong> @Model.CostOfGoodsSold.ToString("N2")</span>
-
-            <span><strong>Expenses:</strong> @Model.Expenses.ToString("N2")</span>
-
-            <span><strong>Net Profit:</strong> @Model.NetProfit.ToString("N2")</span>
-
+            <span><strong>Gross Profit:</strong> @grossProfit.ToString("N2")</span>
+            <span><strong>Total Expenses:</strong> @Model.Expenses.ToString("N2")</span>
+            <span><strong>Net Income:</strong> @Model.NetProfit.ToString("N2")</span>
         </div>
-
         <div class="report-results-scroll">
-
-            <table class="line-grid report-grid">
-
-                <thead><tr><th>Section</th><th>Account</th><th>Detail</th><th>Amount</th></tr></thead>
-
+            <table class="line-grid report-grid pl-statement-grid">
+                <thead><tr><th>Account / Detail</th><th class="text-end">Amount</th></tr></thead>
                 <tbody>
-
-                @foreach (var r in Model.Results)
-
+                <tr class="pl-section-row"><td colspan="2"><strong>Income</strong></td></tr>
+                @foreach (var r in revenueRows)
                 {
-
                     <tr>
-
-                        <td>@r.Section</td>
-
-                        <td>@r.Account</td>
-
-                        <td>@r.Detail</td>
-
+                        <td class="ps-3">@r.Account — @r.Detail</td>
                         <td class="text-end">@r.Amount.ToString("N2")</td>
-
                     </tr>
-
                 }
+                <tr class="pl-subtotal-row fw-semibold">
+                    <td>Total Income</td>
+                    <td class="text-end">@Model.NetRevenue.ToString("N2")</td>
+                </tr>
 
+                <tr class="pl-section-row"><td colspan="2"><strong>Cost of Goods Sold</strong></td></tr>
+                @foreach (var r in cogsRows)
+                {
+                    <tr>
+                        <td class="ps-3">@r.Detail</td>
+                        <td class="text-end">@r.Amount.ToString("N2")</td>
+                    </tr>
+                }
+                <tr class="pl-subtotal-row fw-semibold">
+                    <td>Total COGS</td>
+                    <td class="text-end">@Model.CostOfGoodsSold.ToString("N2")</td>
+                </tr>
+                <tr class="pl-subtotal-row fw-bold">
+                    <td>Gross Profit</td>
+                    <td class="text-end">@grossProfit.ToString("N2")</td>
+                </tr>
+
+                <tr class="pl-section-row"><td colspan="2"><strong>Expenses</strong></td></tr>
+                @foreach (var r in expenseRows)
+                {
+                    <tr>
+                        <td class="ps-3">@r.Account — @r.Detail</td>
+                        <td class="text-end">@r.Amount.ToString("N2")</td>
+                    </tr>
+                }
+                <tr class="pl-subtotal-row fw-semibold">
+                    <td>Total Expenses</td>
+                    <td class="text-end">@Model.Expenses.ToString("N2")</td>
+                </tr>
+                <tr class="pl-total-row fw-bold">
+                    <td>Net Income</td>
+                    <td class="text-end">@Model.NetProfit.ToString("N2")</td>
+                </tr>
                 </tbody>
-
             </table>
-
         </div>
-
         <partial name="_ReportToolbar" />
-
     </form>
-
 </div>
 
-
-
 <partial name="_PatientSelectModal" />
-
 <partial name="_DoctorSelectModal" />
 
-
-
 @section Scripts {
-
     <script src="~/js/patient-picker.js" asp-append-version="true"></script>
-
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
-
     <script src="~/js/report-filters.js" asp-append-version="true"></script>
-
     <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
-
 }
-

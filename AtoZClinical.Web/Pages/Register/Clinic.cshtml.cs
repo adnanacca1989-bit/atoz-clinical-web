@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -18,8 +19,12 @@ public class ClinicModel : PageModel
     public string? ClinicName { get; private set; }
     public string? AdminUsername { get; private set; }
 
+    public static ClinicalModuleCatalog.ModuleGroup[] ModuleGroups => ClinicalModuleCatalog.Groups;
+
     public void OnGet()
     {
+        if (Input.EnabledModuleGroups.Count == 0)
+            Input.EnabledModuleGroups = ModuleGroups.Select(g => g.Key).ToList();
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -37,7 +42,8 @@ public class ClinicModel : PageModel
                 City = Input.City,
                 Country = Input.Country,
                 AdminUsername = Input.AdminUsername,
-                AdminPassword = Input.AdminPassword
+                AdminPassword = Input.AdminPassword,
+                EnabledModuleGroups = Input.EnabledModuleGroups.ToArray()
             });
 
             Registered = true;
@@ -70,5 +76,7 @@ public class ClinicModel : PageModel
 
         [Required, MinLength(6), Display(Name = "Admin Password")]
         public string AdminPassword { get; set; } = string.Empty;
+
+        public List<string> EnabledModuleGroups { get; set; } = [];
     }
 }

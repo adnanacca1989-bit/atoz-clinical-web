@@ -138,13 +138,15 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>Patient ID</th><th>Patient Name</th><th>Age</th><th>City</th><th>Mobile</th></tr></thead>
+                        <thead><tr><th>Patient ID</th><th>Patient Name</th><th>Doctor</th><th>Visit</th><th>Age</th><th>City</th><th>Mobile</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
                             <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
                                 <td>@r.PatientNo</td>
                                 <td>@r.FullName</td>
+                                <td>@r.DoctorName</td>
+                                <td>@r.VisitNumber</td>
                                 <td>@(r.AgeYears?.ToString() ?? "")</td>
                                 <td>@r.City</td>
                                 <td>@r.Phone</td>

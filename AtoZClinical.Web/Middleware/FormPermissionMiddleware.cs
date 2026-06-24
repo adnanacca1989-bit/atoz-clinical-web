@@ -9,7 +9,11 @@ public sealed class FormPermissionMiddleware
 
     public FormPermissionMiddleware(RequestDelegate next) => _next = next;
 
-    public async Task InvokeAsync(HttpContext context, ClinicContextService clinicContext, FormPermissionService permissions)
+    public async Task InvokeAsync(
+        HttpContext context,
+        ClinicContextService clinicContext,
+        FormPermissionService permissions,
+        ClinicModuleService modules)
     {
         if (context.User.Identity?.IsAuthenticated == true && !await clinicContext.IsVendorAsync())
         {
@@ -18,7 +22,10 @@ public sealed class FormPermissionMiddleware
             {
                 var role = permissions.ResolveResponsibilityRole(user);
                 var visible = await permissions.GetVisibleFormsAsync(clinicId, role);
+                var enabled = await modules.GetEnabledFormsAsync(clinicId);
+                visible.IntersectWith(enabled);
                 context.Items[FormPermissionService.VisibleFormsItemKey] = visible;
+                context.Items[ClinicModuleService.EnabledFormsItemKey] = enabled;
             }
         }
 

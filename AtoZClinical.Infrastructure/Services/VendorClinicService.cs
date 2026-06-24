@@ -56,7 +56,8 @@ public sealed class VendorClinicService
             PlanName = string.IsNullOrWhiteSpace(request.PlanName) ? "Standard" : request.PlanName.Trim(),
             MaxUsers = request.MaxUsers > 0 ? request.MaxUsers : 25,
             Status = request.ActivateImmediately ? ClinicStatus.Active : ClinicStatus.Pending,
-            Notes = request.Notes?.Trim()
+            Notes = request.Notes?.Trim(),
+            EnabledFormKeys = request.EnabledFormKeys
         };
 
         _db.Clinics.Add(clinic);
@@ -193,7 +194,8 @@ public sealed class VendorClinicService
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
             ActivateImmediately = false,
-            Notes = "Self-service registration — pending vendor approval."
+            Notes = "Self-service registration — pending vendor approval.",
+            EnabledFormKeys = ClinicalModuleCatalog.BuildEnabledFormKeysFromGroups(request.EnabledModuleGroups)
         });
     }
 
@@ -277,6 +279,7 @@ public sealed class CreateClinicRequest
     public int MaxUsers { get; set; } = 25;
     public bool ActivateImmediately { get; set; }
     public string? Notes { get; set; }
+    public string? EnabledFormKeys { get; set; }
     public string AdminUsername { get; set; } = string.Empty;
     public string? AdminPassword { get; set; }
 }
@@ -302,4 +305,5 @@ public sealed class PublicClinicRegistrationRequest
     public string? Country { get; set; }
     public string AdminUsername { get; set; } = string.Empty;
     public string AdminPassword { get; set; } = string.Empty;
+    public string[]? EnabledModuleGroups { get; set; }
 }

@@ -97,14 +97,20 @@ function initPatientPicker(options) {
         modal.hide();
     };
 
-    const openPatientSelect = () => { modal.show(); loadPatients(); };
+    const openPatientSelect = () => {
+        if (options.disableNameClick) return;
+        modal.show();
+        loadPatients();
+    };
 
-    patientNameInput.addEventListener('click', openPatientSelect);
-    patientNameInput.addEventListener('focus', (e) => {
-        e.preventDefault();
-        patientNameInput.blur();
-        openPatientSelect();
-    });
+    if (!options.disableNameClick) {
+        patientNameInput.addEventListener('click', openPatientSelect);
+        patientNameInput.addEventListener('focus', (e) => {
+            e.preventDefault();
+            patientNameInput.blur();
+            openPatientSelect();
+        });
+    }
     document.getElementById('openPatientSelectBtn')?.addEventListener('click', openPatientSelect);
     searchInput?.addEventListener('input', () => {
         clearTimeout(searchInput._timer);

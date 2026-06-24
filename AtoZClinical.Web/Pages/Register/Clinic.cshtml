@@ -67,6 +67,25 @@
                                     <label class="form-label">Admin Password *</label>
                                     <input asp-for="Input.AdminPassword" class="form-control" type="password" />
                                 </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Clinic Needs (modules to enable)</label>
+                                    <p class="text-muted small mb-2">Select which features this clinic will use. Unselected modules are hidden from the sidebar after approval.</p>
+                                    <div class="row g-2">
+                                        @foreach (var group in ClinicModel.ModuleGroups)
+                                        {
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           name="Input.EnabledModuleGroups"
+                                                           value="@group.Key"
+                                                           id="mod_@group.Key"
+                                                           checked="@(Model.Input.EnabledModuleGroups.Contains(group.Key))" />
+                                                    <label class="form-check-label" for="mod_@group.Key">@group.Label</label>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
                             </div>
                             <div class="mt-4 d-flex gap-2">
                                 <button type="submit" class="btn btn-atz-primary">Submit Registration</button>

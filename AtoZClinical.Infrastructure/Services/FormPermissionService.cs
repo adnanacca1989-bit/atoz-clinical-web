@@ -16,16 +16,7 @@ public sealed class FormPermissionService
     public string ResolveResponsibilityRole(ApplicationUser user)
     {
         if (user.IsVendorAdmin) return "Admin";
-        return user.ClinicRole switch
-        {
-            ClinicUserRole.Doctor => "Doctor",
-            ClinicUserRole.Receptionist => "Reception",
-            ClinicUserRole.LabTechnician => "Lab",
-            ClinicUserRole.Pharmacist => "Cashier",
-            ClinicUserRole.Nurse => "Reception",
-            ClinicUserRole.ClinicAdmin => "Admin",
-            _ => "Admin"
-        };
+        return ClinicUserRoleHelper.ToResponsibilityRole(user.ClinicRole ?? ClinicUserRole.ClinicAdmin);
     }
 
     public async Task<HashSet<string>> GetVisibleFormsAsync(Guid clinicId, string roleName)
@@ -83,6 +74,7 @@ public sealed class FormPermissionService
             "/reports/operatingreport" => ClinicalFormKeys.OperatingReport,
             "/reports/cashreport" => ClinicalFormKeys.CashReport,
             "/reports/pharmacyinventory" => ClinicalFormKeys.PharmacyInventory,
+            "/reports/doctorreport" => ClinicalFormKeys.DoctorReport,
             "/admin/responsibilities" => ClinicalFormKeys.RolePermissions,
             "/admin/auditlog" => ClinicalFormKeys.AuditLog,
             "/admin/backup" => ClinicalFormKeys.Backup,

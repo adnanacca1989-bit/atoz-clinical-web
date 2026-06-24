@@ -1,57 +1,60 @@
-@page
-@model AtoZClinical.Web.Pages.Admin.ResponsibilitiesModel
-@{
-    ViewData["Title"] = "Responsibilities";
-    Layout = "_Layout";
-}
-
-<div class="clinical-form-page">
-    <h1 class="page-title">Responsibilities</h1>
-    <form method="post">
-        <div class="row g-3 mb-3">
-            <div class="col-md-4">
-                <label class="clinical-field-label">User Role</label>
-                <select asp-for="UserRole" class="clinical-field" onchange="location.href='?role=' + this.value;">
-                    @foreach (var role in ResponsibilitiesModel.Roles)
-                    {
-                        if (Model.UserRole == role)
-                        {
-                            <option value="@role" selected="selected">@role</option>
-                        }
-                        else
-                        {
-                            <option value="@role">@role</option>
-                        }
-                    }
-                </select>
-            </div>
-        </div>
-        <p class="text-primary small">Select the windows available for this role, then click Save.</p>
-        <div class="clinical-record-grid" style="min-height: 400px;">
-            <table>
-                <thead><tr><th>Window / Form</th><th>Available To Show</th></tr></thead>
-                <tbody>
-                @for (var i = 0; i < Model.Forms.Count; i++)
-                {
-                    <tr>
-                        <td>
-                            @Model.Forms[i].FormLabel
-                            <input type="hidden" asp-for="Forms[i].FormKey" />
-                            <input type="hidden" asp-for="Forms[i].FormLabel" />
-                        </td>
-                        <td class="text-center">
-                            <input asp-for="Forms[i].IsVisible" type="checkbox" />
-                        </td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-        <div class="clinical-toolbar mt-3">
-            <button type="submit" asp-page-handler="Save" class="btn-form btn-form-primary">💾 Add</button>
-            <button type="submit" asp-page-handler="Clear" class="btn-form">🧹 Clear</button>
-            <button type="button" class="btn-form" onclick="window.print();">🖨️ Print</button>
-            <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
-        </div>
-    </form>
-</div>
+@page
+@model AtoZClinical.Web.Pages.Admin.ResponsibilitiesModel
+@{
+    ViewData["Title"] = "Responsibilities";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Responsibilities</h1>
+    <form method="post">
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <label class="clinical-field-label">Role</label>
+                <select asp-for="UserRole" class="clinical-field" onchange="location.href='?role=' + encodeURIComponent(this.value);">
+                    @foreach (var role in ResponsibilitiesModel.Roles)
+                    {
+                        <option value="@role" selected="@(Model.UserRole == role)">@role</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="clinical-field-label">Username (assign role on save)</label>
+                <select asp-for="SelectedUserId" class="clinical-field" onchange="if(this.value) location.href='?userId=' + encodeURIComponent(this.value);">
+                    <option value="">-- Select user --</option>
+                    @foreach (var u in Model.ClinicUsers)
+                    {
+                        <option value="@u.Id" selected="@(Model.SelectedUserId == u.Id)">@u.UserName — @u.FullName</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <p class="text-primary small">Select role permissions below. When a username is selected, Save also assigns that role to the user for login.</p>
+        <div class="clinical-record-grid" style="min-height: 400px;">
+            <table>
+                <thead><tr><th>Window / Form</th><th>Available To Show</th></tr></thead>
+                <tbody>
+                @for (var i = 0; i < Model.Forms.Count; i++)
+                {
+                    <tr>
+                        <td>
+                            @Model.Forms[i].FormLabel
+                            <input type="hidden" asp-for="Forms[i].FormKey" />
+                            <input type="hidden" asp-for="Forms[i].FormLabel" />
+                        </td>
+                        <td class="text-center">
+                            <input asp-for="Forms[i].IsVisible" type="checkbox" />
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="clinical-toolbar mt-3">
+            <button type="submit" asp-page-handler="Save" class="btn-form btn-form-primary">💾 Save</button>
+            <button type="submit" asp-page-handler="Clear" class="btn-form">🧹 Clear</button>
+            <button type="button" class="btn-form" onclick="window.print();">🖨️ Print</button>
+            <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>
+        </div>
+    </form>
+</div>

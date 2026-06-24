@@ -31,6 +31,8 @@ public class Clinic
     public int MaxUsers { get; set; } = 25;
     public ClinicStatus Status { get; set; } = ClinicStatus.Active;
     public string? Notes { get; set; }
+    /// <summary>JSON array of ClinicalFormKeys enabled for this clinic subscription.</summary>
+    public string? EnabledFormKeys { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<Patient> Patients { get; set; } = [];

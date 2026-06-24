@@ -1,8 +1,11 @@
 using AtoZClinical.Infrastructure;
+using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Admin;
 
@@ -10,20 +13,30 @@ public class ResponsibilitiesModel : PageModel
 {
     private readonly RolePermissionService _service;
     private readonly ClinicContextService _clinicContext;
+    private readonly UserManager<ApplicationUser> _users;
 
-    public ResponsibilitiesModel(RolePermissionService service, ClinicContextService clinicContext)
+    public ResponsibilitiesModel(
+        RolePermissionService service,
+        ClinicContextService clinicContext,
+        UserManager<ApplicationUser> users)
     {
         _service = service;
         _clinicContext = clinicContext;
+        _users = users;
     }
 
     [BindProperty]
     public string UserRole { get; set; } = "Admin";
 
     [BindProperty]
+    public string? SelectedUserId { get; set; }
+
+    [BindProperty]
     public List<FormPermissionInput> Forms { get; set; } = [];
 
-    public static readonly string[] Roles = ["Admin", "Doctor", "Reception", "Lab", "Radiology", "Cashier"];
+    public List<ApplicationUser> ClinicUsers { get; private set; } = [];
+
+    public static readonly string[] Roles = ClinicUserRoleHelper.ResponsibilityRoles;
 
     public static readonly (string Key, string Label)[] FormDefinitions =
     [
@@ -59,17 +72,31 @@ public class ResponsibilitiesModel : PageModel
         (ClinicalFormKeys.OperatingReport, "Operating Report"),
         (ClinicalFormKeys.CashReport, "Cash Report"),
         (ClinicalFormKeys.PharmacyInventory, "Pharmacy Inventory Report"),
+        (ClinicalFormKeys.DoctorReport, "Doctor Report"),
         (ClinicalFormKeys.Settings, "Settings"),
         (ClinicalFormKeys.RolePermissions, "Responsibilities"),
         (ClinicalFormKeys.AuditLog, "Audit Log"),
         (ClinicalFormKeys.Backup, "Data Backup")
     ];
 
-    public async Task<IActionResult> OnGetAsync(string? role = null)
+    public async Task<IActionResult> OnGetAsync(string? role = null, string? userId = null)
     {
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
-        UserRole = role ?? UserRole;
+
+        await LoadUsersAsync(clinicId.Value);
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            SelectedUserId = userId;
+            var user = ClinicUsers.FirstOrDefault(u => u.Id == userId);
+            if (user?.ClinicRole is not null)
+                UserRole = ClinicUserRoleHelper.ToResponsibilityRole(user.ClinicRole.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(role))
+        {
+            UserRole = role;
+        }
+
         await LoadFormsAsync(clinicId.Value);
         return Page();
     }
@@ -85,10 +112,29 @@ public class ResponsibilitiesModel : PageModel
             IsVisible = f.IsVisible
         });
         await _service.SaveBulkAsync(clinicId.Value, UserRole, items, User.Identity?.Name);
-        return RedirectToPage(new { role = UserRole });
+
+        if (!string.IsNullOrWhiteSpace(SelectedUserId))
+        {
+            var user = await _users.Users.FirstOrDefaultAsync(u => u.Id == SelectedUserId && u.ClinicId == clinicId);
+            if (user is not null)
+            {
+                user.ClinicRole = ClinicUserRoleHelper.ParseResponsibilityRole(UserRole);
+                await _users.UpdateAsync(user);
+            }
+        }
+
+        return RedirectToPage(new { role = UserRole, userId = SelectedUserId });
     }
 
     public IActionResult OnPostClearAsync() => RedirectToPage();
+
+    private async Task LoadUsersAsync(Guid clinicId)
+    {
+        ClinicUsers = await _users.Users
+            .Where(u => u.ClinicId == clinicId && u.IsActive)
+            .OrderBy(u => u.UserName)
+            .ToListAsync();
+    }
 
     private async Task LoadFormsAsync(Guid clinicId)
     {
