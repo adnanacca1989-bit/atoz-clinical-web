@@ -399,3 +399,42 @@ html[dir="rtl"] .clinical-form-left {
     color: #146c43 !important;
 }
 
+.trial-register-page .trial-info-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.trial-contact-list li,
+.trial-modules-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0;
+    font-size: 0.95rem;
+}
+
+.trial-contact-list a {
+    color: var(--atz-primary);
+    text-decoration: none;
+}
+
+.trial-contact-list a:hover {
+    color: var(--atz-primary-dark);
+    text-decoration: underline;
+}
+
+.trial-contact-icon {
+    flex-shrink: 0;
+    width: 1.5rem;
+    text-align: center;
+}
+
+.trial-modules-list li {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+@media (max-width: 991.98px) {
+    .trial-register-page .trial-info-card {
+        margin-bottom: 0.5rem;
+    }
+}

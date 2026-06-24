@@ -15,15 +15,15 @@
     <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
 </head>
 <body>
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-6">
-                <div class="text-center mb-4">
-                    <h1 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h1>
-                    <p class="lead mb-1">Clinical Management System — Web Edition</p>
-                    <p class="text-muted">30-day trial · Register and login immediately</p>
-                </div>
+    <div class="container py-5 trial-register-page">
+        <div class="text-center mb-4">
+            <h1 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h1>
+            <p class="lead mb-1">Clinical Management System — Web Edition</p>
+            <p class="text-muted">30-day trial · Register and login immediately</p>
+        </div>
 
+        <div class="row justify-content-center g-4">
+            <div class="col-lg-5 order-lg-2">
                 @if (Model.Registered)
                 {
                     <div class="atz-card p-4">
@@ -71,6 +71,37 @@
                         </form>
                     </div>
                 }
+            </div>
+
+            <div class="col-lg-4 order-lg-1">
+                <div class="atz-card p-4 trial-info-card h-100">
+                    <h5 class="atz-section-title">Company A 2 Z</h5>
+                    <ul class="trial-contact-list list-unstyled mb-4">
+                        <li>
+                            <span class="trial-contact-icon" aria-hidden="true">💬</span>
+                            <a href="https://wa.me/9647885555888" target="_blank" rel="noopener noreferrer">WhatsApp +964 788 555 5888</a>
+                        </li>
+                        <li>
+                            <span class="trial-contact-icon" aria-hidden="true">💬</span>
+                            <a href="https://wa.me/9647866090003" target="_blank" rel="noopener noreferrer">WhatsApp +964 786 609 0003</a>
+                        </li>
+                        <li>
+                            <span class="trial-contact-icon" aria-hidden="true">✉️</span>
+                            <a href="mailto:Adnan.acca1989@gmail.com">Adnan.acca1989@gmail.com</a>
+                        </li>
+                    </ul>
+
+                    <h5 class="atz-section-title">Modules Included</h5>
+                    <ul class="trial-modules-list list-unstyled mb-0">
+                        <li>👤 Patients</li>
+                        <li>📅 Appointments</li>
+                        <li>🧪 Laboratory</li>
+                        <li>🩻 Radiology</li>
+                        <li>💊 Pharmacy</li>
+                        <li>💵 Billing</li>
+                        <li>📊 Reports</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
