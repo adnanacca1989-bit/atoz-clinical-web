@@ -213,13 +213,21 @@ public class IndexModel : ClinicFormPageModel
 
 
 
-        var isNew = !RecordId.HasValue;
+        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
+        if (isNew)
+            RecordId = null;
 
         if (isNew)
         {
             var nextVisit = await _service.GetNextVisitNumberAsync(
                 clinicId.Value, Input.NationalId, Input.Phone, null, Input.PatientName);
             Input.VisitNumber = nextVisit.ToString();
+
+            if (string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase))
+            {
+                Input.PatientNo = await _service.NextPatientNoAsync(clinicId.Value);
+                Input.AppointmentId = await _service.NextAppointmentIdAsync(clinicId.Value);
+            }
         }
         else if (string.IsNullOrWhiteSpace(Input.VisitNumber))
         {

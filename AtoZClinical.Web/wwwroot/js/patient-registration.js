@@ -280,8 +280,54 @@ document.addEventListener('DOMContentLoaded', () => {
         patientNameSelector: '[name="Input.PatientName"]',
         disableNameClick: true,
         fieldMap: {},
-        onApply: (patient) => {
-            if (patient?.id) window.location.href = `?RecordId=${patient.id}`;
+        onApply: async (patient) => {
+            if (!patient?.id) return;
+            try {
+                const res = await fetch(`/PatientRegistration/CloneInfo?id=${patient.id}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                applyPatientCloneTemplate(data);
+            } catch { /* ignore */ }
         }
     });
+
+    function setFieldValue(selector, value) {
+        const el = document.querySelector(selector);
+        if (!el) return;
+        el.value = value ?? '';
+    }
+
+    function applyPatientCloneTemplate(data) {
+        if (!data) return;
+
+        if (recordIdInput) recordIdInput.value = '';
+        const saveModeInput = document.getElementById('saveModeInput');
+        if (saveModeInput) saveModeInput.value = 'New';
+
+        setFieldValue('[name="Input.PatientNo"]', data.patientNo);
+        setFieldValue('[name="Input.PatientName"]', data.patientName);
+        setFieldValue('[name="Input.Gender"]', data.gender);
+        setFieldValue('[name="Input.DateOfBirth"]', data.dateOfBirth);
+        setFieldValue('[name="Input.Phone"]', data.phone);
+        setFieldValue('[name="Input.City"]', data.city);
+        setFieldValue('[name="Input.BloodGroup"]', data.bloodGroup);
+        setFieldValue('[name="Input.MarriedStatus"]', data.marriedStatus);
+        setFieldValue('[name="Input.MotherName"]', data.motherName);
+        setFieldValue('[name="Input.DoctorName"]', data.doctorName);
+        setFieldValue('[name="Input.Specialty"]', data.specialty);
+        setFieldValue('[name="Input.NationalId"]', data.nationalId);
+        setFieldValue('[name="Input.Address"]', data.address);
+        setFieldValue('[name="Input.EmergencyContact"]', data.emergencyContact);
+        setFieldValue('[name="Input.HealthInsuranceName"]', data.healthInsuranceName);
+        setFieldValue('[name="Input.HealthInsuranceNumber"]', data.healthInsuranceNumber);
+        setFieldValue('[name="Input.AppointmentId"]', data.appointmentId);
+        setFieldValue('[name="Input.VisitNumber"]', data.visitNumber);
+        setFieldValue('[name="Input.AppointmentDate"]', data.appointmentDate);
+        setFieldValue('[name="Input.AppointmentTime"]', data.appointmentTime);
+        setFieldValue('[name="Input.Status"]', data.status || 'Pending');
+
+        calcAge();
+
+        document.querySelectorAll('.clinical-record-grid tbody tr').forEach(r => r.classList.remove('selected'));
+    }
 });
