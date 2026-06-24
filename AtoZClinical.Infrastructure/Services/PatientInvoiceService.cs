@@ -105,13 +105,14 @@ public sealed class PatientInvoiceService
 
         var totalPaid = receipts.Sum(r => r.Amount) + patientPayments.Sum(p => p.Amount);
         var subTotal = lines.Sum(l => l.Qty * l.UnitFee);
+        var balance = Math.Max(0, subTotal - totalPaid);
 
         return new PatientChargeSummary
         {
             Lines = lines,
             SubTotal = subTotal,
             TotalPaid = totalPaid,
-            Balance = subTotal - totalPaid
+            Balance = balance
         };
     }
 

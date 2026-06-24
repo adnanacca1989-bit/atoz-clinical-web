@@ -1,5 +1,6 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Services;
@@ -233,16 +234,22 @@ public sealed class PatientPrintBundleService
         List<CashPayment> cashPayments) => new(
         "Accounts Receivable Statement",
         Meta(("Patient", patient), ("Statement Date", DateTime.Today.ToString("d"))),
-        ["Invoice No", "Date", "Doctor", "Invoice Amount", "Paid", "Balance"],
+        ["Invoice No", "Date", "Doctor", "Total Invoice", "Discount", "Net Invoice", "Cash Receipt", "Cash Payment", "Ending Balance"],
         invoices.Select(i =>
         {
-            var paid = receipts.Where(r =>
-                r.PatientName == i.PatientName &&
-                (string.IsNullOrWhiteSpace(i.DoctorName) || r.DoctorName == i.DoctorName)).Sum(r => r.Amount);
-            paid += cashPayments.Where(p =>
-                (p.PayeeName == i.PatientName || p.PatientId == i.PatientId) &&
-                (string.IsNullOrWhiteSpace(i.DoctorName) || p.DoctorName == i.DoctorName)).Sum(p => p.Amount);
-            return new[] { i.InvoiceNo.ToString(), i.InvoiceDate.ToString("d"), i.DoctorName ?? "", i.TotalAmount.ToString("N2"), paid.ToString("N2"), i.BalanceDue.ToString("N2") };
+            var totals = InvoiceArCalculator.ForInvoice(i, receipts, cashPayments, invoices);
+            return new[]
+            {
+                i.InvoiceNo.ToString(),
+                i.InvoiceDate.ToString("d"),
+                i.DoctorName ?? "",
+                totals.TotalInvoice.ToString("N2"),
+                totals.Discount.ToString("N2"),
+                totals.NetInvoice.ToString("N2"),
+                totals.CashReceipt.ToString("N2"),
+                totals.CashPayment.ToString("N2"),
+                totals.EndingBalance.ToString("N2")
+            };
         }).ToList(),
         Footer(("Total Balance Due", invoices.Sum(i => i.BalanceDue).ToString("N2"))));
 
