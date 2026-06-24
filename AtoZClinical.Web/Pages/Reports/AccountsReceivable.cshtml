@@ -1,160 +1,107 @@
 @page
-
 @model AtoZClinical.Web.Pages.Reports.AccountsReceivableModel
-
 @{
-
     ViewData["Title"] = "Accounts Receivable";
-
     ViewData["UseReportPickers"] = true;
     ViewData["ReportColumnKey"] = "Accounts Receivable";
-
     Layout = "_Layout";
-
 }
 
-
-
 <div class="clinical-form-page clinical-report-page">
-
     <h1 class="page-title">Accounts Receivable</h1>
-
     <form method="post" id="clinicalReportForm">
-
         <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
-
         <div class="report-filter-panel">
         <div class="row g-2 mb-0">
-
             <div class="col-md-3">
-
                 <label class="clinical-field-label">From Date</label>
-
                 <input asp-for="FromDate" class="clinical-field" type="date" />
-
             </div>
-
             <div class="col-md-3">
-
                 <label class="clinical-field-label">To Date</label>
-
                 <input asp-for="ToDate" class="clinical-field" type="date" />
-
             </div>
-
             <div class="col-md-3">
-
                 <label class="clinical-field-label">Patient Barcode</label>
-
                 <input asp-for="PatientBarcode" id="reportPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" />
-
             </div>
-
             <div class="col-md-3">
-
                 <label class="clinical-field-label">Patient Name</label>
-
                 <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
-
             </div>
-
             <div class="col-md-3">
-
                 <label class="clinical-field-label">Doctor Name</label>
-
                 <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
-
             </div>
-
         </div>
         </div>
-
         <p class="report-hint">Showing @Model.Results.Count patient invoice balances for the selected period. Click <strong>Run</strong> after changing filters.</p>
-
         <div class="report-results-scroll">
-
             <table class="line-grid report-grid">
-
                 <thead>
-
                     <tr>
                         <th data-col="invoiceId">Invoice ID</th>
                         <th data-col="invoiceDate">Invoice Date</th>
                         <th data-col="patient">Patient</th>
                         <th data-col="doctor">Doctor</th>
-                        <th data-col="debit">Debit</th>
-                        <th data-col="credit">Credit</th>
-                        <th data-col="cashPaid">Cash Paid</th>
-                        <th data-col="balance">Balance</th>
+                        <th data-col="specialty" data-col-default="false">Specialty</th>
+                        <th data-col="gender" data-col-default="false">Gender</th>
+                        <th data-col="city" data-col-default="false">City</th>
+                        <th data-col="motherName" data-col-default="false">Mother Name</th>
+                        <th data-col="marriedStatus" data-col-default="false">Married Status</th>
+                        <th data-col="healthInsurance" data-col-default="false">Health Insurance</th>
+                        <th data-col="healthInsuranceNo" data-col-default="false">Health Insurance No</th>
+                        <th data-col="appointmentDate" data-col-default="false">Appointment Date</th>
+                        <th data-col="appointmentTime" data-col-default="false">Appointment Time</th>
+                        <th data-col="cashReceipt">Cash Receipt</th>
+                        <th data-col="cashPayment">Cash Payment</th>
+                        <th data-col="totalInvoice">Total Invoice</th>
+                        <th data-col="discount">Discount</th>
+                        <th data-col="endingBalance">Ending Balance</th>
                         <th data-col="agingDays">Aging Days</th>
                         <th data-col="status">Status</th>
                     </tr>
-
                 </thead>
-
                 <tbody>
-
                 @foreach (var r in Model.Results)
-
                 {
-
                     <tr>
-
-                        <td>@r.InvoiceId</td>
-
-                        <td>@r.InvoiceDate.ToString("d")</td>
-
-                        <td>@r.Patient</td>
-
-                        <td>@r.Doctor</td>
-
-                        <td>@r.Debit.ToString("N2")</td>
-
-                        <td>@r.Credit.ToString("N2")</td>
-
-                        <td>@r.CashPaid.ToString("N2")</td>
-
-                        <td>@r.Balance.ToString("N2")</td>
-
-                        <td>@r.AgingDays</td>
-
-                        <td>@r.Status</td>
-
+                        <td data-col="invoiceId">@r.InvoiceId</td>
+                        <td data-col="invoiceDate">@r.InvoiceDate.ToString("d")</td>
+                        <td data-col="patient">@r.Patient</td>
+                        <td data-col="doctor">@r.Doctor</td>
+                        <td data-col="specialty">@r.Specialty</td>
+                        <td data-col="gender">@r.Gender</td>
+                        <td data-col="city">@r.City</td>
+                        <td data-col="motherName">@r.MotherName</td>
+                        <td data-col="marriedStatus">@r.MarriedStatus</td>
+                        <td data-col="healthInsurance">@r.HealthInsurance</td>
+                        <td data-col="healthInsuranceNo">@r.HealthInsuranceNo</td>
+                        <td data-col="appointmentDate">@(r.AppointmentDate?.ToString("d") ?? "")</td>
+                        <td data-col="appointmentTime">@(r.AppointmentTime is null ? "" : DateTime.Today.Add(r.AppointmentTime.Value).ToString("t"))</td>
+                        <td data-col="cashReceipt">@r.CashReceipt.ToString("N2")</td>
+                        <td data-col="cashPayment">@r.CashPayment.ToString("N2")</td>
+                        <td data-col="totalInvoice">@r.TotalInvoice.ToString("N2")</td>
+                        <td data-col="discount">@r.Discount.ToString("N2")</td>
+                        <td data-col="endingBalance">@r.EndingBalance.ToString("N2")</td>
+                        <td data-col="agingDays">@r.AgingDays</td>
+                        <td data-col="status">@r.Status</td>
                     </tr>
-
                 }
-
                 </tbody>
-
             </table>
-
         </div>
-
         <partial name="_ReportToolbar" />
-
     </form>
-
 </div>
 
-
-
 <partial name="_PatientSelectModal" />
-
 <partial name="_DoctorSelectModal" />
 
-
-
 @section Scripts {
-
     <script src="~/js/patient-picker.js" asp-append-version="true"></script>
-
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
-
     <script src="~/js/report-filters.js" asp-append-version="true"></script>
-
     <partial name="_ReportColumnFilterScript" />
-
     <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
-
 }
-

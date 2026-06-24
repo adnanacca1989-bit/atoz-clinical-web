@@ -58,6 +58,11 @@ public class AccountsReceivableModel : PageModel
         if (!string.IsNullOrWhiteSpace(DoctorName))
             invoices = invoices.Where(i => i.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
+        var patients = await _db.Patients
+            .Where(p => p.ClinicId == clinicId)
+            .AsNoTracking()
+            .ToListAsync();
+
         var receipts = await _db.CashReceipts
             .Where(c => c.ClinicId == clinicId && c.ReceiptDate >= FromDate.Date && c.ReceiptDate <= ToDate.Date)
             .ToListAsync();
@@ -67,33 +72,38 @@ public class AccountsReceivableModel : PageModel
             .Where(p => p.PayeeName != null || p.PatientId != null)
             .ToListAsync();
 
+        var allocation = AllocateCredits(invoices, receipts, patientPayments);
+
         Results = invoices.Select(i =>
         {
-            bool MatchesPatient(CashReceipt r) =>
-                (!string.IsNullOrWhiteSpace(i.PatientId) && r.PatientId == i.PatientId) ||
-                r.PatientName == i.PatientName;
-            bool MatchesDoctor(string? doc) =>
-                string.IsNullOrWhiteSpace(i.DoctorName) ||
-                string.Equals(doc?.Trim(), i.DoctorName.Trim(), StringComparison.OrdinalIgnoreCase);
-
-            var cashPaid = receipts.Where(r => MatchesPatient(r) && MatchesDoctor(r.DoctorName)).Sum(r => r.Amount);
-            cashPaid += patientPayments.Where(p =>
-                    ((!string.IsNullOrWhiteSpace(i.PatientId) && p.PatientId == i.PatientId) ||
-                     p.PayeeName == i.PatientName) &&
-                    MatchesDoctor(p.DoctorName))
-                .Sum(p => p.Amount);
+            var (cashReceipt, cashPayment) = allocation.TryGetValue(i.InvoiceNo, out var a)
+                ? a
+                : (0m, 0m);
             var aging = (DateTime.Today - i.InvoiceDate.Date).Days;
-            var balance = i.BalanceDue;
-            var status = balance <= 0 ? "Paid" : (i.AmountPaid > 0 || cashPaid > 0 ? "Partial" : (i.PaymentStatus ?? "Unpaid"));
+            var totalInvoice = i.SubTotal > 0 ? i.SubTotal : i.TotalAmount + i.Discount;
+            var endingBalance = i.BalanceDue;
+            var status = endingBalance <= 0 ? "Paid" : (i.AmountPaid > 0 || cashReceipt > 0 || cashPayment > 0 ? "Partial" : (i.PaymentStatus ?? "Unpaid"));
+            var patient = ResolvePatient(patients, i);
+
             return new ArRow(
                 i.InvoiceNo,
                 i.InvoiceDate,
                 i.PatientName ?? "",
                 i.DoctorName ?? "",
-                i.TotalAmount,
-                i.AmountPaid,
-                cashPaid,
-                balance,
+                i.Specialty ?? patient?.Specialty ?? "",
+                i.Gender ?? patient?.Gender ?? "",
+                i.City ?? patient?.City ?? "",
+                patient?.MotherName ?? "",
+                patient?.MarriedStatus ?? "",
+                patient?.HealthInsuranceName ?? "",
+                patient?.HealthInsuranceNumber ?? "",
+                patient?.AppointmentDate,
+                patient?.AppointmentTime,
+                cashReceipt,
+                cashPayment,
+                totalInvoice,
+                i.Discount,
+                endingBalance,
                 aging,
                 status);
         }).ToList();
@@ -101,28 +111,126 @@ public class AccountsReceivableModel : PageModel
         return Page();
     }
 
+    private static Patient? ResolvePatient(List<Patient> patients, Invoice invoice)
+    {
+        if (!string.IsNullOrWhiteSpace(invoice.PatientId))
+        {
+            var byId = patients.FirstOrDefault(p =>
+                string.Equals(p.PatientNo, invoice.PatientId, StringComparison.OrdinalIgnoreCase));
+            if (byId is not null) return byId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(invoice.PatientName))
+        {
+            return patients.FirstOrDefault(p =>
+                string.Equals(p.FullName, invoice.PatientName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return null;
+    }
+
+    private static Dictionary<int, (decimal CashReceipt, decimal CashPayment)> AllocateCredits(
+        List<Invoice> invoices,
+        List<CashReceipt> receipts,
+        List<CashPayment> payments)
+    {
+        var result = invoices.ToDictionary(i => i.InvoiceNo, _ => (CashReceipt: 0m, CashPayment: 0m));
+        if (invoices.Count == 0) return result;
+
+        foreach (var group in invoices.GroupBy(i => (
+            PatientId: i.PatientId?.Trim() ?? "",
+            PatientName: i.PatientName?.Trim() ?? "",
+            Doctor: i.DoctorName?.Trim() ?? "")))
+        {
+            var invs = group.OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo).ToList();
+            var remainingDue = invs.ToDictionary(i => i.InvoiceNo, i => i.TotalAmount);
+
+            bool MatchDoctor(string? doc) =>
+                string.IsNullOrWhiteSpace(group.Key.Doctor) ||
+                string.Equals(doc?.Trim(), group.Key.Doctor, StringComparison.OrdinalIgnoreCase);
+
+            var credits = receipts
+                .Where(r =>
+                    ((!string.IsNullOrWhiteSpace(group.Key.PatientId) && r.PatientId == group.Key.PatientId) ||
+                     (!string.IsNullOrWhiteSpace(group.Key.PatientName) && r.PatientName == group.Key.PatientName)) &&
+                    MatchDoctor(r.DoctorName))
+                .Select(r => new { IsReceipt = true, Date = r.ReceiptDate, Amount = r.Amount, Sort = r.ReceiptNo })
+                .Concat(payments
+                    .Where(p =>
+                        ((!string.IsNullOrWhiteSpace(group.Key.PatientId) && p.PatientId == group.Key.PatientId) ||
+                         (!string.IsNullOrWhiteSpace(group.Key.PatientName) && p.PayeeName == group.Key.PatientName)) &&
+                        MatchDoctor(p.DoctorName))
+                    .Select(p => new { IsReceipt = false, Date = p.PaymentDate, Amount = p.Amount, Sort = p.PaymentNo }))
+                .OrderBy(c => c.Date).ThenBy(c => c.Sort)
+                .ToList();
+
+            foreach (var credit in credits)
+            {
+                var remaining = credit.Amount;
+                foreach (var inv in invs)
+                {
+                    if (remaining <= 0) break;
+                    var due = remainingDue[inv.InvoiceNo];
+                    if (due <= 0) continue;
+
+                    var apply = Math.Min(remaining, due);
+                    var current = result[inv.InvoiceNo];
+                    result[inv.InvoiceNo] = credit.IsReceipt
+                        ? (current.CashReceipt + apply, current.CashPayment)
+                        : (current.CashReceipt, current.CashPayment + apply);
+                    remainingDue[inv.InvoiceNo] -= apply;
+                    remaining -= apply;
+                }
+            }
+        }
+
+        return result;
+    }
+
     public async Task<IActionResult> OnPostExportAsync()
     {
         await RunAsync();
         var bytes = ReportExcelService.Export("Accounts Receivable",
-            ["Invoice ID", "Invoice Date", "Patient", "Doctor", "Debit", "Credit", "Cash Paid", "Balance", "Aging Days", "Status"],
+            [
+                "Invoice ID", "Invoice Date", "Patient", "Doctor", "Specialty", "Gender", "City",
+                "Mother Name", "Married Status", "Health Insurance", "Health Insurance No",
+                "Appointment Date", "Appointment Time", "Cash Receipt", "Cash Payment",
+                "Total Invoice", "Discount", "Ending Balance", "Aging Days", "Status"
+            ],
             Results.Select(r => new object?[]
             {
-                r.InvoiceId, r.InvoiceDate, r.Patient, r.Doctor, r.Debit, r.Credit, r.CashPaid, r.Balance, r.AgingDays, r.Status
+                r.InvoiceId, r.InvoiceDate, r.Patient, r.Doctor, r.Specialty, r.Gender, r.City,
+                r.MotherName, r.MarriedStatus, r.HealthInsurance, r.HealthInsuranceNo,
+                r.AppointmentDate?.ToString("d"), FormatTime(r.AppointmentTime),
+                r.CashReceipt, r.CashPayment, r.TotalInvoice, r.Discount, r.EndingBalance,
+                r.AgingDays, r.Status
             }));
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"AccountsReceivable_{DateTime.Now:yyyyMMdd}.xlsx");
     }
+
+    private static string FormatTime(TimeSpan? time) =>
+        time is null ? "" : DateTime.Today.Add(time.Value).ToString("t");
 
     public sealed record ArRow(
         int InvoiceId,
         DateTime InvoiceDate,
         string Patient,
         string Doctor,
-        decimal Debit,
-        decimal Credit,
-        decimal CashPaid,
-        decimal Balance,
+        string Specialty,
+        string Gender,
+        string City,
+        string MotherName,
+        string MarriedStatus,
+        string HealthInsurance,
+        string HealthInsuranceNo,
+        DateTime? AppointmentDate,
+        TimeSpan? AppointmentTime,
+        decimal CashReceipt,
+        decimal CashPayment,
+        decimal TotalInvoice,
+        decimal Discount,
+        decimal EndingBalance,
         int AgingDays,
         string Status);
 }

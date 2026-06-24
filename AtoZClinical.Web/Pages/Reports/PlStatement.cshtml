@@ -5,12 +5,10 @@
     ViewData["UseReportPickers"] = true;
     Layout = "_Layout";
     var revenueRows = Model.Results.Where(r => r.Section == "Revenue").ToList();
-    var cogsRows = Model.Results.Where(r => r.Section == "COGS").ToList();
     var expenseRows = Model.Results.Where(r => r.Section == "Expense").ToList();
-    var grossProfit = Model.NetRevenue - Model.CostOfGoodsSold;
 }
 
-<div class="clinical-form-page clinical-report-page">
+<div class="clinical-form-page clinical-report-page pl-qb-page">
     <h1 class="page-title">PL Statement</h1>
     <form method="post" id="clinicalReportForm">
         <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
@@ -40,67 +38,80 @@
                 </div>
             </div>
         </div>
-        <p class="report-hint">Profit &amp; loss statement (QuickBooks style) for the selected period.</p>
-        <div class="report-summary-panel">
-            <span><strong>Total Revenue:</strong> @Model.NetRevenue.ToString("N2")</span>
-            <span><strong>Cost of Goods Sold:</strong> @Model.CostOfGoodsSold.ToString("N2")</span>
-            <span><strong>Gross Profit:</strong> @grossProfit.ToString("N2")</span>
-            <span><strong>Total Expenses:</strong> @Model.Expenses.ToString("N2")</span>
-            <span><strong>Net Income:</strong> @Model.NetProfit.ToString("N2")</span>
-        </div>
-        <div class="report-results-scroll">
-            <table class="line-grid report-grid pl-statement-grid">
-                <thead><tr><th>Account / Detail</th><th class="text-end">Amount</th></tr></thead>
-                <tbody>
-                <tr class="pl-section-row"><td colspan="2"><strong>Income</strong></td></tr>
-                @foreach (var r in revenueRows)
-                {
-                    <tr>
-                        <td class="ps-3">@r.Account — @r.Detail</td>
-                        <td class="text-end">@r.Amount.ToString("N2")</td>
-                    </tr>
-                }
-                <tr class="pl-subtotal-row fw-semibold">
-                    <td>Total Income</td>
-                    <td class="text-end">@Model.NetRevenue.ToString("N2")</td>
-                </tr>
+        <p class="report-hint">Profit &amp; Loss statement (QuickBooks style) for the selected period.</p>
 
-                <tr class="pl-section-row"><td colspan="2"><strong>Cost of Goods Sold</strong></td></tr>
-                @foreach (var r in cogsRows)
-                {
-                    <tr>
-                        <td class="ps-3">@r.Detail</td>
-                        <td class="text-end">@r.Amount.ToString("N2")</td>
-                    </tr>
-                }
-                <tr class="pl-subtotal-row fw-semibold">
-                    <td>Total COGS</td>
-                    <td class="text-end">@Model.CostOfGoodsSold.ToString("N2")</td>
-                </tr>
-                <tr class="pl-subtotal-row fw-bold">
-                    <td>Gross Profit</td>
-                    <td class="text-end">@grossProfit.ToString("N2")</td>
-                </tr>
+        <div class="pl-qb-report atz-card">
+            <div class="pl-qb-header text-center">
+                <div class="pl-qb-company">A to Z Clinical</div>
+                <div class="pl-qb-title">Profit and Loss</div>
+                <div class="pl-qb-period">@Model.FromDate.ToString("MMMM d, yyyy") – @Model.ToDate.ToString("MMMM d, yyyy")</div>
+            </div>
 
-                <tr class="pl-section-row"><td colspan="2"><strong>Expenses</strong></td></tr>
-                @foreach (var r in expenseRows)
-                {
-                    <tr>
-                        <td class="ps-3">@r.Account — @r.Detail</td>
-                        <td class="text-end">@r.Amount.ToString("N2")</td>
+            <div class="report-results-scroll">
+                <table class="line-grid report-grid pl-statement-grid pl-qb-grid">
+                    <thead>
+                        <tr>
+                            <th>Account / Detail</th>
+                            <th class="text-end">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="pl-section-row">
+                        <td colspan="2"><span class="pl-section-label">▾ Income</span></td>
                     </tr>
-                }
-                <tr class="pl-subtotal-row fw-semibold">
-                    <td>Total Expenses</td>
-                    <td class="text-end">@Model.Expenses.ToString("N2")</td>
-                </tr>
-                <tr class="pl-total-row fw-bold">
-                    <td>Net Income</td>
-                    <td class="text-end">@Model.NetProfit.ToString("N2")</td>
-                </tr>
-                </tbody>
-            </table>
+                    @foreach (var r in revenueRows)
+                    {
+                        <tr class="pl-line-row">
+                            <td class="pl-line-indent">@r.Detail</td>
+                            <td class="text-end">@r.Amount.ToString("N2")</td>
+                        </tr>
+                    }
+                    <tr class="pl-subtotal-row">
+                        <td>Total Income</td>
+                        <td class="text-end">@Model.NetRevenue.ToString("N2")</td>
+                    </tr>
+
+                    <tr class="pl-section-row">
+                        <td colspan="2"><span class="pl-section-label">▾ Cost of Goods Sold</span></td>
+                    </tr>
+                    <tr class="pl-line-row">
+                        <td class="pl-line-indent">Cost of Goods Sold</td>
+                        <td class="text-end">@Model.CostOfGoodsSold.ToString("N2")</td>
+                    </tr>
+                    <tr class="pl-subtotal-row">
+                        <td>Total Cost of Goods Sold</td>
+                        <td class="text-end">@Model.CostOfGoodsSold.ToString("N2")</td>
+                    </tr>
+
+                    <tr class="pl-highlight-row">
+                        <td>Gross Profit</td>
+                        <td class="text-end">@Model.GrossProfit.ToString("N2")</td>
+                    </tr>
+
+                    <tr class="pl-section-row">
+                        <td colspan="2"><span class="pl-section-label">▾ Expenses</span></td>
+                    </tr>
+                    @foreach (var r in expenseRows)
+                    {
+                        <tr class="pl-line-row">
+                            <td class="pl-line-indent">@(string.IsNullOrWhiteSpace(r.Account) ? r.Detail : $"{r.Account} — {r.Detail}")</td>
+                            <td class="text-end">@r.Amount.ToString("N2")</td>
+                        </tr>
+                    }
+                    <tr class="pl-subtotal-row">
+                        <td>Total Expenses</td>
+                        <td class="text-end">@Model.Expenses.ToString("N2")</td>
+                    </tr>
+
+                    <tr class="pl-highlight-row pl-net-row">
+                        <td>Net Income</td>
+                        <td class="text-end">@Model.NetProfit.ToString("N2")</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
+
         <partial name="_ReportToolbar" />
     </form>
 </div>
