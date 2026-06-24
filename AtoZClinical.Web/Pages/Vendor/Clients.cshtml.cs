@@ -17,6 +17,35 @@ public class ClientsModel : PageModel
 
     public List<Clinic> Clinics { get; private set; } = [];
 
+    public static bool IsTrialPlan(Clinic clinic) =>
+        string.Equals(clinic.PlanName, "Trial", StringComparison.OrdinalIgnoreCase);
+
+    public static int? TrialRemainingDays(Clinic clinic)
+    {
+        if (!IsTrialPlan(clinic) || !clinic.LicenseExpires.HasValue)
+            return null;
+
+        return (clinic.LicenseExpires.Value.Date - DateTime.UtcNow.Date).Days;
+    }
+
+    public static int? TrialDaysUsed(Clinic clinic)
+    {
+        if (!IsTrialPlan(clinic) || !clinic.LicenseExpires.HasValue)
+            return null;
+
+        var totalDays = Math.Max(1, (clinic.LicenseExpires.Value.Date - clinic.CreatedAt.Date).Days);
+        var remaining = TrialRemainingDays(clinic) ?? 0;
+        return Math.Clamp(totalDays - Math.Max(0, remaining), 0, totalDays);
+    }
+
+    public static int? TrialTotalDays(Clinic clinic)
+    {
+        if (!IsTrialPlan(clinic) || !clinic.LicenseExpires.HasValue)
+            return null;
+
+        return Math.Max(1, (clinic.LicenseExpires.Value.Date - clinic.CreatedAt.Date).Days);
+    }
+
     public async Task OnGetAsync()
     {
         Clinics = await _vendor.ListClinicsAsync();

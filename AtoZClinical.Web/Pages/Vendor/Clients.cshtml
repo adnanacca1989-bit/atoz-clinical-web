@@ -56,7 +56,10 @@
                 ClinicStatus.Expired => "bg-danger",
                 _ => "bg-light text-dark"
             };
-            var isTrial = string.Equals(clinic.PlanName, "Trial", StringComparison.OrdinalIgnoreCase);
+            var isTrial = ClientsModel.IsTrialPlan(clinic);
+            var trialRemaining = ClientsModel.TrialRemainingDays(clinic);
+            var trialDaysUsed = ClientsModel.TrialDaysUsed(clinic);
+            var trialTotalDays = ClientsModel.TrialTotalDays(clinic);
             <tr>
                 <td>@clinic.ClinicCode</td>
                 <td>@clinic.Name</td>
@@ -68,13 +71,33 @@
                         <span class="badge bg-info text-dark ms-1">Trial</span>
                     }
                     <br /><small class="text-muted">@clinic.MaxUsers users max</small>
+                    @if (isTrial && trialDaysUsed is not null && trialRemaining is not null && trialTotalDays is not null)
+                    {
+                        var remainingClass = trialRemaining <= 0 ? "text-danger" : trialRemaining <= 7 ? "text-warning" : "text-success";
+                        <br /><small class="text-muted">@trialDaysUsed of @trialTotalDays days used</small>
+                        <br /><small class="@remainingClass fw-semibold">
+                            @(trialRemaining <= 0 ? "Trial expired" : $"{trialRemaining} day{(trialRemaining == 1 ? "" : "s")} remaining")
+                        </small>
+                    }
                 </td>
-                <td>@(clinic.LicenseExpires?.ToString("dd MMM yyyy") ?? "—")</td>
+                <td>
+                    @(clinic.LicenseExpires?.ToString("dd MMM yyyy") ?? "—")
+                    @if (isTrial && trialRemaining is not null)
+                    {
+                        var remainingClass = trialRemaining <= 0 ? "text-danger" : trialRemaining <= 7 ? "text-warning" : "text-muted";
+                        <br /><small class="@remainingClass">
+                            @(trialRemaining <= 0 ? "Expired" : $"{trialRemaining} day{(trialRemaining == 1 ? "" : "s")} left")
+                        </small>
+                    }
+                </td>
                 <td><span class="badge @badge">@clinic.Status</span></td>
                 <td class="d-flex flex-wrap gap-1 align-items-center">
                     @if (isTrial)
                     {
-                        <span class="badge rounded-pill bg-info text-dark vendor-trial-badge" title="This clinic is on a 30-day trial plan">Trial</span>
+                        var trialTitle = trialDaysUsed is not null && trialRemaining is not null && trialTotalDays is not null
+                            ? $"{trialTotalDays}-day trial: {trialDaysUsed} days used, {Math.Max(0, trialRemaining.Value)} days remaining"
+                            : "This clinic is on a trial plan";
+                        <span class="badge rounded-pill bg-info text-dark vendor-trial-badge" title="@trialTitle">Trial</span>
                     }
                     <form method="post" asp-page-handler="SetActive" class="d-inline">
                         <input type="hidden" name="id" value="@clinic.Id" />
