@@ -438,3 +438,9 @@ html[dir="rtl"] .clinical-form-left {
         margin-bottom: 0.5rem;
     }
 }
+
+.vendor-trial-badge {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    padding: 0.35rem 0.65rem;
+}

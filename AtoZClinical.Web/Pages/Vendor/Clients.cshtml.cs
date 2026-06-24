@@ -22,7 +22,9 @@ public class ClientsModel : PageModel
         Clinics = await _vendor.ListClinicsAsync();
         if (!string.IsNullOrWhiteSpace(Filter) && Filter != "All")
         {
-            if (Enum.TryParse<ClinicStatus>(Filter, true, out var status))
+            if (string.Equals(Filter, "Trial", StringComparison.OrdinalIgnoreCase))
+                Clinics = Clinics.Where(c => string.Equals(c.PlanName, "Trial", StringComparison.OrdinalIgnoreCase)).ToList();
+            else if (Enum.TryParse<ClinicStatus>(Filter, true, out var status))
                 Clinics = Clinics.Where(c => c.Status == status).ToList();
         }
     }
