@@ -1,0 +1,44 @@
+@page
+@model AtoZClinical.Web.Pages.Admin.EnterpriseModel
+@{
+    ViewData["Title"] = "Enterprise";
+    Layout = "_Layout";
+}
+
+<h2 class="atz-section-title">Enterprise &amp; portal</h2>
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert alert-success">@Model.Message</div>
+}
+
+<div class="atz-card p-4" style="max-width:640px">
+    <form method="post">
+        <div class="mb-3">
+            <label asp-for="Input.Subdomain" class="form-label"></label>
+            <div class="input-group">
+                <input asp-for="Input.Subdomain" class="form-control" placeholder="acme" />
+                @if (!string.IsNullOrEmpty(Model.BaseDomain))
+                {
+                    <span class="input-group-text">.@Model.BaseDomain</span>
+                }
+            </div>
+            <span asp-validation-for="Input.Subdomain" class="text-danger"></span>
+            @if (string.IsNullOrEmpty(Model.BaseDomain))
+            {
+                <div class="form-text">Set <code>Security:BaseDomain</code> in app configuration to enable custom subdomains.</div>
+            }
+        </div>
+        <div class="form-check mb-3">
+            <input asp-for="Input.PatientPortalEnabled" class="form-check-input" />
+            <label asp-for="Input.PatientPortalEnabled" class="form-check-label"></label>
+        </div>
+        <p class="small text-muted">Patients sign in at <a asp-page="/Portal/Login">/Portal/Login</a> using patient number, date of birth, and phone verification.</p>
+        <div class="mb-3">
+            <label asp-for="Input.DedicatedConnectionName" class="form-label"></label>
+            <input asp-for="Input.DedicatedConnectionName" class="form-control" placeholder="Optional — for largest enterprise tenants" />
+            <div class="form-text">Reserved for dedicated-database deployments. Contact your vendor to provision.</div>
+        </div>
+        <button type="submit" class="btn btn-atz-primary">Save</button>
+    </form>
+</div>

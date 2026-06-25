@@ -30,7 +30,14 @@
                         <div class="alert alert-success">Your 30-day trial clinic is ready.</div>
                         <p>Clinical: <strong>@Model.ClinicName</strong></p>
                         <p>Username: <strong>@Model.AdminUsername</strong></p>
-                        <p class="text-muted small mb-0">Trial expires 30 days from today. Use Login below with your username and password.</p>
+                        @if (Model.EmailConfirmationSent)
+                        {
+                            <p class="text-muted small">We sent a confirmation link to your email. Please confirm before signing in.</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-0">Trial expires 30 days from today. Use Login with your username and password.</p>
+                        }
                         <div class="mt-4 d-flex flex-wrap gap-2">
                             <a class="btn btn-atz-primary" asp-page="/Account/Login">Login</a>
                             <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
@@ -61,6 +68,15 @@
                                 <label asp-for="Input.Email" class="form-label"></label>
                                 <input asp-for="Input.Email" class="form-control" type="email" autocomplete="email" />
                                 <span asp-validation-for="Input.Email" class="text-danger"></span>
+                            </div>
+                            <partial name="_CaptchaWidget" />
+                            <div class="form-check mb-3">
+                                <input asp-for="Input.AcceptTerms" class="form-check-input" />
+                                <label asp-for="Input.AcceptTerms" class="form-check-label">
+                                    I agree to the <a asp-page="/Legal/Terms" target="_blank">Terms of Service</a>
+                                    and <a asp-page="/Legal/Privacy" target="_blank">Privacy Policy</a>.
+                                </label>
+                                <span asp-validation-for="Input.AcceptTerms" class="text-danger d-block"></span>
                             </div>
                             <div class="d-flex flex-wrap gap-2 mt-4">
                                 <button type="submit" class="btn btn-atz-primary">Register Trial</button>

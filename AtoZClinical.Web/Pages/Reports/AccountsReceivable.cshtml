@@ -9,6 +9,7 @@
 
 <div class="clinical-form-page clinical-report-page">
     <h1 class="page-title">Accounts Receivable</h1>
+    <partial name="_ReportBranding" />
     <form method="post" id="clinicalReportForm">
         <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
         <div class="report-filter-panel">
@@ -35,7 +36,7 @@
             </div>
         </div>
         </div>
-        <p class="report-hint">Showing @Model.Results.Count patient invoice balances for the selected period. Click <strong>Run</strong> after changing filters.</p>
+        <p class="report-hint">Showing @Model.Results.Count patient invoice balances for the selected period. Ending balance uses <strong>Dr</strong> (patient owes) or <strong>Cr</strong> (patient credit / overpayment). Click <strong>Run</strong> after changing filters.</p>
         <div class="report-results-scroll">
             <table class="line-grid report-grid">
                 <thead>
@@ -53,11 +54,13 @@
                         <th data-col="healthInsuranceNo" data-col-default="false">Health Insurance No</th>
                         <th data-col="appointmentDate" data-col-default="false">Appointment Date</th>
                         <th data-col="appointmentTime" data-col-default="false">Appointment Time</th>
-                        <th data-col="cashReceipt">Cash Receipt</th>
+                        <th data-col="cashReceipt">Cash Receipt (Applied)</th>
                         <th data-col="cashPayment">Cash Payment</th>
+                        <th data-col="totalReceived">Total Received</th>
+                        <th data-col="patientCredit">Patient Credit</th>
                         <th data-col="totalInvoice">Total Invoice</th>
                         <th data-col="discount">Discount</th>
-                        <th data-col="endingBalance">Ending Balance</th>
+                        <th data-col="endingBalance">Ending Balance (Dr+/Cr−)</th>
                         <th data-col="agingDays">Aging Days</th>
                         <th data-col="status">Status</th>
                     </tr>
@@ -81,9 +84,11 @@
                         <td data-col="appointmentTime">@(r.AppointmentTime is null ? "" : DateTime.Today.Add(r.AppointmentTime.Value).ToString("t"))</td>
                         <td data-col="cashReceipt">@r.CashReceipt.ToString("N2")</td>
                         <td data-col="cashPayment">@r.CashPayment.ToString("N2")</td>
+                        <td data-col="totalReceived">@r.TotalReceived.ToString("N2")</td>
+                        <td data-col="patientCredit">@r.PatientCredit.ToString("N2")</td>
                         <td data-col="totalInvoice">@r.TotalInvoice.ToString("N2")</td>
                         <td data-col="discount">@r.Discount.ToString("N2")</td>
-                        <td data-col="endingBalance">@r.EndingBalance.ToString("N2")</td>
+                        <td data-col="endingBalance" class="@(r.EndingBalance < 0 ? "text-success" : r.EndingBalance > 0 ? "text-danger" : "")">@AccountsReceivableModel.FormatEndingBalance(r.EndingBalance)</td>
                         <td data-col="agingDays">@r.AgingDays</td>
                         <td data-col="status">@r.Status</td>
                     </tr>
@@ -93,7 +98,10 @@
                 {
                 <tfoot>
                     <tr class="report-totals-row fw-bold">
-                        <td data-col="invoiceId" colspan="4">Totals</td>
+                        <td data-col="invoiceId"></td>
+                        <td data-col="invoiceDate"></td>
+                        <td data-col="patient"></td>
+                        <td data-col="doctor">Totals</td>
                         <td data-col="specialty"></td>
                         <td data-col="gender"></td>
                         <td data-col="city"></td>
@@ -105,9 +113,11 @@
                         <td data-col="appointmentTime"></td>
                         <td data-col="cashReceipt">@Model.TotalCashReceipt.ToString("N2")</td>
                         <td data-col="cashPayment">@Model.TotalCashPayment.ToString("N2")</td>
+                        <td data-col="totalReceived"></td>
+                        <td data-col="patientCredit">@Model.TotalPatientCredit.ToString("N2")</td>
                         <td data-col="totalInvoice">@Model.TotalInvoiceAmount.ToString("N2")</td>
                         <td data-col="discount">@Model.TotalDiscount.ToString("N2")</td>
-                        <td data-col="endingBalance">@Model.TotalEndingBalance.ToString("N2")</td>
+                        <td data-col="endingBalance">@AccountsReceivableModel.FormatEndingBalance(Model.TotalEndingBalance)</td>
                         <td data-col="agingDays"></td>
                         <td data-col="status"></td>
                     </tr>

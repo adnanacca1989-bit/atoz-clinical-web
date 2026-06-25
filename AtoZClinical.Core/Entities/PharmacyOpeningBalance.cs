@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class PharmacyOpeningBalance
+public class PharmacyOpeningBalance : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

@@ -1,4 +1,5 @@
 using AtoZClinical.Core.Entities;
+using AtoZClinical.Core.Webhooks;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,8 +8,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class AppointmentService
 {
     private readonly ClinicalDbContext _db;
+    private readonly IWebhookDispatchService _webhooks;
 
-    public AppointmentService(ClinicalDbContext db) => _db = db;
+    public AppointmentService(ClinicalDbContext db, IWebhookDispatchService webhooks)
+    {
+        _db = db;
+        _webhooks = webhooks;
+    }
 
     public Task<List<Appointment>> ListAsync(Guid clinicId, DateTime? from = null, DateTime? to = null)
     {
@@ -36,7 +42,8 @@ public sealed class AppointmentService
     public async Task<Appointment> SaveAsync(Guid clinicId, Appointment appointment)
     {
         appointment.ClinicId = clinicId;
-        if (appointment.Id == Guid.Empty)
+        var isNew = appointment.Id == Guid.Empty;
+        if (isNew)
         {
             appointment.Id = Guid.NewGuid();
             appointment.CreatedAt = DateTime.UtcNow;
@@ -48,6 +55,19 @@ public sealed class AppointmentService
         }
 
         await _db.SaveChangesAsync();
+
+        if (isNew)
+        {
+            await _webhooks.DispatchAsync(clinicId, WebhookEvents.AppointmentCreated, new
+            {
+                appointment.Id,
+                appointment.PatientId,
+                appointment.AppointmentDate,
+                appointment.StartTime,
+                appointment.DoctorName
+            });
+        }
+
         return appointment;
     }
 

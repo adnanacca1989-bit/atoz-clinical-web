@@ -1,0 +1,47 @@
+@page
+@model AtoZClinical.Web.Pages.Settings.TwoFactorModel
+@{
+    ViewData["Title"] = "Two-factor authentication";
+    Layout = "_Layout";
+}
+
+<h2 class="atz-section-title">Two-factor authentication</h2>
+<partial name="_SettingsMenu" />
+
+@if (Model.MfaRequired && !Model.Is2faEnabled)
+{
+    <div class="alert alert-warning">Your account requires two-factor authentication. Set up an authenticator app below.</div>
+}
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert alert-info"><pre class="mb-0">@Model.Message</pre></div>
+}
+
+<div class="atz-card p-4">
+    @if (Model.Is2faEnabled)
+    {
+        <p class="text-success mb-3">Two-factor authentication is <strong>enabled</strong>.</p>
+        <p class="text-muted">Recovery codes remaining: @Model.RecoveryCodesLeft</p>
+        @if (!Model.MfaRequired)
+        {
+            <form method="post" asp-page-handler="Disable" class="mt-3">
+                <button type="submit" class="btn btn-outline-danger">Disable 2FA</button>
+            </form>
+        }
+    }
+    else if (Model.ShowSetup)
+    {
+        <p class="text-muted">Scan this key in Google Authenticator, Microsoft Authenticator, or similar:</p>
+        <p class="fw-bold font-monospace">@Model.SharedKey</p>
+        <p class="small text-muted mb-3">Or use URI: <code>@Model.AuthenticatorUri</code></p>
+        <form method="post" asp-page-handler="Enable">
+            <div class="mb-3">
+                <label class="form-label">Verification code</label>
+                <input asp-for="VerificationCode" class="form-control" autocomplete="one-time-code" />
+                <span asp-validation-for="VerificationCode" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-atz-primary">Enable 2FA</button>
+        </form>
+    }
+</div>

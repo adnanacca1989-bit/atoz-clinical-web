@@ -1,0 +1,24 @@
+@page
+@model AtoZClinical.Web.Pages.Account.ConfirmEmailModel
+@{
+    ViewData["Title"] = "Confirm Email";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Confirm Email - A to Z Clinical</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="login-panel atz-card p-4">
+        <h3 class="fw-bold mb-3" style="color:#0b4f8a">Email Confirmation</h3>
+        <div class="alert @(Model.Succeeded ? "alert-success" : "alert-warning")">@Model.Message</div>
+        <a class="btn btn-atz-primary w-100" asp-page="/Account/Login">Go to Login</a>
+    </div>
+</body>
+</html>

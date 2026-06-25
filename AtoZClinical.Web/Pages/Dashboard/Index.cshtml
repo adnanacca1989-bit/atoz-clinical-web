@@ -1,204 +1,408 @@
-@page
-@model AtoZClinical.Web.Pages.Dashboard.IndexModel
-@{
-    ViewData["Title"] = "Dashboard";
-    var today = DateTime.Today;
-    var periodFrom = Model.IsTodayScope ? today : Model.FromDate;
-    var periodTo = Model.IsTodayScope ? today : Model.ToDate;
-    string StatusLink(string status) =>
-        $"/Reports/PatientStatus?Status={Uri.EscapeDataString(status)}&FromDate={periodFrom:yyyy-MM-dd}&ToDate={periodTo:yyyy-MM-dd}";
-    string TodayStatusLink(string status) =>
-        $"/Reports/PatientStatus?Status={Uri.EscapeDataString(status)}&FromDate={today:yyyy-MM-dd}&ToDate={today:yyyy-MM-dd}";
-}
-
-<div class="clinical-dashboard-page">
-    <div class="dashboard-clinic-header">
-        <h2 class="dashboard-clinic-name">@Model.ClinicName</h2>
-        <div class="dashboard-scope-toggle">
-            <a class="dashboard-scope-btn @(Model.IsTodayScope ? "active" : "")"
-               asp-page="/Dashboard/Index" asp-route-Scope="today">Today</a>
-            <a class="dashboard-scope-btn @(!Model.IsTodayScope ? "active" : "")"
-               asp-page="/Dashboard/Index" asp-route-Scope="period"
-               asp-route-FromDate="@Model.FromDate.ToString("yyyy-MM-dd")"
-               asp-route-ToDate="@Model.ToDate.ToString("yyyy-MM-dd")">Date Range</a>
-        </div>
-    </div>
-
-    @if (!Model.IsTodayScope)
-    {
-        <form method="post" asp-page="/Dashboard/Index" class="dashboard-filter-bar">
-            <input type="hidden" asp-for="Scope" value="period" />
-            <div class="row g-2 align-items-end">
-                <div class="col-auto">
-                    <label class="clinical-field-label mb-1">From Date</label>
-                    <input asp-for="FromDate" class="clinical-field dashboard-date-field" type="date" />
-                </div>
-                <div class="col-auto">
-                    <label class="clinical-field-label mb-1">To Date</label>
-                    <input asp-for="ToDate" class="clinical-field dashboard-date-field" type="date" />
-                </div>
-                <div class="col-auto">
-                    <button type="submit" asp-page-handler="Run" class="btn btn-primary dashboard-run-btn">Run</button>
-                </div>
-                <div class="col-auto">
-                    <button type="submit" asp-page-handler="Refresh" class="btn btn-outline-secondary">Refresh</button>
-                </div>
-            </div>
-        </form>
-    }
-
-    <h3 class="dashboard-section-title">Today at a Glance</h3>
-    <div class="row g-3 dashboard-stat-grid">
-        <div class="col-md-3">
-            <a href="@TodayStatusLink("Pending")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Pending Today</div>
-                    <div class="dashboard-stat-value text-warning">@Model.TodayPending</div>
-                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-3">
-            <a href="@TodayStatusLink("Confirmed")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Confirmed Today</div>
-                    <div class="dashboard-stat-value text-success">@Model.TodayConfirmed</div>
-                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-3">
-            <a href="@TodayStatusLink("Under Process")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Under Process Today</div>
-                    <div class="dashboard-stat-value text-info">@Model.TodayUnderProcess</div>
-                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-3">
-            <a href="@TodayStatusLink("Completed")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Completed Today</div>
-                    <div class="dashboard-stat-value text-success-emphasis">@Model.TodayCompleted</div>
-                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
-                </div>
-            </a>
-        </div>
-    </div>
-
-    <h3 class="dashboard-section-title">@(Model.IsTodayScope ? "Today's Patients" : "Patients in Selected Period")</h3>
-    <div class="row g-3 dashboard-stat-grid">
-        <div class="col-md-4">
-            <a href="@StatusLink("Pending")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Patients Pending</div>
-                    <div class="dashboard-stat-value text-warning">@Model.PeriodPending</div>
-                    <div class="dashboard-stat-foot">Pending</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="@StatusLink("Cancelled")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Patients Cancelled</div>
-                    <div class="dashboard-stat-value text-danger">@Model.PeriodCancelled</div>
-                    <div class="dashboard-stat-foot">Cancelled</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="@StatusLink("Confirmed")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Patients Confirmed</div>
-                    <div class="dashboard-stat-value text-success">@Model.PeriodConfirmed</div>
-                    <div class="dashboard-stat-foot">Confirmed</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="@StatusLink("Under Process")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Patients Under Process</div>
-                    <div class="dashboard-stat-value text-info">@Model.PeriodUnderProcess</div>
-                    <div class="dashboard-stat-foot">Under Process</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="@StatusLink("Completed")" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Patients Completed</div>
-                    <div class="dashboard-stat-value text-success-emphasis">@Model.PeriodCompleted</div>
-                    <div class="dashboard-stat-foot">Completed</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="/PatientRegistration/Index" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">New Registrations</div>
-                    <div class="dashboard-stat-value text-primary">@Model.NewRegistrations</div>
-                    <div class="dashboard-stat-foot">In selected period</div>
-                </div>
-            </a>
-        </div>
-    </div>
-
-    <h3 class="dashboard-section-title">Financial Summary</h3>
-    <div class="row g-3 dashboard-stat-grid">
-        <div class="col-md-4">
-            <a href="/Invoices/Index" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Invoice Total</div>
-                    <div class="dashboard-stat-value text-primary dashboard-money">@Model.InvoiceTotal.ToString("N2")</div>
-                    <div class="dashboard-stat-foot">Billed in period</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="/CashReceipts/Index" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Cash Received</div>
-                    <div class="dashboard-stat-value text-success dashboard-money">@Model.CashReceived.ToString("N2")</div>
-                    <div class="dashboard-stat-foot">Receipts in period</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="/Reports/AccountsReceivable" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Outstanding A/R</div>
-                    <div class="dashboard-stat-value text-danger dashboard-money">@Model.OutstandingAr.ToString("N2")</div>
-                    <div class="dashboard-stat-foot">All open balances</div>
-                </div>
-            </a>
-        </div>
-    </div>
-
-    <h3 class="dashboard-section-title">Clinic Overview</h3>
-    <div class="row g-3 dashboard-stat-grid">
-        <div class="col-md-6">
-            <a href="/Doctors/Index" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">Active Doctors</div>
-                    <div class="dashboard-stat-value text-primary">@Model.ActiveDoctorCount</div>
-                    <div class="dashboard-stat-foot">Clinic-wide (not date filtered)</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-6">
-            <a href="/PatientRegistration/Index" class="dashboard-stat-link">
-                <div class="dashboard-stat-card">
-                    <div class="dashboard-stat-title">New Patients Registered</div>
-                    <div class="dashboard-stat-value text-primary">@Model.NewRegistrations</div>
-                    <div class="dashboard-stat-foot">Created in selected period</div>
-                </div>
-            </a>
-        </div>
-    </div>
-
-    <div class="dashboard-brand-footer">
-        Designed By The Chartered Accountant (Mohammed Adnan) 07885555888 07866090003
-    </div>
-</div>
+@page
+
+@model AtoZClinical.Web.Pages.Dashboard.IndexModel
+
+@{
+
+    ViewData["Title"] = "Dashboard";
+
+    var today = DateTime.Today;
+
+    var periodFrom = Model.IsTodayScope ? today : Model.FromDate;
+
+    var periodTo = Model.IsTodayScope ? today : Model.ToDate;
+
+    string StatusLink(string status) =>
+
+        $"/Reports/PatientStatus?Status={Uri.EscapeDataString(status)}&FromDate={periodFrom:yyyy-MM-dd}&ToDate={periodTo:yyyy-MM-dd}";
+
+    string TodayStatusLink(string status) =>
+
+        $"/Reports/PatientStatus?Status={Uri.EscapeDataString(status)}&FromDate={today:yyyy-MM-dd}&ToDate={today:yyyy-MM-dd}";
+
+}
+
+
+
+<div class="clinical-dashboard-page">
+
+    <div class="dashboard-clinic-header">
+
+        <h2 class="dashboard-clinic-name">@Model.ClinicName</h2>
+
+        <div class="dashboard-scope-toggle">
+
+            <a class="dashboard-scope-btn @(Model.IsTodayScope ? "active" : "")"
+
+               asp-page="/Dashboard/Index" asp-route-Scope="today">Today</a>
+
+            <a class="dashboard-scope-btn @(!Model.IsTodayScope ? "active" : "")"
+
+               asp-page="/Dashboard/Index" asp-route-Scope="period"
+
+               asp-route-FromDate="@Model.FromDate.ToString("yyyy-MM-dd")"
+
+               asp-route-ToDate="@Model.ToDate.ToString("yyyy-MM-dd")">Date Range</a>
+
+        </div>
+
+    </div>
+
+
+
+    @if (!Model.IsTodayScope)
+
+    {
+
+        <form method="post" asp-page="/Dashboard/Index" class="dashboard-filter-bar">
+
+            <input type="hidden" asp-for="Scope" value="period" />
+
+            <div class="row g-2 align-items-end">
+
+                <div class="col-auto">
+
+                    <label class="clinical-field-label mb-1">From Date</label>
+
+                    <input asp-for="FromDate" class="clinical-field dashboard-date-field" type="date" />
+
+                </div>
+
+                <div class="col-auto">
+
+                    <label class="clinical-field-label mb-1">To Date</label>
+
+                    <input asp-for="ToDate" class="clinical-field dashboard-date-field" type="date" />
+
+                </div>
+
+                <div class="col-auto">
+
+                    <button type="submit" asp-page-handler="Run" class="btn btn-primary dashboard-run-btn">Run</button>
+
+                </div>
+
+                <div class="col-auto">
+
+                    <button type="submit" asp-page-handler="Refresh" class="btn btn-outline-secondary">Refresh</button>
+
+                </div>
+
+            </div>
+
+        </form>
+
+    }
+
+
+
+    <h3 class="dashboard-section-title">Today at a Glance</h3>
+
+    <div class="row g-3 dashboard-stat-grid">
+
+        <div class="col-md-3">
+
+            <a href="@TodayStatusLink("Pending")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Pending Today</div>
+
+                    <div class="dashboard-stat-value text-warning">@Model.TodayPending</div>
+
+                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <a href="@TodayStatusLink("Confirmed")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Confirmed Today</div>
+
+                    <div class="dashboard-stat-value text-success">@Model.TodayConfirmed</div>
+
+                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <a href="@TodayStatusLink("Under Process")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Under Process Today</div>
+
+                    <div class="dashboard-stat-value text-info">@Model.TodayUnderProcess</div>
+
+                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <a href="@TodayStatusLink("Completed")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Completed Today</div>
+
+                    <div class="dashboard-stat-value text-success-emphasis">@Model.TodayCompleted</div>
+
+                    <div class="dashboard-stat-foot">@today.ToString("d")</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+    </div>
+
+
+
+    <h3 class="dashboard-section-title">@(Model.IsTodayScope ? "Today's Patients" : "Patients in Selected Period")</h3>
+
+    <div class="row g-3 dashboard-stat-grid">
+
+        <div class="col-md-4">
+
+            <a href="@StatusLink("Pending")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Patients Pending</div>
+
+                    <div class="dashboard-stat-value text-warning">@Model.PeriodPending</div>
+
+                    <div class="dashboard-stat-foot">Pending</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <a href="@StatusLink("Cancelled")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Patients Cancelled</div>
+
+                    <div class="dashboard-stat-value text-danger">@Model.PeriodCancelled</div>
+
+                    <div class="dashboard-stat-foot">Cancelled</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <a href="@StatusLink("Confirmed")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Patients Confirmed</div>
+
+                    <div class="dashboard-stat-value text-success">@Model.PeriodConfirmed</div>
+
+                    <div class="dashboard-stat-foot">Confirmed</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <a href="@StatusLink("Under Process")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Patients Under Process</div>
+
+                    <div class="dashboard-stat-value text-info">@Model.PeriodUnderProcess</div>
+
+                    <div class="dashboard-stat-foot">Under Process</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <a href="@StatusLink("Completed")" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Patients Completed</div>
+
+                    <div class="dashboard-stat-value text-success-emphasis">@Model.PeriodCompleted</div>
+
+                    <div class="dashboard-stat-foot">Completed</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <a href="/PatientRegistration/Index" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">New Registrations</div>
+
+                    <div class="dashboard-stat-value text-primary">@Model.NewRegistrations</div>
+
+                    <div class="dashboard-stat-foot">In selected period</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+    </div>
+
+
+
+    <h3 class="dashboard-section-title">Financial Summary</h3>
+
+    <div class="row g-3 dashboard-stat-grid">
+
+        <div class="col-md-4">
+
+            <a href="/Invoices/Index" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Invoice Total</div>
+
+                    <div class="dashboard-stat-value text-primary dashboard-money">@Model.InvoiceTotal.ToString("N2")</div>
+
+                    <div class="dashboard-stat-foot">Billed in period</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <a href="/CashReceipts/Index" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Cash Received</div>
+
+                    <div class="dashboard-stat-value text-success dashboard-money">@Model.CashReceived.ToString("N2")</div>
+
+                    <div class="dashboard-stat-foot">Receipts in period</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <a href="/Reports/AccountsReceivable" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Outstanding A/R</div>
+
+                    <div class="dashboard-stat-value text-danger dashboard-money">@Model.OutstandingAr.ToString("N2")</div>
+
+                    <div class="dashboard-stat-foot">All open balances</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+    </div>
+
+
+
+    <h3 class="dashboard-section-title">Clinic Overview</h3>
+
+    <div class="row g-3 dashboard-stat-grid">
+
+        <div class="col-md-6">
+
+            <a href="/Doctors/Index" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">Active Doctors</div>
+
+                    <div class="dashboard-stat-value text-primary">@Model.ActiveDoctorCount</div>
+
+                    <div class="dashboard-stat-foot">Clinic-wide (not date filtered)</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+        <div class="col-md-6">
+
+            <a href="/PatientRegistration/Index" class="dashboard-stat-link">
+
+                <div class="dashboard-stat-card">
+
+                    <div class="dashboard-stat-title">New Patients Registered</div>
+
+                    <div class="dashboard-stat-value text-primary">@Model.NewRegistrations</div>
+
+                    <div class="dashboard-stat-foot">Created in selected period</div>
+
+                </div>
+
+            </a>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="dashboard-brand-footer">
+
+        Designed By The Chartered Accountant (Mohammed Adnan) 07885555888 07866090003
+
+    </div>
+
+</div>
+

@@ -1,5 +1,6 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Core.Enums;
+using AtoZClinical.Infrastructure.Billing;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,8 @@ public enum ClinicBlockReason
     NoClinic = 1,
     Pending = 2,
     Suspended = 3,
-    Expired = 4
+    Expired = 4,
+    PaymentRequired = 5
 }
 
 public sealed record ClinicAccessResult(bool IsAllowed, string Message, ClinicBlockReason Reason, Clinic? Clinic)
@@ -50,9 +52,21 @@ public sealed class ClinicAccessService
                 ClinicBlockReason.Expired, clinic);
 
         if (clinic.LicenseExpires.HasValue && clinic.LicenseExpires.Value.Date < DateTime.UtcNow.Date)
+        {
+            var hasActivePaidStripe =
+                string.Equals(clinic.SubscriptionStatus, SubscriptionStatuses.Active, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(clinic.StripeSubscriptionId);
+
+            if (!hasActivePaidStripe)
+                return ClinicAccessResult.Blocked(
+                    $"Your license expired on {clinic.LicenseExpires.Value:d}. Please upgrade your plan to continue.",
+                    ClinicBlockReason.Expired, clinic);
+        }
+
+        if (SubscriptionStatuses.BlocksAccess(clinic.SubscriptionStatus))
             return ClinicAccessResult.Blocked(
-                $"Your license expired on {clinic.LicenseExpires.Value:d}. Please contact your vendor to renew.",
-                ClinicBlockReason.Expired, clinic);
+                "Your subscription payment failed or is past due. Please update billing to restore access.",
+                ClinicBlockReason.PaymentRequired, clinic);
 
         return ClinicAccessResult.Allowed(clinic);
     }
@@ -63,6 +77,7 @@ public sealed class ClinicAccessService
         var overdue = await _db.Clinics
             .Where(c => c.Status == ClinicStatus.Active || c.Status == ClinicStatus.Pending)
             .Where(c => c.LicenseExpires != null && c.LicenseExpires.Value.Date < today)
+            .Where(c => !SubscriptionStatuses.IsPaid(c.SubscriptionStatus))
             .ToListAsync(cancellationToken);
 
         foreach (var clinic in overdue)

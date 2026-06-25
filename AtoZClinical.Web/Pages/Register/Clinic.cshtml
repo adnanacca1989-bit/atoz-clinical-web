@@ -29,7 +29,14 @@
                         <div class="alert alert-success">Registration submitted successfully.</div>
                         <p>Your clinic <strong>@Model.ClinicName</strong> is pending approval.</p>
                         <p>Admin username: <strong>@Model.AdminUsername</strong></p>
-                        <p class="text-muted">You will receive access after the vendor activates your account. Then login at the clinic login page.</p>
+                        @if (Model.EmailConfirmationSent)
+                        {
+                            <p class="text-muted">A confirmation email was sent. Confirm your email before signing in once the vendor activates your account.</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted">You will receive access after the vendor activates your account. Then login at the clinic login page.</p>
+                        }
                         <a class="btn btn-atz-primary" asp-page="/Account/Login">Go to Login</a>
                     </div>
                 }
@@ -86,6 +93,15 @@
                                         }
                                     </div>
                                 </div>
+                            </div>
+                            <partial name="_CaptchaWidget" />
+                            <div class="form-check mb-3">
+                                <input asp-for="Input.AcceptTerms" class="form-check-input" />
+                                <label asp-for="Input.AcceptTerms" class="form-check-label">
+                                    I agree to the <a asp-page="/Legal/Terms" target="_blank">Terms of Service</a>
+                                    and <a asp-page="/Legal/Privacy" target="_blank">Privacy Policy</a>.
+                                </label>
+                                <span asp-validation-for="Input.AcceptTerms" class="text-danger d-block"></span>
                             </div>
                             <div class="mt-4 d-flex gap-2">
                                 <button type="submit" class="btn btn-atz-primary">Submit Registration</button>

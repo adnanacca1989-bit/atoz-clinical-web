@@ -30,8 +30,12 @@
                         <p><strong>License expires:</strong> @Model.LicenseExpires.Value.ToString("dd MMM yyyy")</p>
                     }
                     <p class="text-muted">Contact your system vendor to activate or renew your subscription.</p>
-                    <div class="d-flex gap-2 mt-4">
-                        <a class="btn btn-atz-primary" asp-page="/Account/Login">Back to Login</a>
+                    <div class="d-flex gap-2 mt-4 flex-wrap">
+                        @if (Model.ShowUpgradeCta)
+                        {
+                            <a class="btn btn-atz-primary" asp-page="/Billing/Index">Upgrade / Billing</a>
+                        }
+                        <a class="btn btn-outline-primary" asp-page="/Account/Login">Back to Login</a>
                         <a class="btn btn-outline-secondary" asp-page="/Index">Home</a>
                     </div>
                 </div>

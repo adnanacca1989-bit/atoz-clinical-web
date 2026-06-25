@@ -105,6 +105,13 @@ public class IndexModel : ClinicFormPageModel
 
         if (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase))
             Input.WrittenAmount = AmountWords.Convert(Input.Amount);
+
+        var applied = Math.Min(Input.Amount, Math.Max(0, Input.BalanceDue));
+        Input.EndingBalance = Math.Max(0, Input.BalanceDue - applied);
+        Input.PatientCredit = Math.Max(0, Input.Amount - applied);
+        if (Input.BalanceDue <= 0 && Input.Amount > 0)
+            Input.BalanceStatus = Input.PatientCredit > 0 ? "Paid (Credit)" : "Paid";
+
         var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
         var entity = Input.ToEntity(isNew ? null : RecordId);
         var saved = await _service.SaveAsync(clinicId.Value, entity);
@@ -161,6 +168,7 @@ public class IndexModel : ClinicFormPageModel
         public decimal BalanceDue { get; set; }
         public string? BalanceStatus { get; set; }
         public decimal? EndingBalance { get; set; }
+        public decimal PatientCredit { get; set; }
 
         [Required(ErrorMessage = "Amount is required.")]
         [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than zero.")]
@@ -196,7 +204,8 @@ public class IndexModel : ClinicFormPageModel
             DoctorName = c.DoctorName,
             BalanceDue = c.BalanceDue,
             BalanceStatus = c.BalanceStatus,
-            EndingBalance = c.EndingBalance,
+            EndingBalance = Math.Max(0, (c.EndingBalance ?? 0)),
+            PatientCredit = Math.Max(0, c.Amount - Math.Min(c.Amount, Math.Max(0, c.BalanceDue))),
             Amount = c.Amount,
             WrittenAmount = c.WrittenAmount,
             PaymentMethod = c.PaymentMethod,
@@ -225,6 +234,7 @@ public class IndexModel : ClinicFormPageModel
             BalanceDue = BalanceDue,
             BalanceStatus = BalanceStatus,
             EndingBalance = EndingBalance,
+            PatientCredit = PatientCredit,
             Amount = Amount,
             WrittenAmount = WrittenAmount,
             PaymentMethod = PaymentMethod,

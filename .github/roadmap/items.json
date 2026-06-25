@@ -1,0 +1,357 @@
+{
+  "projectTitle": "AtoZ Clinical Roadmap",
+  "projectDescription": "Prioritized product roadmap from the June 2026 architecture review (Phases 0–5 complete).",
+  "labels": [
+    "roadmap",
+    "critical",
+    "important",
+    "future",
+    "security",
+    "billing",
+    "clinical",
+    "reports",
+    "infrastructure",
+    "integrations",
+    "compliance",
+    "ux"
+  ],
+  "milestones": [
+  {
+    "key": "critical",
+    "title": "Critical (0–3 months)",
+    "description": "Must-have initiatives for scale, compliance, and billing accuracy."
+  },
+  {
+    "key": "important",
+    "title": "Important (3–9 months)",
+    "description": "Should-have features for differentiation and enterprise operations."
+  },
+  {
+    "key": "future",
+    "title": "Future (9–18 months)",
+    "description": "Nice-to-have enhancements for hospital segment and channel sales."
+  }
+  ],
+  "items": [
+    {
+      "id": "C1",
+      "title": "Report performance (indexes + pagination)",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Prevents report timeouts and failures at 100+ clinics / 10k+ patients.",
+      "complexity": "Low",
+      "effort": "1–2 weeks",
+      "labels": ["roadmap", "critical", "reports", "infrastructure"]
+    },
+    {
+      "id": "C2",
+      "title": "Staff appointment calendar + unified appointment model",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Core clinic expectation; replaces fragmented scheduling UX.",
+      "complexity": "Medium",
+      "effort": "4–5 weeks",
+      "labels": ["roadmap", "critical", "clinical", "ux"]
+    },
+    {
+      "id": "C3",
+      "title": "Redis cache + distributed background jobs",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Enables horizontal scaling and reliable multi-instance deploy on Render.",
+      "complexity": "Medium",
+      "effort": "2 weeks",
+      "labels": ["roadmap", "critical", "infrastructure"]
+    },
+    {
+      "id": "C4",
+      "title": "Webhook queue with retry and delivery log",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Integration reliability for enterprise API customers.",
+      "complexity": "Medium",
+      "effort": "2 weeks",
+      "labels": ["roadmap", "critical", "integrations", "infrastructure"]
+    },
+    {
+      "id": "C5",
+      "title": "Expand PHI audit to API, portal, and exports",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Compliance blocker for US healthcare and enterprise procurement.",
+      "complexity": "Medium",
+      "effort": "1 week",
+      "labels": ["roadmap", "critical", "security", "compliance"]
+    },
+    {
+      "id": "C6",
+      "title": "HIPAA / compliance documentation package",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Required for US healthcare sales and security questionnaires.",
+      "complexity": "Medium",
+      "effort": "4–8 weeks (process)",
+      "labels": ["roadmap", "critical", "compliance"]
+    },
+    {
+      "id": "C7",
+      "title": "AR aging buckets report",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Standard finance report expected by clinic administrators.",
+      "complexity": "Low",
+      "effort": "1 week",
+      "labels": ["roadmap", "critical", "reports", "billing"]
+    },
+    {
+      "id": "C8",
+      "title": "Prescription line items",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Clinical credibility for pharmacy module.",
+      "complexity": "Medium",
+      "effort": "2 weeks",
+      "labels": ["roadmap", "critical", "clinical"]
+    },
+    {
+      "id": "C9",
+      "title": "Enforce MFA + API rate limits in production",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Security baseline for SaaS at scale.",
+      "complexity": "Low",
+      "effort": "3–5 days",
+      "labels": ["roadmap", "critical", "security"]
+    },
+    {
+      "id": "C10",
+      "title": "Patient credit ledger (persistent)",
+      "priority": "Critical",
+      "milestone": "critical",
+      "businessValue": "Billing accuracy for overpayments and unapplied credits.",
+      "complexity": "Low",
+      "effort": "1 week",
+      "labels": ["roadmap", "critical", "billing"]
+    },
+    {
+      "id": "I1",
+      "title": "EMR-lite clinical notes (SOAP)",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Product differentiation vs. billing-only competitors.",
+      "complexity": "High",
+      "effort": "4–6 weeks",
+      "labels": ["roadmap", "important", "clinical"]
+    },
+    {
+      "id": "I2",
+      "title": "Executive dashboard with trends and charts",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Management buy-in and clinic owner retention.",
+      "complexity": "Medium",
+      "effort": "2–3 weeks",
+      "labels": ["roadmap", "important", "reports", "ux"]
+    },
+    {
+      "id": "I3",
+      "title": "Doctor commission module",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Required by specialist and multi-doctor clinics.",
+      "complexity": "Medium",
+      "effort": "2–3 weeks",
+      "labels": ["roadmap", "important", "billing"]
+    },
+    {
+      "id": "I4",
+      "title": "SMS / email appointment reminders",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Reduces no-shows; improves patient experience.",
+      "complexity": "Medium",
+      "effort": "2 weeks",
+      "labels": ["roadmap", "important", "integrations", "ux"]
+    },
+    {
+      "id": "I5",
+      "title": "Cash flow statement",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "CFO-level financial reporting.",
+      "complexity": "Medium",
+      "effort": "2 weeks",
+      "labels": ["roadmap", "important", "reports", "billing"]
+    },
+    {
+      "id": "I6",
+      "title": "API v2 (cursor pagination, rate limits)",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Enterprise integration requirements.",
+      "complexity": "Medium",
+      "effort": "2–3 weeks",
+      "labels": ["roadmap", "important", "integrations"]
+    },
+    {
+      "id": "I7",
+      "title": "Observability (APM, tenant-id logging)",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Operate 2,000+ tenants with actionable incident response.",
+      "complexity": "Medium",
+      "effort": "1–2 weeks",
+      "labels": ["roadmap", "important", "infrastructure"]
+    },
+    {
+      "id": "I8",
+      "title": "Mobile-responsive UI pass",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Front-desk tablet and phone usability.",
+      "complexity": "Medium",
+      "effort": "3–4 weeks",
+      "labels": ["roadmap", "important", "ux"]
+    },
+    {
+      "id": "I9",
+      "title": "Clinic onboarding wizard",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Reduces trial churn and support load.",
+      "complexity": "Low",
+      "effort": "1–2 weeks",
+      "labels": ["roadmap", "important", "ux"]
+    },
+    {
+      "id": "I10",
+      "title": "Security and audit reports (failed logins, PHI access)",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Enterprise procurement and compliance audits.",
+      "complexity": "Low",
+      "effort": "1 week",
+      "labels": ["roadmap", "important", "security", "reports"]
+    },
+    {
+      "id": "I11",
+      "title": "Insurance module (phase 1: payer + copay)",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Opens hospital and insured-patient segment.",
+      "complexity": "High",
+      "effort": "6–8 weeks",
+      "labels": ["roadmap", "important", "billing", "clinical"]
+    },
+    {
+      "id": "I12",
+      "title": "Test coverage expansion (API tenant, billing)",
+      "priority": "Important",
+      "milestone": "important",
+      "businessValue": "Regression safety as tenant count grows.",
+      "complexity": "Medium",
+      "effort": "Ongoing",
+      "labels": ["roadmap", "important", "infrastructure"]
+    },
+    {
+      "id": "F1",
+      "title": "General ledger + trial balance",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Accountant-ready financials for larger clinics.",
+      "complexity": "Very high",
+      "effort": "8–12 weeks",
+      "labels": ["roadmap", "future", "billing", "reports"]
+    },
+    {
+      "id": "F2",
+      "title": "Multi-branch / cost centers",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Clinic chains and multi-location operators.",
+      "complexity": "High",
+      "effort": "6–8 weeks",
+      "labels": ["roadmap", "future", "infrastructure"]
+    },
+    {
+      "id": "F3",
+      "title": "FHIR API",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Hospital enterprise integrations.",
+      "complexity": "Very high",
+      "effort": "12+ weeks",
+      "labels": ["roadmap", "future", "integrations", "clinical"]
+    },
+    {
+      "id": "F4",
+      "title": "DICOM / LIS integrations",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Diagnostic center segment.",
+      "complexity": "Very high",
+      "effort": "12+ weeks",
+      "labels": ["roadmap", "future", "integrations", "clinical"]
+    },
+    {
+      "id": "F5",
+      "title": "Patient mobile app",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Consumer brand and portal engagement.",
+      "complexity": "High",
+      "effort": "8–12 weeks",
+      "labels": ["roadmap", "future", "ux"]
+    },
+    {
+      "id": "F6",
+      "title": "AI clinical documentation",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Premium tier upsell.",
+      "complexity": "High",
+      "effort": "8+ weeks",
+      "labels": ["roadmap", "future", "clinical"]
+    },
+    {
+      "id": "F7",
+      "title": "Dedicated DB per enterprise tenant",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Largest enterprise deals and data isolation.",
+      "complexity": "High",
+      "effort": "4–6 weeks",
+      "labels": ["roadmap", "future", "infrastructure"]
+    },
+    {
+      "id": "F8",
+      "title": "White-label reseller portal",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Channel sales and regional partners.",
+      "complexity": "Medium",
+      "effort": "4 weeks",
+      "labels": ["roadmap", "future", "integrations"]
+    },
+    {
+      "id": "F9",
+      "title": "Telemedicine",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Modern patient expectation post-COVID.",
+      "complexity": "Medium",
+      "effort": "4–6 weeks",
+      "labels": ["roadmap", "future", "clinical", "ux"]
+    },
+    {
+      "id": "F10",
+      "title": "Budget vs actual",
+      "priority": "Future",
+      "milestone": "future",
+      "businessValue": "Finance maturity for multi-department clinics.",
+      "complexity": "High",
+      "effort": "4–6 weeks",
+      "labels": ["roadmap", "future", "reports", "billing"]
+    }
+  ]
+}

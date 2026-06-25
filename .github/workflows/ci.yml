@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore AtoZClinical.Web/AtoZClinical.Web.csproj
+
+      - name: Build
+        run: dotnet build AtoZClinical.Web/AtoZClinical.Web.csproj -c Release --no-restore
+
+      - name: Test
+        run: dotnet test AtoZClinical.Tests/AtoZClinical.Tests.csproj -c Release --verbosity normal
+
+  deploy-production:
+    needs: build-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Render production deploy
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+  deploy-staging:
+    needs: build-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Trigger Render staging deploy
+        if: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL != '' }}
+        run: curl -fsS -X POST "${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}"

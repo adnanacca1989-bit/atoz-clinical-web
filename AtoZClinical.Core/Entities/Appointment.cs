@@ -2,7 +2,7 @@ using AtoZClinical.Core.Enums;
 
 namespace AtoZClinical.Core.Entities;
 
-public class Appointment
+public class Appointment : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

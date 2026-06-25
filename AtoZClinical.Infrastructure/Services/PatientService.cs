@@ -1,4 +1,5 @@
 using AtoZClinical.Core.Entities;
+using AtoZClinical.Core.Webhooks;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,45 +11,50 @@ public sealed class PatientService
     private readonly MasterDataPropagationService _propagation;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly IWebhookDispatchService _webhooks;
 
     public PatientService(
         ClinicalDbContext db,
         MasterDataPropagationService propagation,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        IWebhookDispatchService webhooks)
     {
         _db = db;
         _propagation = propagation;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _webhooks = webhooks;
     }
 
-    public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null)
-    {
-        var query = _db.Patients.Where(p => p.ClinicId == clinicId);
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim();
-            if (_db.Database.IsNpgsql())
-            {
-                var pattern = $"%{term}%";
-                query = query.Where(p =>
-                    EF.Functions.ILike(p.PatientNo, pattern) ||
-                    EF.Functions.ILike(p.FirstName, pattern) ||
-                    EF.Functions.ILike(p.LastName, pattern) ||
-                    (p.Phone != null && EF.Functions.ILike(p.Phone, pattern)));
-            }
-            else
-            {
-                query = query.Where(p =>
-                    p.PatientNo.Contains(term) ||
-                    p.FirstName.Contains(term) ||
-                    p.LastName.Contains(term) ||
-                    (p.Phone != null && p.Phone.Contains(term)));
-            }
-        }
+    public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null, int maxRows = PaginationDefaults.ListCap) =>
+        ApplyListOrder(ApplySearch(_db.Patients.Where(p => p.ClinicId == clinicId), search))
+            .Take(maxRows)
+            .ToListAsync();
 
-        return query.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.FirstName).ThenBy(p => p.DoctorName).ToListAsync();
+    public Task<PagedResult<Patient>> ListPagedAsync(
+        Guid clinicId,
+        int page = 1,
+        int pageSize = PaginationDefaults.DefaultPageSize,
+        string? search = null) =>
+        ApplyListOrder(ApplySearch(_db.Patients.Where(p => p.ClinicId == clinicId), search))
+            .ToPagedResultAsync(page, pageSize);
+
+    public async Task<Guid?> GetAdjacentIdAsync(Guid clinicId, Guid currentId, int direction, string? search = null)
+    {
+        var ids = await ApplyListOrder(ApplySearch(_db.Patients.Where(p => p.ClinicId == clinicId), search))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        if (ids.Count == 0) return null;
+
+        var idx = ids.IndexOf(currentId);
+        if (idx < 0)
+            return direction > 0 ? ids[0] : ids[^1];
+
+        var newIdx = idx + direction;
+        if (newIdx < 0 || newIdx >= ids.Count) return null;
+        return ids[newIdx];
     }
 
     public async Task<List<Patient>> ListForPickerAsync(
@@ -71,27 +77,13 @@ public sealed class PatientService
             query = query.Where(p => p.Status != null && p.Status.ToLower() == normalized.ToLower());
         }
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim();
-            query = query.Where(p =>
-                p.PatientNo.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                p.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                p.LastName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                (p.Phone != null && p.Phone.Contains(term)) ||
-                (p.City != null && p.City.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
-                (p.DoctorName != null && p.DoctorName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
-                (p.Specialty != null && p.Specialty.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
-                (p.MotherName != null && p.MotherName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
-                (p.NationalId != null && p.NationalId.Contains(term)));
-        }
+        query = ApplySearch(query, search);
 
-        var list = await query.ToListAsync();
         return sortBy?.ToLowerInvariant() switch
         {
-            "name" => list.OrderBy(p => p.FullName, StringComparer.OrdinalIgnoreCase).ToList(),
-            "city" => list.OrderBy(p => p.City ?? "", StringComparer.OrdinalIgnoreCase).ThenBy(p => p.FullName).ToList(),
-            _ => list.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.FullName).ToList()
+            "name" => await query.OrderBy(p => p.FirstName).ThenBy(p => p.LastName).Take(PaginationDefaults.ListCap).ToListAsync(),
+            "city" => await query.OrderBy(p => p.City).ThenBy(p => p.FirstName).ThenBy(p => p.LastName).Take(PaginationDefaults.ListCap).ToListAsync(),
+            _ => await ApplyListOrder(query).Take(PaginationDefaults.ListCap).ToListAsync()
         };
     }
 
@@ -134,6 +126,27 @@ public sealed class PatientService
         }
 
         await _db.SaveChangesAsync();
+
+        if (previous is null)
+        {
+            await _webhooks.DispatchAsync(clinicId, WebhookEvents.PatientCreated, new
+            {
+                patient.Id,
+                patient.PatientNo,
+                patient.FirstName,
+                patient.LastName
+            });
+        }
+        else
+        {
+            await _webhooks.DispatchAsync(clinicId, WebhookEvents.PatientUpdated, new
+            {
+                patient.Id,
+                patient.PatientNo,
+                patient.FirstName,
+                patient.LastName
+            });
+        }
 
         if (previous is not null)
             await _propagation.PropagatePatientAsync(clinicId, previous, patient);
@@ -221,6 +234,32 @@ public sealed class PatientService
                 (!string.IsNullOrWhiteSpace(phone) && p.Phone == phone.Trim()))
             .OrderByDescending(p => p.UpdatedAt)
             .FirstOrDefaultAsync();
+
+    private static IQueryable<Patient> ApplyListOrder(IQueryable<Patient> query) =>
+        query.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.FirstName).ThenBy(p => p.DoctorName);
+
+    private IQueryable<Patient> ApplySearch(IQueryable<Patient> query, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+            return query;
+
+        var term = search.Trim();
+        if (_db.Database.IsNpgsql())
+        {
+            var pattern = $"%{term}%";
+            return query.Where(p =>
+                EF.Functions.ILike(p.PatientNo, pattern) ||
+                EF.Functions.ILike(p.FirstName, pattern) ||
+                EF.Functions.ILike(p.LastName, pattern) ||
+                (p.Phone != null && EF.Functions.ILike(p.Phone, pattern)));
+        }
+
+        return query.Where(p =>
+            p.PatientNo.Contains(term) ||
+            p.FirstName.Contains(term) ||
+            p.LastName.Contains(term) ||
+            (p.Phone != null && p.Phone.Contains(term)));
+    }
 
     private async Task<string> GeneratePatientNoAsync(Guid clinicId)
     {

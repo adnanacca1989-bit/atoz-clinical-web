@@ -1,5 +1,6 @@
 @page
 @model AtoZClinical.Web.Pages.Account.LoginModel
+@inject IConfiguration Config
 @{
     ViewData["Title"] = "Login";
     Layout = null;
@@ -38,8 +39,31 @@
             </div>
             <button type="submit" class="btn btn-atz-primary w-100">Login</button>
         </form>
+        @{
+            var googleEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Google:ClientId"]);
+            var msEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Microsoft:ClientId"]);
+        }
+        @if (googleEnabled || msEnabled)
+        {
+            <div class="text-center my-3 text-muted small">or</div>
+            <div class="d-grid gap-2">
+                @if (googleEnabled)
+                {
+                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Google">
+                        <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Google</button>
+                    </form>
+                }
+                @if (msEnabled)
+                {
+                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Microsoft">
+                        <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Microsoft</button>
+                    </form>
+                }
+            </div>
+        }
         <div class="text-center mt-3 d-flex flex-column gap-1">
             <a asp-page="/Account/ForgotPassword">Forgot password?</a>
+            <a asp-page="/Portal/Login">Patient portal</a>
             <a asp-page="/Index">Back to home</a>
         </div>
     </div>

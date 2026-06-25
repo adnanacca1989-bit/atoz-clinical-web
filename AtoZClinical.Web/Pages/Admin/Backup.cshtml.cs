@@ -61,6 +61,8 @@ public class BackupModel : PageModel
             $"{safeName}_Backup_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
     }
 
+    private const long MaxRestoreBytes = 52_428_800;
+
     public async Task<IActionResult> OnPostRestoreAsync()
     {
         var clinic = await _clinicContext.GetCurrentClinicAsync();
@@ -70,6 +72,18 @@ public class BackupModel : PageModel
         if (RestoreFile is null || RestoreFile.Length == 0)
         {
             RestoreMessage = "Please select a backup ZIP file to restore.";
+            return Page();
+        }
+
+        if (RestoreFile.Length > MaxRestoreBytes)
+        {
+            RestoreMessage = "Backup file is too large. Maximum allowed size is 50 MB.";
+            return Page();
+        }
+
+        if (!string.Equals(Path.GetExtension(RestoreFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            RestoreMessage = "Only ZIP backup files are supported.";
             return Page();
         }
 

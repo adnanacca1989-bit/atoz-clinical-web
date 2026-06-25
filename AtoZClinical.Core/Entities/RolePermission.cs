@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class RolePermission
+public class RolePermission : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

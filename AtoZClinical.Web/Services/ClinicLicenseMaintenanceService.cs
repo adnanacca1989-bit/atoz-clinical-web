@@ -26,6 +26,9 @@ public sealed class ClinicLicenseMaintenanceService : BackgroundService
                 var count = await access.ExpireOverdueLicensesAsync(stoppingToken);
                 if (count > 0)
                     _logger.LogInformation("Marked {Count} clinic(s) as expired (license date passed).", count);
+
+                var emails = scope.ServiceProvider.GetRequiredService<SubscriptionEmailService>();
+                await emails.SendLifecycleEmailsAsync(stoppingToken);
             }
             catch (Exception ex)
             {

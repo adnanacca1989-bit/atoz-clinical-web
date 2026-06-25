@@ -1,0 +1,10 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache aws-cli bash \
+    && chmod 755 /usr/local/bin/aws
+
+WORKDIR /app
+COPY scripts/backup-database.sh /app/backup-database.sh
+RUN sed -i 's/\r$//' /app/backup-database.sh && chmod +x /app/backup-database.sh
+
+ENTRYPOINT ["/app/backup-database.sh"]

@@ -1,8 +1,9 @@
-**/.git
-**/.vs
-**/bin
-**/obj
-**/*.db
-**/*.db-shm
-**/*.db-wal
-**/node_modules
+**/bin/
+**/obj/
+publish-check/
+publish-test/
+.git/
+.vs/
+*.user
+*.suo
+.env

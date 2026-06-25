@@ -1,0 +1,25 @@
+name: Security Scan
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test
+        run: |
+          dotnet build AtoZClinical.sln -c Release
+          dotnet test AtoZClinical.Tests/AtoZClinical.Tests.csproj -c Release --no-build
+
+      - name: OWASP ZAP baseline (optional)
+        continue-on-error: true
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/zap/wrk:rw" \
+            -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://host.docker.internal:8080 \
+            -r zap-report.html || echo "ZAP scan requires a running app URL. Set target in workflow for CI."

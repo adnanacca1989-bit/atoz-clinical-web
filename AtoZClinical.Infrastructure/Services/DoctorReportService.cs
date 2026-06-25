@@ -6,9 +6,9 @@ namespace AtoZClinical.Infrastructure.Services;
 
 public sealed class DoctorReportService
 {
-    private readonly ClinicalDbContext _db;
+    private readonly ReportingDataService _reporting;
 
-    public DoctorReportService(ClinicalDbContext db) => _db = db;
+    public DoctorReportService(ReportingDataService reporting) => _reporting = reporting;
 
     public async Task<List<DoctorReportRow>> GetRowsAsync(
         Guid clinicId,
@@ -17,6 +17,7 @@ public sealed class DoctorReportService
         string? doctorName,
         string? patientName)
     {
+        var _db = _reporting.ReadDb;
         var from = fromDate.Date;
         var to = toDate.Date;
 

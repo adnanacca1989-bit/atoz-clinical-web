@@ -1,4 +1,5 @@
 using AtoZClinical.Web.Filters;
+using AtoZClinical.Web.Api;
 using AtoZClinical.Web.Middleware;
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
@@ -8,10 +9,26 @@ using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Serilog;
+using System.Text.Json;
+using System.Threading.RateLimiting;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithEnvironmentName()
+    .Enrich.WithProperty("Application", "AtoZClinical")
+    .WriteTo.Console());
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -49,6 +66,13 @@ static string NormalizeConnectionString(string value)
     return csb.ConnectionString;
 }
 
+static string WithPoolSettings(string value)
+{
+    if (value.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase))
+        return value;
+    return value.TrimEnd(';') + ";Maximum Pool Size=20;Minimum Pool Size=2;Connection Idle Lifetime=60";
+}
+
 var rawConnectionString = FirstNonEmpty(
     builder.Configuration.GetConnectionString("ClinicalDatabase"),
     builder.Configuration["DATABASE_URL"],
@@ -60,29 +84,62 @@ if (string.IsNullOrWhiteSpace(rawConnectionString))
     throw new InvalidOperationException(
         "Database connection string is missing. Set ConnectionStrings__ClinicalDatabase or DATABASE_URL on Render.");
 
-var connectionString = NormalizeConnectionString(rawConnectionString);
+var normalized = NormalizeConnectionString(rawConnectionString);
 var useSqlite = builder.Configuration.GetValue("Database:Provider", "PostgreSQL") == "Sqlite"
-    || connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
+    || normalized.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
+var connectionString = useSqlite ? normalized : WithPoolSettings(normalized);
 
 builder.Services.AddDbContext<ClinicalDbContext>(options =>
 {
     if (useSqlite)
         options.UseSqlite(connectionString);
     else
-        options.UseNpgsql(connectionString);
+        options.UseNpgsql(connectionString, npgsql =>
+            npgsql.MigrationsAssembly(typeof(ClinicalDbContext).Assembly.FullName));
 });
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
         options.Password.RequireDigit = true;
         options.Password.RequireLowercase = true;
-        options.Password.RequireUppercase = false;
-        options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequiredLength = 6;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequiredLength = 12;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = false;
     })
     .AddEntityFrameworkStores<ClinicalDbContext>()
     .AddDefaultTokenProviders();
+
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+var msClientId = builder.Configuration["Authentication:Microsoft:ClientId"];
+var msSecret = builder.Configuration["Authentication:Microsoft:ClientSecret"];
+
+var externalAuth = builder.Services.AddAuthentication();
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleSecret))
+{
+    externalAuth.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleSecret;
+    });
+}
+if (!string.IsNullOrWhiteSpace(msClientId) && !string.IsNullOrWhiteSpace(msSecret))
+{
+    externalAuth.AddMicrosoftAccount(options =>
+    {
+        options.ClientId = msClientId;
+        options.ClientSecret = msSecret;
+    });
+}
+
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromHours(24);
+});
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -90,6 +147,33 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/Account/Login";
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("auth", limiter =>
+    {
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.PermitLimit = 15;
+        limiter.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("register", limiter =>
+    {
+        limiter.Window = TimeSpan.FromHours(1);
+        limiter.PermitLimit = 8;
+        limiter.QueueLimit = 0;
+    });
+});
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = 52_428_800;
 });
 
 builder.Services.AddAuthorization(options =>
@@ -98,6 +182,27 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<OperationalMetrics>();
+builder.Services.AddHttpClient("operations-alerts");
+builder.Services.AddHostedService<OperationalMetricsResetService>();
+builder.Services.AddScoped<ICurrentClinicProvider, HttpContextClinicProvider>();
+builder.Services.AddScoped<IClinicalEmailSender, SmtpClinicalEmailSender>();
+builder.Services.AddScoped<RegistrationEmailService>();
+builder.Services.AddScoped<SubscriptionEmailService>();
+builder.Services.AddScoped<VendorAnalyticsService>();
+builder.Services.AddScoped<ClinicDataDeletionService>();
+if (builder.Configuration.GetValue("Billing:Enabled", false) &&
+    !string.IsNullOrWhiteSpace(builder.Configuration["Stripe:SecretKey"]))
+{
+    builder.Services.AddScoped<IStripeBillingService, StripeBillingService>();
+}
+else
+{
+    builder.Services.AddScoped<IStripeBillingService, NoOpStripeBillingService>();
+}
+builder.Services.AddScoped<ClinicalAppUrls>();
+builder.Services.AddScoped<CaptchaService>();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ClinicContextService>();
 builder.Services.AddScoped<ClinicAccessService>();
 builder.Services.AddScoped<VendorClinicService>();
@@ -124,7 +229,10 @@ builder.Services.AddScoped<PharmacyBillService>();
 builder.Services.AddScoped<PharmacyInventoryService>();
 builder.Services.AddScoped<PharmacyOpeningBalanceService>();
 builder.Services.AddScoped<PharmacyItemRegistrationService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ClinicRuntimeCache>();
 builder.Services.AddScoped<ClinicSettingsService>();
+builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ClinicLookupService>();
 builder.Services.AddScoped<PharmacyPurchaseBillService>();
 builder.Services.AddScoped<PatientInvoiceService>();
@@ -136,16 +244,30 @@ builder.Services.AddScoped<ClinicModuleService>();
 builder.Services.AddScoped<DoctorReportService>();
 builder.Services.AddScoped<GlobalTransactionSearchService>();
 builder.Services.AddScoped<FormPermissionPageFilter>();
+builder.Services.AddScoped<ReportBrandingPageFilter>();
 builder.Services.AddScoped<PharmacyCogsService>();
 builder.Services.AddScoped<AppointmentReminderService>();
 builder.Services.AddScoped<PatientPrintBundleService>();
 builder.Services.AddScoped<ClinicBackupService>();
+builder.Services.AddScoped<MfaPolicyService>();
+builder.Services.AddScoped<ClinicApiKeyService>();
+builder.Services.AddScoped<WebhookSubscriptionService>();
+builder.Services.AddScoped<IWebhookDispatchService, WebhookDispatchService>();
+builder.Services.AddScoped<SubdomainClinicResolver>();
+builder.Services.AddScoped<PatientPortalService>();
+builder.Services.AddScoped<ReportingDataService>();
+builder.Services.AddScoped<PatientPortalSession>();
+builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHostedService<ClinicLicenseMaintenanceService>();
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AddFolderApplicationModelConvention("/", model =>
     {
         model.Filters.Add(new ServiceFilterAttribute(typeof(FormPermissionPageFilter)));
+    });
+    options.Conventions.AddFolderApplicationModelConvention("/Reports", model =>
+    {
+        model.Filters.Add(new ServiceFilterAttribute(typeof(ReportBrandingPageFilter)));
     });
     options.Conventions.AuthorizeFolder("/Vendor", ClinicalRoles.Vendor);
     options.Conventions.AuthorizeFolder("/Dashboard");
@@ -161,15 +283,23 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/ChartOfAccounts");
     options.Conventions.AuthorizeFolder("/Reports");
     options.Conventions.AuthorizeFolder("/Admin");
+    options.Conventions.AuthorizeFolder("/Billing");
     options.Conventions.AuthorizeFolder("/Pharmacy");
     options.Conventions.AuthorizeFolder("/Settings");
     options.Conventions.AuthorizeFolder("/Notifications");
     options.Conventions.AllowAnonymousToPage("/Account/Login");
     options.Conventions.AllowAnonymousToPage("/Account/LicenseBlocked");
     options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
+    options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
+    options.Conventions.AllowAnonymousToPage("/Account/ConfirmEmail");
     options.Conventions.AllowAnonymousToPage("/Register/Clinic");
     options.Conventions.AllowAnonymousToPage("/Register/Trial");
+    options.Conventions.AllowAnonymousToPage("/Legal/Terms");
+    options.Conventions.AllowAnonymousToPage("/Legal/Privacy");
     options.Conventions.AllowAnonymousToPage("/Index");
+    options.Conventions.AllowAnonymousToFolder("/Portal");
+    options.Conventions.AllowAnonymousToPage("/Account/LoginWith2fa");
+    options.Conventions.AllowAnonymousToPage("/Account/ExternalLogin");
 });
 
 var port = Environment.GetEnvironmentVariable("PORT");
@@ -195,11 +325,71 @@ else if (builder.Configuration.GetValue("UseHttpsRedirection", true))
     app.UseHttpsRedirection();
 }
 app.UseStaticFiles();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<ClinicSubdomainMiddleware>();
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+app.UseMiddleware<TenantContextMiddleware>();
 app.UseMiddleware<ClinicTenantMiddleware>();
 app.UseMiddleware<FormPermissionMiddleware>();
 app.UseAuthorization();
+app.UseMiddleware<MfaEnforcementMiddleware>();
+app.UseMiddleware<PhiAccessAuditMiddleware>();
+app.UseMiddleware<OperationsMonitoringMiddleware>();
+app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalMetrics metrics, IConfiguration config) =>
+{
+    try
+    {
+        if (!await db.Database.CanConnectAsync())
+            return Results.Problem("Database unreachable", statusCode: StatusCodes.Status503ServiceUnavailable);
+
+        var basic = new Dictionary<string, object?>
+        {
+            ["status"] = "healthy",
+            ["timestamp"] = DateTime.UtcNow
+        };
+
+        var token = config["Operations:HealthToken"];
+        if (!string.IsNullOrWhiteSpace(token) &&
+            ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided) &&
+            provided == token)
+        {
+            basic["database"] = "connected";
+            basic["metrics"] = metrics.GetSnapshot();
+        }
+
+        return Results.Content(JsonSerializer.Serialize(basic), "application/json");
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Health check failed");
+        return Results.Problem("Health check failed", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+}).AllowAnonymous();
+app.MapPost("/api/stripe/webhook", async (HttpContext ctx, IStripeBillingService billing, ILogger<Program> logger) =>
+{
+    if (!billing.IsConfigured)
+        return Results.NotFound();
+
+    using var reader = new StreamReader(ctx.Request.Body);
+    var json = await reader.ReadToEndAsync();
+    var signature = ctx.Request.Headers["Stripe-Signature"].ToString();
+    try
+    {
+        await billing.HandleWebhookAsync(json, signature);
+        return Results.Ok();
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Stripe webhook rejected");
+        return Results.BadRequest();
+    }
+}).AllowAnonymous();
+app.MapClinicalApi();
 app.MapRazorPages();
 app.Run();
+
+public partial class Program { }

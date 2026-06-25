@@ -10,6 +10,7 @@
 
 <div class="clinical-form-page clinical-report-page pl-qb-page">
     <h1 class="page-title">PL Statement</h1>
+    <partial name="_ReportBranding" />
     <form method="post" id="clinicalReportForm">
         <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
         <div class="report-filter-panel">
@@ -42,7 +43,7 @@
 
         <div class="pl-qb-report atz-card">
             <div class="pl-qb-header text-center">
-                <div class="pl-qb-company">A to Z Clinical</div>
+                <div class="pl-qb-company">@(ViewData["ReportClinicName"] as string ?? "Clinical")</div>
                 <div class="pl-qb-title">Profit and Loss</div>
                 <div class="pl-qb-period">@Model.FromDate.ToString("MMMM d, yyyy") – @Model.ToDate.ToString("MMMM d, yyyy")</div>
             </div>

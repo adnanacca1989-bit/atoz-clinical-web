@@ -10,8 +10,13 @@ public sealed class FormPermissionService
     public const string VisibleFormsItemKey = "VisibleFormKeys";
 
     private readonly ClinicalDbContext _db;
+    private readonly ClinicRuntimeCache _cache;
 
-    public FormPermissionService(ClinicalDbContext db) => _db = db;
+    public FormPermissionService(ClinicalDbContext db, ClinicRuntimeCache cache)
+    {
+        _db = db;
+        _cache = cache;
+    }
 
     public string ResolveResponsibilityRole(ApplicationUser user)
     {
@@ -19,21 +24,22 @@ public sealed class FormPermissionService
         return ClinicUserRoleHelper.ToResponsibilityRole(user.ClinicRole ?? ClinicUserRole.ClinicAdmin);
     }
 
-    public async Task<HashSet<string>> GetVisibleFormsAsync(Guid clinicId, string roleName)
-    {
-        var configured = await _db.RolePermissions
-            .AsNoTracking()
-            .Where(r => r.ClinicId == clinicId && r.RoleName == roleName)
-            .ToListAsync();
+    public Task<HashSet<string>> GetVisibleFormsAsync(Guid clinicId, string roleName) =>
+        _cache.GetOrCreateAsync(ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName), async () =>
+        {
+            var configured = await _db.RolePermissions
+                .AsNoTracking()
+                .Where(r => r.ClinicId == clinicId && r.RoleName == roleName)
+                .ToListAsync();
 
-        if (configured.Count == 0)
-            return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
+            if (configured.Count == 0)
+                return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
 
-        return configured
-            .Where(r => r.IsVisible)
-            .Select(r => r.FormKey)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    }
+            return configured
+                .Where(r => r.IsVisible)
+                .Select(r => r.FormKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        });
 
     public static string? ResolveFormKeyFromPath(string? path)
     {

@@ -1,0 +1,47 @@
+@{
+    var clinicName = ViewData["ReportClinicName"] as string;
+    if (string.IsNullOrWhiteSpace(clinicName))
+    {
+        return;
+    }
+
+    var reportTitle = ViewData["Title"] as string ?? "Report";
+    var address = ViewData["ReportClinicAddress"] as string;
+    var phone = ViewData["ReportClinicPhone"] as string;
+    var email = ViewData["ReportClinicEmail"] as string;
+    var city = ViewData["ReportClinicCity"] as string;
+    var country = ViewData["ReportClinicCountry"] as string;
+    var generatedAt = ViewData["ReportGeneratedAt"] as string ?? DateTime.Now.ToString("MMMM d, yyyy h:mm tt");
+    var generatedBy = ViewData["ReportGeneratedBy"] as string ?? "User";
+
+    var location = string.Join(", ", new[] { city, country }.Where(s => !string.IsNullOrWhiteSpace(s)));
+    var contactParts = new List<string>();
+    if (!string.IsNullOrWhiteSpace(phone)) contactParts.Add(phone);
+    if (!string.IsNullOrWhiteSpace(email)) contactParts.Add(email);
+}
+
+<div class="report-branding-header" aria-label="Report header">
+    <div class="report-branding-left">
+        <div class="report-branding-clinic">@clinicName</div>
+        @if (!string.IsNullOrWhiteSpace(address))
+        {
+            <div class="report-branding-line">@address</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(location))
+        {
+            <div class="report-branding-line">@location</div>
+        }
+        @if (contactParts.Count > 0)
+        {
+            <div class="report-branding-line report-branding-contact">@string.Join(" · ", contactParts)</div>
+        }
+    </div>
+    <div class="report-branding-right">
+        <div class="report-branding-title">@reportTitle</div>
+        <div class="report-branding-meta">
+            <span>Generated @generatedAt</span>
+            <span class="report-branding-sep">|</span>
+            <span>@generatedBy</span>
+        </div>
+    </div>
+</div>

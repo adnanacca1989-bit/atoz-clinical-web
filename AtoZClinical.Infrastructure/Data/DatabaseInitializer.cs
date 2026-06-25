@@ -11,13 +11,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 
 namespace AtoZClinical.Infrastructure.Data;
 
 public static class DatabaseInitializer
 {
-    private const int SchemaVersion = 20;
+    /// <summary>Must match the initial EF Core migration id in Data/Migrations.</summary>
+    private const string InitialMigrationId = "20260625014530_InitialCreate";
 
     public static async Task InitializeAsync(IServiceProvider services)
     {
@@ -30,6 +30,7 @@ public static class DatabaseInitializer
         var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
         await EnsureSchemaAsync(db, env, logger);
+        await BackfillCashReceiptPatientCreditsAsync(db, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
         {
@@ -38,7 +39,18 @@ public static class DatabaseInitializer
         }
 
         var vendorUser = config["Seed:VendorUsername"] ?? "vendor";
-        var vendorPass = config["Seed:VendorPassword"] ?? "Vendor@2026";
+        var vendorPass = config["Seed:VendorPassword"];
+        if (string.IsNullOrWhiteSpace(vendorPass))
+        {
+            if (env.IsProduction())
+            {
+                throw new InvalidOperationException(
+                    "Seed:VendorPassword is required in production. Set it in Render environment variables.");
+            }
+
+            vendorPass = "ChangeMe@Local2026!";
+            logger.LogWarning("Using development-only vendor password. Set Seed:VendorPassword for production.");
+        }
 
         if (await users.FindByNameAsync(vendorUser) is null)
         {
@@ -191,95 +203,108 @@ public static class DatabaseInitializer
 
     private static async Task EnsureSchemaAsync(ClinicalDbContext db, IHostEnvironment env, ILogger logger)
     {
-        var creator = db.Database.GetService<IRelationalDatabaseCreator>();
-
-        if (!await db.Database.CanConnectAsync())
+        if (db.Database.IsSqlite())
         {
-            await creator.CreateAsync();
-            logger.LogInformation("Database created (schema v{Version}).", SchemaVersion);
-            return;
-        }
+            var recreate = !await db.Database.CanConnectAsync();
+            if (!recreate)
+            {
+                try
+                {
+                    await db.Database.ExecuteSqlRawAsync("SELECT \"UserNo\" FROM \"AspNetUsers\" LIMIT 1;");
+                }
+                catch
+                {
+                    recreate = true;
+                }
+            }
 
-        if (!await creator.HasTablesAsync())
-        {
-            await db.Database.EnsureCreatedAsync();
-            logger.LogInformation("Database schema created on empty PostgreSQL database (schema v{Version}).", SchemaVersion);
+            if (recreate)
+            {
+                await db.Database.EnsureDeletedAsync();
+                await db.Database.EnsureCreatedAsync();
+                logger.LogInformation("SQLite development schema ensured.");
+            }
+
             return;
         }
 
         try
         {
-            _ = await db.Clinics.Select(c => c.PlanName).FirstOrDefaultAsync();
-            await ApplySchemaPatchesAsync(db, logger);
-        }
-        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
-        {
-            await db.Database.EnsureCreatedAsync();
-            logger.LogInformation("Created missing tables on PostgreSQL (schema v{Version}).", SchemaVersion);
+            await BaselineLegacySchemaIfNeededAsync(db, logger);
+            await db.Database.MigrateAsync();
+            logger.LogInformation("PostgreSQL migrations applied.");
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Database migration failed.");
             if (env.IsProduction())
-            {
-                logger.LogError(ex, "Database schema is out of date. Back up data and apply a schema update before restarting.");
                 throw;
-            }
 
-            logger.LogWarning("Schema upgrade detected — recreating database (development data will reset).");
+            logger.LogWarning("Development fallback: recreating local database.");
             await db.Database.EnsureDeletedAsync();
-            await db.Database.EnsureCreatedAsync();
-            logger.LogInformation("Database recreated (schema v{Version}).", SchemaVersion);
+            await db.Database.MigrateAsync();
         }
     }
 
-    private static async Task ApplySchemaPatchesAsync(ClinicalDbContext db, ILogger logger)
+    /// <summary>
+    /// Databases created with EnsureCreated (pre-migration) get baselined so MigrateAsync does not fail.
+    /// </summary>
+    private static async Task BaselineLegacySchemaIfNeededAsync(ClinicalDbContext db, ILogger logger)
     {
-        if (!db.Database.IsNpgsql()) return;
+        var applied = await db.Database.GetAppliedMigrationsAsync();
+        if (applied.Any())
+            return;
 
-        var patches = new[]
-        {
-            """ALTER TABLE "PharmacyRequests" ADD COLUMN IF NOT EXISTS "Phone" text;""",
-            """ALTER TABLE "PharmacyRequests" ADD COLUMN IF NOT EXISTS "City" text;""",
-            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "ReorderPoint" integer NOT NULL DEFAULT 0;""",
-            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "IncomeAccountName" text;""",
-            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "CostAccountName" text;""",
-            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "InventoryAccountName" text;""",
-            """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Age" integer;""",
-            """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Gender" text;""",
-            """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Phone" text;""",
-            """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "City" text;""",
-            """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "Specialty" text;""",
-            """ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "Age" integer;""",
-            """ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "Gender" text;""",
-            """ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "City" text;""",
-            """CREATE INDEX IF NOT EXISTS "IX_Patients_ClinicId_AppointmentDate" ON "Patients" ("ClinicId", "AppointmentDate");""",
-            """CREATE INDEX IF NOT EXISTS "IX_Patients_ClinicId_Status" ON "Patients" ("ClinicId", "Status");""",
-            """CREATE INDEX IF NOT EXISTS "IX_Invoices_ClinicId_PatientId" ON "Invoices" ("ClinicId", "PatientId");""",
-            """CREATE INDEX IF NOT EXISTS "IX_Invoices_ClinicId_PatientName" ON "Invoices" ("ClinicId", "PatientName");""",
-            """ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "ChartAccountName" text;""",
-            """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "HealthInsuranceName" text;""",
-            """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "HealthInsuranceNumber" text;""",
-            """ALTER TABLE "PharmacyItems" ADD COLUMN IF NOT EXISTS "ExpiryDate" timestamp with time zone;""",
-            """ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "UserNo" integer NOT NULL DEFAULT 0;""",
-            """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "MarriedStatus" text;""",
-            """ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "MotherName" text;""",
-            """ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "EnabledFormKeys" text;""",
-            """ALTER TABLE "CashPayments" ADD COLUMN IF NOT EXISTS "PatientId" text;""",
-            """ALTER TABLE "CashPayments" ADD COLUMN IF NOT EXISTS "DoctorName" text;"""
-        };
+        var creator = db.Database.GetService<IRelationalDatabaseCreator>();
+        if (!await creator.HasTablesAsync())
+            return;
 
-        foreach (var sql in patches)
+        logger.LogWarning(
+            "Legacy schema detected without migration history. Baselining {MigrationId}.",
+            InitialMigrationId);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                "MigrationId" character varying(150) NOT NULL,
+                "ProductVersion" character varying(32) NOT NULL,
+                CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+            );
+            """);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+            VALUES ({0}, {1})
+            ON CONFLICT ("MigrationId") DO NOTHING;
+            """,
+            InitialMigrationId,
+            "8.0.11");
+    }
+
+    private static async Task BackfillCashReceiptPatientCreditsAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
         {
-            try
-            {
-                await db.Database.ExecuteSqlRawAsync(sql);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Schema patch: {Sql}", sql);
-            }
+            var receipts = await db.CashReceipts
+                .Where(r => r.PatientCredit == 0 && r.BalanceDue > 0 && r.Amount > r.BalanceDue)
+                .ToListAsync();
+
+            if (receipts.Count == 0)
+                return;
+
+            foreach (var receipt in receipts)
+                receipt.PatientCredit = InvoiceArCalculator.GetReceiptUnappliedCredit(receipt);
+
+            await db.SaveChangesAsync();
+            logger.LogInformation("Backfilled PatientCredit on {Count} cash receipt(s).", receipts.Count);
         }
-
-        logger.LogInformation("Applied PostgreSQL schema patches (v{Version}).", SchemaVersion);
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Cash receipt PatientCredit backfill skipped (column may not exist yet).");
+        }
     }
 }

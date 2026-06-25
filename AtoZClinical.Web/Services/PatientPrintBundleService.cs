@@ -231,13 +231,12 @@ public sealed class PatientPrintBundleService
         string patient,
         List<Invoice> invoices,
         List<CashReceipt> receipts,
-        List<CashPayment> cashPayments) => new(
-        "Accounts Receivable Statement",
-        Meta(("Patient", patient), ("Statement Date", DateTime.Today.ToString("d"))),
-        ["Invoice No", "Date", "Doctor", "Total Invoice", "Discount", "Net Invoice", "Cash Receipt", "Cash Payment", "Ending Balance"],
-        invoices.Select(i =>
+        List<CashPayment> cashPayments)
+    {
+        var lineTotals = invoices.Select(i => InvoiceArCalculator.ForInvoice(i, receipts, cashPayments, invoices)).ToList();
+        var rows = invoices.Select((i, idx) =>
         {
-            var totals = InvoiceArCalculator.ForInvoice(i, receipts, cashPayments, invoices);
+            var totals = lineTotals[idx];
             return new[]
             {
                 i.InvoiceNo.ToString(),
@@ -248,10 +247,45 @@ public sealed class PatientPrintBundleService
                 totals.NetInvoice.ToString("N2"),
                 totals.CashReceipt.ToString("N2"),
                 totals.CashPayment.ToString("N2"),
-                totals.EndingBalance.ToString("N2")
+                ArBalanceFormatter.Format(totals.EndingBalance),
+                totals.PatientCredit.ToString("N2")
             };
-        }).ToList(),
-        Footer(("Total Balance Due", invoices.Sum(i => i.BalanceDue).ToString("N2"))));
+        }).ToList();
+
+        var totalCashReceipt = lineTotals.Sum(t => t.CashReceipt);
+        var totalCashPayment = lineTotals.Sum(t => t.CashPayment);
+        var totalInvoice = lineTotals.Sum(t => t.TotalInvoice);
+        var totalDiscount = lineTotals.Sum(t => t.Discount);
+        var totalEndingBalance = invoices
+            .Zip(lineTotals, (inv, totals) => (Doctor: inv.DoctorName ?? "", totals))
+            .GroupBy(x => x.Doctor)
+            .Sum(g =>
+            {
+                var debits = g.Where(x => x.totals.EndingBalance > 0).ToList();
+                if (debits.Count > 0)
+                    return debits.Sum(x => x.totals.EndingBalance);
+                if (g.Any(x => x.totals.EndingBalance < 0))
+                    return g.First(x => x.totals.EndingBalance < 0).totals.EndingBalance;
+                return 0m;
+            });
+        var patientCredit = lineTotals.Count > 0 ? lineTotals.Max(t => t.PatientCredit) : 0m;
+
+        rows.Add(
+        [
+            "", "", "Totals", totalInvoice.ToString("N2"), totalDiscount.ToString("N2"), "",
+            totalCashReceipt.ToString("N2"), totalCashPayment.ToString("N2"),
+            ArBalanceFormatter.Format(totalEndingBalance), patientCredit.ToString("N2")
+        ]);
+
+        return new PrintSection(
+            "Accounts Receivable Statement",
+            Meta(("Patient", patient), ("Statement Date", DateTime.Today.ToString("d"))),
+            ["Invoice No", "Date", "Doctor", "Total Invoice", "Discount", "Net Invoice", "Cash Receipt (Applied)", "Cash Payment", "Ending Balance (Dr/Cr)", "Patient Credit"],
+            rows,
+            Footer(
+                ("Net Patient Balance", ArBalanceFormatter.Format(totalEndingBalance)),
+                ("Patient Credit", patientCredit.ToString("N2"))));
+    }
 
     private static Dictionary<string, string> Meta(params (string Key, string Value)[] items) =>
         items.ToDictionary(x => x.Key, x => x.Value);

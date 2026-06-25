@@ -71,6 +71,12 @@
     background: #eee;
 }
 
+.print-doc-totals-row td {
+    background: #eef4fb;
+    border-top: 2px solid #333;
+    font-weight: 700;
+}
+
 .print-doc-footer {
     margin-top: 0.75rem;
     font-size: 0.85rem;
@@ -381,9 +387,41 @@
     body.clinical-report-page-printing .atz-sidebar,
     body.clinical-report-page-printing nav,
     body.clinical-report-page-printing aside,
-    body.clinical-report-page-printing .clinical-toolbar,
+    body.clinical-report-page-printing .report-filter-panel,
+    body.clinical-report-page-printing .report-hint,
+    body.clinical-report-page-printing .report-toolbar,
     body.clinical-report-page-printing .no-print {
         display: none !important;
+    }
+
+    body.clinical-report-page-printing .report-branding-header {
+        margin: 0 0 0.75rem;
+        padding: 0 0 0.5rem;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid #222;
+        box-shadow: none;
+    }
+
+    body.clinical-report-page-printing .report-branding-clinic {
+        color: #000;
+        font-size: 1.1rem;
+    }
+
+    body.clinical-report-page-printing .report-branding-title {
+        color: #000;
+    }
+
+    body.clinical-report-page-printing .report-summary-panel {
+        border: 1px solid #333;
+        break-inside: avoid;
+    }
+
+    body.clinical-report-page-printing .report-grid th {
+        background: #eee !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     body.clinical-report-page-printing .clinical-form-page {

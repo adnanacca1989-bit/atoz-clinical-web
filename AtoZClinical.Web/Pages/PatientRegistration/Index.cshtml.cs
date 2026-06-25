@@ -122,19 +122,15 @@ public class IndexModel : ClinicFormPageModel
 
 
     private async Task LoadAsync(Guid clinicId)
-
     {
-
-        Records = await _service.ListAsync(clinicId, Search);
+        var paged = await _service.ListPagedAsync(clinicId, RecordPage, PageSize, Search);
+        Records = paged.Items.ToList();
+        ApplyPaging(paged);
 
         TotalPatients = await _service.CountTotalAsync(clinicId);
-
         TodayPatients = await _service.CountTodayAsync(clinicId);
-
         ActivePatients = await _service.CountActiveAsync(clinicId);
-
         InactivePatients = await _service.CountInactiveAsync(clinicId);
-
     }
 
 
@@ -165,20 +161,17 @@ public class IndexModel : ClinicFormPageModel
 
         var nextAppt = await _service.NextAppointmentIdAsync(clinicId);
 
+        var now = DateTime.Now;
         Input = new PatientInput
-
         {
-
             PatientNo = nextNo,
-
             AppointmentId = nextAppt,
-
             Status = "Pending",
-
             Gender = "Male",
-
-            VisitNumber = "1"
-
+            VisitNumber = "1",
+            City = ClinicLookup.Cities[0],
+            AppointmentDate = DateTime.Today,
+            AppointmentTime = new TimeSpan(now.Hour, now.Minute, 0)
         };
 
     }
@@ -293,25 +286,20 @@ public class IndexModel : ClinicFormPageModel
 
 
     private async Task<IActionResult> NavigateCoreAsync(int delta)
-
     {
-
         var clinicId = await RequireClinicIdAsync();
-
         if (clinicId is null) return Forbid();
 
-        await LoadAsync(clinicId.Value);
+        if (!RecordId.HasValue)
+        {
+            await LoadAsync(clinicId.Value);
+            if (Records.Count == 0) return RedirectToPage();
+            return RedirectToRecord(Records[0].Id);
+        }
 
-        if (Records.Count == 0) return RedirectToPage();
-
-        var idx = RecordId.HasValue ? Records.FindIndex(r => r.Id == RecordId.Value) : 0;
-
-        if (idx < 0) idx = 0;
-
-        idx = Math.Clamp(idx + delta, 0, Records.Count - 1);
-
-        return RedirectToRecord(Records[idx].Id);
-
+        var adjacentId = await _service.GetAdjacentIdAsync(clinicId.Value, RecordId.Value, delta, Search);
+        if (adjacentId is null) return RedirectToRecord(RecordId);
+        return RedirectToRecord(adjacentId);
     }
 
 

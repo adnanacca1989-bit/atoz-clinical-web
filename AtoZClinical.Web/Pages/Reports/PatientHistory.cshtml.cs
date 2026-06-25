@@ -98,7 +98,8 @@ public class PatientHistoryModel : PageModel
 
         foreach (var inv in await _db.Invoices.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(inv.PatientName, inv.PatientId) && MatchDoctor(inv.DoctorName))
-                Results.Add(new HistoryRow(inv.PatientName ?? "", "Invoice / Billing", inv.InvoiceDate, inv.DoctorName ?? "", $"Total {inv.TotalAmount:N2}, Balance {inv.BalanceDue:N2}"));
+                Results.Add(new HistoryRow(inv.PatientName ?? "", "Invoice / Billing", inv.InvoiceDate, inv.DoctorName ?? "",
+                    $"Total {inv.TotalAmount:N2}, Paid {inv.AmountPaid:N2}, Balance {inv.BalanceDue:N2}"));
 
         foreach (var lr in await _db.LabRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(lr.PatientName, lr.PatientBarcode) && MatchDoctor(lr.DoctorName))

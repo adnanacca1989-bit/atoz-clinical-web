@@ -1,0 +1,38 @@
+@page
+@model AtoZClinical.Web.Pages.Account.LoginWith2faModel
+@{
+    ViewData["Title"] = "Two-factor authentication";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Two-factor authentication</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="login-panel atz-card p-4">
+        <h3 class="fw-bold mb-3" style="color:#0b4f8a">Authenticator code</h3>
+        <p class="text-muted">Enter the code from your authenticator app.</p>
+        <form method="post">
+            <input type="hidden" asp-for="RememberMe" />
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="mb-3">
+                <label asp-for="Input.TwoFactorCode" class="form-label"></label>
+                <input asp-for="Input.TwoFactorCode" class="form-control" autocomplete="one-time-code" inputmode="numeric" />
+            </div>
+            <div class="form-check mb-3">
+                <input asp-for="Input.RememberMachine" class="form-check-input" />
+                <label asp-for="Input.RememberMachine" class="form-check-label"></label>
+            </div>
+            <button type="submit" class="btn btn-atz-primary w-100">Verify</button>
+        </form>
+    </div>
+    <partial name="_ValidationScriptsPartial" />
+</body>
+</html>

@@ -40,7 +40,9 @@ else
                     <tbody>
                         @foreach (var row in doc.Rows)
                         {
-                            <tr>@foreach (var cell in row) { <td>@cell</td> }</tr>
+                            var isTotals = doc.Title == "Accounts Receivable Statement" &&
+                                           row.Length > 2 && row[2] == "Totals";
+                            <tr class="@(isTotals ? "print-doc-totals-row fw-bold" : "")">@foreach (var cell in row) { <td>@cell</td> }</tr>
                         }
                     </tbody>
                 </table>

@@ -1,6 +1,7 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Core.Enums;
 using AtoZClinical.Infrastructure;
+using AtoZClinical.Infrastructure.Billing;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -61,6 +62,12 @@ public sealed class VendorClinicService
             EnabledFormKeys = request.EnabledFormKeys
         };
 
+        if (clinic.PlanName.Equals(SubscriptionPlans.Trial, StringComparison.OrdinalIgnoreCase))
+        {
+            clinic.TrialEndsAt = clinic.LicenseExpires;
+            clinic.SubscriptionStatus = SubscriptionStatuses.Trialing;
+        }
+
         _db.Clinics.Add(clinic);
         try
         {
@@ -89,7 +96,7 @@ public sealed class VendorClinicService
             ClinicId = clinic.Id,
             ClinicRole = ClinicUserRole.ClinicAdmin,
             IsVendorAdmin = false,
-            EmailConfirmed = true
+            EmailConfirmed = string.IsNullOrWhiteSpace(request.Email) || !request.RequireEmailConfirmation
         };
 
         var result = await _users.CreateAsync(admin, password);
@@ -188,6 +195,7 @@ public sealed class VendorClinicService
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
+            RequireEmailConfirmation = !string.IsNullOrWhiteSpace(request.Email),
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
@@ -209,6 +217,7 @@ public sealed class VendorClinicService
             Country = request.Country,
             AdminUsername = request.AdminUsername,
             AdminPassword = request.AdminPassword,
+            RequireEmailConfirmation = !string.IsNullOrWhiteSpace(request.Email),
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
@@ -299,6 +308,7 @@ public sealed class CreateClinicRequest
     public bool ActivateImmediately { get; set; }
     public string? Notes { get; set; }
     public string? EnabledFormKeys { get; set; }
+    public bool RequireEmailConfirmation { get; set; }
     public string AdminUsername { get; set; } = string.Empty;
     public string? AdminPassword { get; set; }
 }

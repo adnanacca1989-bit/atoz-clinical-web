@@ -1,2 +1,6 @@
 <Solution>
+  <Project Path="AtoZClinical.Core/AtoZClinical.Core.csproj" />
+  <Project Path="AtoZClinical.Infrastructure/AtoZClinical.Infrastructure.csproj" />
+  <Project Path="AtoZClinical.Tests/AtoZClinical.Tests.csproj" />
+  <Project Path="AtoZClinical.Web/AtoZClinical.Web.csproj" />
 </Solution>

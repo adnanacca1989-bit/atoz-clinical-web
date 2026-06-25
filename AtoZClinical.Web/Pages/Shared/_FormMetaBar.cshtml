@@ -1,0 +1,24 @@
+@{
+    var statusText = ViewData["StatusText"] as string;
+    var recordId = ViewData["RecordId"] as string;
+    var updatedBy = ViewData["UpdatedBy"] as string;
+    var updatedOn = ViewData["UpdatedOn"] as string;
+    if (string.IsNullOrWhiteSpace(statusText) && string.IsNullOrWhiteSpace(recordId))
+    {
+        return;
+    }
+}
+<div class="clinical-form-meta-bar no-print">
+    @if (!string.IsNullOrWhiteSpace(statusText))
+    {
+        <span><strong>Status:</strong> @statusText</span>
+    }
+    @if (!string.IsNullOrWhiteSpace(recordId))
+    {
+        <span><strong>Record:</strong> @recordId</span>
+    }
+    @if (!string.IsNullOrWhiteSpace(updatedBy) || !string.IsNullOrWhiteSpace(updatedOn))
+    {
+        <span><strong>Last update:</strong> @(updatedBy ?? "—") · @(updatedOn ?? "—")</span>
+    }
+</div>

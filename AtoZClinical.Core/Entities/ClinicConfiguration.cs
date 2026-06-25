@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class ClinicConfiguration
+public class ClinicConfiguration : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }
@@ -19,6 +19,7 @@ public class ClinicConfiguration
     public string LanguageName { get; set; } = "English";
     public bool MaintenanceMode { get; set; }
     public string? MaintenanceNotes { get; set; }
+    public bool PatientPortalEnabled { get; set; }
     public string FormStyle { get; set; } = "Default";
     public string PrimaryColor { get; set; } = "#0b4f8a";
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

@@ -1,0 +1,63 @@
+@page
+@model AtoZClinical.Web.Pages.Portal.BookModel
+@{
+    ViewData["Title"] = "Book appointment";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Book appointment</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body class="p-3">
+    <div class="container" style="max-width:560px">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold mb-0" style="color:#0b4f8a">Book appointment</h2>
+            <a asp-page="/Portal/Index" class="btn btn-outline-secondary btn-sm">Back</a>
+        </div>
+
+        @if (Model.Success)
+        {
+            <div class="alert alert-success">@Model.Message</div>
+            <a asp-page="/Portal/Index" class="btn btn-atz-primary">View my appointments</a>
+        }
+        else
+        {
+            <div class="atz-card p-4">
+                <form method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div class="mb-3">
+                        <label asp-for="Input.AppointmentDate" class="form-label"></label>
+                        <input asp-for="Input.AppointmentDate" class="form-control" type="date" />
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Input.StartTime" class="form-label"></label>
+                        <input asp-for="Input.StartTime" class="form-control" type="time" />
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Input.DoctorName" class="form-label"></label>
+                        <select asp-for="Input.DoctorName" class="form-select">
+                            <option value="">Any available doctor</option>
+                            @foreach (var d in Model.Doctors)
+                            {
+                                <option value="@d.Name">@d.Name (@d.Specialty)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Input.Reason" class="form-label"></label>
+                        <textarea asp-for="Input.Reason" class="form-control" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-atz-primary w-100">Request appointment</button>
+                </form>
+            </div>
+        }
+    </div>
+    <partial name="_ValidationScriptsPartial" />
+</body>
+</html>

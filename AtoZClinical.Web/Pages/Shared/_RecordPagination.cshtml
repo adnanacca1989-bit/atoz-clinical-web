@@ -1,0 +1,21 @@
+@model AtoZClinical.Web.Pages.ClinicFormPageModel
+@if (Model.TotalPages > 1)
+{
+    <div class="record-pagination d-flex align-items-center justify-content-between gap-2 px-2 py-1 border-top">
+        <span class="small text-muted">
+            Page @Model.RecordPage of @Model.TotalPages (@Model.TotalRecords records)
+        </span>
+        <div class="btn-group btn-group-sm">
+            @if (Model.RecordPage > 1)
+            {
+                <a class="btn btn-outline-secondary"
+                   href="?RecordPage=@(Model.RecordPage - 1)&PageSize=@Model.PageSize&Search=@Model.Search&RecordId=@Model.RecordId">Prev</a>
+            }
+            @if (Model.RecordPage < Model.TotalPages)
+            {
+                <a class="btn btn-outline-secondary"
+                   href="?RecordPage=@(Model.RecordPage + 1)&PageSize=@Model.PageSize&Search=@Model.Search&RecordId=@Model.RecordId">Next</a>
+            }
+        </div>
+    </div>
+}

@@ -6,8 +6,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class GlobalTransactionSearchService
 {
     private readonly ClinicalDbContext _db;
+    private readonly bool _useILike;
 
-    public GlobalTransactionSearchService(ClinicalDbContext db) => _db = db;
+    public GlobalTransactionSearchService(ClinicalDbContext db)
+    {
+        _db = db;
+        _useILike = db.Database.IsNpgsql();
+    }
 
     public async Task<List<GlobalSearchHit>> SearchAsync(Guid clinicId, string? term, int limit = 80)
     {
@@ -37,12 +42,43 @@ public sealed class GlobalTransactionSearchService
 
     private async Task<List<GlobalSearchHit>> SearchInvoicesAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.Invoices.AsNoTracking()
-            .Where(i => i.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.Invoices.AsNoTracking().Where(i => i.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var invoiceNo))
+        {
+            if (_useILike)
+                query = query.Where(i => i.InvoiceNo == invoiceNo ||
+                    EF.Functions.ILike(i.PatientName!, pattern) ||
+                    EF.Functions.ILike(i.PatientId!, pattern) ||
+                    EF.Functions.ILike(i.DoctorName!, pattern) ||
+                    (i.Phone != null && EF.Functions.ILike(i.Phone, pattern)));
+            else
+                query = query.Where(i => i.InvoiceNo == invoiceNo ||
+                    (i.PatientName != null && i.PatientName.Contains(term)) ||
+                    (i.PatientId != null && i.PatientId.Contains(term)) ||
+                    (i.DoctorName != null && i.DoctorName.Contains(term)) ||
+                    (i.Phone != null && i.Phone.Contains(term)));
+        }
+        else if (_useILike)
+        {
+            query = query.Where(i =>
+                EF.Functions.ILike(i.PatientName!, pattern) ||
+                EF.Functions.ILike(i.PatientId!, pattern) ||
+                EF.Functions.ILike(i.DoctorName!, pattern) ||
+                (i.Phone != null && EF.Functions.ILike(i.Phone, pattern)));
+        }
+        else
+        {
+            query = query.Where(i =>
+                (i.PatientName != null && i.PatientName.Contains(term)) ||
+                (i.PatientId != null && i.PatientId.Contains(term)) ||
+                (i.DoctorName != null && i.DoctorName.Contains(term)) ||
+                (i.Phone != null && i.Phone.Contains(term)));
+        }
+
+        return await query
             .OrderByDescending(i => i.InvoiceDate)
-            .Take(250)
-            .ToListAsync();
-        return rows.Where(i => Matches(term, i.InvoiceNo.ToString(), i.PatientName, i.PatientId, i.DoctorName, i.Phone))
             .Take(take)
             .Select(i => new GlobalSearchHit(
                 "Invoice / Billing",
@@ -52,17 +88,33 @@ public sealed class GlobalTransactionSearchService
                 i.DoctorName ?? "",
                 i.TotalAmount,
                 $"/Invoices?RecordId={i.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchCashReceiptsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.CashReceipts.AsNoTracking()
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.CashReceipts.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var receiptNo))
+            query = query.Where(r => r.ReceiptNo == receiptNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.PatientName!, pattern) ||
+                EF.Functions.ILike(r.PatientId!, pattern) ||
+                EF.Functions.ILike(r.DoctorName!, pattern) ||
+                (r.Phone != null && EF.Functions.ILike(r.Phone, pattern)) ||
+                (r.Description != null && EF.Functions.ILike(r.Description, pattern)));
+        else
+            query = query.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.PatientId != null && r.PatientId.Contains(term)) ||
+                (r.DoctorName != null && r.DoctorName.Contains(term)) ||
+                (r.Phone != null && r.Phone.Contains(term)) ||
+                (r.Description != null && r.Description.Contains(term)));
+
+        return await query
             .OrderByDescending(r => r.ReceiptDate)
-            .Take(250)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.ReceiptNo.ToString(), r.PatientName, r.PatientId, r.DoctorName, r.Phone, r.Description))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Cash Receipt",
@@ -72,17 +124,31 @@ public sealed class GlobalTransactionSearchService
                 r.DoctorName ?? "",
                 r.Amount,
                 $"/CashReceipts?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchCashPaymentsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.CashPayments.AsNoTracking()
-            .Where(p => p.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.CashPayments.AsNoTracking().Where(p => p.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var paymentNo))
+            query = query.Where(p => p.PaymentNo == paymentNo);
+        else if (_useILike)
+            query = query.Where(p =>
+                EF.Functions.ILike(p.PayeeName!, pattern) ||
+                EF.Functions.ILike(p.ChartAccountName!, pattern) ||
+                (p.Description != null && EF.Functions.ILike(p.Description, pattern)) ||
+                (p.ReferenceNo != null && EF.Functions.ILike(p.ReferenceNo, pattern)));
+        else
+            query = query.Where(p =>
+                (p.PayeeName != null && p.PayeeName.Contains(term)) ||
+                (p.ChartAccountName != null && p.ChartAccountName.Contains(term)) ||
+                (p.Description != null && p.Description.Contains(term)) ||
+                (p.ReferenceNo != null && p.ReferenceNo.Contains(term)));
+
+        return await query
             .OrderByDescending(p => p.PaymentDate)
-            .Take(250)
-            .ToListAsync();
-        return rows.Where(p => Matches(term, p.PaymentNo.ToString(), p.PayeeName, p.ChartAccountName, p.Description, p.ReferenceNo))
             .Take(take)
             .Select(p => new GlobalSearchHit(
                 "Cash Payment",
@@ -92,17 +158,31 @@ public sealed class GlobalTransactionSearchService
                 "",
                 p.Amount,
                 $"/CashPayments?RecordId={p.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchPrescriptionsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.Prescriptions.AsNoTracking()
-            .Where(p => p.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.Prescriptions.AsNoTracking().Where(p => p.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var prescriptionNo))
+            query = query.Where(p => p.PrescriptionNo == prescriptionNo);
+        else if (_useILike)
+            query = query.Where(p =>
+                EF.Functions.ILike(p.PatientName!, pattern) ||
+                EF.Functions.ILike(p.DoctorName!, pattern) ||
+                (p.Specialty != null && EF.Functions.ILike(p.Specialty, pattern)) ||
+                (p.DiseaseName != null && EF.Functions.ILike(p.DiseaseName, pattern)));
+        else
+            query = query.Where(p =>
+                (p.PatientName != null && p.PatientName.Contains(term)) ||
+                (p.DoctorName != null && p.DoctorName.Contains(term)) ||
+                (p.Specialty != null && p.Specialty.Contains(term)) ||
+                (p.DiseaseName != null && p.DiseaseName.Contains(term)));
+
+        return await query
             .OrderByDescending(p => p.DatePrescription)
-            .Take(250)
-            .ToListAsync();
-        return rows.Where(p => Matches(term, p.PrescriptionNo.ToString(), p.PatientName, p.DoctorName, p.Specialty, p.DiseaseName))
             .Take(take)
             .Select(p => new GlobalSearchHit(
                 "Doctor's Prescription",
@@ -112,19 +192,35 @@ public sealed class GlobalTransactionSearchService
                 p.DoctorName ?? "",
                 0m,
                 $"/Prescriptions?RecordId={p.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchLabRequestsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.LabRequests.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.LabRequests.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var requestNo))
+            query = query.Where(r => r.RequestNo == requestNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.PatientName!, pattern) ||
+                EF.Functions.ILike(r.PatientBarcode!, pattern) ||
+                EF.Functions.ILike(r.DoctorName!, pattern) ||
+                (r.Specialty != null && EF.Functions.ILike(r.Specialty, pattern)) ||
+                r.Lines.Any(l => EF.Functions.ILike(l.TestName, pattern) || EF.Functions.ILike(l.TestCode, pattern)));
+        else
+            query = query.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.PatientBarcode != null && r.PatientBarcode.Contains(term)) ||
+                (r.DoctorName != null && r.DoctorName.Contains(term)) ||
+                (r.Specialty != null && r.Specialty.Contains(term)) ||
+                r.Lines.Any(l =>
+                    (l.TestName != null && l.TestName.Contains(term)) ||
+                    (l.TestCode != null && l.TestCode.Contains(term))));
+
+        return await query
             .OrderByDescending(r => r.RequestDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.RequestNo.ToString(), r.PatientName, r.PatientBarcode, r.DoctorName, r.Specialty,
-                string.Join(" ", r.Lines.Select(l => $"{l.TestName} {l.TestCode}"))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Laboratory Request",
@@ -134,19 +230,33 @@ public sealed class GlobalTransactionSearchService
                 r.DoctorName ?? "",
                 r.TotalAmount,
                 $"/Laboratory/Request?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchLabResultsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.LabResults.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.LabResults.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var resultNo))
+            query = query.Where(r => r.ResultNo == resultNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.PatientName!, pattern) ||
+                EF.Functions.ILike(r.DoctorName!, pattern) ||
+                r.Lines.Any(l =>
+                    EF.Functions.ILike(l.TestName, pattern) ||
+                    (l.Result != null && EF.Functions.ILike(l.Result, pattern))));
+        else
+            query = query.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.DoctorName != null && r.DoctorName.Contains(term)) ||
+                r.Lines.Any(l =>
+                    (l.TestName != null && l.TestName.Contains(term)) ||
+                    (l.Result != null && l.Result.Contains(term))));
+
+        return await query
             .OrderByDescending(r => r.ResultDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.ResultNo.ToString(), r.RequestNo?.ToString(), r.PatientName, r.DoctorName,
-                string.Join(" ", r.Lines.Select(l => $"{l.TestName} {l.Result}"))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Laboratory Result",
@@ -156,19 +266,31 @@ public sealed class GlobalTransactionSearchService
                 r.DoctorName ?? "",
                 0m,
                 $"/Laboratory/Result?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchPharmacyRequestsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.PharmacyRequests.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.PharmacyRequests.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var requestNo))
+            query = query.Where(r => r.RequestNo == requestNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.PatientName!, pattern) ||
+                EF.Functions.ILike(r.PatientId!, pattern) ||
+                EF.Functions.ILike(r.DoctorName!, pattern) ||
+                r.Lines.Any(l => EF.Functions.ILike(l.MedicineName, pattern)));
+        else
+            query = query.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.PatientId != null && r.PatientId.Contains(term)) ||
+                (r.DoctorName != null && r.DoctorName.Contains(term)) ||
+                r.Lines.Any(l => l.MedicineName != null && l.MedicineName.Contains(term)));
+
+        return await query
             .OrderByDescending(r => r.RequestDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.RequestNo.ToString(), r.PatientName, r.PatientId, r.DoctorName,
-                string.Join(" ", r.Lines.Select(l => l.MedicineName))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Pharmacy Request",
@@ -178,19 +300,31 @@ public sealed class GlobalTransactionSearchService
                 r.DoctorName ?? "",
                 r.TotalAmount,
                 $"/Pharmacy/Request?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchPharmacyBillsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.PharmacyBills.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.PharmacyBills.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var billNo))
+            query = query.Where(r => r.BillNo == billNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.PatientName!, pattern) ||
+                EF.Functions.ILike(r.PatientId!, pattern) ||
+                EF.Functions.ILike(r.DoctorName!, pattern) ||
+                r.Lines.Any(l => EF.Functions.ILike(l.MedicineName, pattern)));
+        else
+            query = query.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.PatientId != null && r.PatientId.Contains(term)) ||
+                (r.DoctorName != null && r.DoctorName.Contains(term)) ||
+                r.Lines.Any(l => l.MedicineName != null && l.MedicineName.Contains(term)));
+
+        return await query
             .OrderByDescending(r => r.BillDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.BillNo.ToString(), r.RequestNo?.ToString(), r.PatientName, r.PatientId, r.DoctorName,
-                string.Join(" ", r.Lines.Select(l => l.MedicineName))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Pharmacy Bill",
@@ -200,19 +334,31 @@ public sealed class GlobalTransactionSearchService
                 r.DoctorName ?? "",
                 r.TotalAmount,
                 $"/Pharmacy/Bill?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchPharmacyPurchasesAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.PharmacyPurchaseBills.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.PharmacyPurchaseBills.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var purchaseNo))
+            query = query.Where(r => r.PurchaseNo == purchaseNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.SupplierName!, pattern) ||
+                (r.SupplierInvoiceNo != null && EF.Functions.ILike(r.SupplierInvoiceNo, pattern)) ||
+                (r.SupplierPhone != null && EF.Functions.ILike(r.SupplierPhone, pattern)) ||
+                r.Lines.Any(l => EF.Functions.ILike(l.MedicineName, pattern)));
+        else
+            query = query.Where(r =>
+                (r.SupplierName != null && r.SupplierName.Contains(term)) ||
+                (r.SupplierInvoiceNo != null && r.SupplierInvoiceNo.Contains(term)) ||
+                (r.SupplierPhone != null && r.SupplierPhone.Contains(term)) ||
+                r.Lines.Any(l => l.MedicineName != null && l.MedicineName.Contains(term)));
+
+        return await query
             .OrderByDescending(r => r.PurchaseDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.PurchaseNo.ToString(), r.SupplierName, r.SupplierInvoiceNo, r.SupplierPhone,
-                string.Join(" ", r.Lines.Select(l => l.MedicineName))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Pharmacy Purchase Bill",
@@ -222,19 +368,31 @@ public sealed class GlobalTransactionSearchService
                 "",
                 r.NetAmount,
                 $"/Pharmacy/Purchase?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchPharmacyOpeningBalancesAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.PharmacyOpeningBalances.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.PharmacyOpeningBalances.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var balanceNo))
+            query = query.Where(r => r.BalanceNo == balanceNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                (r.Notes != null && EF.Functions.ILike(r.Notes, pattern)) ||
+                r.Lines.Any(l =>
+                    EF.Functions.ILike(l.MedicineName, pattern) ||
+                    (l.Barcode != null && EF.Functions.ILike(l.Barcode, pattern))));
+        else
+            query = query.Where(r =>
+                (r.Notes != null && r.Notes.Contains(term)) ||
+                r.Lines.Any(l =>
+                    (l.MedicineName != null && l.MedicineName.Contains(term)) ||
+                    (l.Barcode != null && l.Barcode.Contains(term))));
+
+        return await query
             .OrderByDescending(r => r.BalanceDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.BalanceNo.ToString(), r.Notes,
-                string.Join(" ", r.Lines.Select(l => $"{l.MedicineName} {l.Barcode}"))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Pharmacy Opening Balance",
@@ -244,19 +402,31 @@ public sealed class GlobalTransactionSearchService
                 "",
                 r.Lines.Sum(l => l.Total),
                 $"/Pharmacy/OpeningBalance?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchRadiologyRequestsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.RadiologyRequests.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.RadiologyRequests.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var requestNo))
+            query = query.Where(r => r.RequestNo == requestNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.PatientName!, pattern) ||
+                EF.Functions.ILike(r.PatientBarcode!, pattern) ||
+                EF.Functions.ILike(r.DoctorName!, pattern) ||
+                r.Lines.Any(l => EF.Functions.ILike(l.TestName, pattern)));
+        else
+            query = query.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.PatientBarcode != null && r.PatientBarcode.Contains(term)) ||
+                (r.DoctorName != null && r.DoctorName.Contains(term)) ||
+                r.Lines.Any(l => l.TestName != null && l.TestName.Contains(term)));
+
+        return await query
             .OrderByDescending(r => r.RequestDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.RequestNo.ToString(), r.PatientName, r.PatientBarcode, r.DoctorName,
-                string.Join(" ", r.Lines.Select(l => l.TestName))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Radiology Request",
@@ -266,19 +436,33 @@ public sealed class GlobalTransactionSearchService
                 r.DoctorName ?? "",
                 r.TotalAmount,
                 $"/Radiology/Request?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchRadiologyResultsAsync(Guid clinicId, string term, int take)
     {
-        var rows = await _db.RadiologyResults.AsNoTracking()
-            .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+        var pattern = LikePattern(term);
+        var query = _db.RadiologyResults.AsNoTracking().Where(r => r.ClinicId == clinicId);
+
+        if (int.TryParse(term, out var resultNo))
+            query = query.Where(r => r.ResultNo == resultNo);
+        else if (_useILike)
+            query = query.Where(r =>
+                EF.Functions.ILike(r.PatientName!, pattern) ||
+                EF.Functions.ILike(r.DoctorName!, pattern) ||
+                r.Lines.Any(l =>
+                    EF.Functions.ILike(l.TestName, pattern) ||
+                    (l.Result != null && EF.Functions.ILike(l.Result, pattern))));
+        else
+            query = query.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.DoctorName != null && r.DoctorName.Contains(term)) ||
+                r.Lines.Any(l =>
+                    (l.TestName != null && l.TestName.Contains(term)) ||
+                    (l.Result != null && l.Result.Contains(term))));
+
+        return await query
             .OrderByDescending(r => r.ResultDate)
-            .Take(200)
-            .ToListAsync();
-        return rows.Where(r => Matches(term, r.ResultNo.ToString(), r.RequestNo?.ToString(), r.PatientName, r.DoctorName,
-                string.Join(" ", r.Lines.Select(l => $"{l.TestName} {l.Result}"))))
             .Take(take)
             .Select(r => new GlobalSearchHit(
                 "Radiology Result",
@@ -288,8 +472,10 @@ public sealed class GlobalTransactionSearchService
                 r.DoctorName ?? "",
                 0m,
                 $"/Radiology/Result?RecordId={r.Id}"))
-            .ToList();
+            .ToListAsync();
     }
+
+    private static string LikePattern(string term) => $"%{term}%";
 
     private static async Task<List<GlobalSearchHit>> SafeSearchAsync(Func<Task<List<GlobalSearchHit>>> search)
     {
@@ -301,17 +487,6 @@ public sealed class GlobalTransactionSearchService
         {
             return [];
         }
-    }
-
-    private static bool Matches(string term, params string?[] fields)
-    {
-        foreach (var field in fields)
-        {
-            if (!string.IsNullOrWhiteSpace(field) &&
-                field.Contains(term, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
     }
 
     public sealed record GlobalSearchHit(

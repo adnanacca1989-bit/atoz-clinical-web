@@ -1,0 +1,6 @@
+@inject AtoZClinical.Web.Services.CaptchaService Captcha
+@if (Captcha.IsEnabled && !string.IsNullOrWhiteSpace(Captcha.SiteKey))
+{
+    <div class="h-captcha mb-3" data-sitekey="@Captcha.SiteKey"></div>
+    <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+}

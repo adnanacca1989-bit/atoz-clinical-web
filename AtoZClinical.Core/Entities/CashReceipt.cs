@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class CashReceipt
+public class CashReceipt : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }
@@ -20,6 +20,7 @@ public class CashReceipt
     public decimal BalanceDue { get; set; }
     public string? BalanceStatus { get; set; }
     public decimal? EndingBalance { get; set; }
+    public decimal PatientCredit { get; set; }
     public decimal Amount { get; set; }
     public string WrittenAmount { get; set; } = "Zero";
     public string PaymentMethod { get; set; } = "Cash";

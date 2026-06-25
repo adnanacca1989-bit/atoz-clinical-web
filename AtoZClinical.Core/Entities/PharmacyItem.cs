@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class PharmacyItem
+public class PharmacyItem : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

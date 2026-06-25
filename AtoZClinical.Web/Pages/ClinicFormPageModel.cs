@@ -1,3 +1,4 @@
+using AtoZClinical.Infrastructure;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -18,6 +19,15 @@ public abstract class ClinicFormPageModel : PageModel
 
     [BindProperty(SupportsGet = true)]
     public bool NewRecord { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public int RecordPage { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public int PageSize { get; set; } = PaginationDefaults.DefaultPageSize;
+
+    public int TotalRecords { get; protected set; }
+    public int TotalPages { get; protected set; }
 
     [BindProperty]
     public string SaveMode { get; set; } = "Edit";
@@ -48,7 +58,15 @@ public abstract class ClinicFormPageModel : PageModel
     }
 
     protected IActionResult RedirectToRecord(Guid? id) =>
-        RedirectToPage(new { RecordId = id, Search });
+        RedirectToPage(new { RecordId = id, Search, RecordPage, PageSize });
+
+    protected void ApplyPaging<T>(PagedResult<T> result)
+    {
+        TotalRecords = result.TotalCount;
+        TotalPages = result.TotalPages;
+        RecordPage = result.Page;
+        PageSize = result.PageSize;
+    }
 
     protected IActionResult RedirectToNewForm() =>
         RedirectToPage(new { Search, NewRecord = true });

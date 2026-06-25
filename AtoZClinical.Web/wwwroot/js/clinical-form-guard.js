@@ -8,6 +8,30 @@
         }
     }
 
+    function unlockFormSubmits(form) {
+        delete form.dataset.submitLocked;
+        form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(btn => {
+            btn.disabled = false;
+            btn.classList.remove('is-submitting');
+        });
+    }
+
+    function isFormValid(form, submitter) {
+        if (submitter?.hasAttribute('formnovalidate')) {
+            return true;
+        }
+
+        const $ = window.jQuery;
+        if ($) {
+            const $form = $(form);
+            if ($form.data('validator')) {
+                return $form.valid();
+            }
+        }
+
+        return form.checkValidity();
+    }
+
     function lockFormSubmits(form) {
         if (form.dataset.submitLocked === '1') return false;
         form.dataset.submitLocked = '1';
@@ -22,11 +46,21 @@
         document.querySelectorAll('form').forEach(form => {
             form.addEventListener('submit', (e) => {
                 clearRecordIdForNewSave(form);
+
+                if (!isFormValid(form, e.submitter)) {
+                    unlockFormSubmits(form);
+                    return;
+                }
+
                 if (!lockFormSubmits(form)) {
                     e.preventDefault();
                     return false;
                 }
             });
+
+            form.addEventListener('invalid', () => {
+                unlockFormSubmits(form);
+            }, true);
         });
 
         document.querySelectorAll('[onclick*="saveModeInput"][onclick*="New"]').forEach(btn => {
@@ -36,5 +70,11 @@
                 if (recordId) recordId.value = '';
             });
         });
+    });
+
+    window.addEventListener('pageshow', (e) => {
+        if (e.persisted) {
+            document.querySelectorAll('form[data-submit-locked="1"]').forEach(unlockFormSubmits);
+        }
     });
 })();

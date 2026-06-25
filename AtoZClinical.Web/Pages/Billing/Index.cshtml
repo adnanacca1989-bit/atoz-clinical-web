@@ -1,0 +1,67 @@
+@page
+@model AtoZClinical.Web.Pages.Billing.IndexModel
+@{
+    ViewData["Title"] = "Subscription & Billing";
+    Layout = "_Layout";
+}
+
+<div class="atz-card p-4">
+    <h1 class="atz-section-title">Subscription &amp; Billing</h1>
+    <p class="text-muted">Clinic: <strong>@Model.ClinicName</strong></p>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <div class="alert alert-info">@Model.Message</div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+                <div class="text-muted small">Current plan</div>
+                <div class="fs-5 fw-semibold">@Model.PlanName</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+                <div class="text-muted small">Billing status</div>
+                <div class="fs-5 fw-semibold">@Model.SubscriptionStatus</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+                <div class="text-muted small">@(Model.PlanName.Equals("Trial", StringComparison.OrdinalIgnoreCase) ? "Trial ends" : "Renews through")</div>
+                <div class="fs-5 fw-semibold">@(Model.TrialEndsAt?.ToString("dd MMM yyyy") ?? Model.LicenseExpires?.ToString("dd MMM yyyy") ?? "—")</div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.BillingEnabled)
+    {
+        <h2 class="h5 mt-4">Upgrade plan</h2>
+        <div class="row g-3">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="col-md-6">
+                    <div class="border rounded p-3 h-100 d-flex flex-column">
+                        <h3 class="h5">@plan.DisplayName</h3>
+                        <p class="text-muted mb-2">$@plan.MonthlyPriceUsd.ToString("0") / month · up to @plan.MaxUsers users</p>
+                        <form method="post" asp-page-handler="Subscribe" class="mt-auto">
+                            <input type="hidden" name="planKey" value="@plan.Key" />
+                            <button type="submit" class="btn btn-atz-primary">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <form method="post" asp-page-handler="Manage" class="mt-4">
+            <button type="submit" class="btn btn-outline-secondary">Manage payment method (Stripe)</button>
+        </form>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            Online billing is not configured yet. Contact your vendor to renew or upgrade your plan.
+        </div>
+    }
+</div>

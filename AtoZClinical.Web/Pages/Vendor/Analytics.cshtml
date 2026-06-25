@@ -1,0 +1,51 @@
+@page
+@model AtoZClinical.Web.Pages.Vendor.AnalyticsModel
+@{
+    ViewData["Title"] = "SaaS Analytics";
+    Layout = "_Layout";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="atz-section-title mb-1">SaaS Analytics</h2>
+        <p class="text-muted mb-0">MRR estimate, trials, and clinic growth</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="/Vendor/Index">Back to clinics</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Total clinics</div><div class="fs-3 fw-bold">@Model.Summary.TotalClinics</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Active</div><div class="fs-3 fw-bold text-success">@Model.Summary.ActiveClinics</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">On trial</div><div class="fs-3 fw-bold text-primary">@Model.Summary.TrialClinics</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Est. MRR (USD)</div><div class="fs-3 fw-bold">$@Model.Summary.EstimatedMrrUsd.ToString("0")</div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="atz-card p-3"><div class="text-muted small">New this month</div><div class="fs-4 fw-semibold">@Model.Summary.NewClinicsThisMonth</div></div></div>
+    <div class="col-md-4"><div class="atz-card p-3"><div class="text-muted small">Churned this month</div><div class="fs-4 fw-semibold">@Model.Summary.ChurnedThisMonth</div></div></div>
+    <div class="col-md-4"><div class="atz-card p-3"><div class="text-muted small">Pending approval</div><div class="fs-4 fw-semibold">@Model.Summary.PendingClinics</div></div></div>
+</div>
+
+<div class="atz-card p-3">
+    <h3 class="h5">Trials expiring soon</h3>
+    @if (Model.Summary.ExpiringTrials.Count == 0)
+    {
+        <p class="text-muted mb-0">No upcoming trial expirations.</p>
+    }
+    else
+    {
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Clinic</th><th>Email</th><th>Trial ends</th></tr></thead>
+            <tbody>
+            @foreach (var row in Model.Summary.ExpiringTrials)
+            {
+                <tr>
+                    <td>@row.ClinicName</td>
+                    <td>@(row.Email ?? "—")</td>
+                    <td>@row.TrialEndsAt.ToString("dd MMM yyyy")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>

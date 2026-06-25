@@ -492,11 +492,13 @@ public sealed class RolePermissionService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly ClinicRuntimeCache _cache;
 
-    public RolePermissionService(ClinicalDbContext db, AuditService audit)
+    public RolePermissionService(ClinicalDbContext db, AuditService audit, ClinicRuntimeCache cache)
     {
         _db = db;
         _audit = audit;
+        _cache = cache;
     }
 
     public Task<List<RolePermission>> ListAsync(Guid clinicId) =>
@@ -520,6 +522,7 @@ public sealed class RolePermissionService
         else _db.RolePermissions.Update(item);
 
         await _db.SaveChangesAsync();
+        _cache.InvalidateVisibleForms(clinicId, item.RoleName);
         await _audit.LogAsync(clinicId, userName, "Role Permissions", isNew ? "Create" : "Update",
             $"{item.RoleName} — {item.FormKey}, visible={item.IsVisible}");
         return item;
@@ -539,6 +542,7 @@ public sealed class RolePermissionService
         }
 
         await _db.SaveChangesAsync();
+        _cache.InvalidateVisibleForms(clinicId, roleName);
         await _audit.LogAsync(clinicId, userName, "Role Permissions", "Update", $"Bulk update for role {roleName}");
     }
 
@@ -548,6 +552,7 @@ public sealed class RolePermissionService
         if (item is null) return;
         _db.RolePermissions.Remove(item);
         await _db.SaveChangesAsync();
+        _cache.InvalidateVisibleForms(clinicId, item.RoleName);
         await _audit.LogAsync(clinicId, userName, "Role Permissions", "Delete", $"{item.RoleName} — {item.FormKey}");
     }
 }

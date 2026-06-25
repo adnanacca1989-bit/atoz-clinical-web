@@ -23,12 +23,17 @@ function updateCashEndingBalance() {
     const balanceDueEl = document.querySelector('[name="Input.BalanceDue"]');
     const amountEl = document.querySelector('[name="Input.Amount"]');
     const endingEl = document.querySelector('[name="Input.EndingBalance"]');
+    const creditEl = document.querySelector('[name="Input.PatientCredit"]');
     if (!balanceDueEl || !endingEl) return;
 
     const due = Number(balanceDueEl.value) || 0;
     const amount = Number(amountEl?.value) || 0;
-    const ending = due - amount;
-    endingEl.value = ending.toFixed(2);
+    const applied = Math.min(amount, Math.max(0, due));
+    const credit = Math.max(0, amount - applied);
+    const remaining = Math.max(0, due - applied);
+
+    endingEl.value = remaining.toFixed(2);
+    if (creditEl) creditEl.value = credit.toFixed(2);
 }
 
 function bindCashBalanceUpdates() {

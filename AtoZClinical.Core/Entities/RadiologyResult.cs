@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class RadiologyResult
+public class RadiologyResult : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class ClinicUom
+public class ClinicUom : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }
@@ -14,7 +14,7 @@ public class ClinicUom
     public Clinic Clinic { get; set; } = null!;
 }
 
-public class ClinicCurrency
+public class ClinicCurrency : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }
@@ -29,7 +29,7 @@ public class ClinicCurrency
     public Clinic Clinic { get; set; } = null!;
 }
 
-public class ClinicOwner
+public class ClinicOwner : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }
@@ -44,7 +44,7 @@ public class ClinicOwner
     public Clinic Clinic { get; set; } = null!;
 }
 
-public class ClinicLanguage
+public class ClinicLanguage : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }
@@ -58,7 +58,7 @@ public class ClinicLanguage
     public Clinic Clinic { get; set; } = null!;
 }
 
-public class ClinicVendor
+public class ClinicVendor : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

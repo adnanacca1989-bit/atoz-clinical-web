@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class AuditLogEntry
+public class AuditLogEntry : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

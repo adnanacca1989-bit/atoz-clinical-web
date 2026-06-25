@@ -1,6 +1,6 @@
 namespace AtoZClinical.Core.Entities;
 
-public class LabTest
+public class LabTest : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }

@@ -1,0 +1,61 @@
+@page
+@model AtoZClinical.Web.Pages.Portal.LoginModel
+@{
+    ViewData["Title"] = "Patient portal";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Patient portal</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="login-panel atz-card p-4">
+        <div class="text-center mb-4">
+            <h3 class="fw-bold" style="color:#0b4f8a">Patient portal</h3>
+            @if (!string.IsNullOrEmpty(Model.ClinicName))
+            {
+                <p class="text-muted mb-0">@Model.ClinicName</p>
+            }
+        </div>
+
+        @if (Model.PortalDisabled)
+        {
+            <div class="alert alert-warning">The patient portal is not enabled for this clinic.</div>
+        }
+        else
+        {
+            <form method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                @if (string.IsNullOrEmpty(Model.ClinicName))
+                {
+                    <div class="mb-3">
+                        <label asp-for="Input.ClinicCode" class="form-label"></label>
+                        <input asp-for="Input.ClinicCode" class="form-control" />
+                        <span asp-validation-for="Input.ClinicCode" class="text-danger"></span>
+                    </div>
+                }
+                <div class="mb-3">
+                    <label asp-for="Input.PatientNo" class="form-label"></label>
+                    <input asp-for="Input.PatientNo" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.DateOfBirth" class="form-label"></label>
+                    <input asp-for="Input.DateOfBirth" class="form-control" type="date" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.PhoneLast4" class="form-label"></label>
+                    <input asp-for="Input.PhoneLast4" class="form-control" maxlength="4" inputmode="numeric" />
+                </div>
+                <button type="submit" class="btn btn-atz-primary w-100">Sign in</button>
+            </form>
+        }
+    </div>
+    <partial name="_ValidationScriptsPartial" />
+</body>
+</html>

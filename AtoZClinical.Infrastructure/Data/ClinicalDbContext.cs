@@ -7,8 +7,19 @@ namespace AtoZClinical.Infrastructure.Data;
 
 public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
 {
-    public ClinicalDbContext(DbContextOptions<ClinicalDbContext> options) : base(options)
+    private readonly Guid? _tenantClinicId;
+    private readonly bool _bypassTenantFilter;
+
+    public ClinicalDbContext(DbContextOptions<ClinicalDbContext> options)
+        : this(options, BypassClinicProvider.Instance)
     {
+    }
+
+    public ClinicalDbContext(DbContextOptions<ClinicalDbContext> options, ICurrentClinicProvider tenant)
+        : base(options)
+    {
+        _bypassTenantFilter = tenant.BypassTenantFilter;
+        _tenantClinicId = tenant.ClinicId;
     }
 
     public DbSet<Clinic> Clinics => Set<Clinic>();
@@ -50,6 +61,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ClinicVendor> ClinicVendors => Set<ClinicVendor>();
     public DbSet<PharmacyPurchaseBill> PharmacyPurchaseBills => Set<PharmacyPurchaseBill>();
     public DbSet<PharmacyPurchaseBillLine> PharmacyPurchaseBillLines => Set<PharmacyPurchaseBillLine>();
+    public DbSet<ClinicApiKey> ClinicApiKeys => Set<ClinicApiKey>();
+    public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -62,11 +75,21 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.ClinicCode).HasMaxLength(32).IsRequired();
             e.Property(x => x.PlanName).HasMaxLength(64);
+            e.Property(x => x.StripeCustomerId).HasMaxLength(128);
+            e.Property(x => x.StripeSubscriptionId).HasMaxLength(128);
+            e.Property(x => x.SubscriptionStatus).HasMaxLength(32);
+            e.HasIndex(x => x.StripeCustomerId);
+            e.HasIndex(x => x.StripeSubscriptionId);
+            e.Property(x => x.Subdomain).HasMaxLength(63);
+            e.HasIndex(x => x.Subdomain).IsUnique().HasFilter("\"Subdomain\" IS NOT NULL");
+            e.Property(x => x.DedicatedConnectionName).HasMaxLength(128);
         });
 
         builder.Entity<Patient>(e =>
         {
             e.HasIndex(x => new { x.ClinicId, x.PatientNo }).IsUnique();
+            e.HasIndex(x => new { x.ClinicId, x.AppointmentDate });
+            e.HasIndex(x => new { x.ClinicId, x.Status });
             e.Property(x => x.FirstName).HasMaxLength(150).IsRequired();
             e.Property(x => x.LastName).HasMaxLength(150);
             e.HasOne(x => x.Clinic).WithMany(c => c.Patients).HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
@@ -161,6 +184,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Invoice>(e =>
         {
             e.HasIndex(x => new { x.ClinicId, x.InvoiceNo }).IsUnique();
+            e.HasIndex(x => new { x.ClinicId, x.PatientId });
+            e.HasIndex(x => new { x.ClinicId, x.PatientName });
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -295,9 +320,92 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(x => x.PharmacyPurchaseBill).WithMany(b => b.Lines).HasForeignKey(x => x.PharmacyPurchaseBillId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<ClinicApiKey>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.Name });
+            e.HasIndex(x => x.KeyPrefix);
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.Property(x => x.KeyPrefix).HasMaxLength(16).IsRequired();
+            e.Property(x => x.KeyHash).HasMaxLength(128).IsRequired();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WebhookSubscription>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.TargetUrl });
+            e.Property(x => x.TargetUrl).HasMaxLength(500).IsRequired();
+            e.Property(x => x.Secret).HasMaxLength(128).IsRequired();
+            e.Property(x => x.Events).HasMaxLength(500).IsRequired();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<ApplicationUser>(e =>
         {
             e.Property(x => x.FullName).HasMaxLength(200);
         });
+
+        ApplyClinicTenantFilters(builder);
+    }
+
+    private void ApplyClinicTenantFilters(ModelBuilder builder)
+    {
+        ConfigureClinicFilter<Patient>(builder);
+        ConfigureClinicFilter<Appointment>(builder);
+        ConfigureClinicFilter<Doctor>(builder);
+        ConfigureClinicFilter<ServiceIncome>(builder);
+        ConfigureClinicFilter<CashReceipt>(builder);
+        ConfigureClinicFilter<CashPayment>(builder);
+        ConfigureClinicFilter<LabTest>(builder);
+        ConfigureClinicFilter<LabRequest>(builder);
+        ConfigureClinicFilter<LabResult>(builder);
+        ConfigureClinicFilter<RadiologyTest>(builder);
+        ConfigureClinicFilter<RadiologyRequest>(builder);
+        ConfigureClinicFilter<RadiologyResult>(builder);
+        ConfigureClinicFilter<Prescription>(builder);
+        ConfigureClinicFilter<Invoice>(builder);
+        ConfigureClinicFilter<ChartAccount>(builder);
+        ConfigureClinicFilter<AuditLogEntry>(builder);
+        ConfigureClinicFilter<RolePermission>(builder);
+        ConfigureClinicFilter<PharmacyRequest>(builder);
+        ConfigureClinicFilter<PharmacyBill>(builder);
+        ConfigureClinicFilter<PharmacyItem>(builder);
+        ConfigureClinicFilter<PharmacyOpeningBalance>(builder);
+        ConfigureClinicFilter<PharmacyInventoryMovement>(builder);
+        ConfigureClinicFilter<ClinicConfiguration>(builder);
+        ConfigureClinicFilter<ClinicUom>(builder);
+        ConfigureClinicFilter<ClinicCurrency>(builder);
+        ConfigureClinicFilter<ClinicOwner>(builder);
+        ConfigureClinicFilter<ClinicLanguage>(builder);
+        ConfigureClinicFilter<ClinicVendor>(builder);
+        ConfigureClinicFilter<PharmacyPurchaseBill>(builder);
+        ConfigureClinicFilter<ClinicApiKey>(builder);
+        ConfigureClinicFilter<WebhookSubscription>(builder);
+    }
+
+    private void ConfigureClinicFilter<TEntity>(ModelBuilder builder) where TEntity : class, IClinicScoped
+    {
+        builder.Entity<TEntity>().HasQueryFilter(e =>
+            _bypassTenantFilter || (_tenantClinicId != null && e.ClinicId == _tenantClinicId));
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        PreventAuditMutation();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        PreventAuditMutation();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void PreventAuditMutation()
+    {
+        foreach (var entry in ChangeTracker.Entries<AuditLogEntry>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+                entry.State = EntityState.Unchanged;
+        }
     }
 }

@@ -1,4 +1,5 @@
 using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -15,8 +16,31 @@ public abstract class ClinicCrudServiceBase<T> where T : class
     protected abstract void SetClinicId(T entity, Guid clinicId);
     protected abstract Guid GetId(T entity);
 
-    public Task<List<T>> ListAsync(Guid clinicId) =>
-        ForClinic(clinicId).ToListAsync();
+    public Task<List<T>> ListAsync(Guid clinicId, int maxRows = PaginationDefaults.ListCap) =>
+        ApplyListOrder(ForClinic(clinicId)).Take(maxRows).ToListAsync();
+
+    public Task<PagedResult<T>> ListPagedAsync(Guid clinicId, int page = 1, int pageSize = PaginationDefaults.DefaultPageSize) =>
+        ApplyListOrder(ForClinic(clinicId)).ToPagedResultAsync(page, pageSize);
+
+    public async Task<Guid?> GetAdjacentIdAsync(Guid clinicId, Guid currentId, int direction)
+    {
+        var ids = await ApplyListOrder(ForClinic(clinicId))
+            .Select(e => EF.Property<Guid>(e, "Id"))
+            .ToListAsync();
+
+        if (ids.Count == 0) return null;
+
+        var idx = ids.IndexOf(currentId);
+        if (idx < 0)
+            return direction > 0 ? ids[0] : ids[^1];
+
+        var newIdx = idx + direction;
+        if (newIdx < 0 || newIdx >= ids.Count) return null;
+        return ids[newIdx];
+    }
+
+    protected virtual IQueryable<T> ApplyListOrder(IQueryable<T> query) =>
+        query.OrderByDescending(e => EF.Property<Guid>(e, "Id"));
 
     public Task<T?> GetAsync(Guid clinicId, Guid id) =>
         ForClinic(clinicId).FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id);

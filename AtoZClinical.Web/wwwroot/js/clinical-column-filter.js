@@ -42,7 +42,7 @@
             const th = table.querySelector(`thead th[data-col="${col.key}"]`) ||
                 table.querySelectorAll('thead th')[col.index];
             if (th) th.style.display = show ? '' : 'none';
-            table.querySelectorAll('tbody tr').forEach(row => {
+            table.querySelectorAll('tbody tr, tfoot tr').forEach(row => {
                 const cell = row.querySelector(`[data-col="${col.key}"]`) || row.children[col.index];
                 if (cell) cell.style.display = show ? '' : 'none';
             });
@@ -80,6 +80,10 @@
             if (th && !th.dataset.col) th.dataset.col = col.key;
             table.querySelectorAll('tbody tr').forEach(row => {
                 const cell = row.children[index];
+                if (cell && !cell.dataset.col) cell.dataset.col = col.key;
+            });
+            table.querySelectorAll('tfoot tr').forEach(row => {
+                const cell = row.querySelector(`[data-col="${col.key}"]`) || row.children[index];
                 if (cell && !cell.dataset.col) cell.dataset.col = col.key;
             });
         });

@@ -10,14 +10,20 @@ public sealed class ClinicModuleService
     public const string EnabledFormsItemKey = "ClinicEnabledFormKeys";
 
     private readonly ClinicalDbContext _db;
+    private readonly ClinicRuntimeCache _cache;
 
-    public ClinicModuleService(ClinicalDbContext db) => _db = db;
-
-    public async Task<HashSet<string>> GetEnabledFormsAsync(Guid clinicId)
+    public ClinicModuleService(ClinicalDbContext db, ClinicRuntimeCache cache)
     {
-        var clinic = await _db.Clinics.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clinicId);
-        return ParseEnabledForms(clinic);
+        _db = db;
+        _cache = cache;
     }
+
+    public Task<HashSet<string>> GetEnabledFormsAsync(Guid clinicId) =>
+        _cache.GetOrCreateAsync(ClinicRuntimeCache.EnabledFormsKey(clinicId), async () =>
+        {
+            var clinic = await _db.Clinics.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clinicId);
+            return ParseEnabledForms(clinic);
+        });
 
     public static HashSet<string> ParseEnabledForms(Clinic? clinic)
     {

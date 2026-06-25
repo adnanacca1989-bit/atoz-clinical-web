@@ -7,9 +7,11 @@ using AtoZClinical.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AtoZClinical.Web.Pages.Account;
 
+[EnableRateLimiting("auth")]
 public class LoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signIn;
@@ -48,9 +50,23 @@ public class LoginModel : PageModel
         }
 
         var result = await _signIn.PasswordSignInAsync(Input.Username, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+        if (result.RequiresTwoFactor)
+            return RedirectToPage("/Account/LoginWith2fa", new { RememberMe = Input.RememberMe });
+
         if (!result.Succeeded)
         {
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
+            return Page();
+        }
+
+        if (!user.IsVendorAdmin
+            && !await _users.IsInRoleAsync(user, ClinicalRoles.Vendor)
+            && !string.IsNullOrWhiteSpace(user.Email)
+            && !user.EmailConfirmed)
+        {
+            await _signIn.SignOutAsync();
+            ModelState.AddModelError(string.Empty,
+                "Please confirm your email before signing in. Check your inbox for the confirmation link.");
             return Page();
         }
 

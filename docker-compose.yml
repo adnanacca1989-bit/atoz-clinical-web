@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: atoz_clinical
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
@@ -22,9 +22,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       PORT: "8080"
-      ConnectionStrings__ClinicalDatabase: Host=db;Port=5432;Database=atoz_clinical;Username=postgres;Password=postgres
+      ConnectionStrings__ClinicalDatabase: Host=db;Port=5432;Database=atoz_clinical;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}
       Seed__VendorUsername: vendor
-      Seed__VendorPassword: Vendor@2026
+      Seed__VendorPassword: ${VENDOR_PASSWORD:-ChangeMe@Local2026!}
     depends_on:
       db:
         condition: service_healthy
