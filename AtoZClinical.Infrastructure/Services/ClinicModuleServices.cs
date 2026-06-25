@@ -188,31 +188,45 @@ public sealed class DoctorService
         doctor.UpdatedBy = userName;
         if (isNew)
         {
-            const int maxAttempts = 8;
+            const int maxAttempts = 15;
             var inserted = false;
+            Doctor? saved = null;
+            var template = CloneDoctorShell(doctor);
+
             for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
-                doctor.Id = Guid.NewGuid();
-                doctor.DoctorNo = await NextNoAsync(clinicId);
-                doctor.CreatedAt = DateTime.UtcNow;
-                doctor.CreatedBy = userName;
-                _db.Doctors.Add(doctor);
+                DetachPendingDoctorAdds(_db);
+                var row = CloneDoctorShell(template);
+                row.Id = Guid.NewGuid();
+                row.ClinicId = clinicId;
+                row.DoctorNo = await NextNoAsync(clinicId, attempt);
+                row.CreatedAt = DateTime.UtcNow;
+                row.CreatedBy = userName;
+                row.UpdatedAt = DateTime.UtcNow;
+                row.UpdatedBy = userName;
+                _db.Doctors.Add(row);
                 try
                 {
                     await _db.SaveChangesAsync();
                     inserted = true;
+                    saved = row;
                     break;
                 }
                 catch (DbUpdateException ex) when (IsDuplicateDoctorNo(ex))
                 {
-                    _db.Entry(doctor).State = EntityState.Detached;
+                    DetachDoctorEntity(_db, row);
+                }
+                catch (DbUpdateException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not save doctor: {ex.InnerException?.Message ?? ex.Message}", ex);
                 }
             }
 
-            if (!inserted)
+            if (!inserted || saved is null)
                 throw new InvalidOperationException("Could not assign a new doctor ID. Please click + New and try again.");
 
-            return doctor;
+            return saved;
         }
         else
         {
@@ -253,15 +267,39 @@ public sealed class DoctorService
         await _db.SaveChangesAsync();
     }
 
-    public async Task<int> NextNoAsync(Guid clinicId)
+    public async Task<int> NextNoAsync(Guid clinicId, int skip = 0)
     {
-        var used = await _db.Doctors.ForClinic(clinicId)
-            .Select(d => d.DoctorNo)
-            .ToListAsync();
-        var next = 1;
-        while (used.Contains(next))
-            next++;
-        return next;
+        var max = await _db.Doctors.ForClinic(clinicId).MaxAsync(d => (int?)d.DoctorNo) ?? 0;
+        var candidate = max + 1 + skip;
+        while (await _db.Doctors.ForClinic(clinicId).AnyAsync(d => d.DoctorNo == candidate))
+            candidate++;
+        return candidate;
+    }
+
+    private static Doctor CloneDoctorShell(Doctor source) => new()
+    {
+        Name = source.Name,
+        Specialty = source.Specialty,
+        Phone = source.Phone,
+        Email = source.Email,
+        ConsultationFee = source.ConsultationFee,
+        Status = source.Status,
+        PhotoBase64 = source.PhotoBase64
+    };
+
+    private static void DetachPendingDoctorAdds(ClinicalDbContext db)
+    {
+        foreach (var entry in db.ChangeTracker.Entries<Doctor>()
+                     .Where(e => e.State == EntityState.Added)
+                     .ToList())
+            entry.State = EntityState.Detached;
+    }
+
+    private static void DetachDoctorEntity(ClinicalDbContext db, Doctor entity)
+    {
+        var entry = db.Entry(entity);
+        if (entry.State != EntityState.Detached)
+            entry.State = EntityState.Detached;
     }
 }
 

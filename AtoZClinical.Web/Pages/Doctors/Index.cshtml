@@ -37,7 +37,7 @@
                     </div>
                     <div class="col-md-4">
                         <label class="clinical-field-label field-required">Consultation Fee</label>
-                        <input asp-for="Input.ConsultationFee" class="clinical-field" type="number" step="0.01" min="0.01" required />
+                        <input asp-for="Input.ConsultationFee" class="clinical-field" type="number" step="0.01" min="0.01" max="999999999.99" required />
                         <span asp-validation-for="Input.ConsultationFee" class="text-danger small"></span>
                     </div>
                     <div class="col-md-4">

@@ -196,7 +196,7 @@ public class IndexModel : ClinicFormPageModel
         public string? Phone { get; set; }
         public string? Email { get; set; }
 
-        [Range(0.01, double.MaxValue, ErrorMessage = "Consultation Fee is required.")]
+        [Range(0.01, 999999999.99, ErrorMessage = "Consultation Fee must be between 0.01 and 999,999,999.99.")]
         [Display(Name = "Consultation Fee")]
         public decimal ConsultationFee { get; set; }
         public string Status { get; set; } = "Active";

@@ -120,31 +120,47 @@ public sealed class PatientService
 
         if (isNew)
         {
-            const int maxAttempts = 8;
+            const int maxAttempts = 15;
             var inserted = false;
+            Patient? saved = null;
+            var template = ClonePatientShell(patient);
+
             for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
-                patient.Id = Guid.NewGuid();
-                patient.PatientNo = await GeneratePatientNoAsync(clinicId);
-                patient.AppointmentId = await GenerateAppointmentIdAsync(clinicId);
-                patient.CreatedAt = DateTime.UtcNow;
-                patient.CreatedBy = userName;
-                await _visitStatus.OnPatientRegisteredAsync(clinicId, patient);
-                _db.Patients.Add(patient);
+                DetachPendingAdds<Patient>(_db);
+                var row = ClonePatientShell(template);
+                row.Id = Guid.NewGuid();
+                row.ClinicId = clinicId;
+                row.PatientNo = await GeneratePatientNoAsync(clinicId, attempt);
+                row.AppointmentId = await GenerateAppointmentIdAsync(clinicId, attempt);
+                row.CreatedAt = DateTime.UtcNow;
+                row.CreatedBy = userName;
+                row.UpdatedAt = DateTime.UtcNow;
+                row.UpdatedBy = userName;
+                await _visitStatus.OnPatientRegisteredAsync(clinicId, row);
+                _db.Patients.Add(row);
                 try
                 {
                     await _db.SaveChangesAsync();
                     inserted = true;
+                    saved = row;
                     break;
                 }
                 catch (DbUpdateException ex) when (IsDuplicatePatientKey(ex))
                 {
-                    _db.Entry(patient).State = EntityState.Detached;
+                    DetachEntity(_db, row);
+                }
+                catch (DbUpdateException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not save patient: {ex.InnerException?.Message ?? ex.Message}", ex);
                 }
             }
 
-            if (!inserted)
+            if (!inserted || saved is null)
                 throw new InvalidOperationException("Could not assign a new patient number. Please click + New and try again.");
+
+            patient = saved;
         }
         else
         {
@@ -305,25 +321,11 @@ public sealed class PatientService
             (p.Phone != null && p.Phone.Contains(term)));
     }
 
-    private async Task<string> GeneratePatientNoAsync(Guid clinicId)
+    private async Task<string> GeneratePatientNoAsync(Guid clinicId, int skip = 0)
     {
-        var max = await ForClinic(clinicId)
-            .Select(p => p.PatientNo)
-            .ToListAsync();
-
-        var highest = max
-            .Select(no =>
-            {
-                if (no.StartsWith("PAT-", StringComparison.OrdinalIgnoreCase)
-                    && int.TryParse(no.AsSpan(4), out var n))
-                    return n;
-                return 0;
-            })
-            .DefaultIfEmpty(0)
-            .Max();
-
+        var highest = await GetHighestPatientNoAsync(clinicId);
+        var candidate = highest + skip;
         string no;
-        var candidate = highest;
         do
         {
             candidate++;
@@ -333,13 +335,39 @@ public sealed class PatientService
         return no;
     }
 
-    private async Task<string> GenerateAppointmentIdAsync(Guid clinicId)
+    private async Task<string> GenerateAppointmentIdAsync(Guid clinicId, int skip = 0)
     {
-        var max = await ForClinic(clinicId)
-            .Select(p => p.AppointmentId)
-            .ToListAsync();
+        var highest = await GetHighestAppointmentIdAsync(clinicId);
+        var candidate = highest + skip;
+        string aptId;
+        do
+        {
+            candidate++;
+            aptId = $"APT-{candidate:D6}";
+        } while (await ForClinic(clinicId).AnyAsync(p => p.AppointmentId == aptId));
 
-        var highest = max
+        return aptId;
+    }
+
+    private async Task<int> GetHighestPatientNoAsync(Guid clinicId)
+    {
+        var numbers = await ForClinic(clinicId).Select(p => p.PatientNo).ToListAsync();
+        return numbers
+            .Select(no =>
+            {
+                if (no.StartsWith("PAT-", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(no.AsSpan(4), out var n))
+                    return n;
+                return 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max();
+    }
+
+    private async Task<int> GetHighestAppointmentIdAsync(Guid clinicId)
+    {
+        var numbers = await ForClinic(clinicId).Select(p => p.AppointmentId).ToListAsync();
+        return numbers
             .Select(id =>
             {
                 if (!string.IsNullOrEmpty(id)
@@ -350,15 +378,45 @@ public sealed class PatientService
             })
             .DefaultIfEmpty(0)
             .Max();
+    }
 
-        string aptId;
-        var candidate = highest;
-        do
-        {
-            candidate++;
-            aptId = $"APT-{candidate:D6}";
-        } while (await ForClinic(clinicId).AnyAsync(p => p.AppointmentId == aptId));
+    private static Patient ClonePatientShell(Patient source) => new()
+    {
+        FirstName = source.FirstName,
+        LastName = source.LastName,
+        Gender = source.Gender,
+        DateOfBirth = source.DateOfBirth,
+        Phone = source.Phone,
+        Email = source.Email,
+        Address = source.Address,
+        City = source.City,
+        BloodGroup = source.BloodGroup,
+        NationalId = source.NationalId,
+        EmergencyContact = source.EmergencyContact,
+        HealthInsuranceName = source.HealthInsuranceName,
+        HealthInsuranceNumber = source.HealthInsuranceNumber,
+        DoctorName = source.DoctorName,
+        Specialty = source.Specialty,
+        VisitNumber = source.VisitNumber,
+        AppointmentDate = source.AppointmentDate,
+        AppointmentTime = source.AppointmentTime,
+        Status = source.Status,
+        MarriedStatus = source.MarriedStatus,
+        MotherName = source.MotherName
+    };
 
-        return aptId;
+    private static void DetachPendingAdds<T>(ClinicalDbContext db) where T : class
+    {
+        foreach (var entry in db.ChangeTracker.Entries<T>()
+                     .Where(e => e.State == EntityState.Added)
+                     .ToList())
+            entry.State = EntityState.Detached;
+    }
+
+    private static void DetachEntity(ClinicalDbContext db, object entity)
+    {
+        var entry = db.Entry(entity);
+        if (entry.State != EntityState.Detached)
+            entry.State = EntityState.Detached;
     }
 }
