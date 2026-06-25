@@ -162,10 +162,14 @@ public sealed class DoctorService
     }
 
     public Task<List<Doctor>> ListAsync(Guid clinicId) =>
-        _db.Doctors.Where(d => d.ClinicId == clinicId).OrderBy(d => d.DoctorNo).ToListAsync();
+        _db.Doctors.IgnoreQueryFilters()
+            .Where(d => d.ClinicId == clinicId)
+            .OrderBy(d => d.DoctorNo)
+            .ToListAsync();
 
     public Task<Doctor?> GetAsync(Guid clinicId, Guid id) =>
-        _db.Doctors.FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.Id == id);
+        _db.Doctors.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.Id == id);
 
     public async Task<Doctor> SaveAsync(Guid clinicId, Doctor doctor, string? userName)
     {
@@ -209,7 +213,8 @@ public sealed class DoctorService
     {
         var message = ex.InnerException?.Message ?? ex.Message;
         return message.Contains("IX_Doctors_ClinicId_DoctorNo", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase);
+            || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task DeleteAsync(Guid clinicId, Guid id)

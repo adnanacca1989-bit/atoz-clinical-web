@@ -886,6 +886,10 @@ main:has(.clinical-form-page) {
     color: #c0392b;
 }
 
+.validation-summary-valid {
+    display: none;
+}
+
 .validation-summary-errors {
     color: #c0392b;
     background: #fdecea;
@@ -1649,6 +1653,10 @@ main:has(.clinical-form-page) {
     font-weight: 700;
     background: #eceff1;
     border-top: 2px solid #1565c0;
+}
+
+.validation-summary-valid {
+    display: none;
 }
 
 .validation-summary-errors {

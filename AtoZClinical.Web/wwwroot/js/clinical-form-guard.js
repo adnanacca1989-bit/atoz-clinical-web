@@ -60,7 +60,8 @@
 
                 if (!isFormValid(form, e.submitter)) {
                     unlockFormSubmits(form);
-                    return;
+                    e.preventDefault();
+                    return false;
                 }
 
                 if (!lockFormSubmits(form)) {

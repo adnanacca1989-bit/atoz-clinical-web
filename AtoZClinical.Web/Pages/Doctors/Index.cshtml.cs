@@ -77,6 +77,8 @@ public class IndexModel : ClinicFormPageModel
 
         if (!ModelState.IsValid)
         {
+            if (!ModelState.Values.SelectMany(v => v.Errors).Any())
+                ModelState.AddModelError(string.Empty, "Please fill in all required fields (Doctor Name and Consultation Fee).");
             await LoadAsync(clinicId.Value);
             SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
             return Page();
@@ -100,11 +102,13 @@ public class IndexModel : ClinicFormPageModel
             SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
             return Page();
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
-            ModelState.AddModelError(string.Empty, "Could not save this doctor. The record may have been changed or removed. Please refresh and try again.");
+            ModelState.AddModelError(string.Empty, "Could not save this doctor. Please refresh the page and try again.");
             await LoadAsync(clinicId.Value);
             SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            HttpContext.RequestServices.GetService<ILogger<IndexModel>>()?
+                .LogError(ex, "Doctor DbUpdate failed for clinic {ClinicId}: {Message}", clinicId, ex.InnerException?.Message ?? ex.Message);
             return Page();
         }
         catch (InvalidOperationException ex)
