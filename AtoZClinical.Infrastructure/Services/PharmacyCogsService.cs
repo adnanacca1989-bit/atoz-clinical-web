@@ -22,7 +22,8 @@ public sealed class PharmacyCogsService
 
         var bills = await _db.PharmacyBills
             .Include(b => b.Lines)
-            .Where(b => b.ClinicId == clinicId && b.BillDate >= from && b.BillDate <= to)
+            .ForClinic(clinicId)
+            .Where(b => b.BillDate >= from && b.BillDate <= to)
             .OrderBy(b => b.BillDate)
             .ThenBy(b => b.BillNo)
             .ToListAsync();
@@ -33,7 +34,7 @@ public sealed class PharmacyCogsService
             bills = bills.Where(b => b.PatientName?.Contains(patientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
         var items = await _db.PharmacyItems
-            .Where(p => p.ClinicId == clinicId)
+            .ForClinic(clinicId)
             .ToListAsync();
 
         var costByBarcode = items

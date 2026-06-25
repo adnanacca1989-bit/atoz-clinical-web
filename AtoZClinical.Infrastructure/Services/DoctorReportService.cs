@@ -20,13 +20,17 @@ public sealed class DoctorReportService
         var _db = _reporting.ReadDb;
         var from = fromDate.Date;
         var to = toDate.Date;
+        if (from > to)
+            (from, to) = (to, from);
 
-        var patients = await _db.Patients
-            .AsNoTracking()
-            .Where(p => p.ClinicId == clinicId &&
-                        p.AppointmentDate.HasValue &&
-                        p.AppointmentDate.Value.Date >= from &&
-                        p.AppointmentDate.Value.Date <= to)
+        var patients = await _db.Patients.ForClinic(clinicId)
+            .Where(p =>
+                (p.AppointmentDate.HasValue &&
+                 p.AppointmentDate.Value.Date >= from &&
+                 p.AppointmentDate.Value.Date <= to) ||
+                (!p.AppointmentDate.HasValue &&
+                 p.CreatedAt.Date >= from &&
+                 p.CreatedAt.Date <= to))
             .ToListAsync();
 
         if (!string.IsNullOrWhiteSpace(doctorName))
@@ -38,29 +42,28 @@ public sealed class DoctorReportService
         if (!string.IsNullOrWhiteSpace(patientName))
         {
             var name = patientName.Trim();
-            patients = patients.Where(p => p.FullName.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            patients = patients.Where(p =>
+                p.FullName.Contains(name, StringComparison.OrdinalIgnoreCase) ||
+                p.PatientNo.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
         patients = patients
             .OrderBy(p => p.DoctorName)
             .ThenBy(p => p.FullName)
-            .ThenBy(p => p.AppointmentDate)
+            .ThenBy(p => p.AppointmentDate ?? p.CreatedAt.Date)
             .ToList();
 
-        var invoices = await _db.Invoices
-            .AsNoTracking()
+        var invoices = await _db.Invoices.ForClinic(clinicId)
             .Include(i => i.Lines)
-            .Where(i => i.ClinicId == clinicId && i.InvoiceDate >= from && i.InvoiceDate <= to)
+            .Where(i => i.InvoiceDate >= from && i.InvoiceDate <= to)
             .ToListAsync();
 
-        var receipts = await _db.CashReceipts
-            .AsNoTracking()
-            .Where(r => r.ClinicId == clinicId && r.ReceiptDate >= from && r.ReceiptDate <= to)
+        var receipts = await _db.CashReceipts.ForClinic(clinicId)
+            .Where(r => r.ReceiptDate >= from && r.ReceiptDate <= to)
             .ToListAsync();
 
-        var payments = await _db.CashPayments
-            .AsNoTracking()
-            .Where(p => p.ClinicId == clinicId && p.PaymentDate >= from && p.PaymentDate <= to)
+        var payments = await _db.CashPayments.ForClinic(clinicId)
+            .Where(p => p.PaymentDate >= from && p.PaymentDate <= to)
             .ToListAsync();
 
         var rows = new List<DoctorReportRow>();
@@ -68,7 +71,7 @@ public sealed class DoctorReportService
         {
             var matchedInvoices = invoices.Where(i =>
                 MatchesPatient(i.PatientId, i.PatientName, p) &&
-                string.Equals(i.DoctorName, p.DoctorName, StringComparison.OrdinalIgnoreCase)).ToList();
+                DoctorMatches(i.DoctorName, p.DoctorName)).ToList();
 
             var invoiceAmount = matchedInvoices.Sum(i => i.TotalAmount);
             var consultationFee = matchedInvoices
@@ -81,14 +84,11 @@ public sealed class DoctorReportService
 
             var cashReceipt = receipts.Where(r =>
                 MatchesPatient(r.PatientId, r.PatientName, p) &&
-                string.Equals(r.DoctorName, p.DoctorName, StringComparison.OrdinalIgnoreCase)).Sum(r => r.Amount);
+                DoctorMatches(r.DoctorName, p.DoctorName)).Sum(r => r.Amount);
 
             var cashPayment = payments.Where(pay =>
-                (!string.IsNullOrWhiteSpace(pay.PayeeName) &&
-                 pay.PayeeName.Contains(p.FullName, StringComparison.OrdinalIgnoreCase)) ||
-                (!string.IsNullOrWhiteSpace(pay.Description) &&
-                 pay.Description.Contains(p.FullName, StringComparison.OrdinalIgnoreCase)))
-                .Sum(pay => pay.Amount);
+                MatchesPatient(pay.PatientId, pay.PayeeName, p) &&
+                DoctorMatches(pay.DoctorName, p.DoctorName)).Sum(pay => pay.Amount);
 
             rows.Add(new DoctorReportRow(
                 p.DoctorName ?? "",
@@ -107,11 +107,20 @@ public sealed class DoctorReportService
                 cashReceipt,
                 cashPayment,
                 p.VisitNumber ?? "",
-                p.AppointmentDate,
+                p.AppointmentDate ?? p.CreatedAt.Date,
                 p.AppointmentTime));
         }
 
         return rows;
+    }
+
+    private static bool DoctorMatches(string? recordDoctor, string? patientDoctor)
+    {
+        if (string.IsNullOrWhiteSpace(recordDoctor) || string.IsNullOrWhiteSpace(patientDoctor))
+            return string.IsNullOrWhiteSpace(recordDoctor) && string.IsNullOrWhiteSpace(patientDoctor);
+        return string.Equals(recordDoctor.Trim(), patientDoctor.Trim(), StringComparison.OrdinalIgnoreCase)
+            || recordDoctor.Contains(patientDoctor, StringComparison.OrdinalIgnoreCase)
+            || patientDoctor.Contains(recordDoctor, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool MatchesPatient(string? barcode, string? name, Patient patient)
@@ -120,9 +129,15 @@ public sealed class DoctorReportService
             string.Equals(barcode.Trim(), patient.PatientNo, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        if (!string.IsNullOrWhiteSpace(name) &&
-            string.Equals(name.Trim(), patient.FullName, StringComparison.OrdinalIgnoreCase))
-            return true;
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var n = name.Trim();
+            if (string.Equals(n, patient.FullName, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (patient.FullName.Contains(n, StringComparison.OrdinalIgnoreCase) ||
+                n.Contains(patient.FullName, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
 
         return false;
     }

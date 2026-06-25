@@ -46,7 +46,9 @@ public class DoctorReportModel : PageModel
 
     public async Task<IActionResult> OnPostExportAsync()
     {
-        await RunAsync();
+        var result = await RunAsync();
+        if (result is not PageResult) return result;
+
         var bytes = ReportExcelService.Export("Doctor Report",
             ["Doctor", "Specialty", "Patient", "Consultation Fee", "Phone", "Age", "Insurance", "Insurance No",
                 "Gender", "City", "Married Status", "Mother Name", "Invoice Amount", "Cash Receipt", "Cash Payment",

@@ -32,14 +32,22 @@ public class PatientPrintBundleModel : PageModel
     private static readonly Dictionary<string, string[]> SectionTitles = new(StringComparer.OrdinalIgnoreCase)
     {
         ["registration"] = ["Patient Registration"],
-        ["radiology"] = ["Radiology Request", "Radiology Result"],
-        ["radiologyresult"] = ["Radiology Result"],
-        ["laboratory"] = ["Laboratory Request", "Laboratory Result"],
-        ["laboratoryresult"] = ["Laboratory Result"],
         ["prescription"] = ["Doctor's Prescription"],
+        ["laboratoryrequest"] = ["Laboratory Request"],
+        ["laboratoryresult"] = ["Laboratory Result"],
+        ["laboratory"] = ["Laboratory Request", "Laboratory Result"],
+        ["radiologyrequest"] = ["Radiology Request"],
+        ["radiologyresult"] = ["Radiology Result"],
+        ["radiology"] = ["Radiology Request", "Radiology Result"],
+        ["pharmacyrequest"] = ["Pharmacy Request"],
+        ["pharmacybill"] = ["Pharmacy Bill"],
+        ["pharmacy"] = ["Pharmacy Request", "Pharmacy Bill"],
+        ["invoice"] = ["Invoice / Billing"],
         ["cashreceipt"] = ["Cash Receipt"],
         ["cashpayment"] = ["Cash Payment"],
-        ["cash"] = ["Cash Receipt", "Cash Payment"]
+        ["cash"] = ["Cash Receipt", "Cash Payment"],
+        ["accountsreceivable"] = ["Accounts Receivable Statement"],
+        ["ar"] = ["Accounts Receivable Statement"]
     };
 
     public async Task<IActionResult> OnGetAsync()

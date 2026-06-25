@@ -68,11 +68,17 @@
         <div class="clinical-toolbar mt-3 no-print">
             <button type="button" class="btn-form btn-form-primary" id="patientHistoryPrintAllBtn">🖨️ Print All Patient Reports</button>
             <button type="button" class="btn-form" data-print-section="registration">🖨️ Patient Registration</button>
-            <button type="button" class="btn-form" data-print-section="laboratoryresult">🖨️ Laboratory Result</button>
-            <button type="button" class="btn-form" data-print-section="radiologyresult">🖨️ Radiology Result</button>
             <button type="button" class="btn-form" data-print-section="prescription">🖨️ Doctor's Prescription</button>
+            <button type="button" class="btn-form" data-print-section="laboratoryrequest">🖨️ Laboratory Request</button>
+            <button type="button" class="btn-form" data-print-section="laboratoryresult">🖨️ Laboratory Result</button>
+            <button type="button" class="btn-form" data-print-section="radiologyrequest">🖨️ Radiology Request</button>
+            <button type="button" class="btn-form" data-print-section="radiologyresult">🖨️ Radiology Result</button>
+            <button type="button" class="btn-form" data-print-section="pharmacyrequest">🖨️ Pharmacy Request</button>
+            <button type="button" class="btn-form" data-print-section="pharmacybill">🖨️ Pharmacy Bill</button>
+            <button type="button" class="btn-form" data-print-section="invoice">🖨️ Invoice / Billing</button>
             <button type="button" class="btn-form" data-print-section="cashreceipt">🖨️ Cash Receipt</button>
             <button type="button" class="btn-form" data-print-section="cashpayment">🖨️ Cash Payment</button>
+            <button type="button" class="btn-form" data-print-section="accountsreceivable">🖨️ Accounts Receivable</button>
             <button type="submit" asp-page-handler="Export" class="btn-form">Export to Excel</button>
             <button type="button" class="btn-form" onclick="clinicalPrintReport();">🖨️ Print History</button>
             <a asp-page="/Dashboard/Index" class="btn-form text-decoration-none text-dark">✕ Close</a>

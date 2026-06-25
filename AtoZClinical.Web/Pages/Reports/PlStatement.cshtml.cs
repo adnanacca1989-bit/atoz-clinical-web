@@ -57,7 +57,8 @@ public class PlStatementModel : PageModel
 
         var invoices = await _db.Invoices
             .Include(i => i.Lines)
-            .Where(i => i.ClinicId == clinicId && i.InvoiceDate >= FromDate.Date && i.InvoiceDate <= ToDate.Date)
+            .ForClinic(clinicId.Value)
+            .Where(i => i.InvoiceDate >= FromDate.Date && i.InvoiceDate <= ToDate.Date)
             .ToListAsync();
 
         if (!string.IsNullOrWhiteSpace(DoctorName))
@@ -95,7 +96,8 @@ public class PlStatementModel : PageModel
         CostOfGoodsSold = await _cogs.GetTotalCogsAsync(clinicId.Value, FromDate, ToDate, DoctorName, PatientName);
 
         var payments = await _db.CashPayments
-            .Where(p => p.ClinicId == clinicId && p.PaymentDate >= FromDate.Date && p.PaymentDate <= ToDate.Date)
+            .ForClinic(clinicId.Value)
+            .Where(p => p.PaymentDate >= FromDate.Date && p.PaymentDate <= ToDate.Date)
             .ToListAsync();
 
         foreach (var pay in payments)

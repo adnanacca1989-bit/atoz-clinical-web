@@ -31,8 +31,7 @@ public sealed class ReportBrandingPageFilter : IAsyncPageFilter
         if (context.HandlerInstance is PageModel pageModel)
         {
             var path = context.HttpContext.Request.Path.Value ?? string.Empty;
-            if (path.StartsWith("/Reports", StringComparison.OrdinalIgnoreCase) &&
-                !path.Contains("PatientPrintBundle", StringComparison.OrdinalIgnoreCase))
+            if (path.StartsWith("/Reports", StringComparison.OrdinalIgnoreCase))
             {
                 await PopulateBrandingAsync(context.HttpContext, pageModel.ViewData);
             }

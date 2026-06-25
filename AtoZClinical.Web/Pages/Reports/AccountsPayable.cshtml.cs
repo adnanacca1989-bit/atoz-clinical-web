@@ -43,7 +43,8 @@ public class AccountsPayableModel : PageModel
         if (clinicId is null) return Forbid();
 
         var bills = await _db.PharmacyPurchaseBills
-            .Where(b => b.ClinicId == clinicId && b.PurchaseDate >= FromDate.Date && b.PurchaseDate <= ToDate.Date)
+            .ForClinic(clinicId.Value)
+            .Where(b => b.PurchaseDate >= FromDate.Date && b.PurchaseDate <= ToDate.Date)
             .OrderByDescending(b => b.PurchaseDate)
             .ToListAsync();
 

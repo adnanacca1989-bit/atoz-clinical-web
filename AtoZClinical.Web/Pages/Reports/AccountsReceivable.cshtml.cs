@@ -54,7 +54,8 @@ public class AccountsReceivableModel : PageModel
         if (clinicId is null) return Forbid();
 
         var invoices = await _db.Invoices
-            .Where(i => i.ClinicId == clinicId && i.InvoiceDate >= FromDate.Date && i.InvoiceDate <= ToDate.Date)
+            .ForClinic(clinicId.Value)
+            .Where(i => i.InvoiceDate >= FromDate.Date && i.InvoiceDate <= ToDate.Date)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
 
@@ -66,21 +67,21 @@ public class AccountsReceivableModel : PageModel
             invoices = invoices.Where(i => i.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
         var allInvoices = await _db.Invoices
-            .Where(i => i.ClinicId == clinicId)
+            .ForClinic(clinicId.Value)
             .AsNoTracking()
             .ToListAsync();
 
         var patients = await _db.Patients
-            .Where(p => p.ClinicId == clinicId)
+            .ForClinic(clinicId.Value)
             .AsNoTracking()
             .ToListAsync();
 
         var receipts = await _db.CashReceipts
-            .Where(c => c.ClinicId == clinicId)
+            .ForClinic(clinicId.Value)
             .ToListAsync();
 
         var patientPayments = await _db.CashPayments
-            .Where(p => p.ClinicId == clinicId)
+            .ForClinic(clinicId.Value)
             .Where(p => p.PayeeName != null || p.PatientId != null)
             .ToListAsync();
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
@@ -25,7 +26,7 @@ public sealed class PatientPrintBundleService
             return bundle;
 
         var allPatients = await _db.Patients
-            .Where(p => p.ClinicId == clinicId)
+            .ForClinic(clinicId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
 
@@ -54,11 +55,17 @@ public sealed class PatientPrintBundleService
         bool MatchPatient(string? name, string? barcode)
         {
             if (!string.IsNullOrWhiteSpace(effectiveId) && !string.IsNullOrWhiteSpace(barcode) &&
-                barcode.Contains(effectiveId, StringComparison.OrdinalIgnoreCase))
+                string.Equals(barcode.Trim(), effectiveId, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.IsNullOrWhiteSpace(effectiveId) && !string.IsNullOrWhiteSpace(name) &&
+                string.Equals(name.Trim(), effectiveName, StringComparison.OrdinalIgnoreCase))
                 return true;
             if (NamesMatch(name, effectiveName))
                 return true;
             if (resolvedPatient is not null && NamesMatch(name, resolvedPatient.FullName))
+                return true;
+            if (!string.IsNullOrWhiteSpace(effectiveName) && !string.IsNullOrWhiteSpace(name) &&
+                name.Trim().Equals(effectiveName, StringComparison.OrdinalIgnoreCase))
                 return true;
             return false;
         }
@@ -74,52 +81,52 @@ public sealed class PatientPrintBundleService
             bundle.Sections.Add(BuildPatientRegistration(p));
 
         var labRequests = await _db.LabRequests.Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestDate).ToListAsync();
+            .ForClinic(clinicId).OrderByDescending(r => r.RequestDate).ToListAsync();
         foreach (var r in labRequests.Where(r => MatchPatient(r.PatientName, r.PatientBarcode) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildLabRequest(r));
 
         var labResults = await _db.LabResults.Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.ResultDate).ToListAsync();
-        foreach (var r in labResults.Where(r => MatchPatient(r.PatientName, null) && MatchDoctor(r.DoctorName)))
+            .ForClinic(clinicId).OrderByDescending(r => r.ResultDate).ToListAsync();
+        foreach (var r in labResults.Where(r => MatchPatient(r.PatientName, effectiveId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildLabResult(r));
 
         var radRequests = await _db.RadiologyRequests.Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestDate).ToListAsync();
+            .ForClinic(clinicId).OrderByDescending(r => r.RequestDate).ToListAsync();
         foreach (var r in radRequests.Where(r => MatchPatient(r.PatientName, r.PatientBarcode) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildRadRequest(r));
 
         var radResults = await _db.RadiologyResults.Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.ResultDate).ToListAsync();
-        foreach (var r in radResults.Where(r => MatchPatient(r.PatientName, null) && MatchDoctor(r.DoctorName)))
+            .ForClinic(clinicId).OrderByDescending(r => r.ResultDate).ToListAsync();
+        foreach (var r in radResults.Where(r => MatchPatient(r.PatientName, effectiveId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildRadResult(r));
 
         var pharmReqs = await _db.PharmacyRequests.Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestDate).ToListAsync();
+            .ForClinic(clinicId).OrderByDescending(r => r.RequestDate).ToListAsync();
         foreach (var r in pharmReqs.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildPharmacyRequest(r));
 
         var pharmBills = await _db.PharmacyBills.Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.BillDate).ToListAsync();
+            .ForClinic(clinicId).OrderByDescending(r => r.BillDate).ToListAsync();
         foreach (var r in pharmBills.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildPharmacyBill(r));
 
         var invoices = await _db.Invoices.Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.InvoiceDate).ToListAsync();
+            .ForClinic(clinicId).OrderByDescending(r => r.InvoiceDate).ToListAsync();
         foreach (var r in invoices.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildInvoice(r));
 
         var prescriptions = await _db.Prescriptions
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.DatePrescription).ToListAsync();
-        foreach (var r in prescriptions.Where(r => MatchPatient(r.PatientName, null) && MatchDoctor(r.DoctorName)))
+            .ForClinic(clinicId).OrderByDescending(r => r.DatePrescription).ToListAsync();
+        foreach (var r in prescriptions.Where(r => MatchPatient(r.PatientName, effectiveId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildPrescription(r));
 
         var receipts = await _db.CashReceipts
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.ReceiptDate).ToListAsync();
+            .ForClinic(clinicId).OrderByDescending(r => r.ReceiptDate).ToListAsync();
         foreach (var r in receipts.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildCashReceipt(r));
 
         var payments = await _db.CashPayments
-            .Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.PaymentDate).ToListAsync();
+            .ForClinic(clinicId).OrderByDescending(r => r.PaymentDate).ToListAsync();
         foreach (var r in payments.Where(MatchCashPaymentPatient))
             bundle.Sections.Add(BuildCashPayment(r));
 
@@ -203,12 +210,45 @@ public sealed class PatientPrintBundleService
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.ServiceName ?? "", l.Qty.ToString(), l.UnitFee.ToString("N2"), l.LineTotal.ToString("N2") }).ToList(),
         Footer(("Subtotal", r.SubTotal.ToString("N2")), ("Discount", r.Discount.ToString("N2")), ("Total", r.TotalAmount.ToString("N2")), ("Amount Paid", r.AmountPaid.ToString("N2")), ("Balance Due", r.BalanceDue.ToString("N2"))));
 
-    private static PrintSection BuildPrescription(Prescription r) => new(
-        "Doctor's Prescription",
-        Meta(("Prescription No", r.PrescriptionNo.ToString()), ("Date", r.DatePrescription.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", r.Specialty ?? ""), ("Disease", r.DiseaseName ?? "")),
-        null,
-        [],
-        Footer(("Diagnosis", r.DiagnosisText ?? "")));
+    private static PrintSection BuildPrescription(Prescription r)
+    {
+        var rows = ParseChronicRows(r.ChronicDiseasesJson);
+        return new PrintSection(
+            "Doctor's Prescription",
+            Meta(
+                ("Prescription No", r.PrescriptionNo.ToString()),
+                ("Date", r.DatePrescription.ToString("d")),
+                ("Patient", r.PatientName ?? ""),
+                ("Doctor", r.DoctorName ?? ""),
+                ("Specialty", r.Specialty ?? ""),
+                ("Disease", r.DiseaseName ?? "")),
+            rows.Count > 0 ? ["Chronic Disease", "Details"] : null,
+            rows,
+            Footer(("Diagnosis", r.DiagnosisText ?? "")));
+    }
+
+    private static List<string[]> ParseChronicRows(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            var items = JsonSerializer.Deserialize<List<ChronicDiseasePrintRow>>(json) ?? [];
+            return items
+                .Where(c => !string.IsNullOrWhiteSpace(c.Details))
+                .Select(c => new[] { c.DiseaseType ?? "", c.Details ?? "" })
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private sealed class ChronicDiseasePrintRow
+    {
+        public string? DiseaseType { get; set; }
+        public string? Details { get; set; }
+    }
 
     private static PrintSection BuildCashReceipt(CashReceipt r) => new(
         "Cash Receipt",
