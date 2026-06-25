@@ -4,6 +4,7 @@ using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Doctors;
 
@@ -80,9 +81,31 @@ public class IndexModel : ClinicFormPageModel
             return Page();
         }
 
-        var entity = Input.ToEntity(RecordId);
-        var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
-        return RedirectAfterSave(saved.Id);
+        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
+        if (isNew)
+            RecordId = null;
+
+        var entity = Input.ToEntity(isNew ? null : RecordId);
+
+        try
+        {
+            var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
+            return RedirectAfterSave(saved.Id);
+        }
+        catch (DbUpdateException)
+        {
+            ModelState.AddModelError(string.Empty, "Could not save this doctor. The record may have been changed or removed. Please refresh and try again.");
+            await LoadAsync(clinicId.Value);
+            SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            return Page();
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.Message);
+            await LoadAsync(clinicId.Value);
+            SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            return Page();
+        }
     }
 
     private Task<IActionResult> NewCoreAsync()

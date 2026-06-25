@@ -170,16 +170,18 @@ public sealed class DoctorService
     public async Task<Doctor> SaveAsync(Guid clinicId, Doctor doctor, string? userName)
     {
         Doctor? previous = null;
-        if (doctor.Id != Guid.Empty)
+        var isNew = doctor.Id == Guid.Empty;
+        if (!isNew)
         {
             previous = await _db.Doctors.AsNoTracking()
                 .FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.Id == doctor.Id);
+            isNew = previous is null;
         }
 
         doctor.ClinicId = clinicId;
         doctor.UpdatedAt = DateTime.UtcNow;
         doctor.UpdatedBy = userName;
-        if (doctor.Id == Guid.Empty)
+        if (isNew)
         {
             doctor.Id = Guid.NewGuid();
             doctor.DoctorNo = await NextNoAsync(clinicId);
@@ -187,7 +189,11 @@ public sealed class DoctorService
             doctor.CreatedBy = userName;
             _db.Doctors.Add(doctor);
         }
-        else _db.Doctors.Update(doctor);
+        else
+        {
+            _db.Doctors.Update(doctor);
+        }
+
         await _db.SaveChangesAsync();
 
         if (previous is not null)
@@ -205,9 +211,11 @@ public sealed class DoctorService
         await _db.SaveChangesAsync();
     }
 
-    public Task<int> NextNoAsync(Guid clinicId) =>
-        _db.Doctors.Where(d => d.ClinicId == clinicId).Select(d => (int?)d.DoctorNo).MaxAsync()
-            .ContinueWith(t => (t.Result ?? 0) + 1);
+    public async Task<int> NextNoAsync(Guid clinicId)
+    {
+        var max = await _db.Doctors.Where(d => d.ClinicId == clinicId).MaxAsync(d => (int?)d.DoctorNo);
+        return (max ?? 0) + 1;
+    }
 }
 
 public sealed class ServiceIncomeService
