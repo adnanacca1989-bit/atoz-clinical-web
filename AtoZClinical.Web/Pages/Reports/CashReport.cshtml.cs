@@ -68,7 +68,8 @@ public class CashReportModel : PageModel
 
     public string TransactionType { get; set; } = "All";
 
-
+    [BindProperty(SupportsGet = true)]
+    public string? PaymentMethod { get; set; }
 
     public List<CashReportRow> Results { get; private set; } = [];
 
@@ -138,7 +139,9 @@ public class CashReportModel : PageModel
 
                 receipts = receipts.Where(r => r.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
+            if (!string.IsNullOrWhiteSpace(PaymentMethod) && !string.Equals(PaymentMethod, "All", StringComparison.OrdinalIgnoreCase))
 
+                receipts = receipts.Where(r => string.Equals(r.PaymentMethod, PaymentMethod, StringComparison.OrdinalIgnoreCase)).ToList();
 
             rows.AddRange(receipts.Select(r => new CashReportRow(
                 "Cash Receipt",
@@ -175,7 +178,9 @@ public class CashReportModel : PageModel
 
                 payments = payments.Where(p => p.PayeeName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
+            if (!string.IsNullOrWhiteSpace(PaymentMethod) && !string.Equals(PaymentMethod, "All", StringComparison.OrdinalIgnoreCase))
 
+                payments = payments.Where(p => string.Equals(p.PaymentMethod, PaymentMethod, StringComparison.OrdinalIgnoreCase)).ToList();
 
             rows.AddRange(payments.Select(p => new CashReportRow(
                 "Cash Payment",
@@ -195,13 +200,10 @@ public class CashReportModel : PageModel
 
 
         rows = rows
-
             .OrderBy(r => r.TransactionDate)
-
             .ThenBy(r => r.TransactionType)
-
+            .ThenBy(r => r.PaymentMethod)
             .ThenBy(r => r.DocumentNo)
-
             .ToList();
 
 

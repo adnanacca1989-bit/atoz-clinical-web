@@ -462,8 +462,9 @@ html[dir="rtl"] .clinical-form-left {
     padding-bottom: 0.65rem !important;
 }
 
-.pl-net-row td {
-    font-size: 1.02rem;
+.report-totals-row td {
+    background: #eef4fb;
+    border-top: 2px solid var(--atz-primary);
 }
 
 .clinical-notify-menu {

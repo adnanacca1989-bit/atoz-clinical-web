@@ -35,6 +35,11 @@ public class AccountsReceivableModel : PageModel
     public string? DoctorName { get; set; }
 
     public List<ArRow> Results { get; private set; } = [];
+    public decimal TotalCashReceipt { get; private set; }
+    public decimal TotalCashPayment { get; private set; }
+    public decimal TotalInvoiceAmount { get; private set; }
+    public decimal TotalDiscount { get; private set; }
+    public decimal TotalEndingBalance { get; private set; }
 
     public async Task<IActionResult> OnGetAsync() => await RunAsync();
 
@@ -102,6 +107,12 @@ public class AccountsReceivableModel : PageModel
                 aging,
                 status);
         }).ToList();
+
+        TotalCashReceipt = Results.Sum(r => r.CashReceipt);
+        TotalCashPayment = Results.Sum(r => r.CashPayment);
+        TotalInvoiceAmount = Results.Sum(r => r.TotalInvoice);
+        TotalDiscount = Results.Sum(r => r.Discount);
+        TotalEndingBalance = Results.Sum(r => r.EndingBalance);
 
         return Page();
     }

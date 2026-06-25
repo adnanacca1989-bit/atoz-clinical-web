@@ -89,6 +89,30 @@
                     </tr>
                 }
                 </tbody>
+                @if (Model.Results.Count > 0)
+                {
+                <tfoot>
+                    <tr class="report-totals-row fw-bold">
+                        <td data-col="invoiceId" colspan="4">Totals</td>
+                        <td data-col="specialty"></td>
+                        <td data-col="gender"></td>
+                        <td data-col="city"></td>
+                        <td data-col="motherName"></td>
+                        <td data-col="marriedStatus"></td>
+                        <td data-col="healthInsurance"></td>
+                        <td data-col="healthInsuranceNo"></td>
+                        <td data-col="appointmentDate"></td>
+                        <td data-col="appointmentTime"></td>
+                        <td data-col="cashReceipt">@Model.TotalCashReceipt.ToString("N2")</td>
+                        <td data-col="cashPayment">@Model.TotalCashPayment.ToString("N2")</td>
+                        <td data-col="totalInvoice">@Model.TotalInvoiceAmount.ToString("N2")</td>
+                        <td data-col="discount">@Model.TotalDiscount.ToString("N2")</td>
+                        <td data-col="endingBalance">@Model.TotalEndingBalance.ToString("N2")</td>
+                        <td data-col="agingDays"></td>
+                        <td data-col="status"></td>
+                    </tr>
+                </tfoot>
+                }
             </table>
         </div>
         <partial name="_ReportToolbar" />

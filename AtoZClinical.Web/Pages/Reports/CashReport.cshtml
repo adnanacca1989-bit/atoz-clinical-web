@@ -67,19 +67,22 @@
             </div>
 
             <div class="col-md-2">
-
                 <label class="clinical-field-label">Transaction Type</label>
-
                 <select asp-for="TransactionType" class="clinical-field">
-
                     <option>All</option>
-
                     <option>Receipt</option>
-
                     <option>Payment</option>
-
                 </select>
-
+            </div>
+            <div class="col-md-2">
+                <label class="clinical-field-label">Payment Method</label>
+                <select asp-for="PaymentMethod" class="clinical-field">
+                    <option value="All">All</option>
+                    @foreach (var method in AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods)
+                    {
+                        <option value="@method" selected="@(Model.PaymentMethod == method)">@method</option>
+                    }
+                </select>
             </div>
 
         </div>

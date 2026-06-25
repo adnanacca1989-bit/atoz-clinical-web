@@ -1,85 +1,71 @@
 <div class="modal fade" id="patientSelectModal" tabindex="-1" aria-labelledby="patientSelectModalLabel" aria-hidden="true">
-
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-
         <div class="modal-content doctor-select-modal">
-
             <div class="modal-header py-2">
-
-                <h5 class="modal-title" id="patientSelectModalLabel">Select Patient</h5>
-
+                <h5 class="modal-title" id="patientSelectModalLabel" data-i18n="Select Patient">Select Patient</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-
             </div>
-
             <div class="modal-body p-3">
-
-                <h6 class="fw-bold mb-2">Patient Search</h6>
-
-                <input type="text" id="patientSearchInput" class="clinical-field mb-3"
-
-                       placeholder="Search patient by ID, name, phone, city, doctor, specialty..." />
-
-                <div class="clinical-record-grid doctor-select-grid">
-
-                    <table>
-
-                        <thead>
-
-                            <tr>
-
-                                <th>Patient ID</th>
-
-                                <th>Patient Name</th>
-
-                                <th>Mother Name</th>
-
-                                <th>Gender</th>
-
-                                <th>Age</th>
-
-                                <th>Phone</th>
-
-                                <th>City</th>
-
-                                <th>Doctor Name</th>
-
-                                <th>Specialty</th>
-
-                                <th>Appt. Date</th>
-
-                                <th>Appt. Time</th>
-
-                                <th>Status</th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody id="patientSelectTableBody"></tbody>
-
-                    </table>
-
+                <h6 class="fw-bold mb-2" data-i18n="Patient Search">Patient Search</h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <label class="clinical-field-label small" data-i18n="From Date">From Date</label>
+                        <input type="date" id="patientFilterFromDate" class="clinical-field" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label small" data-i18n="To Date">To Date</label>
+                        <input type="date" id="patientFilterToDate" class="clinical-field" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label small" data-i18n="Status">Status</label>
+                        <select id="patientFilterStatus" class="clinical-field">
+                            <option value="All" data-i18n="All">All</option>
+                            <option value="Pending" data-i18n="Pending">Pending</option>
+                            <option value="Confirmed" data-i18n="Confirmed">Confirmed</option>
+                            <option value="Under Process" data-i18n="Under Process">Under Process</option>
+                            <option value="Completed" data-i18n="Completed">Completed</option>
+                            <option value="Cancelled" data-i18n="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="clinical-field-label small" data-i18n="Sort By">Sort By</label>
+                        <select id="patientFilterSort" class="clinical-field">
+                            <option value="recent" data-i18n="Most Recent">Most Recent</option>
+                            <option value="name" data-i18n="Name A to Z">Name A to Z</option>
+                            <option value="city" data-i18n="City A to Z">City A to Z</option>
+                        </select>
+                    </div>
                 </div>
-
+                <input type="text" id="patientSearchInput" class="clinical-field mb-3"
+                       placeholder="Search patient by ID, name, phone, city, doctor, specialty..." data-i18n-placeholder="Search patient by ID, name, phone, city, doctor, specialty..." />
+                <div class="clinical-record-grid doctor-select-grid">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="Patient ID">Patient ID</th>
+                                <th data-i18n="Patient Name">Patient Name</th>
+                                <th data-i18n="Mother Name">Mother Name</th>
+                                <th data-i18n="Gender">Gender</th>
+                                <th data-i18n="Age">Age</th>
+                                <th data-i18n="Phone">Phone</th>
+                                <th data-i18n="City">City</th>
+                                <th data-i18n="Doctor Name">Doctor Name</th>
+                                <th data-i18n="Specialty">Specialty</th>
+                                <th data-i18n="Appt. Date">Appt. Date</th>
+                                <th data-i18n="Appt. Time">Appt. Time</th>
+                                <th data-i18n="Status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientSelectTableBody"></tbody>
+                    </table>
+                </div>
             </div>
-
             <div class="modal-footer doctor-select-footer">
-
-                <button type="button" class="btn-form btn-form-primary" id="patientSelectAddBtn">💾 Add</button>
-
-                <button type="button" class="btn-form" id="patientSelectRefreshBtn" title="Refresh">🔄</button>
-
-                <button type="button" class="btn-form" id="patientSelectClearBtn">🧹 Clear</button>
-
-                <button type="button" class="btn-form" data-bs-dismiss="modal">✕ Close</button>
-
+                <button type="button" class="btn-form btn-form-primary" id="patientSelectAddBtn" data-i18n="Add">💾 Add</button>
+                <button type="button" class="btn-form" id="patientSelectRefreshBtn" title="Refresh" data-i18n="Refresh">🔄</button>
+                <button type="button" class="btn-form" id="patientSelectClearBtn" data-i18n="Clear">🧹 Clear</button>
+                <button type="button" class="btn-form" data-bs-dismiss="modal" data-i18n="Close">✕ Close</button>
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-

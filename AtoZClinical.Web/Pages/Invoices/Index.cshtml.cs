@@ -10,12 +10,14 @@ public class IndexModel : ClinicFormPageModel
 {
     private readonly InvoiceService _invoiceService;
     private readonly ServiceIncomeService _serviceIncomeService;
+    private readonly PatientInvoiceService _patientInvoices;
     private const int DefaultLineCount = 8;
 
-    public IndexModel(ClinicContextService clinicContext, InvoiceService invoiceService, ServiceIncomeService serviceIncomeService) : base(clinicContext)
+    public IndexModel(ClinicContextService clinicContext, InvoiceService invoiceService, ServiceIncomeService serviceIncomeService, PatientInvoiceService patientInvoices) : base(clinicContext)
     {
         _invoiceService = invoiceService;
         _serviceIncomeService = serviceIncomeService;
+        _patientInvoices = patientInvoices;
     }
 
     [BindProperty]
@@ -42,7 +44,14 @@ public class IndexModel : ClinicFormPageModel
         await LoadClinicBrandingAsync();
         await LoadAsync(clinicId.Value);
         if (RecordId.HasValue)
-            await LoadRecord(clinicId.Value, RecordId.Value);
+        {
+            var loaded = await LoadRecord(clinicId.Value, RecordId.Value);
+            if (!loaded)
+            {
+                TempData["Error"] = "Invoice record was not found. It may have been removed.";
+                return RedirectToPage();
+            }
+        }
         else if (NewRecord)
             await PrepareNew(clinicId.Value);
         else if (Records.Count > 0)
@@ -83,14 +92,15 @@ public class IndexModel : ClinicFormPageModel
                 r.InvoiceNo.ToString().Contains(Search)).ToList();
     }
 
-    private async Task LoadRecord(Guid clinicId, Guid id)
+    private async Task<bool> LoadRecord(Guid clinicId, Guid id)
     {
         var item = await _invoiceService.GetAsync(clinicId, id);
-        if (item is null) return;
+        if (item is null) return false;
         RecordId = item.Id;
         Input = InvoiceInput.FromEntity(item);
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(InvoiceLineInput.FromEntity).ToList();
         EnsureLineRows();
+        return true;
     }
 
     private async Task PrepareNew(Guid clinicId)
@@ -135,6 +145,7 @@ public class IndexModel : ClinicFormPageModel
             })
             .ToList();
         var saved = await _invoiceService.SaveAsync(clinicId.Value, entity, lines, UserName);
+        await _patientInvoices.RecalculateInvoicePaymentsAsync(clinicId.Value, saved.PatientName, saved.PatientId, saved.DoctorName);
         return RedirectAfterSave(saved.Id);
     }
 

@@ -10,14 +10,7 @@
 
     Layout = "_Layout";
 
-    var invoiceGridRecords = Model.Records.AsEnumerable();
-    if (!string.IsNullOrWhiteSpace(Model.Input.PatientId))
-        invoiceGridRecords = invoiceGridRecords.Where(r => r.PatientId == Model.Input.PatientId);
-    else if (!string.IsNullOrWhiteSpace(Model.Input.PatientName))
-        invoiceGridRecords = invoiceGridRecords.Where(r => r.PatientName == Model.Input.PatientName);
-    if (!string.IsNullOrWhiteSpace(Model.Input.DoctorName))
-        invoiceGridRecords = invoiceGridRecords.Where(r => string.Equals(r.DoctorName, Model.Input.DoctorName, StringComparison.OrdinalIgnoreCase));
-    invoiceGridRecords = invoiceGridRecords.ToList();
+    var invoiceGridRecords = Model.Records;
 
 }
 
@@ -28,6 +21,10 @@
     <h1 class="page-title">Invoice / Billing</h1>
 
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
+    @if (TempData["Error"] is string invoiceErr)
+    {
+        <div class="alert alert-danger">@invoiceErr</div>
+    }
 
     <partial name="_ClinicalFormHint" />
 

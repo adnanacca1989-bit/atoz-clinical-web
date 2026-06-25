@@ -74,12 +74,23 @@ function initPatientPicker(options) {
 
     const loadPatients = async () => {
         const q = searchInput?.value?.trim() || '';
+        const fromDate = document.getElementById('patientFilterFromDate')?.value || '';
+        const toDate = document.getElementById('patientFilterToDate')?.value || '';
+        const status = document.getElementById('patientFilterStatus')?.value || 'All';
+        const sortBy = document.getElementById('patientFilterSort')?.value || 'recent';
+        const params = new URLSearchParams();
+        if (q) params.set('search', q);
+        if (fromDate) params.set('fromDate', fromDate);
+        if (toDate) params.set('toDate', toDate);
+        if (status && status !== 'All') params.set('status', status);
+        if (sortBy) params.set('sortBy', sortBy);
         try {
-            const res = await fetch(`/PatientRegistration/Lookup?search=${encodeURIComponent(q)}`);
+            const res = await fetch(`/PatientRegistration/Lookup?${params}`);
             if (!res.ok) return;
             patients = await res.json();
             selectedPatient = null;
             renderPatients();
+            if (window.applyClinicalArabic) window.applyClinicalArabic(modalEl);
         } catch { /* ignore */ }
     };
 
@@ -121,10 +132,21 @@ function initPatientPicker(options) {
         clearTimeout(searchInput._timer);
         searchInput._timer = setTimeout(loadPatients, 250);
     });
+    ['patientFilterFromDate', 'patientFilterToDate', 'patientFilterStatus', 'patientFilterSort'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', loadPatients);
+    });
     document.getElementById('patientSelectAddBtn')?.addEventListener('click', applyPatient);
     document.getElementById('patientSelectRefreshBtn')?.addEventListener('click', loadPatients);
     document.getElementById('patientSelectClearBtn')?.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';
+        const fromEl = document.getElementById('patientFilterFromDate');
+        const toEl = document.getElementById('patientFilterToDate');
+        const statusEl = document.getElementById('patientFilterStatus');
+        const sortEl = document.getElementById('patientFilterSort');
+        if (fromEl) fromEl.value = '';
+        if (toEl) toEl.value = '';
+        if (statusEl) statusEl.value = 'All';
+        if (sortEl) sortEl.value = 'recent';
         selectedPatient = null;
         loadPatients();
     });

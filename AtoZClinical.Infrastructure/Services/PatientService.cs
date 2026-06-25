@@ -51,6 +51,50 @@ public sealed class PatientService
         return query.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.FirstName).ThenBy(p => p.DoctorName).ToListAsync();
     }
 
+    public async Task<List<Patient>> ListForPickerAsync(
+        Guid clinicId,
+        string? search,
+        DateTime? fromDate,
+        DateTime? toDate,
+        string? status,
+        string? sortBy)
+    {
+        var query = _db.Patients.Where(p => p.ClinicId == clinicId);
+
+        if (fromDate.HasValue)
+            query = query.Where(p => p.AppointmentDate == null || p.AppointmentDate.Value.Date >= fromDate.Value.Date);
+        if (toDate.HasValue)
+            query = query.Where(p => p.AppointmentDate == null || p.AppointmentDate.Value.Date <= toDate.Value.Date);
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalized = PatientVisitStatuses.Normalize(status);
+            query = query.Where(p => p.Status != null && p.Status.ToLower() == normalized.ToLower());
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(p =>
+                p.PatientNo.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                p.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                p.LastName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (p.Phone != null && p.Phone.Contains(term)) ||
+                (p.City != null && p.City.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (p.DoctorName != null && p.DoctorName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (p.Specialty != null && p.Specialty.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (p.MotherName != null && p.MotherName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (p.NationalId != null && p.NationalId.Contains(term)));
+        }
+
+        var list = await query.ToListAsync();
+        return sortBy?.ToLowerInvariant() switch
+        {
+            "name" => list.OrderBy(p => p.FullName, StringComparer.OrdinalIgnoreCase).ToList(),
+            "city" => list.OrderBy(p => p.City ?? "", StringComparer.OrdinalIgnoreCase).ThenBy(p => p.FullName).ToList(),
+            _ => list.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.FullName).ToList()
+        };
+    }
+
     public Task<Patient?> GetAsync(Guid clinicId, Guid id) =>
         _db.Patients.FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == id);
 
