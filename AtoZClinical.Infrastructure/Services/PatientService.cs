@@ -99,8 +99,8 @@ public sealed class PatientService
     {
         var message = ex.InnerException?.Message ?? ex.Message;
         return message.Contains("IX_Patients_ClinicId_PatientNo", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase);
+            || (message.Contains("Patients", StringComparison.OrdinalIgnoreCase)
+                && message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<Patient> SaveAsync(Guid clinicId, Patient patient, string? userName = null)
@@ -125,9 +125,9 @@ public sealed class PatientService
             Patient? saved = null;
             var template = ClonePatientShell(patient);
 
+            DbUpdateException? lastError = null;
             for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
-                DetachPendingAdds<Patient>(_db);
                 var row = ClonePatientShell(template);
                 row.Id = Guid.NewGuid();
                 row.ClinicId = clinicId;
@@ -138,6 +138,7 @@ public sealed class PatientService
                 row.UpdatedAt = DateTime.UtcNow;
                 row.UpdatedBy = userName;
                 await _visitStatus.OnPatientRegisteredAsync(clinicId, row);
+                _db.ChangeTracker.Clear();
                 _db.Patients.Add(row);
                 try
                 {
@@ -148,7 +149,7 @@ public sealed class PatientService
                 }
                 catch (DbUpdateException ex) when (IsDuplicatePatientKey(ex))
                 {
-                    DetachEntity(_db, row);
+                    lastError = ex;
                 }
                 catch (DbUpdateException ex)
                 {
@@ -158,7 +159,12 @@ public sealed class PatientService
             }
 
             if (!inserted || saved is null)
-                throw new InvalidOperationException("Could not assign a new patient number. Please click + New and try again.");
+            {
+                var detail = lastError?.InnerException?.Message ?? lastError?.Message;
+                throw string.IsNullOrWhiteSpace(detail)
+                    ? new InvalidOperationException("Could not assign a new patient number. Please click + New and try again.")
+                    : new InvalidOperationException($"Could not save patient ({detail}). Please click + New and try again.");
+            }
 
             patient = saved;
         }
@@ -404,19 +410,4 @@ public sealed class PatientService
         MarriedStatus = source.MarriedStatus,
         MotherName = source.MotherName
     };
-
-    private static void DetachPendingAdds<T>(ClinicalDbContext db) where T : class
-    {
-        foreach (var entry in db.ChangeTracker.Entries<T>()
-                     .Where(e => e.State == EntityState.Added)
-                     .ToList())
-            entry.State = EntityState.Detached;
-    }
-
-    private static void DetachEntity(ClinicalDbContext db, object entity)
-    {
-        var entry = db.Entry(entity);
-        if (entry.State != EntityState.Detached)
-            entry.State = EntityState.Detached;
-    }
 }

@@ -193,9 +193,9 @@ public sealed class DoctorService
             Doctor? saved = null;
             var template = CloneDoctorShell(doctor);
 
+            DbUpdateException? lastError = null;
             for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
-                DetachPendingDoctorAdds(_db);
                 var row = CloneDoctorShell(template);
                 row.Id = Guid.NewGuid();
                 row.ClinicId = clinicId;
@@ -204,6 +204,7 @@ public sealed class DoctorService
                 row.CreatedBy = userName;
                 row.UpdatedAt = DateTime.UtcNow;
                 row.UpdatedBy = userName;
+                _db.ChangeTracker.Clear();
                 _db.Doctors.Add(row);
                 try
                 {
@@ -214,7 +215,7 @@ public sealed class DoctorService
                 }
                 catch (DbUpdateException ex) when (IsDuplicateDoctorNo(ex))
                 {
-                    DetachDoctorEntity(_db, row);
+                    lastError = ex;
                 }
                 catch (DbUpdateException ex)
                 {
@@ -224,7 +225,12 @@ public sealed class DoctorService
             }
 
             if (!inserted || saved is null)
-                throw new InvalidOperationException("Could not assign a new doctor ID. Please click + New and try again.");
+            {
+                var detail = lastError?.InnerException?.Message ?? lastError?.Message;
+                throw string.IsNullOrWhiteSpace(detail)
+                    ? new InvalidOperationException("Could not assign a new doctor ID. Please click + New and try again.")
+                    : new InvalidOperationException($"Could not save doctor ({detail}). Please click + New and try again.");
+            }
 
             return saved;
         }
@@ -254,8 +260,8 @@ public sealed class DoctorService
     {
         var message = ex.InnerException?.Message ?? ex.Message;
         return message.Contains("IX_Doctors_ClinicId_DoctorNo", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase);
+            || (message.Contains("Doctors", StringComparison.OrdinalIgnoreCase)
+                && message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task DeleteAsync(Guid clinicId, Guid id)
@@ -286,21 +292,6 @@ public sealed class DoctorService
         Status = source.Status,
         PhotoBase64 = source.PhotoBase64
     };
-
-    private static void DetachPendingDoctorAdds(ClinicalDbContext db)
-    {
-        foreach (var entry in db.ChangeTracker.Entries<Doctor>()
-                     .Where(e => e.State == EntityState.Added)
-                     .ToList())
-            entry.State = EntityState.Detached;
-    }
-
-    private static void DetachDoctorEntity(ClinicalDbContext db, Doctor entity)
-    {
-        var entry = db.Entry(entity);
-        if (entry.State != EntityState.Detached)
-            entry.State = EntityState.Detached;
-    }
 }
 
 public sealed class ServiceIncomeService
