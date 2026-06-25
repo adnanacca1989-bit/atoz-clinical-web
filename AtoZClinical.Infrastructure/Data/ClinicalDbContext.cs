@@ -63,6 +63,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<PharmacyPurchaseBillLine> PharmacyPurchaseBillLines => Set<PharmacyPurchaseBillLine>();
     public DbSet<ClinicApiKey> ClinicApiKeys => Set<ClinicApiKey>();
     public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
+    public DbSet<SecurityAuditEntry> SecurityAuditEntries => Set<SecurityAuditEntry>();
+    public DbSet<ClinicBackupHistory> ClinicBackupHistories => Set<ClinicBackupHistory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -78,6 +80,11 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.Property(x => x.StripeCustomerId).HasMaxLength(128);
             e.Property(x => x.StripeSubscriptionId).HasMaxLength(128);
             e.Property(x => x.SubscriptionStatus).HasMaxLength(32);
+            e.Property(x => x.SubscriptionType).HasMaxLength(64);
+            e.Property(x => x.TimeZoneId).HasMaxLength(64);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.SubscriptionExpiryDate);
+            e.HasIndex(x => x.PlanName);
             e.HasIndex(x => x.StripeCustomerId);
             e.HasIndex(x => x.StripeSubscriptionId);
             e.Property(x => x.Subdomain).HasMaxLength(63);
@@ -97,6 +104,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Appointment>(e =>
         {
+            e.HasIndex(x => new { x.ClinicId, x.AppointmentDate });
             e.HasOne(x => x.Clinic).WithMany(c => c.Appointments).HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Patient).WithMany(p => p.Appointments).HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -184,6 +192,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Invoice>(e =>
         {
             e.HasIndex(x => new { x.ClinicId, x.InvoiceNo }).IsUnique();
+            e.HasIndex(x => new { x.ClinicId, x.InvoiceDate });
             e.HasIndex(x => new { x.ClinicId, x.PatientId });
             e.HasIndex(x => new { x.ClinicId, x.PatientName });
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
@@ -272,6 +281,27 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.Property(x => x.CurrencyCode).HasMaxLength(8);
             e.Property(x => x.CurrencySymbol).HasMaxLength(8);
             e.Property(x => x.LanguageCode).HasMaxLength(8);
+            e.Property(x => x.TimeZoneId).HasMaxLength(64);
+            e.Property(x => x.Tagline).HasMaxLength(200);
+            e.Property(x => x.Website).HasMaxLength(256);
+        });
+
+        builder.Entity<SecurityAuditEntry>(e =>
+        {
+            e.HasIndex(x => x.ClinicId);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.EventType);
+            e.Property(x => x.EventType).HasMaxLength(64).IsRequired();
+            e.Property(x => x.UserName).HasMaxLength(256);
+            e.Property(x => x.IpAddress).HasMaxLength(64);
+        });
+
+        builder.Entity<ClinicBackupHistory>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.CreatedAt });
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.Action).HasMaxLength(32).IsRequired();
+            e.Property(x => x.FileName).HasMaxLength(256).IsRequired();
         });
 
         builder.Entity<ClinicUom>(e =>
@@ -371,6 +401,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         ConfigureClinicFilter<PharmacyItem>(builder);
         ConfigureClinicFilter<PharmacyOpeningBalance>(builder);
         ConfigureClinicFilter<PharmacyInventoryMovement>(builder);
+        ConfigureClinicFilter<ClinicBackupHistory>(builder);
         ConfigureClinicFilter<ClinicConfiguration>(builder);
         ConfigureClinicFilter<ClinicUom>(builder);
         ConfigureClinicFilter<ClinicCurrency>(builder);

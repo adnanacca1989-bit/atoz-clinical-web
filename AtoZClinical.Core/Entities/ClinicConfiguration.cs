@@ -22,6 +22,10 @@ public class ClinicConfiguration : IClinicScoped
     public bool PatientPortalEnabled { get; set; }
     public string FormStyle { get; set; } = "Default";
     public string PrimaryColor { get; set; } = "#0b4f8a";
+    public string TimeZoneId { get; set; } = "UTC";
+    public string? LogoBase64 { get; set; }
+    public string? Tagline { get; set; }
+    public string? Website { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public Clinic Clinic { get; set; } = null!;

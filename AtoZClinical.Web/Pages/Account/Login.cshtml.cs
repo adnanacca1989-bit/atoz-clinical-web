@@ -18,17 +18,20 @@ public class LoginModel : PageModel
     private readonly UserManager<ApplicationUser> _users;
     private readonly ClinicAccessService _access;
     private readonly ClinicalDbContext _db;
+    private readonly SecurityAuditService _securityAudit;
 
     public LoginModel(
         SignInManager<ApplicationUser> signIn,
         UserManager<ApplicationUser> users,
         ClinicAccessService access,
-        ClinicalDbContext db)
+        ClinicalDbContext db,
+        SecurityAuditService securityAudit)
     {
         _signIn = signIn;
         _users = users;
         _access = access;
         _db = db;
+        _securityAudit = securityAudit;
     }
 
     [BindProperty]
@@ -55,6 +58,12 @@ public class LoginModel : PageModel
 
         if (!result.Succeeded)
         {
+            await _securityAudit.LogAsync(
+                SecurityAuditEvents.LoginFailed,
+                Input.Username,
+                user?.ClinicId,
+                "Invalid password or account locked.",
+                HttpContext.Connection.RemoteIpAddress?.ToString());
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             return Page();
         }
@@ -71,7 +80,15 @@ public class LoginModel : PageModel
         }
 
         if (user.IsVendorAdmin || await _users.IsInRoleAsync(user, ClinicalRoles.Vendor))
-            return RedirectToPage("/Vendor/Index");
+        {
+            await _securityAudit.LogAsync(
+                SecurityAuditEvents.Login,
+                user.UserName,
+                null,
+                "Vendor login",
+                HttpContext.Connection.RemoteIpAddress?.ToString());
+            return RedirectToPage("/Vendor/Dashboard");
+        }
 
         Clinic? clinic = null;
         if (user.ClinicId.HasValue)
@@ -83,6 +100,13 @@ public class LoginModel : PageModel
             await _signIn.SignOutAsync();
             return RedirectToPage("/Account/LicenseBlocked", new { reason = (int)access.Reason });
         }
+
+        await _securityAudit.LogAsync(
+            SecurityAuditEvents.Login,
+            user.UserName,
+            user.ClinicId,
+            $"Clinic login: {clinic?.Name}",
+            HttpContext.Connection.RemoteIpAddress?.ToString());
 
         return RedirectToPage("/Dashboard/Index");
     }

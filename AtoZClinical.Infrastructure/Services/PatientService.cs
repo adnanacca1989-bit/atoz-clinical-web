@@ -12,19 +12,22 @@ public sealed class PatientService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly IWebhookDispatchService _webhooks;
+    private readonly AuditService _audit;
 
     public PatientService(
         ClinicalDbContext db,
         MasterDataPropagationService propagation,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        IWebhookDispatchService webhooks)
+        IWebhookDispatchService webhooks,
+        AuditService audit)
     {
         _db = db;
         _propagation = propagation;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _webhooks = webhooks;
+        _audit = audit;
     }
 
     public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null, int maxRows = PaginationDefaults.ListCap) =>
@@ -126,6 +129,13 @@ public sealed class PatientService
         }
 
         await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            clinicId,
+            userName,
+            "Patient Registration",
+            previous is null ? "Create" : "Update",
+            $"Patient #{patient.PatientNo} — {patient.FullName}");
 
         if (previous is null)
         {

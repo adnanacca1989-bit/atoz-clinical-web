@@ -10,6 +10,11 @@ public class AnalyticsModel : PageModel
     public AnalyticsModel(VendorAnalyticsService analytics) => _analytics = analytics;
 
     public VendorAnalyticsSummary Summary { get; private set; } = null!;
+    public SaasDashboardSummary? Dashboard { get; private set; }
 
-    public async Task OnGetAsync() => Summary = await _analytics.GetSummaryAsync();
+    public async Task OnGetAsync()
+    {
+        Dashboard = await _analytics.GetDashboardAsync();
+        Summary = await _analytics.GetSummaryAsync();
+    }
 }

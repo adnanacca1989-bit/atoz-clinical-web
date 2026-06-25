@@ -40,10 +40,15 @@ public sealed class ClinicSettingsService
     public async Task SaveAsync(ClinicConfiguration config)
     {
         config.UpdatedAt = DateTime.UtcNow;
-        if (await _db.ClinicConfigurations.AnyAsync(c => c.Id == config.Id))
+        var exists = await _db.ClinicConfigurations
+            .IgnoreQueryFilters()
+            .AnyAsync(c => c.Id == config.Id && c.ClinicId == config.ClinicId);
+
+        if (exists)
             _db.ClinicConfigurations.Update(config);
         else
             _db.ClinicConfigurations.Add(config);
+
         await _db.SaveChangesAsync();
         _cache.InvalidateConfiguration(config.ClinicId);
     }

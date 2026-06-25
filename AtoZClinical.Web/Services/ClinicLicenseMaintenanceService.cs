@@ -22,10 +22,10 @@ public sealed class ClinicLicenseMaintenanceService : BackgroundService
             try
             {
                 using var scope = _services.CreateScope();
-                var access = scope.ServiceProvider.GetRequiredService<ClinicAccessService>();
-                var count = await access.ExpireOverdueLicensesAsync(stoppingToken);
+                var subscriptions = scope.ServiceProvider.GetRequiredService<SaasSubscriptionService>();
+                var count = await subscriptions.ExpireOverdueSubscriptionsAsync(stoppingToken);
                 if (count > 0)
-                    _logger.LogInformation("Marked {Count} clinic(s) as expired (license date passed).", count);
+                    _logger.LogInformation("Marked {Count} clinic(s) as expired (subscription date passed).", count);
 
                 var emails = scope.ServiceProvider.GetRequiredService<SubscriptionEmailService>();
                 await emails.SendLifecycleEmailsAsync(stoppingToken);

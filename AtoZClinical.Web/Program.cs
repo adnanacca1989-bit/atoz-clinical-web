@@ -190,6 +190,10 @@ builder.Services.AddScoped<IClinicalEmailSender, SmtpClinicalEmailSender>();
 builder.Services.AddScoped<RegistrationEmailService>();
 builder.Services.AddScoped<SubscriptionEmailService>();
 builder.Services.AddScoped<VendorAnalyticsService>();
+builder.Services.AddScoped<SaasSubscriptionService>();
+builder.Services.AddScoped<SecurityAuditService>();
+builder.Services.AddScoped<ClinicProfileService>();
+builder.Services.AddScoped<ClinicBackupHistoryService>();
 builder.Services.AddScoped<ClinicDataDeletionService>();
 if (builder.Configuration.GetValue("Billing:Enabled", false) &&
     !string.IsNullOrWhiteSpace(builder.Configuration["Stripe:SecretKey"]))
@@ -245,6 +249,7 @@ builder.Services.AddScoped<DoctorReportService>();
 builder.Services.AddScoped<GlobalTransactionSearchService>();
 builder.Services.AddScoped<FormPermissionPageFilter>();
 builder.Services.AddScoped<ReportBrandingPageFilter>();
+builder.Services.AddScoped<ClinicBrandingPageFilter>();
 builder.Services.AddScoped<PharmacyCogsService>();
 builder.Services.AddScoped<AppointmentReminderService>();
 builder.Services.AddScoped<PatientPrintBundleService>();
@@ -264,6 +269,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AddFolderApplicationModelConvention("/", model =>
     {
         model.Filters.Add(new ServiceFilterAttribute(typeof(FormPermissionPageFilter)));
+        model.Filters.Add(new ServiceFilterAttribute(typeof(ClinicBrandingPageFilter)));
     });
     options.Conventions.AddFolderApplicationModelConvention("/Reports", model =>
     {

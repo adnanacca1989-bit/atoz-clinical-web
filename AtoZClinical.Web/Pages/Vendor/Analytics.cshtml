@@ -10,6 +10,7 @@
         <h2 class="atz-section-title mb-1">SaaS Analytics</h2>
         <p class="text-muted mb-0">MRR estimate, trials, and clinic growth</p>
     </div>
+    <a class="btn btn-outline-secondary" asp-page="/Vendor/Dashboard">SaaS Dashboard</a>
     <a class="btn btn-outline-secondary" asp-page="/Vendor/Index">Back to clinics</a>
 </div>
 
@@ -17,8 +18,21 @@
     <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Total clinics</div><div class="fs-3 fw-bold">@Model.Summary.TotalClinics</div></div></div>
     <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Active</div><div class="fs-3 fw-bold text-success">@Model.Summary.ActiveClinics</div></div></div>
     <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">On trial</div><div class="fs-3 fw-bold text-primary">@Model.Summary.TrialClinics</div></div></div>
-    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Est. MRR (USD)</div><div class="fs-3 fw-bold">$@Model.Summary.EstimatedMrrUsd.ToString("0")</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Expired</div><div class="fs-3 fw-bold text-danger">@Model.Summary.ExpiredClinics</div></div></div>
 </div>
+
+@{
+    var dashboard = Model.Dashboard;
+}
+@if (dashboard is not null)
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Total users</div><div class="fs-3 fw-bold">@dashboard.TotalUsers</div></div></div>
+        <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Total patients</div><div class="fs-3 fw-bold">@dashboard.TotalPatients.ToString("N0")</div></div></div>
+        <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Monthly revenue (est.)</div><div class="fs-3 fw-bold">$@dashboard.MonthlyRevenueUsd.ToString("N0")</div></div></div>
+        <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Annual revenue (est.)</div><div class="fs-3 fw-bold">$@dashboard.AnnualRevenueUsd.ToString("N0")</div></div></div>
+    </div>
+}
 
 <div class="row g-3 mb-4">
     <div class="col-md-4"><div class="atz-card p-3"><div class="text-muted small">New this month</div><div class="fs-4 fw-semibold">@Model.Summary.NewClinicsThisMonth</div></div></div>

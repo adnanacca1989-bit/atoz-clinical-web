@@ -29,8 +29,16 @@ public class Clinic
     public string? DatabaseName { get; set; }
     public string? LicenseKey { get; set; }
     public DateTime? LicenseExpires { get; set; }
-    /// <summary>SaaS plan label shown to vendor and clinic (Trial, Standard, Professional).</summary>
+    /// <summary>SaaS plan label shown to vendor and clinic (Trial, Basic, Standard, Professional).</summary>
     public string PlanName { get; set; } = "Standard";
+    /// <summary>Subscription tier: Trial, Basic, Standard, Professional.</summary>
+    public string SubscriptionType { get; set; } = "Standard";
+    /// <summary>When the current subscription period started.</summary>
+    public DateTime? SubscriptionStartDate { get; set; }
+    /// <summary>When the current subscription period ends (access blocked after this date).</summary>
+    public DateTime? SubscriptionExpiryDate { get; set; }
+    /// <summary>IANA time zone for clinic operations, e.g. Asia/Baghdad.</summary>
+    public string? TimeZoneId { get; set; } = "UTC";
     /// <summary>Maximum users allowed for this clinic subscription.</summary>
     public int MaxUsers { get; set; } = 25;
 

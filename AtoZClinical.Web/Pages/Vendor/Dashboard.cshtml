@@ -1,0 +1,96 @@
+@page
+@model AtoZClinical.Web.Pages.Vendor.DashboardModel
+@{
+    ViewData["Title"] = "SaaS Dashboard";
+    Layout = "_Layout";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="atz-section-title mb-1">SaaS Platform Dashboard</h2>
+        <p class="text-muted mb-0">Multi-tenant overview — clinics, users, revenue, and growth</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-atz-primary" asp-page="Create">+ New Clinic</a>
+        <a class="btn btn-outline-secondary" asp-page="Clients">Manage Clinics</a>
+        <a class="btn btn-outline-secondary" asp-page="Subscriptions">Subscriptions</a>
+        <a class="btn btn-outline-secondary" asp-page="Analytics">Analytics</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Total Clinics</div><div class="fs-3 fw-bold">@Model.Dashboard.TotalClinics</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Active Clinics</div><div class="fs-3 fw-bold text-success">@Model.Dashboard.ActiveClinics</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Trial Clinics</div><div class="fs-3 fw-bold text-primary">@Model.Dashboard.TrialClinics</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Expired Clinics</div><div class="fs-3 fw-bold text-danger">@Model.Dashboard.ExpiredClinics</div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Total Users</div><div class="fs-3 fw-bold">@Model.Dashboard.TotalUsers</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Total Patients</div><div class="fs-3 fw-bold">@Model.Dashboard.TotalPatients.ToString("N0")</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Monthly Revenue (est.)</div><div class="fs-3 fw-bold">$@Model.Dashboard.MonthlyRevenueUsd.ToString("N0")</div></div></div>
+    <div class="col-md-3"><div class="atz-card p-3"><div class="text-muted small">Annual Revenue (est.)</div><div class="fs-3 fw-bold">$@Model.Dashboard.AnnualRevenueUsd.ToString("N0")</div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="atz-card p-3">
+            <h3 class="h6">Monthly Clinic Growth</h3>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Month</th><th class="text-end">New Clinics</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.Dashboard.MonthlyGrowth)
+                {
+                    <tr><td>@row.Month</td><td class="text-end fw-semibold">@row.NewClinics</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="atz-card p-3">
+            <h3 class="h6">Plan Distribution</h3>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Plan</th><th class="text-end">Clinics</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.Dashboard.PlanBreakdown)
+                {
+                    <tr><td>@row.PlanName</td><td class="text-end fw-semibold">@row.Count</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="atz-card p-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="h6 mb-0">Recent Clinics</h3>
+        <span class="text-muted small">New this month: @Model.Dashboard.NewClinicsThisMonth · Churned: @Model.Dashboard.ChurnedThisMonth · Pending: @Model.Dashboard.PendingClinics</span>
+    </div>
+    <table class="table table-hover table-sm mb-0">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Expires</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var clinic in Model.RecentClinics)
+        {
+            <tr>
+                <td>@clinic.ClinicCode</td>
+                <td>@clinic.Name</td>
+                <td>@clinic.PlanName</td>
+                <td><span class="badge bg-secondary">@clinic.Status</span></td>
+                <td>@((clinic.SubscriptionExpiryDate ?? clinic.LicenseExpires)?.ToString("dd MMM yyyy") ?? "—")</td>
+                <td><a asp-page="Details" asp-route-id="@clinic.Id">Details</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

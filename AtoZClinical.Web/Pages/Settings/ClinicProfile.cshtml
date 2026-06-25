@@ -1,0 +1,128 @@
+@page
+@model AtoZClinical.Web.Pages.Settings.ClinicProfileModel
+@{
+    ViewData["Title"] = "Clinic Profile & Branding";
+    Layout = "_Layout";
+}
+
+<h2 class="atz-section-title">Clinic Profile & Branding</h2>
+<p class="text-muted mb-3">Manage your clinic information, logo, colors, time zone, and language.</p>
+
+<partial name="_SettingsMenu" />
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <form method="post" class="atz-card p-3">
+            <h3 class="h6 mb-3">Clinic Information</h3>
+            <div class="row g-2">
+                <div class="col-md-8">
+                    <label class="form-label">Clinic Name *</label>
+                    <input asp-for="Input.Name" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Contact Person</label>
+                    <input asp-for="Input.ContactPerson" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Phone</label>
+                    <input asp-for="Input.Phone" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Email</label>
+                    <input asp-for="Input.Email" class="form-control" type="email" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Website</label>
+                    <input asp-for="Input.Website" class="form-control" placeholder="https://..." />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Address</label>
+                    <input asp-for="Input.Address" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">City</label>
+                    <input asp-for="Input.City" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Country</label>
+                    <input asp-for="Input.Country" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Tagline</label>
+                    <input asp-for="Input.Tagline" class="form-control" placeholder="Your care, our priority" />
+                </div>
+            </div>
+
+            <hr />
+            <h3 class="h6 mb-3">Regional & Branding</h3>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label">Time Zone</label>
+                    <select asp-for="Input.TimeZoneId" class="form-select" asp-items="@(new SelectList(ClinicProfileModel.TimeZones))"></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Language</label>
+                    <select asp-for="Input.LanguageCode" class="form-select"
+                            asp-items="@(new SelectList(ClinicProfileModel.Languages, "Code", "Name", Model.Input.LanguageCode))"></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Form Style</label>
+                    <select asp-for="Input.FormStyle" class="form-select" asp-items="@(new SelectList(ClinicProfileModel.FormStyles))"></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Primary Color</label>
+                    <input asp-for="Input.PrimaryColor" class="form-control" type="color" />
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <button type="submit" class="btn btn-atz-primary">Save Profile</button>
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <div class="atz-card p-3 mb-3">
+            <h3 class="h6">Clinic Logo</h3>
+            <div class="text-center mb-2 p-2 border rounded bg-light" style="min-height:120px;">
+                @if (!string.IsNullOrEmpty(Model.Input.LogoBase64))
+                {
+                    <img src="@Model.Input.LogoBase64" alt="Clinic logo" style="max-height:100px; max-width:100%;" />
+                }
+                else
+                {
+                    <span class="text-muted small">No logo uploaded</span>
+                }
+            </div>
+            <form method="post" asp-page-handler="UploadLogo" enctype="multipart/form-data">
+                <input type="file" name="logoFile" accept="image/*" class="form-control form-control-sm mb-2" />
+                <button type="submit" class="btn btn-sm btn-outline-primary">Upload Logo</button>
+            </form>
+            @if (!string.IsNullOrEmpty(Model.Input.LogoBase64))
+            {
+                <form method="post" class="mt-2">
+                    <input type="hidden" asp-for="Input.ClearLogo" value="true" />
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove Logo</button>
+                </form>
+            }
+        </div>
+        <div class="atz-card p-3">
+            <h3 class="h6">Preview</h3>
+            <div class="p-2 rounded text-white" style="background:@Model.Input.PrimaryColor">
+                <strong>@Model.Input.Name</strong>
+                @if (!string.IsNullOrWhiteSpace(Model.Input.Tagline))
+                {
+                    <div class="small opacity-75">@Model.Input.Tagline</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

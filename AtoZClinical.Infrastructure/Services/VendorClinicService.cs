@@ -55,16 +55,20 @@ public sealed class VendorClinicService
             DatabaseName = request.DatabaseName?.Trim(),
             LicenseKey = GenerateLicenseKey(),
             LicenseExpires = ToUtcDate(request.LicenseExpires) ?? DateTime.UtcNow.Date.AddYears(1),
-            PlanName = string.IsNullOrWhiteSpace(request.PlanName) ? "Standard" : request.PlanName.Trim(),
+            PlanName = string.IsNullOrWhiteSpace(request.PlanName) ? SubscriptionPlans.Standard : request.PlanName.Trim(),
             MaxUsers = request.MaxUsers > 0 ? request.MaxUsers : 25,
             Status = request.ActivateImmediately ? ClinicStatus.Active : ClinicStatus.Pending,
             Notes = request.Notes?.Trim(),
-            EnabledFormKeys = request.EnabledFormKeys
+            EnabledFormKeys = request.EnabledFormKeys,
+            SubscriptionStartDate = DateTime.UtcNow.Date
         };
+
+        SaasSubscriptionService.ApplyPlanDefaults(clinic, clinic.PlanName);
+        SaasSubscriptionService.SyncSubscriptionDates(clinic, clinic.SubscriptionStartDate, clinic.LicenseExpires);
 
         if (clinic.PlanName.Equals(SubscriptionPlans.Trial, StringComparison.OrdinalIgnoreCase))
         {
-            clinic.TrialEndsAt = clinic.LicenseExpires;
+            clinic.TrialEndsAt = clinic.SubscriptionExpiryDate;
             clinic.SubscriptionStatus = SubscriptionStatuses.Trialing;
         }
 
@@ -177,12 +181,19 @@ public sealed class VendorClinicService
     {
         var clinic = await _db.Clinics.FindAsync(clinicId)
             ?? throw new InvalidOperationException("Clinic not found.");
-        clinic.LicenseExpires = ToUtcDate(licenseExpires)!.Value;
-        clinic.Status = ClinicStatus.Active;
+
         if (!string.IsNullOrWhiteSpace(planName))
-            clinic.PlanName = planName.Trim();
+            SaasSubscriptionService.ApplyPlanDefaults(clinic, planName);
+
         if (maxUsers is > 0)
             clinic.MaxUsers = maxUsers.Value;
+
+        clinic.Status = ClinicStatus.Active;
+        clinic.SubscriptionStatus = clinic.PlanName.Equals(SubscriptionPlans.Trial, StringComparison.OrdinalIgnoreCase)
+            ? SubscriptionStatuses.Trialing
+            : SubscriptionStatuses.Active;
+
+        SaasSubscriptionService.SyncSubscriptionDates(clinic, DateTime.UtcNow.Date, licenseExpires);
         await _db.SaveChangesAsync();
     }
 

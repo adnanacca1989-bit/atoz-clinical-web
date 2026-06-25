@@ -53,14 +53,18 @@ public sealed class ClinicAccessService
 
         if (clinic.LicenseExpires.HasValue && clinic.LicenseExpires.Value.Date < DateTime.UtcNow.Date)
         {
-            var hasActivePaidStripe =
-                string.Equals(clinic.SubscriptionStatus, SubscriptionStatuses.Active, StringComparison.OrdinalIgnoreCase) &&
-                !string.IsNullOrWhiteSpace(clinic.StripeSubscriptionId);
+            var expiry = clinic.SubscriptionExpiryDate ?? clinic.LicenseExpires;
+            if (expiry.HasValue && expiry.Value.Date < DateTime.UtcNow.Date)
+            {
+                var hasActivePaidStripe =
+                    string.Equals(clinic.SubscriptionStatus, SubscriptionStatuses.Active, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(clinic.StripeSubscriptionId);
 
-            if (!hasActivePaidStripe)
-                return ClinicAccessResult.Blocked(
-                    $"Your license expired on {clinic.LicenseExpires.Value:d}. Please upgrade your plan to continue.",
-                    ClinicBlockReason.Expired, clinic);
+                if (!hasActivePaidStripe)
+                    return ClinicAccessResult.Blocked(
+                        $"Your subscription expired on {expiry.Value:d}. Please renew your plan to continue.",
+                        ClinicBlockReason.Expired, clinic);
+            }
         }
 
         if (SubscriptionStatuses.BlocksAccess(clinic.SubscriptionStatus))

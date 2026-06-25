@@ -1,0 +1,51 @@
+@page
+@model AtoZClinical.Web.Pages.Vendor.SubscriptionsModel
+@{
+    ViewData["Title"] = "Subscription Report";
+    Layout = "_Layout";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="atz-section-title mb-1">Subscription Report</h2>
+        <p class="text-muted mb-0">All clinics — plan, status, start and expiry dates</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="Dashboard">← Dashboard</a>
+</div>
+
+<div class="atz-card p-3">
+    <table class="table table-sm table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Clinic</th>
+                <th>Type</th>
+                <th>Plan</th>
+                <th>Sub. Status</th>
+                <th>Clinic Status</th>
+                <th>Start</th>
+                <th>Expiry</th>
+                <th>Max Users</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            var expired = row.ExpiryDate.HasValue && row.ExpiryDate.Value.Date < DateTime.UtcNow.Date;
+            <tr class="@(expired ? "table-warning" : "")">
+                <td>@row.ClinicCode</td>
+                <td>@row.Name</td>
+                <td>@row.SubscriptionType</td>
+                <td>@row.PlanName</td>
+                <td>@row.SubscriptionStatus</td>
+                <td>@row.Status</td>
+                <td>@(row.StartDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                <td>@(row.ExpiryDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                <td>@row.MaxUsers</td>
+                <td><a asp-page="Details" asp-route-id="@row.ClinicId">Renew</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

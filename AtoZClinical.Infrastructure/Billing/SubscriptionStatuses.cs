@@ -21,6 +21,7 @@ public static class SubscriptionStatuses
 public static class SubscriptionPlans
 {
     public const string Trial = "Trial";
+    public const string Basic = "Basic";
     public const string Standard = "Standard";
     public const string Professional = "Professional";
 }
@@ -34,6 +35,13 @@ public sealed record BillingPlan(
 
 public static class BillingPlanCatalog
 {
+    public static readonly BillingPlan Basic = new(
+        "basic",
+        SubscriptionPlans.Basic,
+        49m,
+        10,
+        "Stripe:PriceIdBasic");
+
     public static readonly BillingPlan Standard = new(
         "standard",
         SubscriptionPlans.Standard,
@@ -48,7 +56,15 @@ public static class BillingPlanCatalog
         100,
         "Stripe:PriceIdProfessional");
 
-    public static IReadOnlyList<BillingPlan> PaidPlans { get; } = [Standard, Professional];
+    public static IReadOnlyList<BillingPlan> PaidPlans { get; } = [Basic, Standard, Professional];
+
+    public static IReadOnlyList<BillingPlan> AllPlans { get; } =
+    [
+        new BillingPlan("trial", SubscriptionPlans.Trial, 0m, 10, ""),
+        Basic,
+        Standard,
+        Professional
+    ];
 
     public static BillingPlan? FindByKey(string? key) =>
         PaidPlans.FirstOrDefault(p => p.Key.Equals(key, StringComparison.OrdinalIgnoreCase));

@@ -3,11 +3,17 @@
     var uiLang = Context.Request.Cookies["clinical_lang"] ?? "en";
     var isRtl = uiLang.Equals("ar", StringComparison.OrdinalIgnoreCase);
 }
+@{
+    var primaryColor = Context.Items["ClinicPrimaryColor"] as string ?? "#0b4f8a";
+    var clinicLogo = Context.Items["ClinicLogoBase64"] as string;
+    var clinicName = Context.Items["ClinicDisplayName"] as string;
+}
 <html lang="@uiLang" dir="@(isRtl ? "rtl" : "ltr")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - A to Z Clinical</title>
+    <title>@ViewData["Title"] - @(clinicName ?? "A to Z Clinical")</title>
+    <style>:root { --clinic-primary: @primaryColor; }</style>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/clinical-forms.css" asp-append-version="true" />
@@ -20,7 +26,13 @@
     {
         <nav class="navbar navbar-dark atz-navbar mb-0">
             <div class="container-fluid">
-                <a class="navbar-brand atz-brand" asp-page="/Dashboard/Index">A to Z Clinical</a>
+                <a class="navbar-brand atz-brand" asp-page="/Dashboard/Index">
+                    @if (!string.IsNullOrEmpty(clinicLogo))
+                    {
+                        <img src="@clinicLogo" alt="" style="height:28px; margin-right:8px;" />
+                    }
+                    @(clinicName ?? "A to Z Clinical")
+                </a>
                 @if (!User.IsInRole("Vendor"))
                 {
                     <div class="global-nav-search flex-grow-1 mx-3">

@@ -31,6 +31,7 @@ public static class DatabaseInitializer
 
         await EnsureSchemaAsync(db, env, logger);
         await EnsureEnterpriseSchemaAsync(db, logger);
+        await EnsureSaasPlatformSchemaAsync(db, logger);
         await BackfillCashReceiptPatientCreditsAsync(db, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
@@ -331,6 +332,66 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Enterprise schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureSaasPlatformSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "SubscriptionType" character varying(64) NOT NULL DEFAULT 'Standard';
+                ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "SubscriptionStartDate" timestamp without time zone NULL;
+                ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "SubscriptionExpiryDate" timestamp without time zone NULL;
+                ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "TimeZoneId" character varying(64) NULL;
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "TimeZoneId" character varying(64) NOT NULL DEFAULT 'UTC';
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "LogoBase64" text NULL;
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "Tagline" character varying(200) NULL;
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "Website" character varying(256) NULL;
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "SecurityAuditEntries" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NULL,
+                    "EventType" character varying(64) NOT NULL,
+                    "UserName" character varying(256) NULL,
+                    "Details" text NULL,
+                    "IpAddress" character varying(64) NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_SecurityAuditEntries" PRIMARY KEY ("Id")
+                );
+                CREATE INDEX IF NOT EXISTS "IX_SecurityAuditEntries_ClinicId" ON "SecurityAuditEntries" ("ClinicId");
+                CREATE INDEX IF NOT EXISTS "IX_SecurityAuditEntries_CreatedAt" ON "SecurityAuditEntries" ("CreatedAt");
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "ClinicBackupHistories" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "Action" character varying(32) NOT NULL,
+                    "FileName" character varying(256) NOT NULL,
+                    "FileSizeBytes" bigint NOT NULL,
+                    "PerformedBy" character varying(256) NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "Notes" text NULL,
+                    CONSTRAINT "PK_ClinicBackupHistories" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ClinicBackupHistories_Clinics_ClinicId" FOREIGN KEY ("ClinicId") REFERENCES "Clinics" ("Id") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS "IX_ClinicBackupHistories_ClinicId_CreatedAt" ON "ClinicBackupHistories" ("ClinicId", "CreatedAt");
+                """);
+
+            logger.LogInformation("SaaS platform schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SaaS platform schema verification skipped.");
         }
     }
 
