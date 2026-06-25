@@ -48,6 +48,9 @@ public sealed class ClinicSettingsService
         _cache.InvalidateConfiguration(config.ClinicId);
     }
 
+    public void InvalidateCache(Guid clinicId) =>
+        _cache.InvalidateConfiguration(clinicId);
+
     public Task<List<ApplicationUser>> ListClinicUsersAsync(Guid clinicId) =>
         _users.Users.Where(u => u.ClinicId == clinicId).OrderBy(u => u.UserName).ToListAsync();
 }

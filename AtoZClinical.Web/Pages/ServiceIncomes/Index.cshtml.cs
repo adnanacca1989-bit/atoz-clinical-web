@@ -89,7 +89,8 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
-        var entity = Input.ToEntity(RecordId);
+        ResolveRecordIdForSave();
+        var entity = Input.ToEntity(RecordIdForSave);
         var saved = await _service.SaveAsync(clinicId.Value, entity);
         return RedirectAfterSave(saved.Id);
     }

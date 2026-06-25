@@ -20,7 +20,7 @@
         }
         <div class="mt-4 d-flex gap-2">
             <a class="btn btn-atz-primary" asp-page="/Dashboard/Index">Return to Dashboard</a>
-            <button type="button" class="btn btn-outline-secondary" onclick="window.location.reload();">Try Again</button>
+            <a class="btn btn-outline-secondary" asp-page="/Dashboard/Index">Try Again</a>
         </div>
         @if (Model.ShowDevelopmentDetails)
         {

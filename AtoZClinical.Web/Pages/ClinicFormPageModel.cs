@@ -74,6 +74,31 @@ public abstract class ClinicFormPageModel : PageModel
     protected IActionResult RedirectAfterSave(Guid savedId) =>
         SaveMode == "New" ? RedirectToNewForm() : RedirectToRecord(savedId);
 
+    protected bool IsNewSave =>
+        string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Clears RecordId when Add/New save so query-string ids cannot force an update.</summary>
+    protected void ResolveRecordIdForSave()
+    {
+        if (IsNewSave)
+            RecordId = null;
+    }
+
+    protected Guid? RecordIdForSave => IsNewSave || !RecordId.HasValue ? null : RecordId;
+
+    /// <summary>GET with ?handler=Save after a failed POST bookmark — redirect to a safe GET.</summary>
+    public IActionResult OnGetSave() => RedirectToPage(new { RecordId, Search, NewRecord, RecordPage, PageSize });
+
+    public IActionResult OnGetNew() => RedirectToPage(new { Search, NewRecord = true, RecordPage, PageSize });
+
+    public IActionResult OnGetClear() => RedirectToPage(new { Search, NewRecord = true, RecordPage, PageSize });
+
+    public IActionResult OnGetDelete() => RedirectToPage(new { RecordId, Search, RecordPage, PageSize });
+
+    public IActionResult OnGetBack() => RedirectToPage(new { RecordId, Search, RecordPage, PageSize });
+
+    public IActionResult OnGetNext() => RedirectToPage(new { RecordId, Search, RecordPage, PageSize });
+
     protected async Task<IActionResult> SafeDeleteAsync(Func<Task> deleteAction, Func<Task>? reloadAsync = null)
     {
         try

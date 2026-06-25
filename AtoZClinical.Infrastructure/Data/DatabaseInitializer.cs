@@ -30,6 +30,7 @@ public static class DatabaseInitializer
         var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
         await EnsureSchemaAsync(db, env, logger);
+        await EnsureEnterpriseSchemaAsync(db, logger);
         await BackfillCashReceiptPatientCreditsAsync(db, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
@@ -280,6 +281,57 @@ public static class DatabaseInitializer
             """,
             InitialMigrationId,
             "8.0.11");
+    }
+
+    private static async Task EnsureEnterpriseSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "Subdomain" character varying(63) NULL;
+                ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "DedicatedConnectionName" character varying(128) NULL;
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "PatientPortalEnabled" boolean NOT NULL DEFAULT false;
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "ClinicApiKeys" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "Name" character varying(100) NOT NULL,
+                    "KeyPrefix" character varying(16) NOT NULL,
+                    "KeyHash" character varying(128) NOT NULL,
+                    "IsActive" boolean NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "LastUsedAt" timestamp without time zone NULL,
+                    CONSTRAINT "PK_ClinicApiKeys" PRIMARY KEY ("Id")
+                );
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "WebhookSubscriptions" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "TargetUrl" character varying(500) NOT NULL,
+                    "Secret" character varying(128) NOT NULL,
+                    "Events" character varying(500) NOT NULL,
+                    "IsActive" boolean NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_WebhookSubscriptions" PRIMARY KEY ("Id")
+                );
+                """);
+
+            logger.LogInformation("Enterprise schema columns verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Enterprise schema verification skipped.");
+        }
     }
 
     private static async Task BackfillCashReceiptPatientCreditsAsync(ClinicalDbContext db, ILogger logger)

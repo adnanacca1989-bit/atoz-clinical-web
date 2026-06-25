@@ -5,7 +5,7 @@ using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-
+using Microsoft.Extensions.Logging;
 namespace AtoZClinical.Web.Pages.Doctors;
 
 public class IndexModel : ClinicFormPageModel
@@ -66,7 +66,7 @@ public class IndexModel : ClinicFormPageModel
     {
         RecordId = null;
         var next = await _service.NextNoAsync(clinicId);
-        Input = new DoctorInput { DoctorNo = next, Status = "Active" };
+        Input = new DoctorInput { DoctorNo = next, Status = "Active", Specialty = "ENT" };
     }
 
     private async Task<IActionResult> SaveCoreAsync()
@@ -81,11 +81,8 @@ public class IndexModel : ClinicFormPageModel
             return Page();
         }
 
-        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
-        if (isNew)
-            RecordId = null;
-
-        var entity = Input.ToEntity(isNew ? null : RecordId);
+        ResolveRecordIdForSave();
+        var entity = Input.ToEntity(RecordIdForSave);
 
         try
         {
@@ -104,6 +101,15 @@ public class IndexModel : ClinicFormPageModel
             ModelState.AddModelError(string.Empty, ex.Message);
             await LoadAsync(clinicId.Value);
             SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            return Page();
+        }
+        catch (Exception ex)
+        {
+            ModelState.AddModelError(string.Empty, "Could not save this doctor. Please check all required fields and try again.");
+            await LoadAsync(clinicId.Value);
+            SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            HttpContext.RequestServices.GetService<ILogger<IndexModel>>()?
+                .LogError(ex, "Doctor save failed for clinic {ClinicId}", clinicId);
             return Page();
         }
     }

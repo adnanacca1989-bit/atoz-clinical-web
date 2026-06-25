@@ -238,22 +238,28 @@ public sealed class ServiceIncomeService
     public async Task<ServiceIncome> SaveAsync(Guid clinicId, ServiceIncome item)
     {
         ServiceIncome? previous = null;
-        if (item.Id != Guid.Empty)
+        var isNew = item.Id == Guid.Empty;
+        if (!isNew)
         {
             previous = await _db.ServiceIncomes.AsNoTracking()
                 .FirstOrDefaultAsync(s => s.ClinicId == clinicId && s.Id == item.Id);
+            isNew = previous is null;
         }
 
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
-        if (item.Id == Guid.Empty)
+        if (isNew)
         {
             item.Id = Guid.NewGuid();
             item.ServiceNo = (await _db.ServiceIncomes.Where(s => s.ClinicId == clinicId).MaxAsync(s => (int?)s.ServiceNo) ?? 0) + 1;
             item.CreatedAt = DateTime.UtcNow;
             _db.ServiceIncomes.Add(item);
         }
-        else _db.ServiceIncomes.Update(item);
+        else
+        {
+            _db.ServiceIncomes.Update(item);
+        }
+
         await _db.SaveChangesAsync();
 
         if (previous is not null)

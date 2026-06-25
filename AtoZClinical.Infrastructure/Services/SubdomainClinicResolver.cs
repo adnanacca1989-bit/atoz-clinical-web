@@ -18,12 +18,19 @@ public sealed class SubdomainClinicResolver
 
     public async Task<Clinic?> ResolveFromHostAsync(string host, CancellationToken cancellationToken = default)
     {
-        var slug = ExtractSubdomain(host);
-        if (string.IsNullOrEmpty(slug)) return null;
+        try
+        {
+            var slug = ExtractSubdomain(host);
+            if (string.IsNullOrEmpty(slug)) return null;
 
-        return await _db.Clinics
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Subdomain == slug && c.Status == Core.Enums.ClinicStatus.Active, cancellationToken);
+            return await _db.Clinics
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Subdomain == slug && c.Status == Core.Enums.ClinicStatus.Active, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public string? ExtractSubdomain(string host)

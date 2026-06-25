@@ -92,7 +92,8 @@ public class IndexModel : ClinicFormPageModel
             return Page();
         }
 
-        var entity = Input.ToEntity(RecordId);
+        ResolveRecordIdForSave();
+        var entity = Input.ToEntity(RecordIdForSave);
         entity.ChronicDiseasesJson = JsonSerializer.Serialize(ChronicDiseases.Where(c => !string.IsNullOrWhiteSpace(c.Details)));
         var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
         return RedirectAfterSave(saved.Id);

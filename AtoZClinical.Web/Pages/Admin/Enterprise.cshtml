@@ -7,6 +7,11 @@
 
 <h2 class="atz-section-title">Enterprise &amp; portal</h2>
 
+@if (!string.IsNullOrEmpty(Model.LoadError))
+{
+    <div class="alert alert-danger">@Model.LoadError</div>
+}
+
 @if (!string.IsNullOrEmpty(Model.Message))
 {
     <div class="alert alert-success">@Model.Message</div>
