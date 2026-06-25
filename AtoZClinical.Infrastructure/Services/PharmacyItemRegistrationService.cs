@@ -18,19 +18,19 @@ public sealed class PharmacyItemRegistrationService
     }
 
     public Task<List<PharmacyItem>> ListAsync(Guid clinicId) =>
-        _db.PharmacyItems.Where(i => i.ClinicId == clinicId).OrderBy(i => i.ItemNo).ToListAsync();
+        _db.PharmacyItems.ForClinic(clinicId).OrderBy(i => i.ItemNo).ToListAsync();
 
     public Task<List<PharmacyItem>> ListActiveAsync(Guid clinicId) =>
-        _db.PharmacyItems.Where(i => i.ClinicId == clinicId && i.IsActive).OrderBy(i => i.MedicineName).ToListAsync();
+        _db.PharmacyItems.ForClinic(clinicId).Where(i => i.IsActive).OrderBy(i => i.MedicineName).ToListAsync();
 
     public Task<PharmacyItem?> GetAsync(Guid clinicId, Guid id) =>
-        _db.PharmacyItems.FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Id == id);
+        _db.PharmacyItems.ForClinic(clinicId).FirstOrDefaultAsync(i => i.Id == id);
 
     public Task<PharmacyItem?> GetByBarcodeAsync(Guid clinicId, string barcode) =>
-        _db.PharmacyItems.FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Barcode == barcode.Trim());
+        _db.PharmacyItems.ForClinic(clinicId).FirstOrDefaultAsync(i => i.Barcode == barcode.Trim());
 
     public Task<int> NextItemNoAsync(Guid clinicId) =>
-        _db.PharmacyItems.Where(i => i.ClinicId == clinicId).Select(i => (int?)i.ItemNo).MaxAsync()
+        _db.PharmacyItems.ForClinic(clinicId).Select(i => (int?)i.ItemNo).MaxAsync()
             .ContinueWith(t => (t.Result ?? 0) + 1);
 
     public async Task<PharmacyItem> SaveAsync(Guid clinicId, PharmacyItem item, string? userName = null)
@@ -39,8 +39,9 @@ public sealed class PharmacyItemRegistrationService
         PharmacyItem? previous = null;
         if (!isNew)
         {
-            previous = await _db.PharmacyItems.AsNoTracking()
-                .FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Id == item.Id);
+            previous = await _db.PharmacyItems.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == item.Id);
+            isNew = previous is null;
         }
 
         item.ClinicId = clinicId;
@@ -51,16 +52,28 @@ public sealed class PharmacyItemRegistrationService
         item.BaseUom = string.IsNullOrWhiteSpace(item.BaseUom) ? "Pcs" : item.BaseUom.Trim();
         if (item.ConversionFactor <= 0) item.ConversionFactor = 1;
 
-        if (await _db.PharmacyItems.AnyAsync(i =>
-                i.ClinicId == clinicId && i.Barcode == item.Barcode && i.Id != item.Id))
+        if (await _db.PharmacyItems.ForClinic(clinicId).AnyAsync(i =>
+                i.Barcode == item.Barcode && i.Id != item.Id))
             throw new InvalidOperationException($"Barcode '{item.Barcode}' is already registered.");
 
         if (isNew)
         {
-            item.Id = Guid.NewGuid();
-            item.ItemNo = (await _db.PharmacyItems.Where(i => i.ClinicId == clinicId).MaxAsync(i => (int?)i.ItemNo) ?? 0) + 1;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.PharmacyItems.Add(item);
+            var template = item;
+            item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+                _db,
+                async attempt =>
+                {
+                    var row = ClonePharmacyItemShell(template);
+                    row.Id = Guid.NewGuid();
+                    row.ClinicId = clinicId;
+                    row.ItemNo = await NextItemNoWithSkipAsync(clinicId, attempt);
+                    row.CreatedAt = DateTime.UtcNow;
+                    row.UpdatedAt = DateTime.UtcNow;
+                    return row;
+                },
+                row => _db.PharmacyItems.Add(row),
+                ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_PharmacyItems_ClinicId_ItemNo"),
+                failureMessage: "Could not save pharmacy item");
         }
         else
         {
@@ -71,18 +84,49 @@ public sealed class PharmacyItemRegistrationService
                 if (item.MovingAverageCost <= 0)
                     item.MovingAverageCost = existing.MovingAverageCost;
             }
-            _db.PharmacyItems.Update(item);
+
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, () =>
+            {
+                _db.PharmacyItems.Update(item);
+                return Task.CompletedTask;
+            });
         }
 
-        await _db.SaveChangesAsync();
-
         if (previous is not null)
-            await _propagation.PropagatePharmacyItemAsync(clinicId, previous, item);
+        {
+            try { await _propagation.PropagatePharmacyItemAsync(clinicId, previous, item); }
+            catch { }
+        }
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Registration", isNew ? "Create" : "Update",
             $"Item #{item.ItemNo} — {item.MedicineName} ({item.Barcode})");
         return item;
     }
+
+    private async Task<int> NextItemNoWithSkipAsync(Guid clinicId, int skip = 0)
+    {
+        var max = await _db.PharmacyItems.ForClinic(clinicId).MaxAsync(i => (int?)i.ItemNo) ?? 0;
+        return max + 1 + skip;
+    }
+
+    private static PharmacyItem ClonePharmacyItemShell(PharmacyItem source) => new()
+    {
+        Barcode = source.Barcode,
+        MedicineCode = source.MedicineCode,
+        MedicineName = source.MedicineName,
+        Dosage = source.Dosage,
+        BaseUom = source.BaseUom,
+        AlternateUom = source.AlternateUom,
+        ConversionFactor = source.ConversionFactor,
+        DefaultUnitPrice = source.DefaultUnitPrice,
+        MovingAverageCost = source.MovingAverageCost,
+        ReorderPoint = source.ReorderPoint,
+        IncomeAccountName = source.IncomeAccountName,
+        CostAccountName = source.CostAccountName,
+        InventoryAccountName = source.InventoryAccountName,
+        IsActive = source.IsActive,
+        ExpiryDate = source.ExpiryDate
+    };
 
     public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {

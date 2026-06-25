@@ -1,7 +1,9 @@
 using AtoZClinical.Infrastructure;
+using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages;
@@ -116,24 +118,38 @@ public abstract class ClinicFormPageModel : PageModel
         {
             return await save();
         }
+        catch (InvalidOperationException ex)
+        {
+            HttpContext.RequestServices.GetService<ILogger<ClinicFormPageModel>>()?
+                .LogWarning(ex, "Save rejected on {Page}", GetType().Name);
+            ModelState.AddModelError(string.Empty, ex.Message);
+        }
+        catch (DbUpdateException ex)
+        {
+            HttpContext.RequestServices.GetService<ILogger<ClinicFormPageModel>>()?
+                .LogError(ex, "Database save error on {Page}", GetType().Name);
+            ModelState.AddModelError(string.Empty,
+                $"Could not save this record: {ClinicSaveHelper.DbMessage(ex)}");
+        }
         catch (Exception ex)
         {
             HttpContext.RequestServices.GetService<ILogger<ClinicFormPageModel>>()?
                 .LogError(ex, "Unhandled save error on {Page}", GetType().Name);
             ModelState.AddModelError(string.Empty,
                 "Could not save this record. Please click + New, refresh the page, and try again.");
-            try
-            {
-                await ReloadAfterSaveFailureAsync();
-            }
-            catch (Exception reloadEx)
-            {
-                HttpContext.RequestServices.GetService<ILogger<ClinicFormPageModel>>()?
-                    .LogError(reloadEx, "Failed to reload form after save error on {Page}", GetType().Name);
-            }
-
-            return Page();
         }
+
+        try
+        {
+            await ReloadAfterSaveFailureAsync();
+        }
+        catch (Exception reloadEx)
+        {
+            HttpContext.RequestServices.GetService<ILogger<ClinicFormPageModel>>()?
+                .LogError(reloadEx, "Failed to reload form after save error on {Page}", GetType().Name);
+        }
+
+        return Page();
     }
 
     /// <summary>Override to reload lists/dropdowns when RunSaveSafelyAsync catches an unexpected error.</summary>

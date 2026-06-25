@@ -23,16 +23,37 @@ public sealed class ClinicSettingsService
     }
 
     public Task<ClinicConfiguration> GetOrCreateAsync(Guid clinicId) =>
-        _cache.GetOrCreateAsync(ClinicRuntimeCache.ConfigurationKey(clinicId), async () =>
-        {
-            var config = await _db.ClinicConfigurations.FirstOrDefaultAsync(c => c.ClinicId == clinicId);
-            if (config is not null) return config;
+        _cache.GetOrCreateAsync(ClinicRuntimeCache.ConfigurationKey(clinicId), () => LoadOrCreateConfigAsync(clinicId));
 
-            config = new ClinicConfiguration { ClinicId = clinicId };
-            _db.ClinicConfigurations.Add(config);
-            await _db.SaveChangesAsync();
-            return config;
-        });
+    private async Task<ClinicConfiguration> LoadOrCreateConfigAsync(Guid clinicId)
+    {
+        var config = await _db.ClinicConfigurations
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.ClinicId == clinicId);
+        if (config is not null) return config;
+
+        config = new ClinicConfiguration { ClinicId = clinicId };
+        try
+        {
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, () =>
+            {
+                _db.ClinicConfigurations.Add(config);
+                return Task.CompletedTask;
+            });
+        }
+        catch (DbUpdateException)
+        {
+            config = await _db.ClinicConfigurations
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ClinicId == clinicId);
+            if (config is null)
+                throw;
+        }
+
+        return config;
+    }
 
     public Task<ClinicConfiguration?> GetAsync(Guid clinicId) =>
         _db.ClinicConfigurations.FirstOrDefaultAsync(c => c.ClinicId == clinicId);

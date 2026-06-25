@@ -54,10 +54,10 @@ public sealed class RadiologyTestService
     }
 
     public Task<List<RadiologyTest>> ListAsync(Guid clinicId) =>
-        _db.RadiologyTests.Where(t => t.ClinicId == clinicId).OrderBy(t => t.TestNo).ToListAsync();
+        _db.RadiologyTests.ForClinic(clinicId).OrderBy(t => t.TestNo).ToListAsync();
 
     public Task<RadiologyTest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.RadiologyTests.FirstOrDefaultAsync(t => t.ClinicId == clinicId && t.Id == id);
+        _db.RadiologyTests.ForClinic(clinicId).FirstOrDefaultAsync(t => t.Id == id);
 
     public async Task<RadiologyTest> SaveAsync(Guid clinicId, RadiologyTest item, string? userName = null)
     {
@@ -65,29 +65,63 @@ public sealed class RadiologyTestService
         RadiologyTest? previous = null;
         if (!isNew)
         {
-            previous = await _db.RadiologyTests.AsNoTracking()
-                .FirstOrDefaultAsync(t => t.ClinicId == clinicId && t.Id == item.Id);
+            previous = await _db.RadiologyTests.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == item.Id);
+            isNew = previous is null;
         }
 
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (isNew)
         {
-            item.Id = Guid.NewGuid();
-            item.TestNo = (await _db.RadiologyTests.Where(t => t.ClinicId == clinicId).MaxAsync(t => (int?)t.TestNo) ?? 0) + 1;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.RadiologyTests.Add(item);
+            var template = item;
+            item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+                _db,
+                async attempt =>
+                {
+                    var row = new RadiologyTest
+                    {
+                        Id = Guid.NewGuid(),
+                        ClinicId = clinicId,
+                        TestCode = template.TestCode,
+                        TestName = template.TestName,
+                        Category = template.Category,
+                        Fee = template.Fee,
+                        Note = template.Note,
+                        TestNo = await NextTestNoAsync(clinicId, attempt),
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    return row;
+                },
+                row => _db.RadiologyTests.Add(row),
+                ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_RadiologyTests_ClinicId_TestNo"),
+                failureMessage: "Could not save radiology test");
         }
-        else _db.RadiologyTests.Update(item);
-
-        await _db.SaveChangesAsync();
+        else
+        {
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, () =>
+            {
+                _db.RadiologyTests.Update(item);
+                return Task.CompletedTask;
+            });
+        }
 
         if (previous is not null)
-            await _propagation.PropagateRadiologyTestAsync(clinicId, previous, item);
+        {
+            try { await _propagation.PropagateRadiologyTestAsync(clinicId, previous, item); }
+            catch { }
+        }
 
         await _audit.LogAsync(clinicId, userName, "Radiology Registration", isNew ? "Create" : "Update",
             $"Test #{item.TestNo}: {item.TestCode} - {item.TestName}");
         return item;
+    }
+
+    private async Task<int> NextTestNoAsync(Guid clinicId, int skip = 0)
+    {
+        var max = await _db.RadiologyTests.ForClinic(clinicId).MaxAsync(t => (int?)t.TestNo) ?? 0;
+        return max + 1 + skip;
     }
 
     public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
@@ -342,31 +376,84 @@ public sealed class InvoiceService
 
         if (isNew)
         {
-            item.Id = Guid.NewGuid();
-            item.InvoiceNo = (await _db.Invoices.Where(i => i.ClinicId == clinicId).MaxAsync(i => (int?)i.InvoiceNo) ?? 0) + 1;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.Invoices.Add(item);
+            var template = item;
+            var lineTemplates = lines;
+            item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+                _db,
+                async attempt =>
+                {
+                    var row = CloneInvoiceShell(template);
+                    row.Id = Guid.NewGuid();
+                    row.ClinicId = clinicId;
+                    row.InvoiceNo = await NextInvoiceNoWithSkipAsync(clinicId, attempt);
+                    row.CreatedAt = DateTime.UtcNow;
+                    row.UpdatedAt = DateTime.UtcNow;
+                    return row;
+                },
+                row =>
+                {
+                    _db.Invoices.Add(row);
+                    foreach (var line in lineTemplates)
+                    {
+                        line.Id = Guid.NewGuid();
+                        line.InvoiceId = row.Id;
+                        _db.InvoiceLines.Add(line);
+                    }
+                },
+                ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_Invoices_ClinicId_InvoiceNo"),
+                failureMessage: "Could not save invoice");
         }
         else
         {
-            var existing = await _db.InvoiceLines.Where(l => l.InvoiceId == item.Id).ToListAsync();
-            _db.InvoiceLines.RemoveRange(existing);
-            _db.Invoices.Update(item);
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, async () =>
+            {
+                var existing = await _db.InvoiceLines.Where(l => l.InvoiceId == item.Id).ToListAsync();
+                _db.InvoiceLines.RemoveRange(existing);
+                _db.Invoices.Update(item);
+                foreach (var line in lines)
+                {
+                    line.Id = Guid.NewGuid();
+                    line.InvoiceId = item.Id;
+                    _db.InvoiceLines.Add(line);
+                }
+            });
         }
 
-        foreach (var line in lines)
-        {
-            line.Id = Guid.NewGuid();
-            line.InvoiceId = item.Id;
-            _db.InvoiceLines.Add(line);
-        }
+        try { await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName); }
+        catch { }
 
-        await _db.SaveChangesAsync();
-        await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Invoice", isNew ? "Create" : "Update",
             $"Invoice #{item.InvoiceNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
     }
+
+    private async Task<int> NextInvoiceNoWithSkipAsync(Guid clinicId, int skip = 0)
+    {
+        var max = await _db.Invoices.ForClinic(clinicId).MaxAsync(i => (int?)i.InvoiceNo) ?? 0;
+        return max + 1 + skip;
+    }
+
+    private static Invoice CloneInvoiceShell(Invoice source) => new()
+    {
+        InvoiceDate = source.InvoiceDate,
+        PatientId = source.PatientId,
+        PatientName = source.PatientName,
+        Phone = source.Phone,
+        Age = source.Age,
+        Gender = source.Gender,
+        City = source.City,
+        DoctorName = source.DoctorName,
+        Specialty = source.Specialty,
+        Discount = source.Discount,
+        TaxAmount = source.TaxAmount,
+        AmountPaid = source.AmountPaid,
+        SubTotal = source.SubTotal,
+        TotalAmount = source.TotalAmount,
+        BalanceDue = source.BalanceDue,
+        PaymentMethod = source.PaymentMethod,
+        PaymentStatus = source.PaymentStatus,
+        Notes = source.Notes
+    };
 
     public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {
@@ -456,13 +543,13 @@ public sealed class ChartAccountService
     }
 
     public Task<List<ChartAccount>> ListAsync(Guid clinicId) =>
-        _db.ChartAccounts.Where(a => a.ClinicId == clinicId).OrderBy(a => a.AccountNo).ToListAsync();
+        _db.ChartAccounts.ForClinic(clinicId).OrderBy(a => a.AccountNo).ToListAsync();
 
     public Task<ChartAccount?> GetAsync(Guid clinicId, Guid id) =>
-        _db.ChartAccounts.FirstOrDefaultAsync(a => a.ClinicId == clinicId && a.Id == id);
+        _db.ChartAccounts.ForClinic(clinicId).FirstOrDefaultAsync(a => a.Id == id);
 
     public async Task<int> NextAccountNoAsync(Guid clinicId) =>
-        (await _db.ChartAccounts.Where(a => a.ClinicId == clinicId).MaxAsync(a => (int?)a.AccountNo) ?? 1000) + 100;
+        (await _db.ChartAccounts.ForClinic(clinicId).MaxAsync(a => (int?)a.AccountNo) ?? 1000) + 100;
 
     public async Task<ChartAccount> SaveAsync(Guid clinicId, ChartAccount item, string? userName = null)
     {
@@ -471,15 +558,40 @@ public sealed class ChartAccountService
         item.UpdatedAt = DateTime.UtcNow;
         if (isNew)
         {
-            item.Id = Guid.NewGuid();
-            if (item.AccountNo == 0)
-                item.AccountNo = (await _db.ChartAccounts.Where(a => a.ClinicId == clinicId).MaxAsync(a => (int?)a.AccountNo) ?? 1000) + 100;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.ChartAccounts.Add(item);
+            var template = item;
+            item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+                _db,
+                async attempt =>
+                {
+                    var row = new ChartAccount
+                    {
+                        Id = Guid.NewGuid(),
+                        ClinicId = clinicId,
+                        Name = template.Name,
+                        CategoryType = template.CategoryType,
+                        DetailType = template.DetailType,
+                        Description = template.Description,
+                        AccountNo = template.AccountNo == 0
+                            ? (await _db.ChartAccounts.ForClinic(clinicId).MaxAsync(a => (int?)a.AccountNo) ?? 1000) + 100 + (attempt * 100)
+                            : template.AccountNo + (attempt * 100),
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    return row;
+                },
+                row => _db.ChartAccounts.Add(row),
+                ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_ChartAccounts_ClinicId_AccountNo"),
+                failureMessage: "Could not save chart account");
         }
-        else _db.ChartAccounts.Update(item);
+        else
+        {
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, () =>
+            {
+                _db.ChartAccounts.Update(item);
+                return Task.CompletedTask;
+            });
+        }
 
-        await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Chart of Accounts", isNew ? "Create" : "Update",
             $"Account #{item.AccountNo} — {item.Name}");
         return item;

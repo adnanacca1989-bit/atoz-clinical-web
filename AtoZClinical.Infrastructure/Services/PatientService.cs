@@ -143,6 +143,7 @@ public sealed class PatientService
                 try
                 {
                     await _db.SaveChangesAsync();
+                    _db.ChangeTracker.Clear();
                     inserted = true;
                     saved = row;
                     break;
