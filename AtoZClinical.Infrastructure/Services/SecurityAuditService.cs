@@ -26,16 +26,23 @@ public sealed class SecurityAuditService
         string? ipAddress = null,
         CancellationToken ct = default)
     {
-        _db.SecurityAuditEntries.Add(new SecurityAuditEntry
+        try
         {
-            EventType = eventType,
-            UserName = userName,
-            ClinicId = clinicId,
-            Details = details,
-            IpAddress = ipAddress,
-            CreatedAt = DateTime.UtcNow
-        });
-        await _db.SaveChangesAsync(ct);
+            _db.SecurityAuditEntries.Add(new SecurityAuditEntry
+            {
+                EventType = eventType,
+                UserName = userName,
+                ClinicId = clinicId,
+                Details = details,
+                IpAddress = ipAddress,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            // Never block login/logout or other user flows when audit persistence fails.
+        }
     }
 
     public Task<List<SecurityAuditEntry>> ListForClinicAsync(Guid clinicId, int take = 200, CancellationToken ct = default) =>

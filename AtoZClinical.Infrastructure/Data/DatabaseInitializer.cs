@@ -367,7 +367,7 @@ public static class DatabaseInitializer
                     CONSTRAINT "PK_SecurityAuditEntries" PRIMARY KEY ("Id")
                 );
                 CREATE INDEX IF NOT EXISTS "IX_SecurityAuditEntries_ClinicId" ON "SecurityAuditEntries" ("ClinicId");
-                CREATE INDEX IF NOT EXISTS "IX_SecurityAuditEntries_CreatedAt" ON "SecurityAuditEntries" ("CreatedAt");
+                CREATE INDEX IF NOT EXISTS "IX_SecurityAuditEntries_EventType" ON "SecurityAuditEntries" ("EventType");
                 """);
 
             await db.Database.ExecuteSqlRawAsync(

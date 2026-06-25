@@ -46,19 +46,26 @@ public sealed class PhiAccessAuditMiddleware
         if (match == default)
             return;
 
-        var user = await users.GetUserAsync(context.User);
-        if (user?.ClinicId is not Guid clinicId)
-            return;
+        try
+        {
+            var user = await users.GetUserAsync(context.User);
+            if (user?.ClinicId is not Guid clinicId)
+                return;
 
-        var query = context.Request.QueryString.HasValue
-            ? context.Request.QueryString.Value
-            : string.Empty;
+            var query = context.Request.QueryString.HasValue
+                ? context.Request.QueryString.Value
+                : string.Empty;
 
-        await audit.LogAsync(
-            clinicId,
-            user.UserName,
-            match.Label,
-            "PHI Access",
-            $"GET/POST {path}{query}");
+            await audit.LogAsync(
+                clinicId,
+                user.UserName,
+                match.Label,
+                "PHI Access",
+                $"GET/POST {path}{query}");
+        }
+        catch
+        {
+            // PHI audit must never replace a successful clinical form response.
+        }
     }
 }

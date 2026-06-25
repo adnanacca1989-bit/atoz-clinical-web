@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -31,10 +32,19 @@ public sealed class WebhookDispatchService : IWebhookDispatchService
 
     public async Task DispatchAsync(Guid clinicId, string eventName, object payload, CancellationToken cancellationToken = default)
     {
-        var subscriptions = await _db.WebhookSubscriptions
-            .AsNoTracking()
-            .Where(w => w.ClinicId == clinicId && w.IsActive)
-            .ToListAsync(cancellationToken);
+        List<WebhookSubscription> subscriptions;
+        try
+        {
+            subscriptions = await _db.WebhookSubscriptions
+                .AsNoTracking()
+                .Where(w => w.ClinicId == clinicId && w.IsActive)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not load webhook subscriptions for clinic {ClinicId}", clinicId);
+            return;
+        }
 
         if (subscriptions.Count == 0) return;
 

@@ -27,6 +27,17 @@ public class IndexModel : ClinicFormPageModel
         _history = history;
     }
 
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        ViewData["ShowHistory"] = true;
+        ViewData["ShowPatientCard"] = true;
+        ViewData["OpenPatientSelect"] = true;
+        SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+    }
+
 
 
     [BindProperty]

@@ -49,6 +49,6 @@ public class LogoutModel : PageModel
             }
         }
 
-        return RedirectToPage("/Index");
+        return RedirectToPage("/Account/Login");
     }
 }

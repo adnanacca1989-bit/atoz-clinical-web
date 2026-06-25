@@ -24,35 +24,42 @@ public sealed class CompanyProfileViewComponent : ViewComponent
 
     public async Task<IViewComponentResult> InvokeAsync()
     {
-        var clinicId = await _clinicContext.GetClinicIdAsync();
-        if (clinicId is null)
-            return Content(string.Empty);
-
-        var clinic = await _db.Clinics.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clinicId.Value);
-        if (clinic is null)
-            return Content(string.Empty);
-
-        var config = await _settings.GetAsync(clinicId.Value);
-        var ownerName = config?.OwnerName;
-        if (string.IsNullOrWhiteSpace(ownerName))
+        try
         {
-            ownerName = await _db.ClinicOwners.AsNoTracking()
-                .Where(o => o.ClinicId == clinicId.Value && o.IsActive)
-                .OrderBy(o => o.OwnerNo)
-                .Select(o => o.Name)
-                .FirstOrDefaultAsync();
-        }
-        if (string.IsNullOrWhiteSpace(ownerName))
-            ownerName = clinic.ContactPerson;
+            var clinicId = await _clinicContext.GetClinicIdAsync();
+            if (clinicId is null)
+                return Content(string.Empty);
 
-        return View(new CompanyProfileModel(
-            clinic.Name,
-            clinic.Address,
-            clinic.Email,
-            clinic.Phone,
-            clinic.Country,
-            clinic.City,
-            ownerName));
+            var clinic = await _db.Clinics.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clinicId.Value);
+            if (clinic is null)
+                return Content(string.Empty);
+
+            var config = await _settings.GetAsync(clinicId.Value);
+            var ownerName = config?.OwnerName;
+            if (string.IsNullOrWhiteSpace(ownerName))
+            {
+                ownerName = await _db.ClinicOwners.AsNoTracking()
+                    .Where(o => o.ClinicId == clinicId.Value && o.IsActive)
+                    .OrderBy(o => o.OwnerNo)
+                    .Select(o => o.Name)
+                    .FirstOrDefaultAsync();
+            }
+            if (string.IsNullOrWhiteSpace(ownerName))
+                ownerName = clinic.ContactPerson;
+
+            return View(new CompanyProfileModel(
+                clinic.Name,
+                clinic.Address,
+                clinic.Email,
+                clinic.Phone,
+                clinic.Country,
+                clinic.City,
+                ownerName));
+        }
+        catch
+        {
+            return Content(string.Empty);
+        }
     }
 }
 

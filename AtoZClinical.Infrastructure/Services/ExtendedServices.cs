@@ -12,17 +12,24 @@ public sealed class AuditService
 
     public async Task LogAsync(Guid clinicId, string? user, string form, string type, string? details)
     {
-        _db.AuditLogEntries.Add(new AuditLogEntry
+        try
         {
-            Id = Guid.NewGuid(),
-            ClinicId = clinicId,
-            UserName = user,
-            FormName = form,
-            Type = type,
-            Details = details,
-            DateTime = DateTime.UtcNow
-        });
-        await _db.SaveChangesAsync();
+            _db.AuditLogEntries.Add(new AuditLogEntry
+            {
+                Id = Guid.NewGuid(),
+                ClinicId = clinicId,
+                UserName = user,
+                FormName = form,
+                Type = type,
+                Details = details,
+                DateTime = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync();
+        }
+        catch
+        {
+            // Audit must never break clinical workflows.
+        }
     }
 
     public Task<List<AuditLogEntry>> ListAsync(Guid clinicId, int take = 500) =>

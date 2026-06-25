@@ -2,6 +2,7 @@ using AtoZClinical.Infrastructure;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages;
 
@@ -97,17 +98,46 @@ public abstract class ClinicFormPageModel : PageModel
     protected virtual Task<IActionResult> ExecuteSaveAsync() =>
         throw new InvalidOperationException($"{GetType().Name} must override ExecuteSaveAsync.");
 
-    public Task<IActionResult> OnPostAddAsync()
+    public async Task<IActionResult> OnPostAddAsync()
     {
         ConfigureAddSave();
-        return ExecuteSaveAsync();
+        return await RunSaveSafelyAsync(ExecuteSaveAsync);
     }
 
-    public Task<IActionResult> OnPostSaveAsync()
+    public async Task<IActionResult> OnPostSaveAsync()
     {
         ConfigureEditSave();
-        return ExecuteSaveAsync();
+        return await RunSaveSafelyAsync(ExecuteSaveAsync);
     }
+
+    private async Task<IActionResult> RunSaveSafelyAsync(Func<Task<IActionResult>> save)
+    {
+        try
+        {
+            return await save();
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetService<ILogger<ClinicFormPageModel>>()?
+                .LogError(ex, "Unhandled save error on {Page}", GetType().Name);
+            ModelState.AddModelError(string.Empty,
+                "Could not save this record. Please click + New, refresh the page, and try again.");
+            try
+            {
+                await ReloadAfterSaveFailureAsync();
+            }
+            catch (Exception reloadEx)
+            {
+                HttpContext.RequestServices.GetService<ILogger<ClinicFormPageModel>>()?
+                    .LogError(reloadEx, "Failed to reload form after save error on {Page}", GetType().Name);
+            }
+
+            return Page();
+        }
+    }
+
+    /// <summary>Override to reload lists/dropdowns when RunSaveSafelyAsync catches an unexpected error.</summary>
+    protected virtual Task ReloadAfterSaveFailureAsync() => Task.CompletedTask;
 
     /// <summary>GET with ?handler=Save after a failed POST bookmark — redirect to a safe GET.</summary>
     public IActionResult OnGetSave() => RedirectToPage(new { RecordId, Search, NewRecord, RecordPage, PageSize });

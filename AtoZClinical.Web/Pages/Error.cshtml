@@ -2,11 +2,20 @@
 @model ErrorModel
 @{
     ViewData["Title"] = "Error";
-    Layout = "_Layout";
+    Layout = null;
 }
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Error - A to Z Clinical</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+</head>
+<body class="bg-light">
 <div class="clinical-form-page" style="max-width: 640px; margin: 2rem auto;">
-    <div class="atz-card p-4">
+    <div class="atz-card p-4 shadow-sm bg-white rounded">
         <h1 class="page-title text-danger mb-3">Something went wrong</h1>
         <p class="text-muted mb-3">
             An unexpected error occurred while processing your request. Please try again.
@@ -18,9 +27,9 @@
                 <strong>Reference:</strong> <code>@Model.RequestId</code>
             </p>
         }
-        <div class="mt-4 d-flex gap-2">
-            <a class="btn btn-atz-primary" asp-page="/Dashboard/Index">Return to Dashboard</a>
-            <a class="btn btn-outline-secondary" asp-page="/Dashboard/Index">Try Again</a>
+        <div class="mt-4 d-flex gap-2 flex-wrap">
+            <a class="btn btn-primary" asp-page="/Account/Login">Sign in</a>
+            <a class="btn btn-outline-secondary" asp-page="/Dashboard/Index">Return to Dashboard</a>
         </div>
         @if (Model.ShowDevelopmentDetails)
         {
@@ -33,3 +42,5 @@
         }
     </div>
 </div>
+</body>
+</html>

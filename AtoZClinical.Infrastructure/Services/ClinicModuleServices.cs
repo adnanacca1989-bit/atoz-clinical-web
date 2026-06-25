@@ -223,8 +223,15 @@ public sealed class DoctorService
 
         await _db.SaveChangesAsync();
 
-        if (previous is not null)
-            await _propagation.PropagateDoctorAsync(clinicId, previous, doctor);
+        try
+        {
+            if (previous is not null)
+                await _propagation.PropagateDoctorAsync(clinicId, previous, doctor);
+        }
+        catch
+        {
+            // Doctor row is already saved.
+        }
 
         return doctor;
     }

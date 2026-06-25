@@ -17,6 +17,14 @@ public class IndexModel : ClinicFormPageModel
         _service = service;
     }
 
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+    }
+
     [BindProperty]
     public DoctorInput Input { get; set; } = new();
 
