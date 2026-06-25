@@ -55,6 +55,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('form').forEach(form => {
+            if (form.hasAttribute('data-skip-form-guard')) return;
+
             form.addEventListener('submit', (e) => {
                 clearRecordIdForNewSave(form, e.submitter);
 
@@ -82,6 +84,10 @@
                 if (recordId) recordId.value = '';
             });
         });
+
+        if (document.querySelector('.validation-summary-errors li, .alert-danger')) {
+            document.querySelectorAll('form').forEach(unlockFormSubmits);
+        }
     });
 
     window.addEventListener('pageshow', (e) => {

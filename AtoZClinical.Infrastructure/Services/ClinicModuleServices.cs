@@ -188,7 +188,8 @@ public sealed class DoctorService
         doctor.UpdatedBy = userName;
         if (isNew)
         {
-            const int maxAttempts = 5;
+            const int maxAttempts = 8;
+            var inserted = false;
             for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
                 doctor.Id = Guid.NewGuid();
@@ -199,15 +200,19 @@ public sealed class DoctorService
                 try
                 {
                     await _db.SaveChangesAsync();
-                    return doctor;
+                    inserted = true;
+                    break;
                 }
-                catch (DbUpdateException ex) when (IsDuplicateDoctorNo(ex) && attempt < maxAttempts - 1)
+                catch (DbUpdateException ex) when (IsDuplicateDoctorNo(ex))
                 {
                     _db.Entry(doctor).State = EntityState.Detached;
                 }
             }
 
-            throw new InvalidOperationException("Could not assign a new doctor ID. Please click + New and try again.");
+            if (!inserted)
+                throw new InvalidOperationException("Could not assign a new doctor ID. Please click + New and try again.");
+
+            return doctor;
         }
         else
         {
@@ -243,10 +248,13 @@ public sealed class DoctorService
 
     public async Task<int> NextNoAsync(Guid clinicId)
     {
-        var max = await _db.Doctors.IgnoreQueryFilters()
-            .Where(d => d.ClinicId == clinicId)
-            .MaxAsync(d => (int?)d.DoctorNo);
-        return (max ?? 0) + 1;
+        var used = await _db.Doctors.ForClinic(clinicId)
+            .Select(d => d.DoctorNo)
+            .ToListAsync();
+        var next = 1;
+        while (used.Contains(next))
+            next++;
+        return next;
     }
 }
 

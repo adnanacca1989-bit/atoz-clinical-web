@@ -236,9 +236,33 @@ public class IndexModel : ClinicFormPageModel
             SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
             return Page();
         }
-        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
         {
-            ModelState.AddModelError(string.Empty, "Could not save this patient. Please click + New, refresh the page, and try again.");
+            var preserved = Input;
+            await PrepareNew(clinicId.Value);
+            Input.PatientName = preserved.PatientName;
+            Input.Gender = preserved.Gender;
+            Input.DateOfBirth = preserved.DateOfBirth;
+            Input.Phone = preserved.Phone;
+            Input.City = preserved.City;
+            Input.DoctorName = preserved.DoctorName;
+            Input.Specialty = preserved.Specialty;
+            Input.NationalId = preserved.NationalId;
+            Input.Address = preserved.Address;
+            Input.BloodGroup = preserved.BloodGroup;
+            Input.MarriedStatus = preserved.MarriedStatus;
+            Input.MotherName = preserved.MotherName;
+            Input.EmergencyContact = preserved.EmergencyContact;
+            Input.HealthInsuranceName = preserved.HealthInsuranceName;
+            Input.HealthInsuranceNumber = preserved.HealthInsuranceNumber;
+            Input.AppointmentDate = preserved.AppointmentDate;
+            Input.AppointmentTime = preserved.AppointmentTime;
+            Input.Status = preserved.Status;
+            Input.VisitNumber = preserved.VisitNumber;
+            var message = PatientService.IsDuplicatePatientKey(ex)
+                ? "That patient number was just taken. Fresh numbers are shown — click Add again."
+                : "Could not save this patient. Fresh numbers are shown — click Add again.";
+            ModelState.AddModelError(string.Empty, message);
             await LoadAsync(clinicId.Value);
             ViewData["ShowHistory"] = true;
             ViewData["ShowPatientCard"] = true;

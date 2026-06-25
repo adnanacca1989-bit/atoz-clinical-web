@@ -119,6 +119,14 @@ public class IndexModel : ClinicFormPageModel
         }
         catch (InvalidOperationException ex)
         {
+            var preserved = Input;
+            await PrepareNew(clinicId.Value);
+            Input.Name = preserved.Name;
+            Input.Specialty = preserved.Specialty;
+            Input.Phone = preserved.Phone;
+            Input.Email = preserved.Email;
+            Input.ConsultationFee = preserved.ConsultationFee;
+            Input.Status = preserved.Status;
             ModelState.AddModelError(string.Empty, ex.Message);
             await LoadAsync(clinicId.Value);
             SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);

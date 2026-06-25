@@ -30,8 +30,10 @@ public sealed class PatientService
         _audit = audit;
     }
 
+    private IQueryable<Patient> ForClinic(Guid clinicId) => _db.Patients.ForClinic(clinicId);
+
     public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null, int maxRows = PaginationDefaults.ListCap) =>
-        ApplyListOrder(ApplySearch(_db.Patients.Where(p => p.ClinicId == clinicId), search))
+        ApplyListOrder(ApplySearch(ForClinic(clinicId), search))
             .Take(maxRows)
             .ToListAsync();
 
@@ -40,12 +42,12 @@ public sealed class PatientService
         int page = 1,
         int pageSize = PaginationDefaults.DefaultPageSize,
         string? search = null) =>
-        ApplyListOrder(ApplySearch(_db.Patients.Where(p => p.ClinicId == clinicId), search))
+        ApplyListOrder(ApplySearch(ForClinic(clinicId), search))
             .ToPagedResultAsync(page, pageSize);
 
     public async Task<Guid?> GetAdjacentIdAsync(Guid clinicId, Guid currentId, int direction, string? search = null)
     {
-        var ids = await ApplyListOrder(ApplySearch(_db.Patients.Where(p => p.ClinicId == clinicId), search))
+        var ids = await ApplyListOrder(ApplySearch(ForClinic(clinicId), search))
             .Select(p => p.Id)
             .ToListAsync();
 
@@ -68,7 +70,7 @@ public sealed class PatientService
         string? status,
         string? sortBy)
     {
-        var query = _db.Patients.Where(p => p.ClinicId == clinicId);
+        var query = ForClinic(clinicId);
 
         if (fromDate.HasValue)
             query = query.Where(p => p.AppointmentDate == null || p.AppointmentDate.Value.Date >= fromDate.Value.Date);
@@ -91,44 +93,72 @@ public sealed class PatientService
     }
 
     public Task<Patient?> GetAsync(Guid clinicId, Guid id) =>
-        _db.Patients.FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == id);
+        ForClinic(clinicId).FirstOrDefaultAsync(p => p.Id == id);
+
+    public static bool IsDuplicatePatientKey(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? ex.Message;
+        return message.Contains("IX_Patients_ClinicId_PatientNo", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase);
+    }
 
     public async Task<Patient> SaveAsync(Guid clinicId, Patient patient, string? userName = null)
     {
         Patient? previous = null;
-        if (patient.Id != Guid.Empty)
+        var isNew = patient.Id == Guid.Empty;
+        if (!isNew)
         {
-            previous = await _db.Patients.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == patient.Id);
+            previous = await ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == patient.Id);
+            isNew = previous is null;
         }
 
         patient.ClinicId = clinicId;
         patient.UpdatedAt = DateTime.UtcNow;
         patient.UpdatedBy = userName;
 
-        var patientNo = string.IsNullOrWhiteSpace(patient.PatientNo)
-            ? await GeneratePatientNoAsync(clinicId)
-            : patient.PatientNo.Trim();
-
-        if (await _db.Patients.AnyAsync(p => p.ClinicId == clinicId && p.PatientNo == patientNo && p.Id != patient.Id))
-            throw new InvalidOperationException($"Barcode/Patient No '{patientNo}' is already assigned to another patient.");
-
-        patient.PatientNo = patientNo;
-
-        if (patient.Id == Guid.Empty)
+        if (isNew)
         {
-            patient.Id = Guid.NewGuid();
-            patient.CreatedAt = DateTime.UtcNow;
-            patient.CreatedBy = userName;
-            await _visitStatus.OnPatientRegisteredAsync(clinicId, patient);
-            _db.Patients.Add(patient);
+            const int maxAttempts = 8;
+            var inserted = false;
+            for (var attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                patient.Id = Guid.NewGuid();
+                patient.PatientNo = await GeneratePatientNoAsync(clinicId);
+                patient.AppointmentId = await GenerateAppointmentIdAsync(clinicId);
+                patient.CreatedAt = DateTime.UtcNow;
+                patient.CreatedBy = userName;
+                await _visitStatus.OnPatientRegisteredAsync(clinicId, patient);
+                _db.Patients.Add(patient);
+                try
+                {
+                    await _db.SaveChangesAsync();
+                    inserted = true;
+                    break;
+                }
+                catch (DbUpdateException ex) when (IsDuplicatePatientKey(ex))
+                {
+                    _db.Entry(patient).State = EntityState.Detached;
+                }
+            }
+
+            if (!inserted)
+                throw new InvalidOperationException("Could not assign a new patient number. Please click + New and try again.");
         }
         else
         {
-            _db.Patients.Update(patient);
-        }
+            var patientNo = string.IsNullOrWhiteSpace(patient.PatientNo)
+                ? await GeneratePatientNoAsync(clinicId)
+                : patient.PatientNo.Trim();
 
-        await _db.SaveChangesAsync();
+            if (await ForClinic(clinicId).AnyAsync(p => p.PatientNo == patientNo && p.Id != patient.Id))
+                throw new InvalidOperationException($"Barcode/Patient No '{patientNo}' is already assigned to another patient.");
+
+            patient.PatientNo = patientNo;
+            _db.Patients.Update(patient);
+            await _db.SaveChangesAsync();
+        }
 
         await _audit.LogAsync(
             clinicId,
@@ -169,22 +199,22 @@ public sealed class PatientService
     public Task<string> NextAppointmentIdAsync(Guid clinicId) => GenerateAppointmentIdAsync(clinicId);
 
     public Task<int> CountTotalAsync(Guid clinicId) =>
-        _db.Patients.CountAsync(p => p.ClinicId == clinicId);
+        ForClinic(clinicId).CountAsync();
 
     public Task<int> CountTodayAsync(Guid clinicId)
     {
         var today = DateTime.UtcNow.Date;
-        return _db.Patients.CountAsync(p => p.ClinicId == clinicId && p.CreatedAt.Date >= today);
+        return ForClinic(clinicId).CountAsync(p => p.CreatedAt.Date >= today);
     }
 
     public Task<int> CountActiveAsync(Guid clinicId) =>
-        _db.Patients.CountAsync(p => p.ClinicId == clinicId &&
+        ForClinic(clinicId).CountAsync(p =>
             p.Status != PatientVisitStatuses.Cancelled &&
             p.Status != "Inactive");
 
     public Task<int> CountInactiveAsync(Guid clinicId) =>
-        _db.Patients.CountAsync(p => p.ClinicId == clinicId &&
-            (p.Status == PatientVisitStatuses.Cancelled || p.Status == "Inactive"));
+        ForClinic(clinicId).CountAsync(p =>
+            p.Status == PatientVisitStatuses.Cancelled || p.Status == "Inactive");
 
     public async Task DeleteAsync(Guid clinicId, Guid id)
     {
@@ -202,7 +232,7 @@ public sealed class PatientService
         Guid? excludePatientId = null,
         string? patientName = null)
     {
-        var query = _db.Patients.Where(p => p.ClinicId == clinicId);
+        var query = ForClinic(clinicId);
         if (excludePatientId.HasValue)
             query = query.Where(p => p.Id != excludePatientId.Value);
 
@@ -237,8 +267,7 @@ public sealed class PatientService
     }
 
     public Task<Patient?> FindByNationalIdOrPhoneAsync(Guid clinicId, string? nationalId, string? phone) =>
-        _db.Patients
-            .Where(p => p.ClinicId == clinicId)
+        ForClinic(clinicId)
             .Where(p =>
                 (!string.IsNullOrWhiteSpace(nationalId) && p.NationalId == nationalId.Trim()) ||
                 (!string.IsNullOrWhiteSpace(phone) && p.Phone == phone.Trim()))
@@ -273,8 +302,7 @@ public sealed class PatientService
 
     private async Task<string> GeneratePatientNoAsync(Guid clinicId)
     {
-        var max = await _db.Patients.IgnoreQueryFilters()
-            .Where(p => p.ClinicId == clinicId)
+        var max = await ForClinic(clinicId)
             .Select(p => p.PatientNo)
             .ToListAsync();
 
@@ -295,16 +323,14 @@ public sealed class PatientService
         {
             candidate++;
             no = $"PAT-{candidate:D5}";
-        } while (await _db.Patients.IgnoreQueryFilters()
-            .AnyAsync(p => p.ClinicId == clinicId && p.PatientNo == no));
+        } while (await ForClinic(clinicId).AnyAsync(p => p.PatientNo == no));
 
         return no;
     }
 
     private async Task<string> GenerateAppointmentIdAsync(Guid clinicId)
     {
-        var max = await _db.Patients.IgnoreQueryFilters()
-            .Where(p => p.ClinicId == clinicId)
+        var max = await ForClinic(clinicId)
             .Select(p => p.AppointmentId)
             .ToListAsync();
 
@@ -326,8 +352,7 @@ public sealed class PatientService
         {
             candidate++;
             aptId = $"APT-{candidate:D6}";
-        } while (await _db.Patients.IgnoreQueryFilters()
-            .AnyAsync(p => p.ClinicId == clinicId && p.AppointmentId == aptId));
+        } while (await ForClinic(clinicId).AnyAsync(p => p.AppointmentId == aptId));
 
         return aptId;
     }

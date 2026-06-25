@@ -1,11 +1,13 @@
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AtoZClinical.Web.Pages.Account;
 
+[AllowAnonymous]
 public class LogoutModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signIn;
@@ -22,22 +24,29 @@ public class LogoutModel : PageModel
         _securityAudit = securityAudit;
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public Task<IActionResult> OnGetAsync() => SignOutAndRedirectAsync();
+
+    public Task<IActionResult> OnPostAsync() => SignOutAndRedirectAsync();
+
+    private async Task<IActionResult> SignOutAndRedirectAsync()
     {
-        var user = await _users.GetUserAsync(User);
-        var userName = user?.UserName;
-        var clinicId = user?.ClinicId;
-
-        await _signIn.SignOutAsync();
-
-        if (!string.IsNullOrWhiteSpace(userName))
+        if (User.Identity?.IsAuthenticated == true)
         {
-            await _securityAudit.LogAsync(
-                SecurityAuditEvents.Logout,
-                userName,
-                clinicId,
-                "User signed out",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+            var user = await _users.GetUserAsync(User);
+            var userName = user?.UserName;
+            var clinicId = user?.ClinicId;
+
+            await _signIn.SignOutAsync();
+
+            if (!string.IsNullOrWhiteSpace(userName))
+            {
+                await _securityAudit.LogAsync(
+                    SecurityAuditEvents.Logout,
+                    userName,
+                    clinicId,
+                    "User signed out",
+                    HttpContext.Connection.RemoteIpAddress?.ToString());
+            }
         }
 
         return RedirectToPage("/Index");
