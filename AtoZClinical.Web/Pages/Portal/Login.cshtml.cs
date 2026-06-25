@@ -74,7 +74,8 @@ public class LoginModel : PageModel
         if (clinicId is null) return;
 
         var config = await _db.ClinicConfigurations.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ClinicId == clinicId);
+            .ForClinic(clinicId.Value)
+            .FirstOrDefaultAsync();
         var clinic = await _db.Clinics.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clinicId);
         ClinicName = clinic?.Name;
         PortalDisabled = config is null || !config.PatientPortalEnabled;
@@ -88,8 +89,12 @@ public class LoginModel : PageModel
         if (string.IsNullOrWhiteSpace(Input.ClinicCode))
             return null;
 
+        var code = Input.ClinicCode.Trim();
+        var lower = code.ToLowerInvariant();
         var clinic = await _db.Clinics.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ClinicCode == Input.ClinicCode.Trim());
+            .FirstOrDefaultAsync(c =>
+                c.ClinicCode.ToLower() == lower
+                || c.Name.ToLower() == lower);
         return clinic?.Id;
     }
 

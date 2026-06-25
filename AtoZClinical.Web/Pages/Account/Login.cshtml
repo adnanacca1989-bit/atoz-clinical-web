@@ -23,6 +23,12 @@
         </div>
         <form method="post">
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            @if (Model.ShowResendConfirmation)
+            {
+                <p class="small text-center mb-3">
+                    <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.Input.Username">Resend confirmation email</a>
+                </p>
+            }
             <div class="mb-3">
                 <label asp-for="Input.Username" class="form-label"></label>
                 <input asp-for="Input.Username" class="form-control" autocomplete="username" />

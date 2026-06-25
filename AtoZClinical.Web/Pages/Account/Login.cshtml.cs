@@ -4,6 +4,7 @@ using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -19,23 +20,28 @@ public class LoginModel : PageModel
     private readonly ClinicAccessService _access;
     private readonly ClinicalDbContext _db;
     private readonly SecurityAuditService _securityAudit;
+    private readonly IClinicalEmailSender _email;
 
     public LoginModel(
         SignInManager<ApplicationUser> signIn,
         UserManager<ApplicationUser> users,
         ClinicAccessService access,
         ClinicalDbContext db,
-        SecurityAuditService securityAudit)
+        SecurityAuditService securityAudit,
+        IClinicalEmailSender email)
     {
         _signIn = signIn;
         _users = users;
         _access = access;
         _db = db;
         _securityAudit = securityAudit;
+        _email = email;
     }
 
     [BindProperty]
     public LoginInput Input { get; set; } = new();
+
+    public bool ShowResendConfirmation { get; private set; }
 
     public void OnGet()
     {
@@ -73,10 +79,19 @@ public class LoginModel : PageModel
             && !string.IsNullOrWhiteSpace(user.Email)
             && !user.EmailConfirmed)
         {
-            await _signIn.SignOutAsync();
-            ModelState.AddModelError(string.Empty,
-                "Please confirm your email before signing in. Check your inbox for the confirmation link.");
-            return Page();
+            if (!_email.IsConfigured)
+            {
+                user.EmailConfirmed = true;
+                await _users.UpdateAsync(user);
+            }
+            else
+            {
+                await _signIn.SignOutAsync();
+                ShowResendConfirmation = true;
+                ModelState.AddModelError(string.Empty,
+                    "Please confirm your email before signing in. Check your inbox for the confirmation link.");
+                return Page();
+            }
         }
 
         if (user.IsVendorAdmin || await _users.IsInRoleAsync(user, ClinicalRoles.Vendor))

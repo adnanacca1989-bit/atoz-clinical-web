@@ -29,10 +29,14 @@
                     <div class="atz-card p-4">
                         <div class="alert alert-success">Your 30-day trial clinic is ready.</div>
                         <p>Clinical: <strong>@Model.ClinicName</strong></p>
+                        @if (!string.IsNullOrWhiteSpace(Model.ClinicCode))
+                        {
+                            <p>Clinic code (for patient portal): <strong>@Model.ClinicCode</strong></p>
+                        }
                         <p>Username: <strong>@Model.AdminUsername</strong></p>
                         @if (Model.EmailConfirmationSent)
                         {
-                            <p class="text-muted small">We sent a confirmation link to your email. Please confirm before signing in.</p>
+                            <p class="text-muted small">We sent a welcome email to your address. You can sign in now.</p>
                         }
                         else
                         {

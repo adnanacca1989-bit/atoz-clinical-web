@@ -15,6 +15,7 @@ public sealed class PatientPortalService
         _db = db;
         _appointments = appointments;
     }
+
     public async Task<Patient?> AuthenticateAsync(
         Guid clinicId,
         string patientNo,
@@ -23,18 +24,20 @@ public sealed class PatientPortalService
     {
         var config = await _db.ClinicConfigurations
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ClinicId == clinicId);
+            .ForClinic(clinicId)
+            .FirstOrDefaultAsync();
         if (config is null || !config.PatientPortalEnabled) return null;
 
         var normalizedNo = patientNo.Trim();
         var last4 = phoneLast4.Trim();
         if (last4.Length != 4 || !last4.All(char.IsDigit)) return null;
 
+        var normalizedNoLower = normalizedNo.ToLowerInvariant();
         var patient = await _db.Patients
             .AsNoTracking()
+            .ForClinic(clinicId)
             .FirstOrDefaultAsync(p =>
-                p.ClinicId == clinicId
-                && p.PatientNo == normalizedNo
+                p.PatientNo.ToLower() == normalizedNoLower
                 && p.DateOfBirth != null
                 && p.DateOfBirth.Value.Date == dateOfBirth.Date);
 
@@ -49,8 +52,8 @@ public sealed class PatientPortalService
     public Task<List<Appointment>> GetUpcomingAppointmentsAsync(Guid clinicId, Guid patientId) =>
         _db.Appointments
             .AsNoTracking()
-            .Where(a => a.ClinicId == clinicId
-                        && a.PatientId == patientId
+            .ForClinic(clinicId)
+            .Where(a => a.PatientId == patientId
                         && a.AppointmentDate.Date >= DateTime.UtcNow.Date)
             .OrderBy(a => a.AppointmentDate)
             .ThenBy(a => a.StartTime)
@@ -60,7 +63,8 @@ public sealed class PatientPortalService
     public Task<List<Prescription>> GetRecentPrescriptionsAsync(Guid clinicId, string patientFullName) =>
         _db.Prescriptions
             .AsNoTracking()
-            .Where(p => p.ClinicId == clinicId && p.PatientName == patientFullName)
+            .ForClinic(clinicId)
+            .Where(p => p.PatientName == patientFullName)
             .OrderByDescending(p => p.DatePrescription)
             .Take(10)
             .ToListAsync();
@@ -68,7 +72,8 @@ public sealed class PatientPortalService
     public Task<List<Invoice>> GetRecentInvoicesAsync(Guid clinicId, string patientName) =>
         _db.Invoices
             .AsNoTracking()
-            .Where(i => i.ClinicId == clinicId && i.PatientName == patientName)
+            .ForClinic(clinicId)
+            .Where(i => i.PatientName == patientName)
             .OrderByDescending(i => i.InvoiceDate)
             .Take(10)
             .ToListAsync();
@@ -76,6 +81,7 @@ public sealed class PatientPortalService
     public Task<List<Doctor>> GetBookableDoctorsAsync(Guid clinicId) =>
         _db.Doctors
             .AsNoTracking()
+            .ForClinic(clinicId)
             .Where(d => d.ClinicId == clinicId && d.Status != null && d.Status.ToLower() == "active")
             .OrderBy(d => d.Name)
             .ToListAsync();
@@ -90,20 +96,20 @@ public sealed class PatientPortalService
     {
         var config = await _db.ClinicConfigurations
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ClinicId == clinicId);
+            .ForClinic(clinicId)
+            .FirstOrDefaultAsync();
         if (config is null || !config.PatientPortalEnabled)
             return (false, "Patient portal is not enabled.");
 
         if (appointmentDate.Date < DateTime.UtcNow.Date)
             return (false, "Please choose today or a future date.");
 
-        var patientExists = await _db.Patients.AnyAsync(p => p.ClinicId == clinicId && p.Id == patientId);
+        var patientExists = await _db.Patients.ForClinic(clinicId).AnyAsync(p => p.Id == patientId);
         if (!patientExists)
             return (false, "Patient not found.");
 
-        var hasConflict = await _db.Appointments.AnyAsync(a =>
-            a.ClinicId == clinicId
-            && a.PatientId == patientId
+        var hasConflict = await _db.Appointments.ForClinic(clinicId).AnyAsync(a =>
+            a.PatientId == patientId
             && a.AppointmentDate.Date == appointmentDate.Date
             && a.Status != AppointmentStatus.Cancelled);
         if (hasConflict)
@@ -112,9 +118,8 @@ public sealed class PatientPortalService
         if (!string.IsNullOrWhiteSpace(doctorName))
         {
             var doc = doctorName.Trim();
-            var doctorOk = await _db.Doctors.AnyAsync(d =>
-                d.ClinicId == clinicId
-                && d.Name == doc
+            var doctorOk = await _db.Doctors.ForClinic(clinicId).AnyAsync(d =>
+                d.Name == doc
                 && d.Status != null
                 && d.Status.ToLower() == "active");
             if (!doctorOk)

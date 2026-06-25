@@ -36,7 +36,7 @@
                 {
                     <div class="mb-3">
                         <label asp-for="Input.ClinicCode" class="form-label"></label>
-                        <input asp-for="Input.ClinicCode" class="form-control" />
+                        <input asp-for="Input.ClinicCode" class="form-control" placeholder="e.g. CLN-0005 or clinic name" />
                         <span asp-validation-for="Input.ClinicCode" class="text-danger"></span>
                     </div>
                 }
@@ -55,6 +55,9 @@
                 <button type="submit" class="btn btn-atz-primary w-100">Sign in</button>
             </form>
         }
+        <div class="text-center mt-3">
+            <a asp-page="/Account/Login">Staff login</a>
+        </div>
     </div>
     <partial name="_ValidationScriptsPartial" />
 </body>

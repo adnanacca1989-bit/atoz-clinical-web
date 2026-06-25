@@ -33,7 +33,8 @@ public class IndexModel : PageModel
             return RedirectToPage("/Portal/Login");
 
         Patient = await _db.Patients.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.ClinicId == session.ClinicId && p.Id == session.PatientId);
+            .ForClinic(session.ClinicId)
+            .FirstOrDefaultAsync(p => p.Id == session.PatientId);
         if (Patient is null)
         {
             _session.SignOut(HttpContext);

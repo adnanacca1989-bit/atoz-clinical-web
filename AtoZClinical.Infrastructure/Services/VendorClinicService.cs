@@ -116,6 +116,16 @@ public sealed class VendorClinicService
 
         await DatabaseInitializer.SeedClinicDefaultsAsync(_db, clinic.Id);
 
+        if (clinic.PlanName.Equals(SubscriptionPlans.Trial, StringComparison.OrdinalIgnoreCase))
+        {
+            var config = await _db.ClinicConfigurations.ForClinic(clinic.Id).FirstOrDefaultAsync();
+            if (config is not null)
+            {
+                config.PatientPortalEnabled = true;
+                await _db.SaveChangesAsync();
+            }
+        }
+
         return (clinic, admin, password);
     }
 
@@ -206,7 +216,7 @@ public sealed class VendorClinicService
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
-            RequireEmailConfirmation = !string.IsNullOrWhiteSpace(request.Email),
+            RequireEmailConfirmation = false,
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),

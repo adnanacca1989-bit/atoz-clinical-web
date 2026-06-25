@@ -68,6 +68,8 @@ public class TrialModel : CaptchaPageModel
 
     public string? ClinicName { get; private set; }
 
+    public string? ClinicCode { get; private set; }
+
     public string? AdminUsername { get; private set; }
 
     public string TrialShareUrl { get; private set; } = "";
@@ -123,6 +125,8 @@ public class TrialModel : CaptchaPageModel
             Registered = true;
 
             ClinicName = clinic.Name;
+
+            ClinicCode = clinic.ClinicCode;
 
             AdminUsername = admin.UserName;
 

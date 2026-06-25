@@ -102,7 +102,7 @@ public static class DatabaseInitializer
 
         if (!await db.ClinicConfigurations.AnyAsync(c => c.ClinicId == clinicId))
         {
-            db.ClinicConfigurations.Add(new ClinicConfiguration { ClinicId = clinicId });
+            db.ClinicConfigurations.Add(new ClinicConfiguration { ClinicId = clinicId, PatientPortalEnabled = true });
             logger?.LogInformation("Seeded default clinic configuration for {ClinicId}.", clinicId);
         }
 
@@ -296,6 +296,16 @@ public static class DatabaseInitializer
                 ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "Subdomain" character varying(63) NULL;
                 ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "DedicatedConnectionName" character varying(128) NULL;
                 ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "PatientPortalEnabled" boolean NOT NULL DEFAULT false;
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE "ClinicConfigurations" c
+                SET "PatientPortalEnabled" = true
+                FROM "Clinics" cl
+                WHERE c."ClinicId" = cl."Id"
+                  AND cl."PlanName" = 'Trial'
+                  AND c."PatientPortalEnabled" = false;
                 """);
 
             await db.Database.ExecuteSqlRawAsync(
