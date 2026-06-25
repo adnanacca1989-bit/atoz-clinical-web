@@ -39,7 +39,8 @@ public class IndexModel : ClinicFormPageModel
         return Page();
     }
 
-    public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
+    protected override Task<IActionResult> ExecuteSaveAsync() => SaveCoreAsync();
+
     public Task<IActionResult> OnPostNewAsync() => NewCoreAsync();
     public Task<IActionResult> OnPostClearAsync() => NewCoreAsync();
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
@@ -82,12 +83,22 @@ public class IndexModel : ClinicFormPageModel
         }
 
         ResolveRecordIdForSave();
+        if (IsNewSave)
+            Input.DoctorNo = await _service.NextNoAsync(clinicId.Value);
+
         var entity = Input.ToEntity(RecordIdForSave);
 
         try
         {
             var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
             return RedirectAfterSave(saved.Id);
+        }
+        catch (DbUpdateException ex) when (DoctorService.IsDuplicateDoctorNo(ex))
+        {
+            ModelState.AddModelError(string.Empty, "A doctor with this ID number already exists. Click + New, then Add again.");
+            await LoadAsync(clinicId.Value);
+            SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            return Page();
         }
         catch (DbUpdateException)
         {

@@ -74,6 +74,14 @@ public abstract class ClinicFormPageModel : PageModel
     protected IActionResult RedirectAfterSave(Guid savedId) =>
         SaveMode == "New" ? RedirectToNewForm() : RedirectToRecord(savedId);
 
+    protected void ConfigureAddSave()
+    {
+        SaveMode = "New";
+        RecordId = null;
+    }
+
+    protected void ConfigureEditSave() => SaveMode = "Edit";
+
     protected bool IsNewSave =>
         string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase);
 
@@ -84,10 +92,27 @@ public abstract class ClinicFormPageModel : PageModel
             RecordId = null;
     }
 
-    protected Guid? RecordIdForSave => IsNewSave || !RecordId.HasValue ? null : RecordId;
+    protected Guid? RecordIdForSave => IsNewSave ? null : RecordId;
+
+    protected virtual Task<IActionResult> ExecuteSaveAsync() =>
+        throw new InvalidOperationException($"{GetType().Name} must override ExecuteSaveAsync.");
+
+    public Task<IActionResult> OnPostAddAsync()
+    {
+        ConfigureAddSave();
+        return ExecuteSaveAsync();
+    }
+
+    public Task<IActionResult> OnPostSaveAsync()
+    {
+        ConfigureEditSave();
+        return ExecuteSaveAsync();
+    }
 
     /// <summary>GET with ?handler=Save after a failed POST bookmark — redirect to a safe GET.</summary>
     public IActionResult OnGetSave() => RedirectToPage(new { RecordId, Search, NewRecord, RecordPage, PageSize });
+
+    public IActionResult OnGetAdd() => RedirectToPage(new { Search, NewRecord = true, RecordPage, PageSize });
 
     public IActionResult OnGetNew() => RedirectToPage(new { Search, NewRecord = true, RecordPage, PageSize });
 

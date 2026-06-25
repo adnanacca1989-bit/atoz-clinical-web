@@ -1,8 +1,19 @@
 /** Prevent duplicate form submissions and ensure Add creates a new record. */
 (function () {
-    function clearRecordIdForNewSave(form) {
+    function isAddHandler(submitter) {
+        if (!submitter) return false;
+        const name = submitter.getAttribute('name') || '';
+        const value = submitter.getAttribute('value') || '';
+        if (name === 'handler' && value === 'Add') return true;
+        const formaction = submitter.getAttribute('formaction') || '';
+        return /(?:\?|&)handler=Add(?:&|$)/i.test(formaction);
+    }
+
+    function clearRecordIdForNewSave(form, submitter) {
         const saveMode = form.querySelector('#saveModeInput');
-        if (saveMode?.value === 'New') {
+        const isNew = isAddHandler(submitter) || saveMode?.value === 'New';
+        if (isNew) {
+            if (saveMode) saveMode.value = 'New';
             const recordId = form.querySelector('[name="RecordId"]');
             if (recordId) recordId.value = '';
         }
@@ -45,7 +56,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('form').forEach(form => {
             form.addEventListener('submit', (e) => {
-                clearRecordIdForNewSave(form);
+                clearRecordIdForNewSave(form, e.submitter);
 
                 if (!isFormValid(form, e.submitter)) {
                     unlockFormSubmits(form);

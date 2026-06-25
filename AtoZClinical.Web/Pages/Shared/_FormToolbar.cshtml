@@ -8,8 +8,8 @@
 <input type="hidden" name="SaveMode" id="saveModeInput" value="Edit" />
 <div class="clinical-toolbar">
     <button type="submit" asp-page-handler="New" class="btn-form" formnovalidate>+ New</button>
-    <button type="submit" asp-page-handler="Save" class="btn-form btn-form-primary" onclick="document.getElementById('saveModeInput').value='New';var r=document.querySelector('[name=RecordId]');if(r)r.value='';">💾 Add</button>
-    <button type="submit" asp-page-handler="Save" class="btn-form" onclick="document.getElementById('saveModeInput').value='Edit';">✏️ Edit</button>
+    <button type="submit" asp-page-handler="Add" class="btn-form btn-form-primary">💾 Add</button>
+    <button type="submit" asp-page-handler="Save" class="btn-form">✏️ Edit</button>
     <button type="submit" asp-page-handler="Delete" class="btn-form" formnovalidate onclick="return confirm('Delete this record?');">🗑️ Delete</button>
     @if (openPatientSelect)
     {

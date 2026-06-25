@@ -173,7 +173,8 @@ public sealed class DoctorService
         var isNew = doctor.Id == Guid.Empty;
         if (!isNew)
         {
-            previous = await _db.Doctors.AsNoTracking()
+            previous = await _db.Doctors.IgnoreQueryFilters()
+                .AsNoTracking()
                 .FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.Id == doctor.Id);
             isNew = previous is null;
         }
@@ -191,6 +192,8 @@ public sealed class DoctorService
         }
         else
         {
+            if (previous is not null)
+                doctor.DoctorNo = previous.DoctorNo;
             _db.Doctors.Update(doctor);
         }
 
@@ -200,6 +203,13 @@ public sealed class DoctorService
             await _propagation.PropagateDoctorAsync(clinicId, previous, doctor);
 
         return doctor;
+    }
+
+    public static bool IsDuplicateDoctorNo(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? ex.Message;
+        return message.Contains("IX_Doctors_ClinicId_DoctorNo", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task DeleteAsync(Guid clinicId, Guid id)
@@ -213,7 +223,9 @@ public sealed class DoctorService
 
     public async Task<int> NextNoAsync(Guid clinicId)
     {
-        var max = await _db.Doctors.Where(d => d.ClinicId == clinicId).MaxAsync(d => (int?)d.DoctorNo);
+        var max = await _db.Doctors.IgnoreQueryFilters()
+            .Where(d => d.ClinicId == clinicId)
+            .MaxAsync(d => (int?)d.DoctorNo);
         return (max ?? 0) + 1;
     }
 }

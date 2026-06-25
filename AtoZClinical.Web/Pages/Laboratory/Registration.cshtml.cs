@@ -36,7 +36,7 @@ public class RegistrationModel : ClinicFormPageModel
         return Page();
     }
 
-    public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
+    protected override Task<IActionResult> ExecuteSaveAsync() => SaveCoreAsync();
     public Task<IActionResult> OnPostNewAsync() => NewCoreAsync();
     public Task<IActionResult> OnPostClearAsync() => NewCoreAsync();
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
