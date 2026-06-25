@@ -155,45 +155,100 @@ public sealed class RadiologyRequestService
     }
 
     public Task<List<RadiologyRequest>> ListAsync(Guid clinicId) =>
-        _db.RadiologyRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+        _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
 
     public Task<RadiologyRequest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.RadiologyRequests.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+        _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
     public async Task<RadiologyRequest> SaveAsync(Guid clinicId, RadiologyRequest item, List<RadiologyRequestLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
-        item.ClinicId = clinicId;
-        item.UpdatedAt = DateTime.UtcNow;
-        item.TotalAmount = lines.Sum(l => l.Total);
-
-        if (isNew)
+        if (!isNew)
         {
-            item.Id = Guid.NewGuid();
-            item.RequestNo = (await _db.RadiologyRequests.Where(r => r.ClinicId == clinicId).MaxAsync(r => (int?)r.RequestNo) ?? 0) + 1;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.RadiologyRequests.Add(item);
-        }
-        else
-        {
-            var existing = await _db.RadiologyRequestLines.Where(l => l.RadiologyRequestId == item.Id).ToListAsync();
-            _db.RadiologyRequestLines.RemoveRange(existing);
-            _db.RadiologyRequests.Update(item);
+            item.ClinicId = clinicId;
+            item.UpdatedAt = DateTime.UtcNow;
+            item.TotalAmount = lines.Sum(l => l.Total);
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, async () =>
+            {
+                var existing = await _db.RadiologyRequestLines.Where(l => l.RadiologyRequestId == item.Id).ToListAsync();
+                _db.RadiologyRequestLines.RemoveRange(existing);
+                _db.RadiologyRequests.Update(item);
+                foreach (var line in lines)
+                {
+                    line.Id = Guid.NewGuid();
+                    line.RadiologyRequestId = item.Id;
+                    _db.RadiologyRequestLines.Add(line);
+                }
+            });
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+            catch { }
+            await _audit.LogAsync(clinicId, userName, "Radiology Request", "Update",
+                $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
+            return item;
         }
 
-        foreach (var line in lines)
-        {
-            line.Id = Guid.NewGuid();
-            line.RadiologyRequestId = item.Id;
-            _db.RadiologyRequestLines.Add(line);
-        }
+        var template = item;
+        var lineTemplates = lines;
+        item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+            _db,
+            async attempt =>
+            {
+                var row = CloneRadiologyRequestShell(template);
+                row.Id = Guid.NewGuid();
+                row.ClinicId = clinicId;
+                row.RequestNo = await NextRequestNoAsync(clinicId, attempt);
+                row.TotalAmount = lineTemplates.Sum(l => l.Total);
+                row.CreatedAt = DateTime.UtcNow;
+                row.UpdatedAt = DateTime.UtcNow;
+                return row;
+            },
+            row =>
+            {
+                _db.RadiologyRequests.Add(row);
+                foreach (var src in lineTemplates)
+                {
+                    _db.RadiologyRequestLines.Add(new RadiologyRequestLine
+                    {
+                        Id = Guid.NewGuid(),
+                        RadiologyRequestId = row.Id,
+                        LineNo = src.LineNo,
+                        TestCode = src.TestCode,
+                        TestName = src.TestName,
+                        Category = src.Category,
+                        Qty = src.Qty,
+                        Fee = src.Fee,
+                        Total = src.Total
+                    });
+                }
+            },
+            ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_RadiologyRequests_ClinicId_RequestNo"),
+            failureMessage: "Could not save radiology request");
 
-        await _db.SaveChangesAsync();
-        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName);
-        await _audit.LogAsync(clinicId, userName, "Radiology Request", isNew ? "Create" : "Update",
+        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+        catch { }
+        await _audit.LogAsync(clinicId, userName, "Radiology Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
     }
+
+    private async Task<int> NextRequestNoAsync(Guid clinicId, int skip = 0)
+    {
+        var max = await _db.RadiologyRequests.ForClinic(clinicId).MaxAsync(r => (int?)r.RequestNo) ?? 0;
+        return max + 1 + skip;
+    }
+
+    private static RadiologyRequest CloneRadiologyRequestShell(RadiologyRequest source) => new()
+    {
+        RequestDate = source.RequestDate,
+        PatientName = source.PatientName,
+        PatientBarcode = source.PatientBarcode,
+        Age = source.Age,
+        Gender = source.Gender,
+        Phone = source.Phone,
+        City = source.City,
+        DoctorName = source.DoctorName,
+        Specialty = source.Specialty
+    };
 
     public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {
@@ -208,10 +263,12 @@ public sealed class RadiologyRequestService
     public Task<RadiologyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode) =>
         _db.RadiologyRequests
             .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+            .ForClinic(clinicId)
             .Where(r =>
-                (!string.IsNullOrWhiteSpace(patientBarcode) && r.PatientBarcode == patientBarcode.Trim()) ||
-                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName == patientName.Trim()))
+                (!string.IsNullOrWhiteSpace(patientBarcode) && r.PatientBarcode != null &&
+                 EF.Functions.ILike(r.PatientBarcode, patientBarcode.Trim())) ||
+                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName != null &&
+                 EF.Functions.ILike(r.PatientName, patientName.Trim())))
             .OrderByDescending(r => r.RequestNo)
             .FirstOrDefaultAsync();
 }
@@ -357,13 +414,13 @@ public sealed class InvoiceService
     }
 
     public Task<List<Invoice>> ListAsync(Guid clinicId) =>
-        _db.Invoices.Include(i => i.Lines).Where(i => i.ClinicId == clinicId).OrderByDescending(i => i.InvoiceNo).ToListAsync();
+        _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).OrderByDescending(i => i.InvoiceNo).ToListAsync();
 
     public Task<Invoice?> GetAsync(Guid clinicId, Guid id) =>
-        _db.Invoices.Include(i => i.Lines).FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Id == id);
+        _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).FirstOrDefaultAsync(i => i.Id == id);
 
     public async Task<int> NextInvoiceNoAsync(Guid clinicId) =>
-        (await _db.Invoices.Where(i => i.ClinicId == clinicId).MaxAsync(i => (int?)i.InvoiceNo) ?? 0) + 1;
+        await NextInvoiceNoWithSkipAsync(clinicId, 0);
 
     public async Task<Invoice> SaveAsync(Guid clinicId, Invoice item, List<InvoiceLine> lines, string? userName = null)
     {
@@ -696,21 +753,22 @@ public sealed class PharmacyRequestService
     }
 
     public Task<List<PharmacyRequest>> ListAsync(Guid clinicId) =>
-        _db.PharmacyRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+        _db.PharmacyRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
 
     public Task<PharmacyRequest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.PharmacyRequests.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+        _db.PharmacyRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
     public Task<PharmacyRequest?> GetByRequestNoAsync(Guid clinicId, int requestNo) =>
         _db.PharmacyRequests
             .Include(r => r.Lines)
-            .FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.RequestNo == requestNo);
+            .ForClinic(clinicId)
+            .FirstOrDefaultAsync(r => r.RequestNo == requestNo);
 
     public async Task<PharmacyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientId)
     {
         var query = _db.PharmacyRequests
             .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId);
+            .ForClinic(clinicId);
 
         if (!string.IsNullOrWhiteSpace(patientId))
         {
@@ -743,37 +801,96 @@ public sealed class PharmacyRequestService
     public async Task<PharmacyRequest> SaveAsync(Guid clinicId, PharmacyRequest item, List<PharmacyRequestLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
-        item.ClinicId = clinicId;
-        item.UpdatedAt = DateTime.UtcNow;
-        item.TotalAmount = lines.Sum(l => l.Total);
-
-        if (isNew)
+        if (!isNew)
         {
-            item.Id = Guid.NewGuid();
-            item.RequestNo = (await _db.PharmacyRequests.Where(r => r.ClinicId == clinicId).MaxAsync(r => (int?)r.RequestNo) ?? 0) + 1;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.PharmacyRequests.Add(item);
-        }
-        else
-        {
-            var existing = await _db.PharmacyRequestLines.Where(l => l.PharmacyRequestId == item.Id).ToListAsync();
-            _db.PharmacyRequestLines.RemoveRange(existing);
-            _db.PharmacyRequests.Update(item);
+            item.ClinicId = clinicId;
+            item.UpdatedAt = DateTime.UtcNow;
+            item.TotalAmount = lines.Sum(l => l.Total);
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, async () =>
+            {
+                var existing = await _db.PharmacyRequestLines.Where(l => l.PharmacyRequestId == item.Id).ToListAsync();
+                _db.PharmacyRequestLines.RemoveRange(existing);
+                _db.PharmacyRequests.Update(item);
+                foreach (var line in lines)
+                {
+                    line.Id = Guid.NewGuid();
+                    line.PharmacyRequestId = item.Id;
+                    _db.PharmacyRequestLines.Add(line);
+                }
+            });
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName); }
+            catch { }
+            await _audit.LogAsync(clinicId, userName, "Pharmacy Request", "Update",
+                $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
+            return item;
         }
 
-        foreach (var line in lines)
-        {
-            line.Id = Guid.NewGuid();
-            line.PharmacyRequestId = item.Id;
-            _db.PharmacyRequestLines.Add(line);
-        }
+        var template = item;
+        var lineTemplates = lines;
+        item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+            _db,
+            async attempt =>
+            {
+                var row = ClonePharmacyRequestShell(template);
+                row.Id = Guid.NewGuid();
+                row.ClinicId = clinicId;
+                row.RequestNo = await NextRequestNoAsync(clinicId, attempt);
+                row.TotalAmount = lineTemplates.Sum(l => l.Total);
+                row.CreatedAt = DateTime.UtcNow;
+                row.UpdatedAt = DateTime.UtcNow;
+                return row;
+            },
+            row =>
+            {
+                _db.PharmacyRequests.Add(row);
+                foreach (var src in lineTemplates)
+                {
+                    _db.PharmacyRequestLines.Add(new PharmacyRequestLine
+                    {
+                        Id = Guid.NewGuid(),
+                        PharmacyRequestId = row.Id,
+                        LineNo = src.LineNo,
+                        Barcode = src.Barcode,
+                        MedicineCode = src.MedicineCode,
+                        MedicineName = src.MedicineName,
+                        Dosage = src.Dosage,
+                        Uom = src.Uom,
+                        Qty = src.Qty,
+                        UnitPrice = src.UnitPrice,
+                        Total = src.Total
+                    });
+                }
+            },
+            ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_PharmacyRequests_ClinicId_RequestNo"),
+            failureMessage: "Could not save pharmacy request");
 
-        await _db.SaveChangesAsync();
-        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName);
-        await _audit.LogAsync(clinicId, userName, "Pharmacy Request", isNew ? "Create" : "Update",
+        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName); }
+        catch { }
+        await _audit.LogAsync(clinicId, userName, "Pharmacy Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
     }
+
+    private async Task<int> NextRequestNoAsync(Guid clinicId, int skip = 0)
+    {
+        var max = await _db.PharmacyRequests.ForClinic(clinicId).MaxAsync(r => (int?)r.RequestNo) ?? 0;
+        return max + 1 + skip;
+    }
+
+    private static PharmacyRequest ClonePharmacyRequestShell(PharmacyRequest source) => new()
+    {
+        RequestDate = source.RequestDate,
+        PrescriptionNo = source.PrescriptionNo,
+        PatientName = source.PatientName,
+        PatientId = source.PatientId,
+        Age = source.Age,
+        Gender = source.Gender,
+        Phone = source.Phone,
+        City = source.City,
+        DoctorName = source.DoctorName,
+        Specialty = source.Specialty,
+        Notes = source.Notes
+    };
 
     public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {

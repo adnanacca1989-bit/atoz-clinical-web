@@ -96,6 +96,9 @@ public class IndexModel : ClinicFormPageModel
     {
         var item = await _invoiceService.GetAsync(clinicId, id);
         if (item is null) return false;
+        await _patientInvoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId, item.DoctorName);
+        item = await _invoiceService.GetAsync(clinicId, id);
+        if (item is null) return false;
         RecordId = item.Id;
         Input = InvoiceInput.FromEntity(item);
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(InvoiceLineInput.FromEntity).ToList();

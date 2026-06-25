@@ -611,42 +611,96 @@ public sealed class LabRequestService
     }
 
     public Task<List<LabRequest>> ListAsync(Guid clinicId) =>
-        _db.LabRequests.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+        _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
 
     public Task<LabRequest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.LabRequests.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+        _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
     public async Task<LabRequest> SaveAsync(Guid clinicId, LabRequest item, List<LabRequestLine> lines)
     {
-        item.ClinicId = clinicId;
-        item.UpdatedAt = DateTime.UtcNow;
-        item.TotalAmount = lines.Sum(l => l.Total);
-
-        if (item.Id == Guid.Empty)
+        var isNew = item.Id == Guid.Empty;
+        if (!isNew)
         {
-            item.Id = Guid.NewGuid();
-            item.RequestNo = (await _db.LabRequests.Where(r => r.ClinicId == clinicId).MaxAsync(r => (int?)r.RequestNo) ?? 0) + 1;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.LabRequests.Add(item);
-        }
-        else
-        {
-            var existing = await _db.LabRequestLines.Where(l => l.LabRequestId == item.Id).ToListAsync();
-            _db.LabRequestLines.RemoveRange(existing);
-            _db.LabRequests.Update(item);
-        }
-
-        foreach (var line in lines)
-        {
-            line.Id = Guid.NewGuid();
-            line.LabRequestId = item.Id;
-            _db.LabRequestLines.Add(line);
+            item.ClinicId = clinicId;
+            item.UpdatedAt = DateTime.UtcNow;
+            item.TotalAmount = lines.Sum(l => l.Total);
+            await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, async () =>
+            {
+                var existing = await _db.LabRequestLines.Where(l => l.LabRequestId == item.Id).ToListAsync();
+                _db.LabRequestLines.RemoveRange(existing);
+                _db.LabRequests.Update(item);
+                foreach (var line in lines)
+                {
+                    line.Id = Guid.NewGuid();
+                    line.LabRequestId = item.Id;
+                    _db.LabRequestLines.Add(line);
+                }
+            });
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+            catch { }
+            return item;
         }
 
-        await _db.SaveChangesAsync();
-        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName);
+        var template = item;
+        var lineTemplates = lines;
+        item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+            _db,
+            async attempt =>
+            {
+                var row = CloneLabRequestShell(template);
+                row.Id = Guid.NewGuid();
+                row.ClinicId = clinicId;
+                row.RequestNo = await NextRequestNoAsync(clinicId, attempt);
+                row.TotalAmount = lineTemplates.Sum(l => l.Total);
+                row.CreatedAt = DateTime.UtcNow;
+                row.UpdatedAt = DateTime.UtcNow;
+                return row;
+            },
+            row =>
+            {
+                _db.LabRequests.Add(row);
+                foreach (var src in lineTemplates)
+                {
+                    _db.LabRequestLines.Add(new LabRequestLine
+                    {
+                        Id = Guid.NewGuid(),
+                        LabRequestId = row.Id,
+                        LineNo = src.LineNo,
+                        TestCode = src.TestCode,
+                        TestName = src.TestName,
+                        Category = src.Category,
+                        Qty = src.Qty,
+                        Fee = src.Fee,
+                        Total = src.Total
+                    });
+                }
+            },
+            ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_LabRequests_ClinicId_RequestNo"),
+            failureMessage: "Could not save laboratory request");
+
+        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+        catch { }
         return item;
     }
+
+    private async Task<int> NextRequestNoAsync(Guid clinicId, int skip = 0)
+    {
+        var max = await _db.LabRequests.ForClinic(clinicId).MaxAsync(r => (int?)r.RequestNo) ?? 0;
+        return max + 1 + skip;
+    }
+
+    private static LabRequest CloneLabRequestShell(LabRequest source) => new()
+    {
+        RequestDate = source.RequestDate,
+        PatientName = source.PatientName,
+        PatientBarcode = source.PatientBarcode,
+        Age = source.Age,
+        Gender = source.Gender,
+        Phone = source.Phone,
+        City = source.City,
+        DoctorName = source.DoctorName,
+        Specialty = source.Specialty
+    };
 
     public async Task DeleteAsync(Guid clinicId, Guid id)
     {
@@ -660,10 +714,12 @@ public sealed class LabRequestService
     public Task<LabRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode) =>
         _db.LabRequests
             .Include(r => r.Lines)
-            .Where(r => r.ClinicId == clinicId)
+            .ForClinic(clinicId)
             .Where(r =>
-                (!string.IsNullOrWhiteSpace(patientBarcode) && r.PatientBarcode == patientBarcode.Trim()) ||
-                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName == patientName.Trim()))
+                (!string.IsNullOrWhiteSpace(patientBarcode) && r.PatientBarcode != null &&
+                 EF.Functions.ILike(r.PatientBarcode, patientBarcode.Trim())) ||
+                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName != null &&
+                 EF.Functions.ILike(r.PatientName, patientName.Trim())))
             .OrderByDescending(r => r.RequestNo)
             .FirstOrDefaultAsync();
 }

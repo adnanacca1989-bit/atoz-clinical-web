@@ -118,8 +118,8 @@ public class CashReportModel : PageModel
         {
 
             var receipts = await _db.CashReceipts
-
-                .Where(c => c.ClinicId == clinicId && c.ReceiptDate >= from && c.ReceiptDate <= to)
+                .ForClinic(clinicId.Value)
+                .Where(c => c.ReceiptDate >= from && c.ReceiptDate <= to)
 
                 .OrderBy(c => c.ReceiptDate).ThenBy(c => c.ReceiptNo)
 
@@ -165,8 +165,8 @@ public class CashReportModel : PageModel
         {
 
             var payments = await _db.CashPayments
-
-                .Where(p => p.ClinicId == clinicId && p.PaymentDate >= from && p.PaymentDate <= to)
+                .ForClinic(clinicId.Value)
+                .Where(p => p.PaymentDate >= from && p.PaymentDate <= to)
 
                 .OrderBy(p => p.PaymentDate).ThenBy(p => p.PaymentNo)
 
