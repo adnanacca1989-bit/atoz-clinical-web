@@ -139,6 +139,10 @@
         return AR[trimmed] || text;
     }
 
+    function isClinicalArabic() {
+        return (document.documentElement.getAttribute('lang') || 'en').toLowerCase() === 'ar';
+    }
+
     function applyClinicalArabic(root) {
         const scope = root || document;
         scope.querySelectorAll('[data-i18n]').forEach(el => {
@@ -179,10 +183,10 @@
     }
 
     window.applyClinicalArabic = applyClinicalArabic;
+    window.isClinicalArabic = isClinicalArabic;
 
     document.addEventListener('DOMContentLoaded', () => {
-        const lang = document.documentElement.getAttribute('lang') || 'en';
-        if (lang !== 'ar') return;
+        if (!isClinicalArabic()) return;
         applyClinicalArabic(document);
     });
 })();

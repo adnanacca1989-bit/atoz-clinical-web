@@ -90,7 +90,9 @@ function initPatientPicker(options) {
             patients = await res.json();
             selectedPatient = null;
             renderPatients();
-            if (window.applyClinicalArabic) window.applyClinicalArabic(modalEl);
+            if (window.isClinicalArabic && window.isClinicalArabic() && window.applyClinicalArabic) {
+                window.applyClinicalArabic(modalEl);
+            }
         } catch { /* ignore */ }
     };
 

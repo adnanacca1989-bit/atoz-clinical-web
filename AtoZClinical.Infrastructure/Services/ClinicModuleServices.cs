@@ -188,11 +188,26 @@ public sealed class DoctorService
         doctor.UpdatedBy = userName;
         if (isNew)
         {
-            doctor.Id = Guid.NewGuid();
-            doctor.DoctorNo = await NextNoAsync(clinicId);
-            doctor.CreatedAt = DateTime.UtcNow;
-            doctor.CreatedBy = userName;
-            _db.Doctors.Add(doctor);
+            const int maxAttempts = 5;
+            for (var attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                doctor.Id = Guid.NewGuid();
+                doctor.DoctorNo = await NextNoAsync(clinicId);
+                doctor.CreatedAt = DateTime.UtcNow;
+                doctor.CreatedBy = userName;
+                _db.Doctors.Add(doctor);
+                try
+                {
+                    await _db.SaveChangesAsync();
+                    return doctor;
+                }
+                catch (DbUpdateException ex) when (IsDuplicateDoctorNo(ex) && attempt < maxAttempts - 1)
+                {
+                    _db.Entry(doctor).State = EntityState.Detached;
+                }
+            }
+
+            throw new InvalidOperationException("Could not assign a new doctor ID. Please click + New and try again.");
         }
         else
         {

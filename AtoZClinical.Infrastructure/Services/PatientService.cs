@@ -273,27 +273,62 @@ public sealed class PatientService
 
     private async Task<string> GeneratePatientNoAsync(Guid clinicId)
     {
-        var count = await _db.Patients.CountAsync(p => p.ClinicId == clinicId);
+        var max = await _db.Patients.IgnoreQueryFilters()
+            .Where(p => p.ClinicId == clinicId)
+            .Select(p => p.PatientNo)
+            .ToListAsync();
+
+        var highest = max
+            .Select(no =>
+            {
+                if (no.StartsWith("PAT-", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(no.AsSpan(4), out var n))
+                    return n;
+                return 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max();
+
         string no;
+        var candidate = highest;
         do
         {
-            count++;
-            no = $"PAT-{count:D5}";
-        } while (await _db.Patients.AnyAsync(p => p.ClinicId == clinicId && p.PatientNo == no));
+            candidate++;
+            no = $"PAT-{candidate:D5}";
+        } while (await _db.Patients.IgnoreQueryFilters()
+            .AnyAsync(p => p.ClinicId == clinicId && p.PatientNo == no));
 
         return no;
     }
 
     private async Task<string> GenerateAppointmentIdAsync(Guid clinicId)
     {
-        var count = await _db.Patients.CountAsync(p => p.ClinicId == clinicId);
-        string id;
+        var max = await _db.Patients.IgnoreQueryFilters()
+            .Where(p => p.ClinicId == clinicId)
+            .Select(p => p.AppointmentId)
+            .ToListAsync();
+
+        var highest = max
+            .Select(id =>
+            {
+                if (!string.IsNullOrEmpty(id)
+                    && id.StartsWith("APT-", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(id.AsSpan(4), out var n))
+                    return n;
+                return 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max();
+
+        string aptId;
+        var candidate = highest;
         do
         {
-            count++;
-            id = $"APT-{count:D6}";
-        } while (await _db.Patients.AnyAsync(p => p.ClinicId == clinicId && p.AppointmentId == id));
+            candidate++;
+            aptId = $"APT-{candidate:D6}";
+        } while (await _db.Patients.IgnoreQueryFilters()
+            .AnyAsync(p => p.ClinicId == clinicId && p.AppointmentId == aptId));
 
-        return id;
+        return aptId;
     }
 }

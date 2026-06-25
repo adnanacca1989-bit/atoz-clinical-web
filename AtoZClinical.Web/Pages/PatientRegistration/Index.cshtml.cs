@@ -189,38 +189,26 @@ public class IndexModel : ClinicFormPageModel
 
 
         if (!ModelState.IsValid)
-
         {
-
+            if (!ModelState.Values.SelectMany(v => v.Errors).Any())
+                ModelState.AddModelError(string.Empty, "Please fill in all required fields.");
             await LoadAsync(clinicId.Value);
-
             ViewData["ShowHistory"] = true;
-
             ViewData["ShowPatientCard"] = true;
-
+            ViewData["OpenPatientSelect"] = true;
             SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
-
             return Page();
-
         }
 
+        ResolveRecordIdForSave();
 
-
-        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
-        if (isNew)
-            RecordId = null;
-
-        if (isNew)
+        if (IsNewSave)
         {
             var nextVisit = await _service.GetNextVisitNumberAsync(
                 clinicId.Value, Input.NationalId, Input.Phone, null, Input.PatientName);
             Input.VisitNumber = nextVisit.ToString();
-
-            if (string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase))
-            {
-                Input.PatientNo = await _service.NextPatientNoAsync(clinicId.Value);
-                Input.AppointmentId = await _service.NextAppointmentIdAsync(clinicId.Value);
-            }
+            Input.PatientNo = await _service.NextPatientNoAsync(clinicId.Value);
+            Input.AppointmentId = await _service.NextAppointmentIdAsync(clinicId.Value);
         }
         else if (string.IsNullOrWhiteSpace(Input.VisitNumber))
         {
@@ -229,16 +217,10 @@ public class IndexModel : ClinicFormPageModel
             Input.VisitNumber = nextVisit.ToString();
         }
 
-
-
         if (string.IsNullOrWhiteSpace(Input.AppointmentId))
-
             Input.AppointmentId = await _service.NextAppointmentIdAsync(clinicId.Value);
 
-
-
-        var entity = Input.ToEntity(RecordId);
-
+        var entity = Input.ToEntity(RecordIdForSave);
         try
         {
             var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
@@ -250,10 +232,30 @@ public class IndexModel : ClinicFormPageModel
             await LoadAsync(clinicId.Value);
             ViewData["ShowHistory"] = true;
             ViewData["ShowPatientCard"] = true;
+            ViewData["OpenPatientSelect"] = true;
             SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
             return Page();
         }
-
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            ModelState.AddModelError(string.Empty, "Could not save this patient. Please click + New, refresh the page, and try again.");
+            await LoadAsync(clinicId.Value);
+            ViewData["ShowHistory"] = true;
+            ViewData["ShowPatientCard"] = true;
+            ViewData["OpenPatientSelect"] = true;
+            SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            return Page();
+        }
+        catch (Exception)
+        {
+            ModelState.AddModelError(string.Empty, "Could not save this patient. Please check all required fields and try again.");
+            await LoadAsync(clinicId.Value);
+            ViewData["ShowHistory"] = true;
+            ViewData["ShowPatientCard"] = true;
+            ViewData["OpenPatientSelect"] = true;
+            SetFormViewData("Patient Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
+            return Page();
+        }
     }
 
 

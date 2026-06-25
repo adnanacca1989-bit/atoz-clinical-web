@@ -85,8 +85,6 @@ public class IndexModel : ClinicFormPageModel
         }
 
         ResolveRecordIdForSave();
-        if (IsNewSave)
-            Input.DoctorNo = await _service.NextNoAsync(clinicId.Value);
 
         var entity = Input.ToEntity(RecordIdForSave);
 
@@ -97,7 +95,15 @@ public class IndexModel : ClinicFormPageModel
         }
         catch (DbUpdateException ex) when (DoctorService.IsDuplicateDoctorNo(ex))
         {
-            ModelState.AddModelError(string.Empty, "A doctor with this ID number already exists. Click + New, then Add again.");
+            var preserved = Input;
+            await PrepareNew(clinicId.Value);
+            Input.Name = preserved.Name;
+            Input.Specialty = preserved.Specialty;
+            Input.Phone = preserved.Phone;
+            Input.Email = preserved.Email;
+            Input.ConsultationFee = preserved.ConsultationFee;
+            Input.Status = preserved.Status;
+            ModelState.AddModelError(string.Empty, "That doctor ID was just taken. The next available ID is shown — click Add again.");
             await LoadAsync(clinicId.Value);
             SetFormViewData("Doctor Registration", Input.CreatedBy, Input.UpdatedBy, Input.UpdatedAt);
             return Page();
