@@ -32,6 +32,7 @@ public static class DatabaseInitializer
         await EnsureSchemaAsync(db, env, logger);
         await EnsureEnterpriseSchemaAsync(db, logger);
         await EnsureSaasPlatformSchemaAsync(db, logger);
+        await EnsureServiceIncomeRequestSchemaAsync(db, logger);
         await BackfillCashReceiptPatientCreditsAsync(db, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
@@ -98,6 +99,10 @@ public static class DatabaseInitializer
             });
             db.RolePermissions.AddRange(permissions);
             logger?.LogInformation("Seeded Admin role permissions for clinic {ClinicId}.", clinicId);
+        }
+        else
+        {
+            await BackfillRolePermissionsAsync(db, clinicId, logger);
         }
 
         if (!await db.ClinicConfigurations.AnyAsync(c => c.ClinicId == clinicId))
@@ -399,6 +404,102 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "SaaS platform schema verification skipped.");
+        }
+    }
+
+    private static async Task BackfillRolePermissionsAsync(ClinicalDbContext db, Guid clinicId, ILogger? logger)
+    {
+        var roles = await db.RolePermissions.Where(r => r.ClinicId == clinicId).Select(r => r.RoleName).Distinct().ToListAsync();
+        if (roles.Count == 0) return;
+
+        var added = 0;
+        foreach (var role in roles)
+        {
+            var existing = await db.RolePermissions
+                .Where(r => r.ClinicId == clinicId && r.RoleName == role)
+                .Select(r => r.FormKey)
+                .ToListAsync();
+            var existingSet = existing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var formKey in ClinicalFormKeys.All)
+            {
+                if (existingSet.Contains(formKey)) continue;
+                db.RolePermissions.Add(new RolePermission
+                {
+                    ClinicId = clinicId,
+                    RoleName = role,
+                    FormKey = formKey,
+                    IsVisible = true
+                });
+                added++;
+            }
+        }
+
+        if (added > 0)
+            logger?.LogInformation("Backfilled {Count} role permission(s) for clinic {ClinicId}.", added, clinicId);
+    }
+
+    private static async Task EnsureServiceIncomeRequestSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "ServiceIncomeRequests" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "RequestNo" integer NOT NULL,
+                    "RequestDate" timestamp without time zone NOT NULL,
+                    "PatientName" text NULL,
+                    "PatientBarcode" text NULL,
+                    "Age" integer NULL,
+                    "Gender" text NULL,
+                    "Phone" text NULL,
+                    "City" text NULL,
+                    "DoctorName" text NULL,
+                    "Specialty" text NULL,
+                    "TotalAmount" numeric NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "UpdatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_ServiceIncomeRequests" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ServiceIncomeRequests_Clinics_ClinicId" FOREIGN KEY ("ClinicId") REFERENCES "Clinics" ("Id") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_ServiceIncomeRequests_ClinicId_RequestNo"
+                    ON "ServiceIncomeRequests" ("ClinicId", "RequestNo");
+
+                CREATE TABLE IF NOT EXISTS "ServiceIncomeRequestLines" (
+                    "Id" uuid NOT NULL,
+                    "ServiceIncomeRequestId" uuid NOT NULL,
+                    "LineNo" integer NOT NULL,
+                    "ServiceNo" integer NULL,
+                    "ServiceName" text NULL,
+                    "AccountName" text NULL,
+                    "Qty" integer NOT NULL,
+                    "Fee" numeric NOT NULL,
+                    "Total" numeric NOT NULL,
+                    CONSTRAINT "PK_ServiceIncomeRequestLines" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ServiceIncomeRequestLines_ServiceIncomeRequests_ServiceIncomeRequestId"
+                        FOREIGN KEY ("ServiceIncomeRequestId") REFERENCES "ServiceIncomeRequests" ("Id") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS "IX_ServiceIncomeRequestLines_ServiceIncomeRequestId"
+                    ON "ServiceIncomeRequestLines" ("ServiceIncomeRequestId");
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('20260626150000_AddServiceIncomeRequest', '8.0.11')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+
+            logger.LogInformation("Service income request schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Service income request schema verification skipped.");
         }
     }
 

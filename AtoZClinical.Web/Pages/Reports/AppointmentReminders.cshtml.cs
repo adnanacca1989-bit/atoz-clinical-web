@@ -1,4 +1,5 @@
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -23,10 +24,10 @@ public class AppointmentRemindersModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)]
-    public DateTime FromDate { get; set; } = DateTime.Today.AddDays(-7);
+    public DateTime FromDate { get; set; } = ClinicClock.Today.AddDays(-7);
 
     [BindProperty(SupportsGet = true)]
-    public DateTime ToDate { get; set; } = DateTime.Today.AddDays(14);
+    public DateTime ToDate { get; set; } = ClinicClock.Today.AddDays(14);
 
     [BindProperty(SupportsGet = true)]
     public string Gender { get; set; } = "All";

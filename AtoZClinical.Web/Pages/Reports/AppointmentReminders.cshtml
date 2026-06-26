@@ -84,11 +84,11 @@
                 </div>
                 <div class="col-md-4">
                     <label class="clinical-field-label">Patient Search</label>
-                    <input asp-for="PatientSearch" class="clinical-field" placeholder="Select patient..." />
+                    <input asp-for="PatientSearch" id="reportPatientNameInput" class="clinical-field doctor-picker-field" placeholder="Click to select patient..." readonly />
                 </div>
                 <div class="col-md-4 d-flex align-items-end gap-2">
                     <button type="submit" asp-page-handler="Clear" class="btn btn-outline-secondary">Clear</button>
-                    <button type="submit" asp-page-handler="Search" class="btn btn-primary">Search</button>
+                    <button type="submit" asp-page-handler="Search" id="reportRunSubmit" class="btn btn-primary">Search</button>
                 </div>
             </div>
         </div>
@@ -160,5 +160,19 @@
 
 @section Scripts {
     <partial name="_ReportColumnFilterScript" />
+    <partial name="_PatientSelectModal" />
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initReportPickers({
+                patientSelector: '#reportPatientNameInput',
+                runSubmitSelector: '#reportRunSubmit',
+                patientFieldMap: {
+                    '#reportPatientNameInput': p => p.name || ''
+                }
+            });
+        });
+    </script>
     <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
 }

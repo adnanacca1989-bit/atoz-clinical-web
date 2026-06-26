@@ -20,6 +20,16 @@ public static class ClinicClock
 
     public static DateTime Today => Now.Date;
 
+    public static DateTime ToClinicDate(DateTime value) =>
+        value.Kind switch
+        {
+            DateTimeKind.Utc => TimeZoneInfo.ConvertTimeFromUtc(value, ClinicZone).Date,
+            _ => value.Date
+        };
+
+    public static DateTime? ToClinicDate(DateTime? value) =>
+        value.HasValue ? ToClinicDate(value.Value) : null;
+
     public static DateTime? CombineAppointment(DateTime? date, TimeSpan? time)
     {
         if (!date.HasValue) return null;

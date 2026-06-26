@@ -22,11 +22,18 @@ public sealed class AppointmentReminderService
         string? statusFilter,
         string? patientSearch)
     {
+        var from = ClinicClock.ToClinicDate(fromDate);
+        var to = ClinicClock.ToClinicDate(toDate);
+
         var patients = await _db.Patients
-            .Where(p => p.ClinicId == clinicId &&
-                        p.AppointmentDate >= fromDate.Date &&
-                        p.AppointmentDate <= toDate.Date)
+            .Where(p => p.ClinicId == clinicId && p.AppointmentDate != null)
             .ToListAsync();
+
+        patients = patients.Where(p =>
+        {
+            var apptDate = ClinicClock.ToClinicDate(p.AppointmentDate);
+            return apptDate >= from && apptDate <= to;
+        }).ToList();
 
         if (!string.IsNullOrWhiteSpace(gender) && !gender.Equals("All", StringComparison.OrdinalIgnoreCase))
             patients = patients.Where(p => string.Equals(p.Gender, gender, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -37,9 +44,13 @@ public sealed class AppointmentReminderService
         if (!string.IsNullOrWhiteSpace(city) && !city.Equals("All", StringComparison.OrdinalIgnoreCase))
             patients = patients.Where(p => p.City?.Contains(city, StringComparison.OrdinalIgnoreCase) == true).ToList();
         if (!string.IsNullOrWhiteSpace(patientSearch))
+        {
+            var term = patientSearch.Trim();
             patients = patients.Where(p =>
-                p.FullName.Contains(patientSearch, StringComparison.OrdinalIgnoreCase) ||
-                p.PatientNo.Contains(patientSearch, StringComparison.OrdinalIgnoreCase)).ToList();
+                p.FullName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                p.PatientNo.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (p.Phone?.Contains(term, StringComparison.OrdinalIgnoreCase) == true)).ToList();
+        }
 
         var now = ClinicClock.Now;
         var rows = patients
@@ -108,7 +119,7 @@ public sealed class AppointmentReminderService
         if (appointmentAt is null) return null;
 
         var minutes = (int)Math.Round((appointmentAt.Value - now).TotalMinutes);
-        var status = PatientVisitStatuses.Normalize(patient.Status);
+        var status = AppointmentReminderService.ResolveVisitStatus(patient, now);
         var shouldNotify = minutes <= 15 && minutes >= 0 &&
                            !status.Equals("Completed", StringComparison.OrdinalIgnoreCase) &&
                            !status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase);
