@@ -93,6 +93,52 @@ public static class InvoiceArCalculator
         return Math.Max(0m, netPaid - totalOwed);
     }
 
+    /// <summary>Total patient credit liability across all patient-doctor groups (respects refunds).</summary>
+    public static decimal ComputeTotalPatientCredit(
+        IReadOnlyList<Invoice> invoices,
+        IReadOnlyList<CashReceipt> receipts,
+        IReadOnlyList<CashPayment> payments)
+    {
+        if (invoices.Count == 0) return 0m;
+
+        var groups = invoices
+            .GroupBy(i => $"{PatientGroupKey(i)}|{DoctorKey(i.DoctorName)}", StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        decimal total = 0;
+        foreach (var group in groups)
+        {
+            var siblings = group.OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo).ToList();
+            var anchor = siblings[0];
+            var matchingReceipts = ResolveMatchingReceipts(receipts, anchor);
+            var matchingPayments = ResolveMatchingPayments(payments, anchor);
+            total += ComputeGroupPatientCredit(siblings, matchingReceipts, matchingPayments);
+        }
+
+        return total;
+    }
+
+    private static decimal ComputeGroupPatientCredit(
+        IReadOnlyList<Invoice> siblings,
+        IReadOnlyList<CashReceipt> matchingReceipts,
+        IReadOnlyList<CashPayment> matchingPayments)
+    {
+        var paymentGross = matchingPayments.Sum(p => p.Amount);
+        var dynamicCredit = ComputeUnappliedCredit(siblings, matchingReceipts, matchingPayments);
+        if (paymentGross > 0)
+            return dynamicCredit;
+
+        var storedCredit = matchingReceipts.Sum(GetReceiptUnappliedCredit);
+        return Math.Max(storedCredit, dynamicCredit);
+    }
+
+    private static string PatientGroupKey(Invoice invoice) =>
+        !string.IsNullOrWhiteSpace(invoice.PatientId)
+            ? invoice.PatientId.Trim()
+            : invoice.PatientName?.Trim() ?? "";
+
+    private static string DoctorKey(string? doctorName) => doctorName?.Trim() ?? "";
+
     /// <summary>Net patient-doctor balance: positive = debit owed, negative = credit.</summary>
     public static decimal ComputeGroupNetBalance(
         Invoice invoice,

@@ -11,11 +11,16 @@ public class BalanceSheetModel : PageModel
 {
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
+    private readonly FinancialReportCalculator _financial;
 
-    public BalanceSheetModel(ClinicalDbContext db, ClinicContextService clinicContext)
+    public BalanceSheetModel(
+        ClinicalDbContext db,
+        ClinicContextService clinicContext,
+        FinancialReportCalculator financial)
     {
         _db = db;
         _clinicContext = clinicContext;
+        _financial = financial;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -56,30 +61,30 @@ public class BalanceSheetModel : PageModel
 
             var inventoryValue = await SumInventoryValueAsync(id);
             var accountsPayable = await SumAccountsPayableAsync(id, asOf);
-            var patientCredit = await SumPatientCreditAsync(id, asOf);
+            var patientCredit = await _financial.ComputePatientCreditLiabilityAsync(id, asOf);
 
-            Assets =
-            [
-                new BsRow("Cash Receipts (cumulative)", cashReceipts),
-                new BsRow("Less: Cash Payments (cumulative)", -cashPayments),
-                new BsRow("Cash on Hand", cashOnHand),
-                new BsRow("Accounts Receivable — Invoices", invoiceReceivable),
-                new BsRow("Accounts Receivable — Pharmacy Bills", pharmacyReceivable),
-                new BsRow("Pharmacy Inventory", inventoryValue)
-            ];
+            var assetRows = new List<BsRow>
+            {
+                new("Cash", cashOnHand),
+                new("Accounts Receivable — Invoices", invoiceReceivable),
+                new("Accounts Receivable — Pharmacy Bills", pharmacyReceivable),
+                new("Pharmacy Inventory", inventoryValue)
+            };
+            Assets = assetRows.Where(r => r.Amount != 0).ToList();
 
-            Liabilities =
-            [
-                new BsRow("Accounts Payable", accountsPayable),
-                new BsRow("Patient Credit (overpayments)", patientCredit)
-            ];
+            var liabilityRows = new List<BsRow>
+            {
+                new("Accounts Payable", accountsPayable),
+                new("Patient Credit (overpayments)", patientCredit)
+            };
+            Liabilities = liabilityRows.Where(r => r.Amount != 0).ToList();
 
             TotalAssets = cashOnHand + accountsReceivable + inventoryValue;
             TotalLiabilities = Liabilities.Sum(r => r.Amount);
-            var retainedEarnings = TotalAssets - TotalLiabilities;
 
+            var retainedEarnings = await _financial.ComputeNetIncomeAsync(id, FromDate, ToDate);
             Equity = [new BsRow("Retained Earnings", retainedEarnings)];
-            TotalEquity = Equity.Sum(r => r.Amount);
+            TotalEquity = retainedEarnings;
             ErrorMessage = null;
         }
         catch (Exception ex)
@@ -144,11 +149,6 @@ public class BalanceSheetModel : PageModel
             return 0m;
         }
     }
-
-    private async Task<decimal> SumPatientCreditAsync(Guid clinicId, DateTime asOf) =>
-        await _db.CashReceipts.ForClinic(clinicId)
-            .Where(r => r.ReceiptDate.Date <= asOf && r.PatientCredit > 0)
-            .SumAsync(r => (decimal?)r.PatientCredit) ?? 0m;
 
     public async Task<IActionResult> OnPostExportAsync()
     {

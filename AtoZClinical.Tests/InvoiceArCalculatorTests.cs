@@ -304,4 +304,50 @@ public class InvoiceArCalculatorTests
         Assert.Equal(0, totals.PatientCredit);
         Assert.Equal(0, totals.EndingBalance);
     }
+
+    [Fact]
+    public void ComputeTotalPatientCredit_is_zero_after_refund_offsets_overpayment()
+    {
+        var clinicId = Guid.NewGuid();
+        var invoice = new Invoice
+        {
+            ClinicId = clinicId,
+            InvoiceNo = 1,
+            InvoiceDate = new DateTime(2026, 6, 26),
+            PatientName = "adnan jafari",
+            PatientId = "PAT-00001",
+            DoctorName = "Mohammed Adnan",
+            TotalAmount = 25_000
+        };
+
+        var receipts = new List<CashReceipt>
+        {
+            new()
+            {
+                ClinicId = clinicId,
+                ReceiptNo = 1,
+                PatientName = invoice.PatientName,
+                PatientId = invoice.PatientId,
+                DoctorName = invoice.DoctorName,
+                Amount = 100_000,
+                PatientCredit = 75_000
+            }
+        };
+
+        var payments = new List<CashPayment>
+        {
+            new()
+            {
+                ClinicId = clinicId,
+                PaymentNo = 2,
+                PayeeName = invoice.PatientName,
+                PatientId = invoice.PatientId,
+                DoctorName = invoice.DoctorName,
+                Amount = 75_000
+            }
+        };
+
+        var credit = InvoiceArCalculator.ComputeTotalPatientCredit([invoice], receipts, payments);
+        Assert.Equal(0, credit);
+    }
 }
