@@ -27,8 +27,12 @@ public sealed class ReportingDataService : IDisposable
     public bool IsReplicaConfigured =>
         !string.IsNullOrWhiteSpace(_config.GetConnectionString("ReportingDatabase"));
 
+    /// <summary>When false (default), all reporting reads use the primary database.</summary>
+    public bool UseReadReplica =>
+        _config.GetValue("Reporting:UseReadReplica", false) && IsReplicaConfigured;
+
     /// <summary>Read-only reporting queries should use this context.</summary>
-    public ClinicalDbContext ReadDb => IsReplicaConfigured ? GetOrCreateReplica() : _primary;
+    public ClinicalDbContext ReadDb => UseReadReplica ? GetOrCreateReplica() : _primary;
 
     private ClinicalDbContext GetOrCreateReplica()
     {

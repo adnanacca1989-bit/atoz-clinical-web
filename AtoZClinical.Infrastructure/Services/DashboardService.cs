@@ -1,5 +1,5 @@
+using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
-using AtoZClinical.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Infrastructure.Services;
@@ -12,7 +12,7 @@ public sealed class DashboardService
 
     public async Task<DashboardSummary> GetSummaryAsync(Guid clinicId, DateTime from, DateTime to, bool isTodayScope)
     {
-        var _db = _reporting.ReadDb;
+        var db = _reporting.ReadDb;
         var today = DateTime.Today;
         var rangeFrom = isTodayScope ? today : from.Date;
         var rangeTo = isTodayScope ? today : to.Date;
@@ -22,52 +22,48 @@ public sealed class DashboardService
         var rangeEndExclusive = rangeTo.AddDays(1);
         var todayEndExclusive = today.AddDays(1);
 
-        var activeDoctorCount = await _db.Doctors
+        var doctorStatuses = await db.Doctors
+            .ForClinic(clinicId)
             .AsNoTracking()
-            .CountAsync(d => d.ClinicId == clinicId &&
-                             d.Status != null &&
-                             d.Status.ToLower() == "active");
+            .Select(d => d.Status)
+            .ToListAsync();
 
-        var todayStatusRows = await _db.Patients
-            .AsNoTracking()
-            .Where(p => p.ClinicId == clinicId &&
-                        p.AppointmentDate >= today &&
-                        p.AppointmentDate < todayEndExclusive)
+        var activeDoctorCount = doctorStatuses.Count(status =>
+            string.IsNullOrWhiteSpace(status) ||
+            !status.Equals("inactive", StringComparison.OrdinalIgnoreCase));
+
+        var todayStatusRows = await PatientsInRange(db.Patients.ForClinic(clinicId).AsNoTracking(), today, todayEndExclusive)
             .Select(p => p.Status)
             .ToListAsync();
 
-        var periodStatusRows = await _db.Patients
-            .AsNoTracking()
-            .Where(p => p.ClinicId == clinicId &&
-                        p.AppointmentDate >= rangeFrom &&
-                        p.AppointmentDate < rangeEndExclusive)
+        var periodStatusRows = await PatientsInRange(db.Patients.ForClinic(clinicId).AsNoTracking(), rangeFrom, rangeEndExclusive)
             .Select(p => p.Status)
             .ToListAsync();
 
-        var newRegistrations = await _db.Patients
+        var newRegistrations = await db.Patients
+            .ForClinic(clinicId)
             .AsNoTracking()
-            .CountAsync(p => p.ClinicId == clinicId &&
-                             p.CreatedAt >= rangeFrom &&
-                             p.CreatedAt < rangeEndExclusive);
+            .CountAsync(p => p.CreatedAt >= rangeFrom && p.CreatedAt < rangeEndExclusive);
 
-        var invoiceTotal = await _db.Invoices
+        var invoiceTotal = (await db.Invoices
+            .ForClinic(clinicId)
             .AsNoTracking()
-            .Where(i => i.ClinicId == clinicId &&
-                        i.InvoiceDate >= rangeFrom &&
-                        i.InvoiceDate < rangeEndExclusive)
-            .SumAsync(i => (decimal?)i.TotalAmount) ?? 0m;
+            .Where(i => i.InvoiceDate >= rangeFrom && i.InvoiceDate < rangeEndExclusive)
+            .Select(i => i.TotalAmount)
+            .ToListAsync()).Sum();
 
-        var outstandingAr = await _db.Invoices
+        var outstandingAr = (await db.Invoices
+            .ForClinic(clinicId)
             .AsNoTracking()
-            .Where(i => i.ClinicId == clinicId)
-            .SumAsync(i => (decimal?)i.BalanceDue) ?? 0m;
+            .Select(i => i.BalanceDue)
+            .ToListAsync()).Sum();
 
-        var cashReceived = await _db.CashReceipts
+        var cashReceived = (await db.CashReceipts
+            .ForClinic(clinicId)
             .AsNoTracking()
-            .Where(r => r.ClinicId == clinicId &&
-                        r.ReceiptDate >= rangeFrom &&
-                        r.ReceiptDate < rangeEndExclusive)
-            .SumAsync(r => (decimal?)r.Amount) ?? 0m;
+            .Where(r => r.ReceiptDate >= rangeFrom && r.ReceiptDate < rangeEndExclusive)
+            .Select(r => r.Amount)
+            .ToListAsync()).Sum();
 
         return new DashboardSummary
         {
@@ -87,6 +83,15 @@ public sealed class DashboardService
             OutstandingAr = outstandingAr
         };
     }
+
+    private static IQueryable<Patient> PatientsInRange(IQueryable<Patient> query, DateTime from, DateTime endExclusive) =>
+        query.Where(p =>
+            (p.AppointmentDate.HasValue &&
+             p.AppointmentDate.Value >= from &&
+             p.AppointmentDate.Value < endExclusive) ||
+            (!p.AppointmentDate.HasValue &&
+             p.CreatedAt >= from &&
+             p.CreatedAt < endExclusive));
 
     private static int CountStatus(IEnumerable<string?> statuses, string status) =>
         statuses.Count(value => PatientVisitStatuses.Normalize(value)
