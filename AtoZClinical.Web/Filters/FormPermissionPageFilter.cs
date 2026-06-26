@@ -1,3 +1,4 @@
+using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -37,6 +38,13 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
         if (context.HttpContext.Items[FormPermissionService.VisibleFormsItemKey] is HashSet<string> visible &&
             !visible.Contains(formKey))
         {
+            if (formKey == ClinicalFormKeys.ServiceIncomeRequest &&
+                visible.Contains(ClinicalFormKeys.ServiceIncomes))
+            {
+                await next();
+                return;
+            }
+
             context.Result = new RedirectToPageResult("/Dashboard/Index");
             return;
         }

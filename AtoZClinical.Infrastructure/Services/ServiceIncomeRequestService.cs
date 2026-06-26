@@ -23,8 +23,17 @@ public sealed class ServiceIncomeRequestService
         _audit = audit;
     }
 
-    public Task<List<ServiceIncomeRequest>> ListAsync(Guid clinicId) =>
-        _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+    public Task<List<ServiceIncomeRequest>> ListAsync(Guid clinicId)
+    {
+        try
+        {
+            return _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+        }
+        catch
+        {
+            return Task.FromResult(new List<ServiceIncomeRequest>());
+        }
+    }
 
     public Task<ServiceIncomeRequest?> GetAsync(Guid clinicId, Guid id) =>
         _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);

@@ -19,7 +19,7 @@
 <div class="clinical-form-page clinical-report-page clinical-standard-form">
     <h1 class="page-title">Patient Status Report</h1>
     <partial name="_ReportBranding" />
-    <form method="post" id="clinicalReportForm">
+    <form method="post" asp-page="./PatientStatus" asp-antiforgery="true" id="clinicalReportForm">
         <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
         <div class="report-filter-panel">
         <div class="row g-2 mb-0">
@@ -84,7 +84,7 @@
                         <td data-col="appointmentTime">@timeText</td>
                         <td data-col="doctorName">@r.DoctorName</td>
                         <td data-col="specialty">@r.Specialty</td>
-                        <td data-col="invoiceBalance" class="text-end">@r.InvoiceBalance.ToString("N2")</td>
+                        <td data-col="invoiceBalance" class="text-end @(r.InvoiceBalance < 0 ? "text-success" : r.InvoiceBalance > 0 ? "text-danger" : "")">@ArBalanceFormatter.Format(r.InvoiceBalance)</td>
                         <td data-col="status"><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>
                     </tr>
                 }

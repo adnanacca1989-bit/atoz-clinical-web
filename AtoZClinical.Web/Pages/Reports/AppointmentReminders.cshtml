@@ -22,7 +22,7 @@
 <div class="clinical-form-page clinical-report-page clinical-standard-form appt-reminders-page">
     <h1 class="page-title">Appointment Reminders</h1>
     <partial name="_ReportBranding" />
-    <form method="post">
+    <form method="post" asp-page="./AppointmentReminders" asp-antiforgery="true" id="apptSearchForm">
         <div class="report-filter-panel">
             <div class="row g-2 mb-0">
                 <div class="col-md-2">
@@ -94,70 +94,78 @@
                 </div>
             </div>
         </div>
-
-        <h1 class="page-title appt-reminders-title">Appointment Reminders</h1>
-
-        <div class="clinical-record-grid">
-            <table class="report-grid appt-reminders-grid">
-                <thead>
-                    <tr>
-                        <th data-col="no">No.</th>
-                        <th data-col="patientId">Patient ID</th>
-                        <th data-col="patientName">Patient Name</th>
-                        <th data-col="mobile">Mobile</th>
-                        <th data-col="doctorName">Doctor Name</th>
-                        <th data-col="specialty" data-col-default="false">Specialty</th>
-                        <th data-col="apptDate">Appt. Date</th>
-                        <th data-col="apptTime">Appt. Time</th>
-                        <th data-col="rebookTime">Re-Book Appt. Time</th>
-                        <th data-col="remainingTime">Remaining Time</th>
-                        <th data-col="status">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @{ var n = 0; }
-                @foreach (var r in Model.Results)
-                {
-                    n++;
-                    var timeText = r.AppointmentTime.HasValue
-                        ? DateTime.Today.Add(r.AppointmentTime.Value).ToString("h:mm tt")
-                        : "";
-                    <tr class="@(r.ShouldNotify ? "appt-row-alert" : "")">
-                        <td>@n</td>
-                        <td>@r.PatientNo</td>
-                        <td>@r.PatientName</td>
-                        <td>@r.Mobile</td>
-                        <td>@r.DoctorName</td>
-                        <td>@r.Specialty</td>
-                        <td>@r.AppointmentDate.ToString("M/d/yyyy")</td>
-                        <td>@timeText</td>
-                        <td>
-                            <form method="post" asp-page-handler="AdjustTime" class="d-flex gap-1 align-items-center appt-adjust-form">
-                                <input type="hidden" name="patientId" value="@r.PatientId" />
-                                <input type="date" name="appointmentDate" class="clinical-field form-control form-control-sm"
-                                       value="@r.AppointmentDate.ToString("yyyy-MM-dd")" required />
-                                <input type="time" name="appointmentTime" class="clinical-field form-control form-control-sm"
-                                       value="@(r.AppointmentTime.HasValue ? $"{r.AppointmentTime.Value.Hours:D2}:{r.AppointmentTime.Value.Minutes:D2}" : "")" />
-                                <button type="submit" class="btn btn-sm btn-outline-primary appt-adjust-btn">Save</button>
-                            </form>
-                        </td>
-                        <td><span class="appt-remaining-pill @RemainingClass(r.Status)">@r.RemainingLabel</span></td>
-                        <td><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="text-muted">Showing @Model.Results.Count reminders</span>
-            <div class="d-flex gap-2 clinical-toolbar p-0 border-0">
-                <button type="button" class="btn-form" id="reportColumnFilterBtn">Filter</button>
-                <button type="button" class="btn-form" onclick="location.reload()">Refresh</button>
-                <a class="btn-form text-decoration-none text-dark" asp-page="/Dashboard/Index">Close</a>
-            </div>
-        </div>
     </form>
+
+    <h1 class="page-title appt-reminders-title">Appointment Reminders</h1>
+
+    <div class="clinical-record-grid">
+        <table class="report-grid appt-reminders-grid">
+            <thead>
+                <tr>
+                    <th data-col="no">No.</th>
+                    <th data-col="patientId">Patient ID</th>
+                    <th data-col="patientName">Patient Name</th>
+                    <th data-col="mobile">Mobile</th>
+                    <th data-col="doctorName">Doctor Name</th>
+                    <th data-col="specialty" data-col-default="false">Specialty</th>
+                    <th data-col="apptDate">Appt. Date</th>
+                    <th data-col="apptTime">Appt. Time</th>
+                    <th data-col="rebookTime">Re-Book Appt. Time</th>
+                    <th data-col="remainingTime">Remaining Time</th>
+                    <th data-col="status">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            @{ var n = 0; }
+            @foreach (var r in Model.Results)
+            {
+                n++;
+                var timeText = r.AppointmentTime.HasValue
+                    ? DateTime.Today.Add(r.AppointmentTime.Value).ToString("h:mm tt")
+                    : "";
+                <tr class="@(r.ShouldNotify ? "appt-row-alert" : "")">
+                    <td>@n</td>
+                    <td>@r.PatientNo</td>
+                    <td>@r.PatientName</td>
+                    <td>@r.Mobile</td>
+                    <td>@r.DoctorName</td>
+                    <td>@r.Specialty</td>
+                    <td>@r.AppointmentDate.ToString("M/d/yyyy")</td>
+                    <td>@timeText</td>
+                    <td>
+                        <form method="post" asp-page="./AppointmentReminders" asp-page-handler="AdjustTime" asp-antiforgery="true" class="d-flex gap-1 align-items-center appt-adjust-form">
+                            <input type="hidden" asp-for="FromDate" />
+                            <input type="hidden" asp-for="ToDate" />
+                            <input type="hidden" asp-for="Gender" />
+                            <input type="hidden" asp-for="DoctorName" />
+                            <input type="hidden" asp-for="Specialty" />
+                            <input type="hidden" asp-for="City" />
+                            <input type="hidden" asp-for="Status" />
+                            <input type="hidden" asp-for="PatientSearch" />
+                            <input type="hidden" name="patientId" value="@r.PatientId" />
+                            <input type="date" name="appointmentDate" class="clinical-field form-control form-control-sm"
+                                   value="@r.AppointmentDate.ToString("yyyy-MM-dd")" required />
+                            <input type="time" name="appointmentTime" class="clinical-field form-control form-control-sm"
+                                   value="@(r.AppointmentTime.HasValue ? $"{r.AppointmentTime.Value.Hours:D2}:{r.AppointmentTime.Value.Minutes:D2}" : "")" />
+                            <button type="submit" class="btn btn-sm btn-outline-primary appt-adjust-btn">Save</button>
+                        </form>
+                    </td>
+                    <td><span class="appt-remaining-pill @RemainingClass(r.Status)">@r.RemainingLabel</span></td>
+                    <td><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <span class="text-muted">Showing @Model.Results.Count reminders</span>
+        <div class="d-flex gap-2 clinical-toolbar p-0 border-0">
+            <button type="button" class="btn-form" id="reportColumnFilterBtn">Filter</button>
+            <button type="button" class="btn-form" onclick="location.reload()">Refresh</button>
+            <a class="btn-form text-decoration-none text-dark" asp-page="/Dashboard/Index">Close</a>
+        </div>
+    </div>
 </div>
 
 @section Scripts {

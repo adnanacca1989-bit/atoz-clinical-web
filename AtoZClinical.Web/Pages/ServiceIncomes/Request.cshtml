@@ -10,7 +10,7 @@
     <h1 class="page-title">Service Income Request</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
     <partial name="_ClinicalFormHint" />
-    <form method="post">
+    <form method="post" asp-page="./Request" asp-antiforgery="true">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
                 <div class="clinical-context-strip">

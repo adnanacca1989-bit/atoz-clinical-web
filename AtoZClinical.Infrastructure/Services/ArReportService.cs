@@ -117,6 +117,20 @@ public sealed class ArReportService
 
         return null;
     }
+
+    public static decimal ResolvePatientDoctorEndingBalance(
+        IReadOnlyList<ArReportRow> rows, string patientName, string doctorName)
+    {
+        var group = rows.Where(r =>
+            string.Equals(r.Patient, patientName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(r.Doctor, doctorName, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (group.Count == 0) return 0m;
+
+        var debits = group.Where(x => x.EndingBalance > 0).ToList();
+        if (debits.Count > 0) return debits.Sum(x => x.EndingBalance);
+
+        return group.FirstOrDefault(x => x.EndingBalance < 0)?.EndingBalance ?? 0m;
+    }
 }
 
 public sealed record ArReportRow(

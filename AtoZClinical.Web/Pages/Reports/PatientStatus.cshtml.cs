@@ -11,11 +11,13 @@ public class PatientStatusModel : PageModel
 {
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
+    private readonly ArReportService _ar;
 
-    public PatientStatusModel(ClinicalDbContext db, ClinicContextService clinicContext)
+    public PatientStatusModel(ClinicalDbContext db, ClinicContextService clinicContext, ArReportService ar)
     {
         _db = db;
         _clinicContext = clinicContext;
+        _ar = ar;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -57,31 +59,14 @@ public class PatientStatusModel : PageModel
 
         patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, from, to)).ToList();
 
-        var invoiceBalances = await _db.Invoices
-            .AsNoTracking()
-            .Where(i => i.ClinicId == clinicId)
-            .Select(i => new { i.PatientId, i.PatientName, i.BalanceDue })
-            .ToListAsync();
-
-        var balanceByPatientId = invoiceBalances
-            .Where(i => !string.IsNullOrWhiteSpace(i.PatientId))
-            .GroupBy(i => i.PatientId!)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.BalanceDue), StringComparer.OrdinalIgnoreCase);
-
-        var balanceByName = invoiceBalances
-            .Where(i => !string.IsNullOrWhiteSpace(i.PatientName))
-            .GroupBy(i => i.PatientName!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.BalanceDue), StringComparer.OrdinalIgnoreCase);
-
+        var arReport = await _ar.BuildAsync(clinicId.Value, null, null, null, null, null);
         var now = ClinicClock.Now;
+
         var rows = patients.Select(p =>
         {
             var fullName = p.FullName;
-            decimal balance = 0;
-            if (!string.IsNullOrWhiteSpace(p.PatientNo) && balanceByPatientId.TryGetValue(p.PatientNo, out var byId))
-                balance = byId;
-            else if (!string.IsNullOrWhiteSpace(fullName) && balanceByName.TryGetValue(fullName, out var byName))
-                balance = byName;
+            var balance = ArReportService.ResolvePatientDoctorEndingBalance(
+                arReport.Rows, fullName, p.DoctorName ?? "");
 
             var effectiveDate = PatientReportDateHelper.GetEffectiveAppointmentDate(p);
             var liveStatus = AppointmentReminderService.ResolveVisitStatus(p, now);
@@ -132,7 +117,8 @@ public class PatientStatusModel : PageModel
             ["Patient", "Appointment Date", "Time", "Doctor", "Specialty", "Invoice Balance", "Status"],
             Results.Select(r => new object?[]
             {
-                r.PatientName, r.AppointmentDate, r.AppointmentTime?.ToString(@"hh\:mm"), r.DoctorName, r.Specialty, r.InvoiceBalance, r.Status
+                r.PatientName, r.AppointmentDate, r.AppointmentTime?.ToString(@"hh\:mm"), r.DoctorName, r.Specialty,
+                ArBalanceFormatter.Format(r.InvoiceBalance), r.Status
             }));
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"PatientStatus_{ClinicClock.Today:yyyyMMdd}.xlsx");
