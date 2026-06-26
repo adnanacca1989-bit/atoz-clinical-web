@@ -388,17 +388,20 @@ public sealed class CashReceiptService
     private readonly PatientInvoiceService _invoices;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public CashReceiptService(
         ClinicalDbContext db,
         PatientInvoiceService invoices,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _invoices = invoices;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
@@ -419,6 +422,13 @@ public sealed class CashReceiptService
     public async Task<CashReceipt> SaveAsync(Guid clinicId, CashReceipt item)
     {
         var isNew = item.Id == Guid.Empty;
+        CashReceipt? previous = null;
+        if (!isNew)
+        {
+            previous = await _db.CashReceipts.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
 
@@ -452,7 +462,13 @@ public sealed class CashReceiptService
 
         try
         {
-            await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId, item.DoctorName);
+            if (previous is not null)
+            {
+                try { await _billing.SyncCashReceiptAsync(clinicId, item, previous); }
+                catch { }
+            }
+            else
+                await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId, item.DoctorName);
             await _visitStatus.OnCashReceiptAsync(clinicId, item);
         }
         catch
@@ -599,15 +615,18 @@ public sealed class LabRequestService
     private readonly ClinicalDbContext _db;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public LabRequestService(
         ClinicalDbContext db,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<LabRequest>> ListAsync(Guid clinicId) =>
@@ -619,6 +638,16 @@ public sealed class LabRequestService
     public async Task<LabRequest> SaveAsync(Guid clinicId, LabRequest item, List<LabRequestLine> lines)
     {
         var isNew = item.Id == Guid.Empty;
+        LabRequest? previous = null;
+        List<LabRequestLine>? previousLines = null;
+        if (!isNew)
+        {
+            previous = await _db.LabRequests.ForClinic(clinicId).AsNoTracking()
+                .Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == item.Id);
+            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
+        }
+
         if (!isNew)
         {
             item.ClinicId = clinicId;
@@ -636,6 +665,8 @@ public sealed class LabRequestService
                     _db.LabRequestLines.Add(line);
                 }
             });
+            try { await _billing.SyncLabRequestAsync(clinicId, item, lines, previous, previousLines); }
+            catch { }
             try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
             catch { }
             return item;
@@ -729,15 +760,18 @@ public sealed class LabResultService
     private readonly ClinicalDbContext _db;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public LabResultService(
         ClinicalDbContext db,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<LabResult>> ListAsync(Guid clinicId) =>
@@ -748,6 +782,13 @@ public sealed class LabResultService
 
     public async Task<LabResult> SaveAsync(Guid clinicId, LabResult item, List<LabResultLine> lines)
     {
+        LabResult? previous = null;
+        if (item.Id != Guid.Empty)
+        {
+            previous = await _db.LabResults.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
 
@@ -773,6 +814,11 @@ public sealed class LabResultService
         }
 
         await _db.SaveChangesAsync();
+        if (previous is not null)
+        {
+            try { await _billing.SyncLabResultAsync(clinicId, item, previous); }
+            catch { }
+        }
         await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
         return item;
     }

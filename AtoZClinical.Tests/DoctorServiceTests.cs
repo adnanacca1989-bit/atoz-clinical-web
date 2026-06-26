@@ -15,9 +15,11 @@ public class DoctorServiceTests
         db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
         await db.Db.SaveChangesAsync();
 
+        var invoices = new PatientInvoiceService(db.Db);
+        var billing = new BillingPropagationService(db.Db, invoices);
         var service = new DoctorService(
             db.Db,
-            new MasterDataPropagationService(db.Db),
+            new MasterDataPropagationService(db.Db, billing),
             new InvoiceDeleteGuardService(db.Db));
 
         var saved = await service.SaveAsync(clinicId, new Doctor
@@ -42,9 +44,11 @@ public class DoctorServiceTests
         db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
         await db.Db.SaveChangesAsync();
 
+        var invoices = new PatientInvoiceService(db.Db);
+        var billing = new BillingPropagationService(db.Db, invoices);
         var service = new DoctorService(
             db.Db,
-            new MasterDataPropagationService(db.Db),
+            new MasterDataPropagationService(db.Db, billing),
             new InvoiceDeleteGuardService(db.Db));
 
         await service.SaveAsync(clinicId, new Doctor
@@ -74,9 +78,11 @@ public class DoctorServiceTests
         db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
         await db.Db.SaveChangesAsync();
 
+        var invoices = new PatientInvoiceService(db.Db);
+        var billing = new BillingPropagationService(db.Db, invoices);
         var service = new DoctorService(
             db.Db,
-            new MasterDataPropagationService(db.Db),
+            new MasterDataPropagationService(db.Db, billing),
             new InvoiceDeleteGuardService(db.Db));
 
         var saved = await service.SaveAsync(clinicId, new Doctor

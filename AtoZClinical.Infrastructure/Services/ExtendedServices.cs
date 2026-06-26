@@ -141,17 +141,20 @@ public sealed class RadiologyRequestService
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public RadiologyRequestService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<RadiologyRequest>> ListAsync(Guid clinicId) =>
@@ -163,6 +166,16 @@ public sealed class RadiologyRequestService
     public async Task<RadiologyRequest> SaveAsync(Guid clinicId, RadiologyRequest item, List<RadiologyRequestLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        RadiologyRequest? previous = null;
+        List<RadiologyRequestLine>? previousLines = null;
+        if (!isNew)
+        {
+            previous = await _db.RadiologyRequests.ForClinic(clinicId).AsNoTracking()
+                .Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == item.Id);
+            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
+        }
+
         if (!isNew)
         {
             item.ClinicId = clinicId;
@@ -180,6 +193,8 @@ public sealed class RadiologyRequestService
                     _db.RadiologyRequestLines.Add(line);
                 }
             });
+            try { await _billing.SyncRadiologyRequestAsync(clinicId, item, lines, previous, previousLines); }
+            catch { }
             try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
             catch { }
             await _audit.LogAsync(clinicId, userName, "Radiology Request", "Update",
@@ -279,17 +294,20 @@ public sealed class RadiologyResultService
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public RadiologyResultService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<RadiologyResult>> ListAsync(Guid clinicId) =>
@@ -301,6 +319,13 @@ public sealed class RadiologyResultService
     public async Task<RadiologyResult> SaveAsync(Guid clinicId, RadiologyResult item, List<RadiologyResultLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        RadiologyResult? previous = null;
+        if (!isNew)
+        {
+            previous = await _db.RadiologyResults.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
 
@@ -326,6 +351,11 @@ public sealed class RadiologyResultService
         }
 
         await _db.SaveChangesAsync();
+        if (previous is not null)
+        {
+            try { await _billing.SyncRadiologyResultAsync(clinicId, item, previous); }
+            catch { }
+        }
         await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Radiology Result", isNew ? "Create" : "Update",
             $"Result #{item.ResultNo} — {item.PatientName}");
@@ -349,17 +379,20 @@ public sealed class PrescriptionService
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public PrescriptionService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<Prescription>> ListAsync(Guid clinicId) =>
@@ -371,6 +404,13 @@ public sealed class PrescriptionService
     public async Task<Prescription> SaveAsync(Guid clinicId, Prescription item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        Prescription? previous = null;
+        if (!isNew)
+        {
+            previous = await _db.Prescriptions.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (isNew)
@@ -383,6 +423,11 @@ public sealed class PrescriptionService
         else _db.Prescriptions.Update(item);
 
         await _db.SaveChangesAsync();
+        if (previous is not null)
+        {
+            try { await _billing.SyncPrescriptionAsync(clinicId, item, previous); }
+            catch { }
+        }
         await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
         await _audit.LogAsync(clinicId, userName, "Prescription", isNew ? "Create" : "Update",
             $"Prescription #{item.PrescriptionNo} — {item.PatientName}");
@@ -528,17 +573,20 @@ public sealed class CashPaymentService
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientInvoiceService _invoices;
+    private readonly BillingPropagationService _billing;
 
     public CashPaymentService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientInvoiceService invoices)
+        PatientInvoiceService invoices,
+        BillingPropagationService billing)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _invoices = invoices;
+        _billing = billing;
     }
 
     public Task<List<CashPayment>> ListAsync(Guid clinicId) =>
@@ -553,6 +601,13 @@ public sealed class CashPaymentService
     public async Task<CashPayment> SaveAsync(Guid clinicId, CashPayment item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        CashPayment? previous = null;
+        if (!isNew)
+        {
+            previous = await _db.CashPayments.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == item.Id);
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (isNew)
@@ -567,7 +622,12 @@ public sealed class CashPaymentService
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Cash Payment", isNew ? "Create" : "Update",
             $"Payment #{item.PaymentNo} — {item.PayeeName}, {item.Amount:N2}");
-        if (!string.IsNullOrWhiteSpace(item.PayeeName) || !string.IsNullOrWhiteSpace(item.PatientId))
+        if (previous is not null)
+        {
+            try { await _billing.SyncCashPaymentAsync(clinicId, item, previous); }
+            catch { }
+        }
+        else if (!string.IsNullOrWhiteSpace(item.PayeeName) || !string.IsNullOrWhiteSpace(item.PatientId))
             await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PayeeName, item.PatientId, item.DoctorName);
         return item;
     }
@@ -739,17 +799,20 @@ public sealed class PharmacyRequestService
     private readonly AuditService _audit;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public PharmacyRequestService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<PharmacyRequest>> ListAsync(Guid clinicId) =>
@@ -801,6 +864,16 @@ public sealed class PharmacyRequestService
     public async Task<PharmacyRequest> SaveAsync(Guid clinicId, PharmacyRequest item, List<PharmacyRequestLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        PharmacyRequest? previous = null;
+        List<PharmacyRequestLine>? previousLines = null;
+        if (!isNew)
+        {
+            previous = await _db.PharmacyRequests.ForClinic(clinicId).AsNoTracking()
+                .Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == item.Id);
+            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
+        }
+
         if (!isNew)
         {
             item.ClinicId = clinicId;
@@ -818,6 +891,8 @@ public sealed class PharmacyRequestService
                     _db.PharmacyRequestLines.Add(line);
                 }
             });
+            try { await _billing.SyncPharmacyRequestAsync(clinicId, item, lines, previous, previousLines); }
+            catch { }
             try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName); }
             catch { }
             await _audit.LogAsync(clinicId, userName, "Pharmacy Request", "Update",
@@ -910,19 +985,22 @@ public sealed class PharmacyBillService
     private readonly PharmacyInventoryService _inventory;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly BillingPropagationService _billing;
 
     public PharmacyBillService(
         ClinicalDbContext db,
         AuditService audit,
         PharmacyInventoryService inventory,
         InvoiceDeleteGuardService invoiceGuard,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        BillingPropagationService billing)
     {
         _db = db;
         _audit = audit;
         _inventory = inventory;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
+        _billing = billing;
     }
 
     public Task<List<PharmacyBill>> ListAsync(Guid clinicId) =>
@@ -934,6 +1012,16 @@ public sealed class PharmacyBillService
     public async Task<PharmacyBill> SaveAsync(Guid clinicId, PharmacyBill item, List<PharmacyBillLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        PharmacyBill? previous = null;
+        List<PharmacyBillLine>? previousLines = null;
+        if (!isNew)
+        {
+            previous = await _db.PharmacyBills.ForClinic(clinicId).AsNoTracking()
+                .Include(b => b.Lines)
+                .FirstOrDefaultAsync(b => b.Id == item.Id);
+            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         item.SubTotal = lines.Sum(l => l.LineTotal);
@@ -962,6 +1050,12 @@ public sealed class PharmacyBillService
         }
 
         await _db.SaveChangesAsync();
+
+        if (previous is not null)
+        {
+            try { await _billing.SyncPharmacyBillAsync(clinicId, item, lines, previous, previousLines); }
+            catch { }
+        }
 
         var validLines = lines.Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName))).ToList();
         await _inventory.SyncBillOutAsync(clinicId, item, validLines);

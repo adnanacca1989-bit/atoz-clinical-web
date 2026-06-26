@@ -11,8 +11,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class MasterDataPropagationService
 {
     private readonly ClinicalDbContext _db;
+    private readonly BillingPropagationService _billing;
 
-    public MasterDataPropagationService(ClinicalDbContext db) => _db = db;
+    public MasterDataPropagationService(ClinicalDbContext db, BillingPropagationService billing)
+    {
+        _db = db;
+        _billing = billing;
+    }
 
     public async Task PropagatePatientAsync(Guid clinicId, Patient previous, Patient current)
     {
@@ -118,6 +123,14 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
+        await _db.CashPayments
+            .Where(p => p.ClinicId == clinicId && (p.PatientId == patientNo || p.PayeeName == oldName))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.PatientId, patientNo)
+                .SetProperty(p => p.PayeeName, newName)
+                .SetProperty(p => p.DoctorName, doctorName)
+                .SetProperty(p => p.UpdatedAt, now));
+
         await _db.Prescriptions
             .Where(p => p.ClinicId == clinicId && p.PatientName == oldName)
             .ExecuteUpdateAsync(s => s
@@ -208,6 +221,12 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
+        await _db.CashPayments
+            .Where(p => p.ClinicId == clinicId && p.DoctorName == oldName)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.DoctorName, newName)
+                .SetProperty(p => p.UpdatedAt, now));
+
         await _db.Prescriptions
             .Where(p => p.ClinicId == clinicId && p.DoctorName == oldName)
             .ExecuteUpdateAsync(s => s
@@ -290,6 +309,18 @@ public sealed class MasterDataPropagationService
         }
 
         await RecalcLabRequestTotalsAsync(clinicId, requestIds);
+        foreach (var requestId in requestIds)
+        {
+            var request = await _db.LabRequests.ForClinic(clinicId).Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+            if (request is null) continue;
+            var orderedLines = request.Lines.OrderBy(l => l.LineNo).ToList();
+            try
+            {
+                await _billing.SyncLabRequestAsync(clinicId, request, orderedLines, request, orderedLines);
+            }
+            catch { }
+        }
     }
 
     public async Task PropagateRadiologyTestAsync(Guid clinicId, RadiologyTest previous, RadiologyTest current)
@@ -327,6 +358,18 @@ public sealed class MasterDataPropagationService
         }
 
         await RecalcRadiologyRequestTotalsAsync(clinicId, requestIds);
+        foreach (var requestId in requestIds)
+        {
+            var request = await _db.RadiologyRequests.ForClinic(clinicId).Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+            if (request is null) continue;
+            var orderedLines = request.Lines.OrderBy(l => l.LineNo).ToList();
+            try
+            {
+                await _billing.SyncRadiologyRequestAsync(clinicId, request, orderedLines, request, orderedLines);
+            }
+            catch { }
+        }
     }
 
     public async Task PropagatePharmacyItemAsync(Guid clinicId, PharmacyItem previous, PharmacyItem current)
@@ -381,6 +424,32 @@ public sealed class MasterDataPropagationService
 
         await RecalcPharmacyRequestTotalsAsync(clinicId, requestIds);
         await RecalcPharmacyBillTotalsAsync(clinicId, billIds);
+
+        foreach (var requestId in requestIds)
+        {
+            var request = await _db.PharmacyRequests.ForClinic(clinicId).Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+            if (request is null) continue;
+            var orderedLines = request.Lines.OrderBy(l => l.LineNo).ToList();
+            try
+            {
+                await _billing.SyncPharmacyRequestAsync(clinicId, request, orderedLines, request, orderedLines);
+            }
+            catch { }
+        }
+
+        foreach (var billId in billIds)
+        {
+            var bill = await _db.PharmacyBills.ForClinic(clinicId).Include(b => b.Lines)
+                .FirstOrDefaultAsync(b => b.Id == billId);
+            if (bill is null) continue;
+            var orderedLines = bill.Lines.OrderBy(l => l.LineNo).ToList();
+            try
+            {
+                await _billing.SyncPharmacyBillAsync(clinicId, bill, orderedLines, bill, orderedLines);
+            }
+            catch { }
+        }
     }
 
     public async Task PropagateServiceIncomeAsync(Guid clinicId, ServiceIncome previous, ServiceIncome current)

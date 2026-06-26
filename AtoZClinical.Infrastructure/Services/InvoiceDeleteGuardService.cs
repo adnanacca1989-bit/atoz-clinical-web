@@ -21,7 +21,7 @@ public sealed class InvoiceDeleteGuardService
 
     public async Task EnsureCanDeleteDoctorAsync(Guid clinicId, string doctorName)
     {
-        if (await _db.Invoices.AnyAsync(i => i.ClinicId == clinicId && i.DoctorName == doctorName))
+        if (await _db.Invoices.ForClinic(clinicId).AnyAsync(i => i.DoctorName == doctorName))
             throw new InvalidOperationException(BlockMessage);
     }
 
@@ -67,8 +67,8 @@ public sealed class InvoiceDeleteGuardService
 
     public async Task EnsureCanDeleteCashPaymentAsync(Guid clinicId, CashPayment payment)
     {
-        if (!string.IsNullOrWhiteSpace(payment.PayeeName))
-            await EnsurePatientHasInvoiceAsync(clinicId, null, payment.PayeeName);
+        if (!string.IsNullOrWhiteSpace(payment.PatientId) || !string.IsNullOrWhiteSpace(payment.PayeeName))
+            await EnsurePatientHasInvoiceAsync(clinicId, payment.PatientId, payment.PayeeName);
     }
 
     private async Task EnsureInvoiceLinePatternAsync(Guid clinicId, string pattern)
@@ -84,15 +84,14 @@ public sealed class InvoiceDeleteGuardService
     }
 
     private async Task<bool> HasInvoiceForPatientAsync(Guid clinicId, string? patientId, string? patientName) =>
-        await _db.Invoices.AnyAsync(i =>
-            i.ClinicId == clinicId &&
-            ((!string.IsNullOrWhiteSpace(patientId) && i.PatientId == patientId) ||
-             (!string.IsNullOrWhiteSpace(patientName) && i.PatientName == patientName)));
+        await _db.Invoices.ForClinic(clinicId).AnyAsync(i =>
+            (!string.IsNullOrWhiteSpace(patientId) && i.PatientId == patientId) ||
+            (!string.IsNullOrWhiteSpace(patientName) && i.PatientName == patientName));
 
     private async Task<bool> InvoiceLineExistsAsync(Guid clinicId, string pattern) =>
-        await _db.InvoiceLines
-            .AnyAsync(l => l.Invoice != null &&
-                           l.Invoice.ClinicId == clinicId &&
-                           l.ServiceName != null &&
-                           l.ServiceName.Contains(pattern));
+        await (
+            from line in _db.InvoiceLines
+            join invoice in _db.Invoices.ForClinic(clinicId) on line.InvoiceId equals invoice.Id
+            where line.ServiceName != null && line.ServiceName.Contains(pattern)
+            select line).AnyAsync();
 }

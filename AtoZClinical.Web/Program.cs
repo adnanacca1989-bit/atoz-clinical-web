@@ -240,6 +240,7 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ClinicLookupService>();
 builder.Services.AddScoped<PharmacyPurchaseBillService>();
 builder.Services.AddScoped<PatientInvoiceService>();
+builder.Services.AddScoped<BillingPropagationService>();
 builder.Services.AddScoped<PatientVisitHistoryService>();
 builder.Services.AddScoped<InvoiceDeleteGuardService>();
 builder.Services.AddScoped<PatientVisitStatusService>();
