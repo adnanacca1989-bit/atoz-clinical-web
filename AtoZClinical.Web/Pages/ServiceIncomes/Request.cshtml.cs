@@ -107,7 +107,7 @@ public class RequestModel : ClinicFormPageModel
             .Where(l => !string.IsNullOrWhiteSpace(l.ServiceName))
             .Select(l => l.ToEntity())
             .ToList();
-        var saved = await _service.SaveAsync(clinicId.Value, entity, lines);
+        var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
         return RedirectAfterSave(saved.Id);
     }
 
@@ -118,7 +118,7 @@ public class RequestModel : ClinicFormPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null || !RecordId.HasValue) return RedirectToPage();
         return await SafeDeleteAsync(
-            () => _service.DeleteAsync(clinicId.Value, RecordId.Value),
+            () => _service.DeleteAsync(clinicId.Value, RecordId.Value, UserName),
             async () =>
             {
                 await LoadAsync(clinicId.Value);

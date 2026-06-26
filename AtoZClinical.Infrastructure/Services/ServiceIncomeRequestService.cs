@@ -9,15 +9,18 @@ public sealed class ServiceIncomeRequestService
     private readonly ClinicalDbContext _db;
     private readonly BillingPropagationService _billing;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly AuditService _audit;
 
     public ServiceIncomeRequestService(
         ClinicalDbContext db,
         BillingPropagationService billing,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        AuditService audit)
     {
         _db = db;
         _billing = billing;
         _visitStatus = visitStatus;
+        _audit = audit;
     }
 
     public Task<List<ServiceIncomeRequest>> ListAsync(Guid clinicId) =>
@@ -26,7 +29,7 @@ public sealed class ServiceIncomeRequestService
     public Task<ServiceIncomeRequest?> GetAsync(Guid clinicId, Guid id) =>
         _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
-    public async Task<ServiceIncomeRequest> SaveAsync(Guid clinicId, ServiceIncomeRequest item, List<ServiceIncomeRequestLine> lines)
+    public async Task<ServiceIncomeRequest> SaveAsync(Guid clinicId, ServiceIncomeRequest item, List<ServiceIncomeRequestLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
         ServiceIncomeRequest? previous = null;
@@ -63,6 +66,10 @@ public sealed class ServiceIncomeRequestService
                 }
             });
             await SyncBillingAsync(clinicId, item, validLines, previous, previousLines);
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+            catch { }
+            await _audit.LogAsync(clinicId, userName, "Service Income Request", "Update",
+                $"Request #{item.RequestNo} — {item.PatientName}");
             return item;
         }
 
@@ -112,15 +119,20 @@ public sealed class ServiceIncomeRequestService
         try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
         catch { }
 
+        await _audit.LogAsync(clinicId, userName, "Service Income Request", "Create",
+            $"Request #{item.RequestNo} — {item.PatientName}");
+
         return item;
     }
 
-    public async Task DeleteAsync(Guid clinicId, Guid id)
+    public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
         _db.ServiceIncomeRequests.Remove(item);
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(clinicId, userName, "Service Income Request", "Delete",
+            $"Request #{item.RequestNo} — {item.PatientName}");
     }
 
     private async Task SyncBillingAsync(

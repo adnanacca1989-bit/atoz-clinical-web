@@ -78,7 +78,7 @@
                     <tr>
                         <td data-col="no">@n</td>
                         <td data-col="patientName">@r.PatientName</td>
-                        <td data-col="appointmentDate">@(r.AppointmentDate?.ToString("M/d/yyyy") ?? "")</td>
+                        <td data-col="appointmentDate">@r.AppointmentDate.ToString("M/d/yyyy")</td>
                         <td data-col="appointmentTime">@timeText</td>
                         <td data-col="doctorName">@r.DoctorName</td>
                         <td data-col="specialty">@r.Specialty</td>

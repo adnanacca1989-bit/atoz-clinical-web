@@ -19,10 +19,10 @@ public class PatientStatusModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)]
-    public DateTime FromDate { get; set; } = DateTime.Today.AddMonths(-1);
+    public DateTime FromDate { get; set; } = ClinicClock.Today.AddMonths(-1);
 
     [BindProperty(SupportsGet = true)]
-    public DateTime ToDate { get; set; } = DateTime.Today;
+    public DateTime ToDate { get; set; } = ClinicClock.Today;
 
     [BindProperty(SupportsGet = true)]
     public string Status { get; set; } = "All";
@@ -46,30 +46,15 @@ public class PatientStatusModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var from = FromDate.Date;
-        var to = ToDate.Date;
+        var from = ClinicClock.ToClinicDate(FromDate);
+        var to = ClinicClock.ToClinicDate(ToDate);
 
         var patients = await _db.Patients
             .AsNoTracking()
             .Where(p => p.ClinicId == clinicId)
-            .Select(p => new
-            {
-                p.FirstName,
-                p.LastName,
-                p.PatientNo,
-                p.AppointmentDate,
-                p.AppointmentTime,
-                p.DoctorName,
-                p.Specialty,
-                p.Status
-            })
             .ToListAsync();
 
-        var patientRows = patients
-            .Where(p => p.AppointmentDate.HasValue &&
-                        p.AppointmentDate.Value.Date >= from &&
-                        p.AppointmentDate.Value.Date <= to)
-            .ToList();
+        patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, from, to)).ToList();
 
         var invoiceBalances = await _db.Invoices
             .AsNoTracking()
@@ -87,27 +72,28 @@ public class PatientStatusModel : PageModel
             .GroupBy(i => i.PatientName!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.BalanceDue), StringComparer.OrdinalIgnoreCase);
 
-        var rows = patientRows.Select(p =>
+        var now = ClinicClock.Now;
+        var rows = patients.Select(p =>
         {
-            var fullName = string.IsNullOrWhiteSpace(p.LastName)
-                ? p.FirstName.Trim()
-                : $"{p.FirstName} {p.LastName}".Trim();
-
+            var fullName = p.FullName;
             decimal balance = 0;
             if (!string.IsNullOrWhiteSpace(p.PatientNo) && balanceByPatientId.TryGetValue(p.PatientNo, out var byId))
                 balance = byId;
             else if (!string.IsNullOrWhiteSpace(fullName) && balanceByName.TryGetValue(fullName, out var byName))
                 balance = byName;
 
+            var effectiveDate = PatientReportDateHelper.GetEffectiveAppointmentDate(p);
+            var liveStatus = AppointmentReminderService.ResolveVisitStatus(p, now);
+
             return new StatusRow(
                 fullName,
                 p.PatientNo,
-                p.AppointmentDate,
+                effectiveDate,
                 p.AppointmentTime,
                 p.DoctorName ?? "",
                 p.Specialty ?? "",
                 balance,
-                PatientVisitStatuses.Normalize(p.Status));
+                liveStatus);
         }).OrderBy(r => r.AppointmentDate).ToList();
 
         if (!Status.Equals("All", StringComparison.OrdinalIgnoreCase))
@@ -115,9 +101,19 @@ public class PatientStatusModel : PageModel
                 PatientVisitStatuses.Normalize(r.Status).Equals(Status, StringComparison.OrdinalIgnoreCase)).ToList();
 
         if (!string.IsNullOrWhiteSpace(PatientBarcode))
-            rows = rows.Where(r => r.PatientNo?.Equals(PatientBarcode.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
+        {
+            var barcode = PatientBarcode.Trim();
+            rows = rows.Where(r =>
+                r.PatientNo?.Equals(barcode, StringComparison.OrdinalIgnoreCase) == true ||
+                r.PatientNo?.Contains(barcode, StringComparison.OrdinalIgnoreCase) == true).ToList();
+        }
+
         if (!string.IsNullOrWhiteSpace(PatientName))
-            rows = rows.Where(r => r.PatientName.Contains(PatientName.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        {
+            var name = PatientName.Trim();
+            rows = rows.Where(r =>
+                r.PatientName.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
 
         Results = rows;
         return Page();
@@ -133,13 +129,13 @@ public class PatientStatusModel : PageModel
                 r.PatientName, r.AppointmentDate, r.AppointmentTime?.ToString(@"hh\:mm"), r.DoctorName, r.Specialty, r.InvoiceBalance, r.Status
             }));
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"PatientStatus_{DateTime.Now:yyyyMMdd}.xlsx");
+            $"PatientStatus_{ClinicClock.Today:yyyyMMdd}.xlsx");
     }
 
     public sealed record StatusRow(
         string PatientName,
         string? PatientNo,
-        DateTime? AppointmentDate,
+        DateTime AppointmentDate,
         TimeSpan? AppointmentTime,
         string DoctorName,
         string Specialty,

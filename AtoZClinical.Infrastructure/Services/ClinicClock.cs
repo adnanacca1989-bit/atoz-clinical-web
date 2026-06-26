@@ -30,6 +30,13 @@ public static class ClinicClock
     public static DateTime? ToClinicDate(DateTime? value) =>
         value.HasValue ? ToClinicDate(value.Value) : null;
 
+    public static DateTime ToClinicDateTime(DateTime value) =>
+        value.Kind switch
+        {
+            DateTimeKind.Utc => TimeZoneInfo.ConvertTimeFromUtc(value, ClinicZone),
+            _ => value
+        };
+
     public static DateTime? CombineAppointment(DateTime? date, TimeSpan? time)
     {
         if (!date.HasValue) return null;

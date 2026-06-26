@@ -26,14 +26,10 @@ public sealed class AppointmentReminderService
         var to = ClinicClock.ToClinicDate(toDate);
 
         var patients = await _db.Patients
-            .Where(p => p.ClinicId == clinicId && p.AppointmentDate != null)
+            .Where(p => p.ClinicId == clinicId)
             .ToListAsync();
 
-        patients = patients.Where(p =>
-        {
-            var apptDate = ClinicClock.ToClinicDate(p.AppointmentDate);
-            return apptDate >= from && apptDate <= to;
-        }).ToList();
+        patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, from, to)).ToList();
 
         if (!string.IsNullOrWhiteSpace(gender) && !gender.Equals("All", StringComparison.OrdinalIgnoreCase))
             patients = patients.Where(p => string.Equals(p.Gender, gender, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -76,10 +72,9 @@ public sealed class AppointmentReminderService
     {
         var today = ClinicClock.Today;
         var patients = await _db.Patients
-            .Where(p => p.ClinicId == clinicId &&
-                        p.AppointmentDate.HasValue &&
-                        p.AppointmentDate.Value.Date == today)
+            .Where(p => p.ClinicId == clinicId)
             .ToListAsync();
+        patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, today, today)).ToList();
 
         var now = ClinicClock.Now;
         return patients
@@ -115,11 +110,12 @@ public sealed class AppointmentReminderService
 
     private static AppointmentReminderRow? BuildRow(Patient patient, DateTime now)
     {
-        var appointmentAt = ClinicClock.CombineAppointment(patient.AppointmentDate, patient.AppointmentTime);
+        var effectiveDate = patient.AppointmentDate ?? patient.CreatedAt;
+        var appointmentAt = ClinicClock.CombineAppointment(effectiveDate, patient.AppointmentTime);
         if (appointmentAt is null) return null;
 
         var minutes = (int)Math.Round((appointmentAt.Value - now).TotalMinutes);
-        var status = AppointmentReminderService.ResolveVisitStatus(patient, now);
+        var status = ResolveVisitStatus(patient, now);
         var shouldNotify = minutes <= 15 && minutes >= 0 &&
                            !status.Equals("Completed", StringComparison.OrdinalIgnoreCase) &&
                            !status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase);
@@ -142,7 +138,7 @@ public sealed class AppointmentReminderService
             patient.Phone ?? "",
             patient.DoctorName ?? "",
             patient.Specialty ?? "",
-            patient.AppointmentDate!.Value,
+            ClinicClock.ToClinicDate(effectiveDate),
             patient.AppointmentTime,
             appointmentAt.Value,
             remainingLabel,

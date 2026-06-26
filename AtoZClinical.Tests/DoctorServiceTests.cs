@@ -20,7 +20,8 @@ public class DoctorServiceTests
         var service = new DoctorService(
             db.Db,
             new MasterDataPropagationService(db.Db, billing),
-            new InvoiceDeleteGuardService(db.Db));
+            new InvoiceDeleteGuardService(db.Db),
+            new AuditService(db.Db));
 
         var saved = await service.SaveAsync(clinicId, new Doctor
         {
@@ -49,7 +50,8 @@ public class DoctorServiceTests
         var service = new DoctorService(
             db.Db,
             new MasterDataPropagationService(db.Db, billing),
-            new InvoiceDeleteGuardService(db.Db));
+            new InvoiceDeleteGuardService(db.Db),
+            new AuditService(db.Db));
 
         await service.SaveAsync(clinicId, new Doctor
         {
@@ -83,7 +85,8 @@ public class DoctorServiceTests
         var service = new DoctorService(
             db.Db,
             new MasterDataPropagationService(db.Db, billing),
-            new InvoiceDeleteGuardService(db.Db));
+            new InvoiceDeleteGuardService(db.Db),
+            new AuditService(db.Db));
 
         var saved = await service.SaveAsync(clinicId, new Doctor
         {

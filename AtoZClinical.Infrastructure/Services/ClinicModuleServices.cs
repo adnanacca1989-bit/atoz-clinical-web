@@ -153,12 +153,14 @@ public sealed class DoctorService
     private readonly ClinicalDbContext _db;
     private readonly MasterDataPropagationService _propagation;
     private readonly InvoiceDeleteGuardService _invoiceGuard;
+    private readonly AuditService _audit;
 
-    public DoctorService(ClinicalDbContext db, MasterDataPropagationService propagation, InvoiceDeleteGuardService invoiceGuard)
+    public DoctorService(ClinicalDbContext db, MasterDataPropagationService propagation, InvoiceDeleteGuardService invoiceGuard, AuditService audit)
     {
         _db = db;
         _propagation = propagation;
         _invoiceGuard = invoiceGuard;
+        _audit = audit;
     }
 
     public Task<List<Doctor>> ListAsync(Guid clinicId) =>
@@ -233,6 +235,7 @@ public sealed class DoctorService
                     : new InvalidOperationException($"Could not save doctor ({detail}). Please click + New and try again.");
             }
 
+            await _audit.LogAsync(clinicId, userName, "Doctors", "Create", $"{saved.Name} (#{saved.DoctorNo})");
             return saved;
         }
         else
@@ -255,6 +258,7 @@ public sealed class DoctorService
                 "Doctor was saved, but linked transactions could not be updated. Please try saving the doctor again.", ex);
         }
 
+        await _audit.LogAsync(clinicId, userName, "Doctors", "Update", $"{doctor.Name} (#{doctor.DoctorNo})");
         return doctor;
     }
 
@@ -266,13 +270,14 @@ public sealed class DoctorService
                 && message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase));
     }
 
-    public async Task DeleteAsync(Guid clinicId, Guid id)
+    public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
         await _invoiceGuard.EnsureCanDeleteDoctorAsync(clinicId, item.Name);
         _db.Doctors.Remove(item);
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(clinicId, userName, "Doctors", "Delete", $"{item.Name} (#{item.DoctorNo})");
     }
 
     public async Task<int> NextNoAsync(Guid clinicId, int skip = 0)
@@ -300,11 +305,13 @@ public sealed class ServiceIncomeService
 {
     private readonly ClinicalDbContext _db;
     private readonly MasterDataPropagationService _propagation;
+    private readonly AuditService _audit;
 
-    public ServiceIncomeService(ClinicalDbContext db, MasterDataPropagationService propagation)
+    public ServiceIncomeService(ClinicalDbContext db, MasterDataPropagationService propagation, AuditService audit)
     {
         _db = db;
         _propagation = propagation;
+        _audit = audit;
     }
 
     public Task<List<ServiceIncome>> ListAsync(Guid clinicId) =>
@@ -313,7 +320,7 @@ public sealed class ServiceIncomeService
     public Task<ServiceIncome?> GetAsync(Guid clinicId, Guid id) =>
         _db.ServiceIncomes.ForClinic(clinicId).FirstOrDefaultAsync(s => s.Id == id);
 
-    public async Task<ServiceIncome> SaveAsync(Guid clinicId, ServiceIncome item)
+    public async Task<ServiceIncome> SaveAsync(Guid clinicId, ServiceIncome item, string? userName = null)
     {
         ServiceIncome? previous = null;
         var isNew = item.Id == Guid.Empty;
@@ -365,6 +372,8 @@ public sealed class ServiceIncomeService
             catch { }
         }
 
+        await _audit.LogAsync(clinicId, userName, "Service Income", isNew ? "Create" : "Update",
+            $"#{item.ServiceNo} — {item.Name}");
         return item;
     }
 
@@ -374,12 +383,13 @@ public sealed class ServiceIncomeService
         return max + 1 + skip;
     }
 
-    public async Task DeleteAsync(Guid clinicId, Guid id)
+    public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
         _db.ServiceIncomes.Remove(item);
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(clinicId, userName, "Service Income", "Delete", $"#{item.ServiceNo} — {item.Name}");
     }
 }
 
@@ -390,19 +400,22 @@ public sealed class CashReceiptService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly AuditService _audit;
 
     public CashReceiptService(
         ClinicalDbContext db,
         PatientInvoiceService invoices,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        AuditService audit)
     {
         _db = db;
         _invoices = invoices;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _audit = audit;
     }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
@@ -420,7 +433,7 @@ public sealed class CashReceiptService
         return max + 1 + skip;
     }
 
-    public async Task<CashReceipt> SaveAsync(Guid clinicId, CashReceipt item)
+    public async Task<CashReceipt> SaveAsync(Guid clinicId, CashReceipt item, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
         CashReceipt? previous = null;
@@ -477,6 +490,8 @@ public sealed class CashReceiptService
             // Receipt row is already saved.
         }
 
+        await _audit.LogAsync(clinicId, userName, "Cash Receipt", isNew ? "Create" : "Update",
+            $"Receipt #{item.ReceiptNo} — {item.PatientName}");
         return item;
     }
 
@@ -506,7 +521,7 @@ public sealed class CashReceiptService
         PatientSearch = source.PatientSearch
     };
 
-    public async Task DeleteAsync(Guid clinicId, Guid id)
+    public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
@@ -517,6 +532,8 @@ public sealed class CashReceiptService
         _db.CashReceipts.Remove(item);
         await _db.SaveChangesAsync();
         await _invoices.RecalculateInvoicePaymentsAsync(clinicId, patientName, patientId, doctorName);
+        await _audit.LogAsync(clinicId, userName, "Cash Receipt", "Delete",
+            $"Receipt #{item.ReceiptNo} — {item.PatientName}");
     }
 }
 
@@ -617,17 +634,20 @@ public sealed class LabRequestService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly AuditService _audit;
 
     public LabRequestService(
         ClinicalDbContext db,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        AuditService audit)
     {
         _db = db;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _audit = audit;
     }
 
     public Task<List<LabRequest>> ListAsync(Guid clinicId) =>
@@ -636,7 +656,7 @@ public sealed class LabRequestService
     public Task<LabRequest?> GetAsync(Guid clinicId, Guid id) =>
         _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
-    public async Task<LabRequest> SaveAsync(Guid clinicId, LabRequest item, List<LabRequestLine> lines)
+    public async Task<LabRequest> SaveAsync(Guid clinicId, LabRequest item, List<LabRequestLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
         LabRequest? previous = null;
@@ -670,6 +690,8 @@ public sealed class LabRequestService
             catch { }
             try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
             catch { }
+            await _audit.LogAsync(clinicId, userName, "Laboratory Request", "Update",
+                $"Request #{item.RequestNo} — {item.PatientName}");
             return item;
         }
 
@@ -712,6 +734,8 @@ public sealed class LabRequestService
 
         try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
         catch { }
+        await _audit.LogAsync(clinicId, userName, "Laboratory Request", "Create",
+            $"Request #{item.RequestNo} — {item.PatientName}");
         return item;
     }
 
@@ -734,13 +758,15 @@ public sealed class LabRequestService
         Specialty = source.Specialty
     };
 
-    public async Task DeleteAsync(Guid clinicId, Guid id)
+    public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
     {
         var item = await GetAsync(clinicId, id);
         if (item is null) return;
         await _invoiceGuard.EnsureCanDeleteLabRequestAsync(clinicId, item.RequestNo);
         _db.LabRequests.Remove(item);
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(clinicId, userName, "Laboratory Request", "Delete",
+            $"Request #{item.RequestNo} — {item.PatientName}");
     }
 
     public Task<LabRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode) =>

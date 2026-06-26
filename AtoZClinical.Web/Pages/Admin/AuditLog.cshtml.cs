@@ -18,10 +18,10 @@ public class AuditLogModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)]
-    public DateTime FromDate { get; set; } = DateTime.Today.AddMonths(-1);
+    public DateTime FromDate { get; set; } = ClinicClock.Today.AddMonths(-1);
 
     [BindProperty(SupportsGet = true)]
-    public DateTime ToDate { get; set; } = DateTime.Today;
+    public DateTime ToDate { get; set; } = ClinicClock.Today;
 
     public List<AuditLogEntry> Records { get; private set; } = [];
 
@@ -34,9 +34,15 @@ public class AuditLogModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var all = await _audit.ListAsync(clinicId.Value, 2000);
+        var all = await _audit.ListAsync(clinicId.Value, 5000);
+        var from = ClinicClock.ToClinicDate(FromDate);
+        var to = ClinicClock.ToClinicDate(ToDate);
         Records = all
-            .Where(a => a.DateTime.Date >= FromDate.Date && a.DateTime.Date <= ToDate.Date.AddDays(1))
+            .Where(a =>
+            {
+                var d = ClinicClock.ToClinicDateTime(a.DateTime).Date;
+                return d >= from && d <= to;
+            })
             .ToList();
         return Page();
     }

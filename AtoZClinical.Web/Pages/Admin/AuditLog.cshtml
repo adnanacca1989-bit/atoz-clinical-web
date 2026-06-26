@@ -1,4 +1,5 @@
 @page
+@using AtoZClinical.Infrastructure.Services
 @model AtoZClinical.Web.Pages.Admin.AuditLogModel
 @{
     ViewData["Title"] = "Audit Log";
@@ -9,36 +10,47 @@
     <h1 class="page-title">Audit Log</h1>
     <form method="post">
         <div class="row g-3 mb-3 align-items-end">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="clinical-field-label">From Date</label>
                 <input asp-for="FromDate" class="clinical-field" type="date" />
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="clinical-field-label">To Date</label>
                 <input asp-for="ToDate" class="clinical-field" type="date" />
             </div>
-            <div class="col-md-3">
-                <button type="submit" asp-page-handler="Search" class="btn btn-primary">🔍 Search</button>
-                <a asp-page="/Dashboard/Index" class="btn btn-outline-secondary ms-2">✕ Close</a>
+            <div class="col-md-4">
+                <button type="submit" asp-page-handler="Search" class="btn btn-primary">Search</button>
+                <a asp-page="/Dashboard/Index" class="btn btn-outline-secondary ms-2">Close</a>
             </div>
         </div>
         <div class="clinical-record-grid" style="min-height: 450px;">
-            <table>
-                <thead><tr><th>Type</th><th>Date Time</th><th>User</th><th>Form</th><th>Details</th></tr></thead>
+            <table class="report-grid">
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>From</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
                 <tbody>
                 @foreach (var r in Model.Records)
                 {
+                    var when = ClinicClock.ToClinicDateTime(r.DateTime);
                     <tr>
-                        <td>@r.Type</td>
-                        <td>@r.DateTime.ToLocalTime().ToString("M/d/yyyy h:mm:ss tt")</td>
-                        <td>@r.UserName</td>
-                        <td>@r.FormName</td>
-                        <td>@r.Details</td>
+                        <td>@AuditLogFormatter.NormalizeAction(r.Type)</td>
+                        <td>@when.ToString("M/d/yyyy")</td>
+                        <td>@when.ToString("h:mm:ss tt")</td>
+                        <td>@(string.IsNullOrWhiteSpace(r.UserName) ? "—" : r.UserName)</td>
+                        <td>@(string.IsNullOrWhiteSpace(r.FormName) ? "—" : r.FormName)</td>
+                        <td>@(string.IsNullOrWhiteSpace(r.Details) ? "—" : r.Details)</td>
                     </tr>
                 }
                 </tbody>
             </table>
         </div>
-        <p class="small text-muted mt-2">Showing @Model.Records.Count audit records</p>
+        <p class="small text-muted mt-2">Showing @Model.Records.Count audit records (Add / Edit / Delete)</p>
     </form>
 </div>
