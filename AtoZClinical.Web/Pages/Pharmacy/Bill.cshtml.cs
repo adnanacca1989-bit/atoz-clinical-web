@@ -181,7 +181,7 @@ public class BillModel : ClinicFormPageModel
             .Select(l => l.ToEntity())
             .ToList();
         var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
-        return RedirectAfterSave(saved.Id);
+        return RedirectToRecord(saved.Id);
     }
 
     protected override async Task ReloadAfterSaveFailureAsync()

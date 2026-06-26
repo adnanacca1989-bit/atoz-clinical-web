@@ -93,13 +93,14 @@ public class PurchaseModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+        ResolveRecordIdForSave();
         if (!ModelState.IsValid)
         {
             await ReloadFormAsync(clinicId.Value);
             EnsureLineRows();
             return Page();
         }
-        var entity = Input.ToEntity(RecordId);
+        var entity = Input.ToEntity(RecordIdForSave);
         var lines = Lines
             .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName)))
             .Select(l => l.ToEntity())
@@ -115,7 +116,7 @@ public class PurchaseModel : ClinicFormPageModel
         try
         {
             var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
-            return RedirectAfterSave(saved.Id);
+            return RedirectToRecord(saved.Id);
         }
         catch (InvalidOperationException ex)
         {

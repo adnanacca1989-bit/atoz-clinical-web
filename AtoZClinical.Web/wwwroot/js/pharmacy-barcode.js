@@ -29,10 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const priceEl = row.querySelector('.pharmacy-price');
 
         if (costEl && (forceCost || costEl.dataset.userEdited !== '1')) {
-            const suggested = data.movingAverageCost > 0
-                ? data.movingAverageCost
-                : (data.defaultUnitPrice > 0 ? data.defaultUnitPrice : 0);
-            if (suggested > 0) costEl.value = Number(suggested).toFixed(2);
+            if (data.movingAverageCost > 0) {
+                costEl.value = Number(data.movingAverageCost).toFixed(2);
+            } else {
+                costEl.value = '';
+            }
         }
 
         if (priceEl) {

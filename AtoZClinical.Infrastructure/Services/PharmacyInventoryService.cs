@@ -316,13 +316,33 @@ public sealed class PharmacyOpeningBalanceService
     public async Task<PharmacyOpeningBalance> SaveAsync(Guid clinicId, PharmacyOpeningBalance item, List<PharmacyOpeningBalanceLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
+        var validLines = lines
+            .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName)))
+            .ToList();
+        if (validLines.Count == 0)
+            throw new InvalidOperationException("Add at least one opening balance line with quantity and a registered item.");
+
+        foreach (var line in validLines)
+        {
+            if (line.UnitCost <= 0)
+                throw new InvalidOperationException($"Unit cost is required for {line.MedicineName ?? line.Barcode ?? "item"}.");
+
+            var registered = await _inventory.GetOrCreateItemAsync(
+                clinicId, line.Barcode, line.MedicineCode, line.MedicineName, line.Dosage);
+            line.Barcode = registered.Barcode;
+            line.MedicineCode = registered.MedicineCode;
+            line.MedicineName = registered.MedicineName;
+            if (string.IsNullOrWhiteSpace(line.Uom))
+                line.Uom = registered.BaseUom;
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
 
         if (isNew)
         {
             item.Id = Guid.NewGuid();
-            item.BalanceNo = (await _db.PharmacyOpeningBalances.Where(b => b.ClinicId == clinicId).MaxAsync(b => (int?)b.BalanceNo) ?? 0) + 1;
+            item.BalanceNo = (await _db.PharmacyOpeningBalances.ForClinic(clinicId).MaxAsync(b => (int?)b.BalanceNo) ?? 0) + 1;
             item.CreatedAt = DateTime.UtcNow;
             _db.PharmacyOpeningBalances.Add(item);
         }
@@ -333,7 +353,7 @@ public sealed class PharmacyOpeningBalanceService
             _db.PharmacyOpeningBalances.Update(item);
         }
 
-        foreach (var line in lines)
+        foreach (var line in validLines)
         {
             line.Id = Guid.NewGuid();
             line.PharmacyOpeningBalanceId = item.Id;
@@ -342,8 +362,6 @@ public sealed class PharmacyOpeningBalanceService
         }
 
         await _db.SaveChangesAsync();
-
-        var validLines = lines.Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName))).ToList();
         await _inventory.SyncOpeningBalanceAsync(clinicId, item, validLines);
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Opening Balance", isNew ? "Create" : "Update",

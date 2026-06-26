@@ -43,7 +43,7 @@ public class UsersModel : SettingsFormPageModel
         return Page();
     }
 
-    public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
+    protected override Task<IActionResult> SaveSettingsCoreAsync() => SaveCoreAsync();
     public Task<IActionResult> OnPostNewAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true }));
     public Task<IActionResult> OnPostClearAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true }));
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();

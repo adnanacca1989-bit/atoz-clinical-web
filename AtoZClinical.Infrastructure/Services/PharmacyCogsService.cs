@@ -33,18 +33,17 @@ public sealed class PharmacyCogsService
         if (!string.IsNullOrWhiteSpace(patientName))
             bills = bills.Where(b => b.PatientName?.Contains(patientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
-        var items = await _db.PharmacyItems
+        var billIds = bills.Select(b => b.Id).ToList();
+        var movements = await _db.PharmacyInventoryMovements
             .ForClinic(clinicId)
+            .Where(m => m.ReferenceType == PharmacyInventoryTypes.ReferenceBill &&
+                        m.MovementType == PharmacyInventoryTypes.BillOut &&
+                        billIds.Contains(m.ReferenceId))
             .ToListAsync();
 
-        var costByBarcode = items
-            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
-            .GroupBy(i => i.Barcode!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().MovingAverageCost, StringComparer.OrdinalIgnoreCase);
-
-        var costByName = items
-            .GroupBy(i => i.MedicineName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().MovingAverageCost, StringComparer.OrdinalIgnoreCase);
+        var costByBillLine = movements
+            .GroupBy(m => (m.ReferenceId, m.LineNo))
+            .ToDictionary(g => g.Key, g => g.First().UnitCost);
 
         var rows = new List<CogsRow>();
         foreach (var bill in bills)
@@ -54,7 +53,9 @@ public sealed class PharmacyCogsService
                 if (line.Qty <= 0) continue;
                 if (string.IsNullOrWhiteSpace(line.MedicineName) && string.IsNullOrWhiteSpace(line.Barcode)) continue;
 
-                var unitCost = ResolveUnitCost(line, costByBarcode, costByName);
+                var unitCost = costByBillLine.TryGetValue((bill.Id, line.LineNo), out var movementCost)
+                    ? movementCost
+                    : 0m;
                 rows.Add(new CogsRow(
                     bill.BillDate,
                     bill.BillNo,
@@ -80,22 +81,6 @@ public sealed class PharmacyCogsService
     {
         var rows = await GetCogsRowsAsync(clinicId, fromDate, toDate, doctorName, patientName);
         return rows.Sum(r => r.TotalCost);
-    }
-
-    private static decimal ResolveUnitCost(
-        PharmacyBillLine line,
-        IReadOnlyDictionary<string, decimal> costByBarcode,
-        IReadOnlyDictionary<string, decimal> costByName)
-    {
-        if (!string.IsNullOrWhiteSpace(line.Barcode) &&
-            costByBarcode.TryGetValue(line.Barcode, out var byBarcode))
-            return byBarcode;
-
-        if (!string.IsNullOrWhiteSpace(line.MedicineName) &&
-            costByName.TryGetValue(line.MedicineName, out var byName))
-            return byName;
-
-        return 0;
     }
 
     public sealed record CogsRow(

@@ -28,7 +28,7 @@ public class VendorModel : SettingsFormPageModel
         return Page();
     }
 
-    public Task<IActionResult> OnPostSaveAsync() => SaveCoreAsync();
+    protected override Task<IActionResult> SaveSettingsCoreAsync() => SaveCoreAsync();
     public Task<IActionResult> OnPostNewAsync() => NewCoreAsync();
     public Task<IActionResult> OnPostClearAsync() => NewCoreAsync();
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
@@ -64,6 +64,7 @@ public class VendorModel : SettingsFormPageModel
     {
         var clinicId = await RequireSettingsClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
+        ResolveRecordIdForSave();
         if (string.IsNullOrWhiteSpace(Input.Name))
         {
             ModelState.AddModelError(string.Empty, "Vendor name is required.");
@@ -71,7 +72,7 @@ public class VendorModel : SettingsFormPageModel
             SetFormViewData("Define Vendor", null, null, Input.UpdatedAt);
             return Page();
         }
-        var saved = await _lookup.SaveVendorAsync(clinicId.Value, Input.ToEntity(RecordId), UserName);
+        var saved = await _lookup.SaveVendorAsync(clinicId.Value, Input.ToEntity(RecordIdForSave), UserName);
         return RedirectAfterSave(saved.Id);
     }
 

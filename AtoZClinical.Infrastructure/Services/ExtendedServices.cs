@@ -1009,7 +1009,7 @@ public sealed class PharmacyBillService
     }
 
     public Task<List<PharmacyBill>> ListAsync(Guid clinicId) =>
-        _db.PharmacyBills.Include(b => b.Lines).Where(b => b.ClinicId == clinicId).OrderByDescending(b => b.BillNo).ToListAsync();
+        _db.PharmacyBills.ForClinic(clinicId).Include(b => b.Lines).OrderByDescending(b => b.BillNo).ToListAsync();
 
     public Task<PharmacyBill?> GetAsync(Guid clinicId, Guid id) =>
         _db.PharmacyBills.Include(b => b.Lines).FirstOrDefaultAsync(b => b.ClinicId == clinicId && b.Id == id);

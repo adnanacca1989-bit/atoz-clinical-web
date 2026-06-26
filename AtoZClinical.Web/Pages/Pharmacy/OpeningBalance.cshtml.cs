@@ -84,13 +84,27 @@ public class OpeningBalanceModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
-        var entity = Input.ToEntity(RecordId);
+        ResolveRecordIdForSave();
+        var entity = Input.ToEntity(RecordIdForSave);
         var lines = Lines
             .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName)))
             .Select(l => l.ToEntity())
             .ToList();
         var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
-        return RedirectAfterSave(saved.Id);
+        return RedirectToRecord(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
+        await LoadAsync(clinicId.Value);
+        EnsureLineRows();
+        SetFormViewData("Pharmacy Opening Balance", null, null, Input.UpdatedAt);
+        ViewData["ShowAddLines"] = true;
+        if (!RecordId.HasValue)
+            await PrepareNew(clinicId.Value);
     }
 
     private Task<IActionResult> NewCoreAsync() => Task.FromResult(RedirectToNewForm());
