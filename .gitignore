@@ -1,6 +1,9 @@
 ## Build
 **/bin/
 **/obj/
+publish-check/
+publish-test/
+publish-verify/
 **/.vs/
 *.user
 *.suo
