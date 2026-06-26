@@ -1,5 +1,6 @@
-# Render.com — production blueprint (Phase 0)
-# Apply in Render Dashboard: New > Blueprint > connect repo.
+# Render.com — production blueprint
+# Dashboard: https://dashboard.render.com/blueprints
+# Optional nightly DB backup: see render.backup.yaml
 services:
   - type: web
     name: atoz-clinical
@@ -8,6 +9,7 @@ services:
     region: oregon
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    autoDeployTrigger: commit
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
@@ -26,9 +28,9 @@ services:
       - key: App__PublicBaseUrl
         value: https://atoz-clinical.onrender.com
       - key: AllowedHosts
-        value: atoz-clinical.onrender.com;*.onrender.com
+        value: "atoz-clinical.onrender.com;*.onrender.com"
       - key: Email__Enabled
-        value: "true"
+        value: "false"
       - key: Email__SmtpHost
         sync: false
       - key: Email__SmtpPort
@@ -42,7 +44,7 @@ services:
       - key: Email__FromName
         value: A to Z Clinical
       - key: Captcha__Enabled
-        value: "true"
+        value: "false"
       - key: Captcha__Provider
         value: hcaptcha
       - key: Captcha__SiteKey
@@ -64,7 +66,7 @@ services:
       - key: Operations__AlertWebhookUrl
         sync: false
       - key: Security__RequireMfaForAdmins
-        value: "true"
+        value: "false"
       - key: Security__BaseDomain
         value: atoz-clinical.onrender.com
       - key: Authentication__Google__ClientId
@@ -76,28 +78,9 @@ services:
       - key: Authentication__Microsoft__ClientSecret
         sync: false
 
-  - type: cron
-    name: atoz-clinical-db-backup
-    runtime: docker
-    plan: starter
-    schedule: "0 3 * * *"
-    dockerfilePath: ./Dockerfile.backup
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: atoz-clinical-db
-          property: connectionString
-      - key: BACKUP_S3_BUCKET
-        sync: false
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-      - key: AWS_DEFAULT_REGION
-        value: us-west-2
-
 databases:
   - name: atoz-clinical-db
-    plan: starter
+    region: oregon
     databaseName: atoz_clinical
     user: atoz
+    # Omit plan so Render keeps the instance type already provisioned (starter legacy or basic-256mb).

@@ -1,5 +1,4 @@
-# Render.com — staging environment (Phase 4)
-# Apply as a second Blueprint or merge into your Render project manually.
+# Render.com — staging environment
 services:
   - type: web
     name: atoz-clinical-staging
@@ -8,6 +7,7 @@ services:
     region: oregon
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    autoDeployTrigger: commit
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Staging
@@ -24,7 +24,7 @@ services:
       - key: App__PublicBaseUrl
         value: https://atoz-clinical-staging.onrender.com
       - key: AllowedHosts
-        value: atoz-clinical-staging.onrender.com;*.onrender.com
+        value: "atoz-clinical-staging.onrender.com;*.onrender.com"
       - key: Billing__Enabled
         value: "false"
       - key: Email__Enabled
@@ -36,6 +36,6 @@ services:
 
 databases:
   - name: atoz-clinical-staging-db
-    plan: starter
+    region: oregon
     databaseName: atoz_clinical_staging
     user: atoz_staging

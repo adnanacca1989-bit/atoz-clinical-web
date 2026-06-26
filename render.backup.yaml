@@ -1,0 +1,30 @@
+# Optional Render blueprint — nightly PostgreSQL backup to S3.
+# Apply as a separate Blueprint only after setting AWS/S3 env vars in the dashboard.
+# Requires: BACKUP_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+services:
+  - type: cron
+    name: atoz-clinical-db-backup
+    runtime: docker
+    plan: starter
+    region: oregon
+    schedule: "0 3 * * *"
+    dockerfilePath: ./Dockerfile.backup
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: atoz-clinical-db
+          property: connectionString
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: us-west-2
+
+databases:
+  - name: atoz-clinical-db
+    region: oregon
+    databaseName: atoz_clinical
+    user: atoz
