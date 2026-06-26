@@ -66,6 +66,7 @@ public class ResultModel : ClinicFormPageModel
         if (item is null) return;
         RecordId = item.Id;
         Input = RadiologyResultInput.FromEntity(item);
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(RadiologyResultLineInput.FromEntity).ToList();
         EnsureLineRows();
     }

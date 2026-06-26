@@ -152,6 +152,7 @@ public sealed class MasterDataPropagationService
     {
         var oldName = previous.Name.Trim();
         var newName = current.Name.Trim();
+        var oldNorm = oldName.ToLowerInvariant();
         var specialty = current.Specialty;
         var now = DateTime.UtcNow;
 
@@ -159,83 +160,83 @@ public sealed class MasterDataPropagationService
             return;
 
         await _db.Patients
-            .Where(p => p.ClinicId == clinicId && p.DoctorName == oldName)
+            .Where(p => p.ClinicId == clinicId && p.DoctorName != null && p.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.DoctorName, newName)
                 .SetProperty(p => p.Specialty, specialty)
                 .SetProperty(p => p.UpdatedAt, now));
 
         await _db.Invoices
-            .Where(i => i.ClinicId == clinicId && i.DoctorName == oldName)
+            .Where(i => i.ClinicId == clinicId && i.DoctorName != null && i.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(i => i.DoctorName, newName)
                 .SetProperty(i => i.Specialty, specialty)
                 .SetProperty(i => i.UpdatedAt, now));
 
         await _db.LabRequests
-            .Where(r => r.ClinicId == clinicId && r.DoctorName == oldName)
+            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.DoctorName, newName)
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.LabResults
-            .Where(r => r.ClinicId == clinicId && r.DoctorName == oldName)
+            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.DoctorName, newName)
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.RadiologyRequests
-            .Where(r => r.ClinicId == clinicId && r.DoctorName == oldName)
+            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.DoctorName, newName)
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.RadiologyResults
-            .Where(r => r.ClinicId == clinicId && r.DoctorName == oldName)
+            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.DoctorName, newName)
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.PharmacyRequests
-            .Where(r => r.ClinicId == clinicId && r.DoctorName == oldName)
+            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.DoctorName, newName)
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.PharmacyBills
-            .Where(b => b.ClinicId == clinicId && b.DoctorName == oldName)
+            .Where(b => b.ClinicId == clinicId && b.DoctorName != null && b.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(b => b.DoctorName, newName)
                 .SetProperty(b => b.Specialty, specialty)
                 .SetProperty(b => b.UpdatedAt, now));
 
         await _db.CashReceipts
-            .Where(r => r.ClinicId == clinicId && r.DoctorName == oldName)
+            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.DoctorName, newName)
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.CashPayments
-            .Where(p => p.ClinicId == clinicId && p.DoctorName == oldName)
+            .Where(p => p.ClinicId == clinicId && p.DoctorName != null && p.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.DoctorName, newName)
                 .SetProperty(p => p.UpdatedAt, now));
 
         await _db.Prescriptions
-            .Where(p => p.ClinicId == clinicId && p.DoctorName == oldName)
+            .Where(p => p.ClinicId == clinicId && p.DoctorName != null && p.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.DoctorName, newName)
                 .SetProperty(p => p.Specialty, specialty)
                 .SetProperty(p => p.UpdatedAt, now));
 
         await _db.Appointments
-            .Where(a => a.ClinicId == clinicId && a.DoctorName == oldName)
+            .Where(a => a.ClinicId == clinicId && a.DoctorName != null && a.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.DoctorName, newName));
 

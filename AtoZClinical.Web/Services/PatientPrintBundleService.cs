@@ -9,8 +9,12 @@ namespace AtoZClinical.Web.Services;
 public sealed class PatientPrintBundleService
 {
     private readonly ClinicalDbContext _db;
+    private Dictionary<string, string> _specialtyLookup = new(StringComparer.OrdinalIgnoreCase);
 
     public PatientPrintBundleService(ClinicalDbContext db) => _db = db;
+
+    private string Spec(string? doctorName, string? stored) =>
+        DoctorSpecialtyResolver.ResolveFromMap(doctorName, stored, _specialtyLookup);
 
     public async Task<PatientPrintBundle> BuildAsync(Guid clinicId, string? patientName, string? patientId, string? doctorName)
     {
@@ -24,6 +28,8 @@ public sealed class PatientPrintBundleService
 
         if (string.IsNullOrWhiteSpace(patientName) && string.IsNullOrWhiteSpace(patientId))
             return bundle;
+
+        _specialtyLookup = await DoctorSpecialtyResolver.BuildMapAsync(_db, clinicId);
 
         var allPatients = await _db.Patients
             .ForClinic(clinicId)
@@ -143,7 +149,7 @@ public sealed class PatientPrintBundleService
         return bundle;
     }
 
-    private static PrintSection BuildPatientRegistration(Patient p) => new(
+    private PrintSection BuildPatientRegistration(Patient p) => new(
         "Patient Registration",
         Meta(
             ("Patient No", p.PatientNo),
@@ -154,16 +160,16 @@ public sealed class PatientPrintBundleService
             ("Phone", p.Phone ?? ""),
             ("City", p.City ?? ""),
             ("Doctor", p.DoctorName ?? ""),
-            ("Specialty", p.Specialty ?? ""),
+            ("Specialty", Spec(p.DoctorName, p.Specialty)),
             ("National ID", p.NationalId ?? ""),
             ("Visit Number", p.VisitNumber ?? ""),
             ("Appointment Date", p.AppointmentDate?.ToString("d") ?? ""),
             ("Status", p.Status)),
         null, [], Footer(("Address", p.Address ?? ""), ("Emergency Contact", p.EmergencyContact ?? "")));
 
-    private static PrintSection BuildLabRequest(LabRequest r) => new(
+    private PrintSection BuildLabRequest(LabRequest r) => new(
         "Laboratory Request",
-        Meta(("Request No", r.RequestNo.ToString()), ("Date", r.RequestDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", r.Specialty ?? "")),
+        Meta(("Request No", r.RequestNo.ToString()), ("Date", r.RequestDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", Spec(r.DoctorName, r.Specialty))),
         ["No", "Test Code", "Test Name", "Category", "QTY", "Fee", "Total"],
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.TestCode ?? "", l.TestName ?? "", l.Category ?? "", l.Qty.ToString(), l.Fee.ToString("N2"), l.Total.ToString("N2") }).ToList(),
         Footer(("Total", r.Lines.Sum(l => l.Total).ToString("N2"))));
@@ -175,9 +181,9 @@ public sealed class PatientPrintBundleService
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.TestCode ?? "", l.TestName ?? "", l.Category ?? "", l.Result ?? "", l.NormalRange ?? "", l.Unit ?? "" }).ToList(),
         null);
 
-    private static PrintSection BuildRadRequest(RadiologyRequest r) => new(
+    private PrintSection BuildRadRequest(RadiologyRequest r) => new(
         "Radiology Request",
-        Meta(("Request No", r.RequestNo.ToString()), ("Date", r.RequestDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", r.Specialty ?? "")),
+        Meta(("Request No", r.RequestNo.ToString()), ("Date", r.RequestDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", Spec(r.DoctorName, r.Specialty))),
         ["No", "Code", "Name", "Category", "QTY", "Fee", "Total"],
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.TestCode ?? "", l.TestName ?? "", l.Category ?? "", l.Qty.ToString(), l.Fee.ToString("N2"), l.Total.ToString("N2") }).ToList(),
         Footer(("Total", r.Lines.Sum(l => l.Total).ToString("N2"))));
@@ -196,21 +202,21 @@ public sealed class PatientPrintBundleService
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.MedicineName ?? "", l.Dosage ?? "", l.Uom ?? "", l.Qty.ToString() }).ToList(),
         null);
 
-    private static PrintSection BuildPharmacyBill(PharmacyBill r) => new(
+    private PrintSection BuildPharmacyBill(PharmacyBill r) => new(
         "Pharmacy Bill",
-        Meta(("Bill No", r.BillNo.ToString()), ("Date", r.BillDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Status", r.PaymentStatus ?? "")),
+        Meta(("Bill No", r.BillNo.ToString()), ("Date", r.BillDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", Spec(r.DoctorName, r.Specialty)), ("Status", r.PaymentStatus ?? "")),
         ["No", "Medicine", "QTY", "Unit Price", "Total"],
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.MedicineName ?? "", l.Qty.ToString(), l.UnitPrice.ToString("N2"), l.LineTotal.ToString("N2") }).ToList(),
         Footer(("Total", r.Lines.Sum(l => l.LineTotal).ToString("N2"))));
 
-    private static PrintSection BuildInvoice(Invoice r) => new(
+    private PrintSection BuildInvoice(Invoice r) => new(
         "Invoice / Billing",
-        Meta(("Invoice No", r.InvoiceNo.ToString()), ("Date", r.InvoiceDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("MRN", r.PatientId ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", r.Specialty ?? ""), ("Payment Method", r.PaymentMethod), ("Status", r.PaymentStatus ?? "")),
+        Meta(("Invoice No", r.InvoiceNo.ToString()), ("Date", r.InvoiceDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("MRN", r.PatientId ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", Spec(r.DoctorName, r.Specialty)), ("Payment Method", r.PaymentMethod), ("Status", r.PaymentStatus ?? "")),
         ["No", "Service", "QTY", "Rate", "Amount"],
         r.Lines.OrderBy(l => l.LineNo).Select(l => new[] { l.LineNo.ToString(), l.ServiceName ?? "", l.Qty.ToString(), l.UnitFee.ToString("N2"), l.LineTotal.ToString("N2") }).ToList(),
         Footer(("Subtotal", r.SubTotal.ToString("N2")), ("Discount", r.Discount.ToString("N2")), ("Total", r.TotalAmount.ToString("N2")), ("Amount Paid", r.AmountPaid.ToString("N2")), ("Balance Due", r.BalanceDue.ToString("N2"))));
 
-    private static PrintSection BuildPrescription(Prescription r)
+    private PrintSection BuildPrescription(Prescription r)
     {
         var rows = ParseChronicRows(r.ChronicDiseasesJson);
         return new PrintSection(
@@ -220,7 +226,7 @@ public sealed class PatientPrintBundleService
                 ("Date", r.DatePrescription.ToString("d")),
                 ("Patient", r.PatientName ?? ""),
                 ("Doctor", r.DoctorName ?? ""),
-                ("Specialty", r.Specialty ?? ""),
+                ("Specialty", Spec(r.DoctorName, r.Specialty)),
                 ("Disease", r.DiseaseName ?? "")),
             rows.Count > 0 ? ["Chronic Disease", "Details"] : null,
             rows,
@@ -250,9 +256,9 @@ public sealed class PatientPrintBundleService
         public string? Details { get; set; }
     }
 
-    private static PrintSection BuildCashReceipt(CashReceipt r) => new(
+    private PrintSection BuildCashReceipt(CashReceipt r) => new(
         "Cash Receipt",
-        Meta(("Receipt No", r.ReceiptNo.ToString()), ("Date", r.ReceiptDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Amount", r.Amount.ToString("N2")), ("Written Amount", r.WrittenAmount)),
+        Meta(("Receipt No", r.ReceiptNo.ToString()), ("Date", r.ReceiptDate.ToString("d")), ("Patient", r.PatientName ?? ""), ("Doctor", r.DoctorName ?? ""), ("Specialty", Spec(r.DoctorName, r.Specialty)), ("Amount", r.Amount.ToString("N2")), ("Written Amount", r.WrittenAmount)),
         null, [], Footer(("Payment Method", r.PaymentMethod), ("Reference", r.ReferenceNo ?? "")));
 
     private static PrintSection BuildCashPayment(CashPayment r) => new(
@@ -267,7 +273,7 @@ public sealed class PatientPrintBundleService
             ("Written Amount", r.WrittenAmount)),
         null, [], Footer(("Payment Method", r.PaymentMethod), ("Description", r.Description ?? "")));
 
-    private static PrintSection BuildArStatement(
+    private PrintSection BuildArStatement(
         string patient,
         List<Invoice> invoices,
         List<CashReceipt> receipts,
@@ -289,7 +295,7 @@ public sealed class PatientPrintBundleService
                 i.InvoiceDate.ToString("d"),
                 i.PatientName ?? "",
                 i.DoctorName ?? "",
-                i.Specialty ?? "",
+                Spec(i.DoctorName, i.Specialty),
                 totals.CashReceipt.ToString("N2"),
                 totals.CashPayment.ToString("N2"),
                 totals.TotalReceived.ToString("N2"),

@@ -68,6 +68,7 @@ public class IndexModel : ClinicFormPageModel
         if (item is null) return;
         RecordId = item.Id;
         Input = CashReceiptInput.FromEntity(item);
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
         if (Input.Amount > 0 && (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase)))
             Input.WrittenAmount = AmountWords.Convert(Input.Amount);
     }

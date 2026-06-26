@@ -1014,9 +1014,8 @@ public sealed class PharmacyBillService
     public Task<PharmacyBill?> GetAsync(Guid clinicId, Guid id) =>
         _db.PharmacyBills.Include(b => b.Lines).FirstOrDefaultAsync(b => b.ClinicId == clinicId && b.Id == id);
 
-    public Task<int> NextBillNoAsync(Guid clinicId) =>
-        _db.PharmacyBills.ForClinic(clinicId).Select(b => (int?)b.BillNo).MaxAsync()
-            .ContinueWith(t => (t.Result ?? 0) + 1);
+    public async Task<int> NextBillNoAsync(Guid clinicId) =>
+        (await _db.PharmacyBills.ForClinic(clinicId).MaxAsync(b => (int?)b.BillNo) ?? 0) + 1;
 
     public async Task<PharmacyBill> SaveAsync(Guid clinicId, PharmacyBill item, List<PharmacyBillLine> lines, string? userName = null)
     {

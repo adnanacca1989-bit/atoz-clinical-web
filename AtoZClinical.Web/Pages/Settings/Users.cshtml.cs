@@ -32,7 +32,8 @@ public class UsersModel : SettingsFormPageModel
         var clinicId = await RequireSettingsClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
-        if (!string.IsNullOrEmpty(UserRecordId)) await LoadRecord(clinicId.Value, UserRecordId);
+        if (!string.IsNullOrEmpty(UserRecordId) && !NewRecord)
+            await LoadRecord(clinicId.Value, UserRecordId);
         else if (NewRecord)
             await PrepareNew(clinicId.Value);
         else if (Records.Count > 0)
@@ -44,8 +45,8 @@ public class UsersModel : SettingsFormPageModel
     }
 
     protected override Task<IActionResult> SaveSettingsCoreAsync() => SaveCoreAsync();
-    public Task<IActionResult> OnPostNewAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true }));
-    public Task<IActionResult> OnPostClearAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true }));
+    public Task<IActionResult> OnPostNewAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true, UserRecordId = (string?)null }));
+    public Task<IActionResult> OnPostClearAsync() => Task.FromResult<IActionResult>(RedirectToPage(new { Search, NewRecord = true, UserRecordId = (string?)null }));
     public Task<IActionResult> OnPostDeleteAsync() => DeleteCoreAsync();
     public Task<IActionResult> OnPostBackAsync() => NavigateCoreAsync(-1);
     public Task<IActionResult> OnPostNextAsync() => NavigateCoreAsync(1);

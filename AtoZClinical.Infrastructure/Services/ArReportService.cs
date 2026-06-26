@@ -38,6 +38,7 @@ public sealed class ArReportService
 
         var allInvoices = await _db.Invoices.ForClinic(clinicId).AsNoTracking().ToListAsync();
         var patients = await _db.Patients.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var specialtyLookup = await DoctorSpecialtyResolver.BuildMapAsync(_db, clinicId);
         var receipts = await _db.CashReceipts.ForClinic(clinicId).AsNoTracking().ToListAsync();
         var payments = await _db.CashPayments
             .ForClinic(clinicId)
@@ -62,7 +63,7 @@ public sealed class ArReportService
                 i.InvoiceDate,
                 i.PatientName ?? "",
                 i.DoctorName ?? "",
-                i.Specialty ?? patient?.Specialty ?? "",
+                DoctorSpecialtyResolver.ResolveFromMap(i.DoctorName, i.Specialty ?? patient?.Specialty, specialtyLookup),
                 i.Gender ?? patient?.Gender ?? "",
                 i.City ?? patient?.City ?? "",
                 patient?.MotherName ?? "",

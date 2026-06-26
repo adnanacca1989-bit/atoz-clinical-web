@@ -249,9 +249,10 @@ public sealed class DoctorService
             if (previous is not null)
                 await _propagation.PropagateDoctorAsync(clinicId, previous, doctor);
         }
-        catch
+        catch (Exception ex)
         {
-            // Doctor row is already saved.
+            throw new InvalidOperationException(
+                "Doctor was saved, but linked transactions could not be updated. Please try saving the doctor again.", ex);
         }
 
         return doctor;

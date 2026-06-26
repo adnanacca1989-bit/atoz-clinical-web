@@ -1,5 +1,6 @@
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -72,10 +73,20 @@ public abstract class ClinicFormPageModel : PageModel
     }
 
     protected IActionResult RedirectToNewForm() =>
-        RedirectToPage(new { Search, NewRecord = true });
+        RedirectToPage(new { RecordId = (Guid?)null, Search, NewRecord = true, RecordPage, PageSize });
+
+    protected bool ShouldLoadExistingRecord() => RecordId.HasValue && !NewRecord;
+
+    protected async Task<string?> ResolveDoctorSpecialtyAsync(Guid clinicId, string? doctorName, string? stored)
+    {
+        if (string.IsNullOrWhiteSpace(doctorName)) return stored;
+        var db = HttpContext.RequestServices.GetRequiredService<ClinicalDbContext>();
+        var map = await DoctorSpecialtyResolver.BuildMapAsync(db, clinicId);
+        return DoctorSpecialtyResolver.ResolveFromMap(doctorName, stored, map);
+    }
 
     protected IActionResult RedirectAfterSave(Guid savedId) =>
-        SaveMode == "New" ? RedirectToNewForm() : RedirectToRecord(savedId);
+        RedirectToRecord(savedId);
 
     protected void ConfigureAddSave()
     {
@@ -158,11 +169,11 @@ public abstract class ClinicFormPageModel : PageModel
     /// <summary>GET with ?handler=Save after a failed POST bookmark — redirect to a safe GET.</summary>
     public IActionResult OnGetSave() => RedirectToPage(new { RecordId, Search, NewRecord, RecordPage, PageSize });
 
-    public IActionResult OnGetAdd() => RedirectToPage(new { Search, NewRecord = true, RecordPage, PageSize });
+    public IActionResult OnGetAdd() => RedirectToNewForm();
 
-    public IActionResult OnGetNew() => RedirectToPage(new { Search, NewRecord = true, RecordPage, PageSize });
+    public IActionResult OnGetNew() => RedirectToNewForm();
 
-    public IActionResult OnGetClear() => RedirectToPage(new { Search, NewRecord = true, RecordPage, PageSize });
+    public IActionResult OnGetClear() => RedirectToNewForm();
 
     public IActionResult OnGetDelete() => RedirectToPage(new { RecordId, Search, RecordPage, PageSize });
 

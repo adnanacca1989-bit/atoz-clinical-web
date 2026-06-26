@@ -49,8 +49,8 @@ public class BillModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
-        if (RecordId.HasValue)
-            await LoadRecord(clinicId.Value, RecordId.Value);
+        if (ShouldLoadExistingRecord())
+            await LoadRecord(clinicId.Value, RecordId!.Value);
         else if (NewRecord || LoadRequestNo.HasValue || !string.IsNullOrWhiteSpace(LoadPatientId))
             await PrepareNew(clinicId.Value);
         else if (Records.Count > 0 && Input.BillNo == 0)
@@ -58,7 +58,7 @@ public class BillModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
 
-        if (!RecordId.HasValue)
+        if (!ShouldLoadExistingRecord())
         {
             if (LoadRequestNo.HasValue && LoadRequestNo.Value > 0)
                 await ApplyPharmacyRequestAsync(clinicId.Value, LoadRequestNo.Value);
@@ -96,7 +96,7 @@ public class BillModel : ClinicFormPageModel
         Input.Phone = request.Phone;
         Input.City = request.City;
         Input.DoctorName = request.DoctorName;
-        Input.Specialty = request.Specialty;
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, request.DoctorName, request.Specialty);
 
         var requestLines = request.Lines
             .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.MedicineName) || !string.IsNullOrWhiteSpace(l.MedicineCode) || !string.IsNullOrWhiteSpace(l.Barcode)))
@@ -147,6 +147,7 @@ public class BillModel : ClinicFormPageModel
         if (item is null) return;
         RecordId = item.Id;
         Input = PharmacyBillInput.FromEntity(item);
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(PharmacyBillLineInput.FromEntity).ToList();
         EnsureLineRows();
     }

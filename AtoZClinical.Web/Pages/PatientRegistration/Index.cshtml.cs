@@ -157,6 +157,7 @@ public class IndexModel : ClinicFormPageModel
         RecordId = p.Id;
 
         Input = PatientInput.FromEntity(p);
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
 
     }
 

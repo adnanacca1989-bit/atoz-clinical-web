@@ -236,7 +236,9 @@ public sealed class PharmacyInventoryService
                 item.MovingAverageCost,
                 item.QuantityOnHand * item.MovingAverageCost,
                 item.ExpiryDate);
-        }).Where(r => r.QtyIn > 0 || r.QtyOut > 0 || r.QtyBalance > 0 || expiredOnly).ToList();
+        }).Where(r => expiredOnly
+            ? r.ExpiryDate.HasValue && r.ExpiryDate.Value.Date < DateTime.Today
+            : true).ToList();
     }
 
     private async Task RecalculateItemAsync(Guid itemId)
@@ -308,7 +310,10 @@ public sealed class PharmacyOpeningBalanceService
     }
 
     public Task<List<PharmacyOpeningBalance>> ListAsync(Guid clinicId) =>
-        _db.PharmacyOpeningBalances.Include(b => b.Lines).Where(b => b.ClinicId == clinicId).OrderByDescending(b => b.BalanceNo).ToListAsync();
+        _db.PharmacyOpeningBalances.ForClinic(clinicId).Include(b => b.Lines).OrderByDescending(b => b.BalanceNo).ToListAsync();
+
+    public async Task<int> NextBalanceNoAsync(Guid clinicId) =>
+        (await _db.PharmacyOpeningBalances.ForClinic(clinicId).MaxAsync(b => (int?)b.BalanceNo) ?? 0) + 1;
 
     public Task<PharmacyOpeningBalance?> GetAsync(Guid clinicId, Guid id) =>
         _db.PharmacyOpeningBalances.Include(b => b.Lines).FirstOrDefaultAsync(b => b.ClinicId == clinicId && b.Id == id);

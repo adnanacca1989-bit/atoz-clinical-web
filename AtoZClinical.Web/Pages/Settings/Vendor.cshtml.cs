@@ -20,10 +20,14 @@ public class VendorModel : SettingsFormPageModel
         var clinicId = await RequireSettingsClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
-        if (RecordId.HasValue) await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (NewRecord) await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0) await LoadRecord(clinicId.Value, Records[0].Id);
-        else await PrepareNew(clinicId.Value);
+        if (ShouldLoadExistingRecord())
+            await LoadRecord(clinicId.Value, RecordId!.Value);
+        else if (NewRecord)
+            await PrepareNew(clinicId.Value);
+        else if (Records.Count > 0)
+            await LoadRecord(clinicId.Value, Records[0].Id);
+        else
+            await PrepareNew(clinicId.Value);
         SetFormViewData("Define Vendor", null, null, Input.UpdatedAt);
         return Page();
     }
@@ -74,6 +78,14 @@ public class VendorModel : SettingsFormPageModel
         }
         var saved = await _lookup.SaveVendorAsync(clinicId.Value, Input.ToEntity(RecordIdForSave), UserName);
         return RedirectAfterSave(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireSettingsClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        SetFormViewData("Define Vendor", null, null, Input.UpdatedAt);
     }
 
     private Task<IActionResult> NewCoreAsync() { RecordId = null; return Task.FromResult<IActionResult>(RedirectToNewForm()); }

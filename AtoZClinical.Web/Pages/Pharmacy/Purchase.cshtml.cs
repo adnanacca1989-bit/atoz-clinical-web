@@ -40,7 +40,7 @@ public class PurchaseModel : ClinicFormPageModel
         await LoadAsync(clinicId.Value);
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         RegisteredVendors = await _lookup.ListVendorsAsync(clinicId.Value, activeOnly: true);
-        if (RecordId.HasValue) await LoadRecord(clinicId.Value, RecordId.Value);
+        if (ShouldLoadExistingRecord()) await LoadRecord(clinicId.Value, RecordId!.Value);
         else if (NewRecord) await PrepareNew(clinicId.Value);
         else if (Records.Count > 0 && Input.PurchaseNo == 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);

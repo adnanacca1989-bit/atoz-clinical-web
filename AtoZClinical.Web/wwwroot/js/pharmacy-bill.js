@@ -155,6 +155,23 @@ document.addEventListener('DOMContentLoaded', () => {
         balanceId: 'pharmacyBillBalance'
     });
 
+    document.querySelectorAll('.pharmacy-line').forEach(row => {
+        const select = row.querySelector('.pharmacy-item-select');
+        if (!select) return;
+        const syncHidden = () => {
+            const opt = select.selectedOptions[0];
+            if (!opt?.dataset?.name) return;
+            const i = row.dataset.line;
+            setLineField(i, 'Barcode', opt.dataset.barcode);
+            setLineField(i, 'MedicineCode', opt.dataset.code);
+            setLineField(i, 'MedicineName', opt.dataset.name);
+            setLineField(i, 'Dosage', opt.dataset.dosage);
+            if (!document.querySelector(`[name="Lines[${i}].Uom"]`)?.value)
+                setLineField(i, 'Uom', opt.dataset.baseUom);
+        };
+        select.addEventListener('change', syncHidden);
+    });
+
     const requestNo = document.querySelector('[name="Input.RequestNo"]')?.value?.trim();
     if (requestNo && !hasServerRenderedLines()) loadPharmacyRequestByNo();
 });

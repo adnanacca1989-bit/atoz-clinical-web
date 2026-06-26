@@ -65,6 +65,7 @@ public class IndexModel : ClinicFormPageModel
         if (item is null) return;
         RecordId = item.Id;
         Input = PrescriptionInput.FromEntity(item);
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
         ChronicDiseases = DeserializeChronic(item.ChronicDiseasesJson);
     }
 

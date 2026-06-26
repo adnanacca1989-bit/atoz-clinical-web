@@ -34,8 +34,8 @@ public class OpeningBalanceModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
-        if (RecordId.HasValue)
-            await LoadRecord(clinicId.Value, RecordId.Value);
+        if (ShouldLoadExistingRecord())
+            await LoadRecord(clinicId.Value, RecordId!.Value);
         else if (NewRecord)
             await PrepareNew(clinicId.Value);
         else if (Records.Count > 0 && Input.BalanceNo == 0)
@@ -74,8 +74,7 @@ public class OpeningBalanceModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
-        var all = await _service.ListAsync(clinicId);
-        var next = (all.Count > 0 ? all.Max(b => b.BalanceNo) : 0) + 1;
+        var next = await _service.NextBalanceNoAsync(clinicId);
         Input = new OpeningBalanceInput { BalanceNo = next, BalanceDate = DateTime.Today };
         Lines = CreateEmptyLines();
     }

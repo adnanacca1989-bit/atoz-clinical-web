@@ -68,6 +68,7 @@ public class ResultModel : ClinicFormPageModel
         if (item is null) return;
         RecordId = item.Id;
         Input = LabResultInput.FromEntity(item);
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(LabResultLineInput.FromEntity).ToList();
         EnsureLineRows();
         await BackfillFromLabRequestAsync(clinicId);

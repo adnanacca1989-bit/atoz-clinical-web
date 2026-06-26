@@ -20,7 +20,7 @@ public class OwnerModel : SettingsFormPageModel
         var clinicId = await RequireSettingsClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
-        if (RecordId.HasValue) await LoadRecord(clinicId.Value, RecordId.Value);
+        if (ShouldLoadExistingRecord()) await LoadRecord(clinicId.Value, RecordId!.Value);
         else if (NewRecord) await PrepareNew(clinicId.Value);
         else if (Records.Count > 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);
