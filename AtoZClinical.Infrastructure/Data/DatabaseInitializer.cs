@@ -300,12 +300,9 @@ public static class DatabaseInitializer
 
             await db.Database.ExecuteSqlRawAsync(
                 """
-                UPDATE "ClinicConfigurations" c
+                UPDATE "ClinicConfigurations"
                 SET "PatientPortalEnabled" = true
-                FROM "Clinics" cl
-                WHERE c."ClinicId" = cl."Id"
-                  AND cl."PlanName" = 'Trial'
-                  AND c."PatientPortalEnabled" = false;
+                WHERE "PatientPortalEnabled" = false;
                 """);
 
             await db.Database.ExecuteSqlRawAsync(

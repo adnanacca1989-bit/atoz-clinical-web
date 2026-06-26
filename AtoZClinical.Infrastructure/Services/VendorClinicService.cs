@@ -116,14 +116,11 @@ public sealed class VendorClinicService
 
         await DatabaseInitializer.SeedClinicDefaultsAsync(_db, clinic.Id);
 
-        if (clinic.PlanName.Equals(SubscriptionPlans.Trial, StringComparison.OrdinalIgnoreCase))
+        var config = await _db.ClinicConfigurations.ForClinic(clinic.Id).FirstOrDefaultAsync();
+        if (config is not null && !config.PatientPortalEnabled)
         {
-            var config = await _db.ClinicConfigurations.ForClinic(clinic.Id).FirstOrDefaultAsync();
-            if (config is not null)
-            {
-                config.PatientPortalEnabled = true;
-                await _db.SaveChangesAsync();
-            }
+            config.PatientPortalEnabled = true;
+            await _db.SaveChangesAsync();
         }
 
         return (clinic, admin, password);

@@ -26,7 +26,10 @@
 
         @if (Model.PortalDisabled)
         {
-            <div class="alert alert-warning">The patient portal is not enabled for this clinic.</div>
+            <div class="alert alert-warning">
+                The patient portal is not enabled for this clinic.
+                Clinic staff can turn it on under <strong>Admin → Enterprise → Patient portal</strong>.
+            </div>
         }
         else
         {
