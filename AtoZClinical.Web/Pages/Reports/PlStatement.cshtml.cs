@@ -95,13 +95,34 @@ public class PlStatementModel : PageModel
 
         CostOfGoodsSold = await _cogs.GetTotalCogsAsync(clinicId.Value, FromDate, ToDate, DoctorName, PatientName);
 
+        var expenseAccountNames = await _db.ChartAccounts
+            .ForClinic(clinicId.Value)
+            .Where(a => a.CategoryType.Equals("Expense", StringComparison.OrdinalIgnoreCase))
+            .Select(a => a.Name)
+            .ToListAsync();
+        var expenseAccounts = new HashSet<string>(expenseAccountNames, StringComparer.OrdinalIgnoreCase);
+
         var payments = await _db.CashPayments
             .ForClinic(clinicId.Value)
             .Where(p => p.PaymentDate >= FromDate.Date && p.PaymentDate <= ToDate.Date)
             .ToListAsync();
 
         foreach (var pay in payments)
-            Results.Add(new PlRow("Expense", pay.ChartAccountName ?? "Expense", pay.Description ?? pay.PayeeName ?? "Payment", pay.Amount));
+        {
+            // Patient cash payments (refunds/credits) are balance-sheet movements, not P&L expenses.
+            if (!string.IsNullOrWhiteSpace(pay.PatientId))
+                continue;
+
+            if (string.IsNullOrWhiteSpace(pay.ChartAccountName) ||
+                !expenseAccounts.Contains(pay.ChartAccountName))
+                continue;
+
+            Results.Add(new PlRow(
+                "Expense",
+                pay.ChartAccountName,
+                pay.Description ?? pay.PayeeName ?? "Payment",
+                pay.Amount));
+        }
 
         if (NonZero)
             Results = Results.Where(r => r.Amount != 0).ToList();

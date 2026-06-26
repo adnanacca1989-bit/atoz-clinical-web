@@ -542,13 +542,13 @@ public sealed class CashPaymentService
     }
 
     public Task<List<CashPayment>> ListAsync(Guid clinicId) =>
-        _db.CashPayments.Where(c => c.ClinicId == clinicId).OrderByDescending(c => c.PaymentNo).ToListAsync();
+        _db.CashPayments.ForClinic(clinicId).OrderByDescending(c => c.PaymentNo).ToListAsync();
 
     public Task<CashPayment?> GetAsync(Guid clinicId, Guid id) =>
-        _db.CashPayments.FirstOrDefaultAsync(c => c.ClinicId == clinicId && c.Id == id);
+        _db.CashPayments.ForClinic(clinicId).FirstOrDefaultAsync(c => c.Id == id);
 
     public async Task<int> NextPaymentNoAsync(Guid clinicId) =>
-        (await _db.CashPayments.Where(c => c.ClinicId == clinicId).MaxAsync(c => (int?)c.PaymentNo) ?? 0) + 1;
+        (await _db.CashPayments.ForClinic(clinicId).MaxAsync(c => (int?)c.PaymentNo) ?? 0) + 1;
 
     public async Task<CashPayment> SaveAsync(Guid clinicId, CashPayment item, string? userName = null)
     {
@@ -558,7 +558,7 @@ public sealed class CashPaymentService
         if (isNew)
         {
             item.Id = Guid.NewGuid();
-            item.PaymentNo = (await _db.CashPayments.Where(c => c.ClinicId == clinicId).MaxAsync(c => (int?)c.PaymentNo) ?? 0) + 1;
+            item.PaymentNo = (await _db.CashPayments.ForClinic(clinicId).MaxAsync(c => (int?)c.PaymentNo) ?? 0) + 1;
             item.CreatedAt = DateTime.UtcNow;
             _db.CashPayments.Add(item);
         }
