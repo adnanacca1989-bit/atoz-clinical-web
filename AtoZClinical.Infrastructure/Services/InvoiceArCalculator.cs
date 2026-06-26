@@ -30,38 +30,41 @@ public static class InvoiceArCalculator
             .ThenBy(i => i.InvoiceNo)
             .ToList();
 
-        var allocated = AllocateDisplayAmounts(
-            siblings.Count > 0 ? siblings : [invoice],
-            matchingReceipts,
-            matchingPayments);
+        var siblingList = siblings.Count > 0 ? siblings : [invoice];
+        var allocated = AllocateDisplayAmounts(siblingList, matchingReceipts, matchingPayments);
 
         var split = allocated.TryGetValue(invoice.InvoiceNo, out var amounts)
             ? amounts
             : (CashReceipt: 0m, CashPayment: 0m);
 
+        var receiptGross = matchingReceipts.Sum(r => r.Amount);
+        var paymentGross = matchingPayments.Sum(p => p.Amount);
         var receiptTotal = split.CashReceipt;
         var paymentTotal = split.CashPayment;
-        var totalReceived = matchingReceipts.Sum(r => r.Amount) + matchingPayments.Sum(p => p.Amount);
+        var totalReceived = receiptGross;
 
         var totalInvoice = invoice.SubTotal > 0 ? invoice.SubTotal : invoice.TotalAmount + invoice.Discount;
         var netInvoice = invoice.TotalAmount;
         var amountApplied = invoice.AmountPaid;
 
-        // Positive = debit (patient owes). Negative = credit (patient prepaid / overpaid).
-        var siblingList = siblings.Count > 0 ? siblings : [invoice];
-        var invoiceDue = netInvoice - receiptTotal - paymentTotal;
         var groupOwed = siblingList.Sum(i => i.TotalAmount);
-        var groupNet = groupOwed - totalReceived;
-        var receiptStoredCredit = matchingReceipts.Sum(GetReceiptUnappliedCredit);
-        var patientCredit = Math.Max(receiptStoredCredit, Math.Max(0m, -groupNet));
+        var netPaid = receiptGross - paymentGross;
+        var groupNet = groupOwed - netPaid;
 
+        var dynamicCredit = Math.Max(0m, -groupNet);
+        var receiptStoredCredit = matchingReceipts.Sum(GetReceiptUnappliedCredit);
+        var patientCredit = paymentGross > 0
+            ? dynamicCredit
+            : Math.Max(receiptStoredCredit, dynamicCredit);
+
+        var invoiceDue = netInvoice - receiptTotal;
         decimal endingBalance;
         if (invoiceDue > 0)
             endingBalance = invoiceDue;
-        else if (patientCredit > 0)
-            endingBalance = -patientCredit;
         else if (groupNet < 0)
             endingBalance = groupNet;
+        else if (patientCredit > 0)
+            endingBalance = -patientCredit;
         else
             endingBalance = 0m;
 
@@ -85,9 +88,9 @@ public static class InvoiceArCalculator
     {
         if (siblings.Count == 0) return 0m;
 
-        var totalCredits = matchingReceipts.Sum(r => r.Amount) + matchingPayments.Sum(p => p.Amount);
         var totalOwed = siblings.Sum(i => i.TotalAmount);
-        return Math.Max(0m, totalCredits - totalOwed);
+        var netPaid = matchingReceipts.Sum(r => r.Amount) - matchingPayments.Sum(p => p.Amount);
+        return Math.Max(0m, netPaid - totalOwed);
     }
 
     /// <summary>Net patient-doctor balance: positive = debit owed, negative = credit.</summary>
@@ -103,8 +106,8 @@ public static class InvoiceArCalculator
         var matchingReceipts = receipts.Where(r => MatchesReceipt(r, invoice)).ToList();
         var matchingPayments = payments.Where(p => MatchesPayment(p, invoice)).ToList();
         var owed = siblings.Sum(i => i.TotalAmount);
-        var received = matchingReceipts.Sum(r => r.Amount) + matchingPayments.Sum(p => p.Amount);
-        return owed - received;
+        var netPaid = matchingReceipts.Sum(r => r.Amount) - matchingPayments.Sum(p => p.Amount);
+        return owed - netPaid;
     }
 
     public static Dictionary<int, (decimal CashReceipt, decimal CashPayment)> AllocateDisplayAmounts(
@@ -116,33 +119,84 @@ public static class InvoiceArCalculator
         if (invoices.Count == 0) return result;
 
         var remainingDue = invoices.ToDictionary(i => i.InvoiceNo, i => i.TotalAmount);
-        var credits = receipts
+        var unappliedCredit = 0m;
+
+        var transactions = receipts
             .Select(r => new { IsReceipt = true, Date = r.ReceiptDate, Amount = r.Amount, Sort = r.ReceiptNo })
             .Concat(payments.Select(p => new { IsReceipt = false, Date = p.PaymentDate, Amount = p.Amount, Sort = p.PaymentNo }))
             .OrderBy(c => c.Date)
             .ThenBy(c => c.Sort)
             .ToList();
 
-        foreach (var credit in credits)
+        foreach (var tx in transactions)
         {
-            var remaining = credit.Amount;
-            foreach (var inv in invoices.OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo))
+            if (tx.IsReceipt)
             {
-                if (remaining <= 0) break;
-                var due = remainingDue[inv.InvoiceNo];
-                if (due <= 0) continue;
+                var remaining = tx.Amount;
+                foreach (var inv in invoices.OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo))
+                {
+                    if (remaining <= 0) break;
+                    var due = remainingDue[inv.InvoiceNo];
+                    if (due <= 0) continue;
 
-                var apply = Math.Min(remaining, due);
-                var current = result[inv.InvoiceNo];
-                result[inv.InvoiceNo] = credit.IsReceipt
-                    ? (current.CashReceipt + apply, current.CashPayment)
-                    : (current.CashReceipt, current.CashPayment + apply);
-                remainingDue[inv.InvoiceNo] -= apply;
-                remaining -= apply;
+                    var apply = Math.Min(remaining, due);
+                    var current = result[inv.InvoiceNo];
+                    result[inv.InvoiceNo] = (current.CashReceipt + apply, current.CashPayment);
+                    remainingDue[inv.InvoiceNo] -= apply;
+                    remaining -= apply;
+                }
+
+                unappliedCredit += remaining;
+            }
+            else
+            {
+                var paymentAmount = tx.Amount;
+                var fromCredit = Math.Min(paymentAmount, unappliedCredit);
+                unappliedCredit -= fromCredit;
+                var excess = paymentAmount - fromCredit;
+
+                AttributePaymentToInvoices(invoices, result, paymentAmount);
+
+                if (excess > 0)
+                {
+                    foreach (var inv in invoices.OrderByDescending(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo))
+                    {
+                        remainingDue[inv.InvoiceNo] += excess;
+                        excess = 0;
+                        break;
+                    }
+                }
             }
         }
 
         return result;
+    }
+
+    private static void AttributePaymentToInvoices(
+        IReadOnlyList<Invoice> invoices,
+        Dictionary<int, (decimal CashReceipt, decimal CashPayment)> result,
+        decimal paymentAmount)
+    {
+        if (paymentAmount <= 0) return;
+
+        var ordered = invoices.OrderByDescending(i => i.InvoiceDate).ThenByDescending(i => i.InvoiceNo).ToList();
+        if (ordered.Count == 1)
+        {
+            var inv = ordered[0];
+            var current = result[inv.InvoiceNo];
+            result[inv.InvoiceNo] = (current.CashReceipt, current.CashPayment + paymentAmount);
+            return;
+        }
+
+        var remaining = paymentAmount;
+        foreach (var inv in ordered)
+        {
+            if (remaining <= 0) break;
+            var current = result[inv.InvoiceNo];
+            var add = remaining;
+            result[inv.InvoiceNo] = (current.CashReceipt, current.CashPayment + add);
+            remaining -= add;
+        }
     }
 
     /// <summary>Unapplied amount from receipt using balance-due snapshot captured at payment time.</summary>

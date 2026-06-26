@@ -91,8 +91,6 @@ public class AccountsReceivableModel : PageModel
 
             // Safety net: never hide credit when receipts captured overpayment at save time.
             var endingBalance = totals.EndingBalance;
-            if (endingBalance == 0 && totals.PatientCredit > 0)
-                endingBalance = -totals.PatientCredit;
 
             var aging = (DateTime.Today - i.InvoiceDate.Date).Days;
             var status = endingBalance < 0

@@ -248,4 +248,60 @@ public class InvoiceArCalculatorTests
         Assert.Equal(850_000, totals.PatientCredit);
         Assert.Equal(-850_000, totals.EndingBalance);
     }
+
+    [Fact]
+    public void ForInvoice_zeros_balance_when_refund_matches_patient_credit()
+    {
+        var clinicId = Guid.NewGuid();
+        var invoice = new Invoice
+        {
+            ClinicId = clinicId,
+            InvoiceNo = 1,
+            InvoiceDate = new DateTime(2026, 6, 26),
+            PatientName = "adnan jafari",
+            PatientId = "PAT-00001",
+            DoctorName = "Mohammed Adnan",
+            SubTotal = 25_000,
+            TotalAmount = 25_000,
+            AmountPaid = 25_000,
+            BalanceDue = 0
+        };
+
+        var receipts = new List<CashReceipt>
+        {
+            new()
+            {
+                ClinicId = clinicId,
+                ReceiptNo = 1,
+                ReceiptDate = invoice.InvoiceDate,
+                PatientName = invoice.PatientName,
+                PatientId = invoice.PatientId,
+                DoctorName = invoice.DoctorName,
+                Amount = 100_000,
+                PatientCredit = 75_000
+            }
+        };
+
+        var payments = new List<CashPayment>
+        {
+            new()
+            {
+                ClinicId = clinicId,
+                PaymentNo = 2,
+                PaymentDate = invoice.InvoiceDate,
+                PayeeName = invoice.PatientName,
+                PatientId = invoice.PatientId,
+                DoctorName = invoice.DoctorName,
+                Amount = 75_000
+            }
+        };
+
+        var totals = InvoiceArCalculator.ForInvoice(invoice, receipts, payments, [invoice]);
+
+        Assert.Equal(25_000, totals.CashReceipt);
+        Assert.Equal(75_000, totals.CashPayment);
+        Assert.Equal(100_000, totals.TotalReceived);
+        Assert.Equal(0, totals.PatientCredit);
+        Assert.Equal(0, totals.EndingBalance);
+    }
 }
