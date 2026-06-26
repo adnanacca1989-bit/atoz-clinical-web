@@ -48,8 +48,13 @@ public static class PatientVisitStatuses
 public sealed class PatientVisitStatusService
 {
     private readonly ClinicalDbContext _db;
+    private readonly AuditService _audit;
 
-    public PatientVisitStatusService(ClinicalDbContext db) => _db = db;
+    public PatientVisitStatusService(ClinicalDbContext db, AuditService audit)
+    {
+        _db = db;
+        _audit = audit;
+    }
 
     public Task OnPatientRegisteredAsync(Guid clinicId, Patient patient)
     {
@@ -59,6 +64,9 @@ public sealed class PatientVisitStatusService
 
     public Task OnCashReceiptAsync(Guid clinicId, CashReceipt receipt) =>
         TryUpgradeAsync(clinicId, receipt.PatientId, receipt.PatientName, PatientVisitStatuses.Confirmed);
+
+    public Task OnCashPaymentAsync(Guid clinicId, CashPayment payment) =>
+        TryUpgradeAsync(clinicId, payment.PatientId, payment.PayeeName, PatientVisitStatuses.Confirmed);
 
     public Task OnClinicalCheckInAsync(Guid clinicId, string? patientId, string? patientName) =>
         TryUpgradeAsync(clinicId, patientId, patientName, PatientVisitStatuses.UnderProcess);
@@ -72,9 +80,11 @@ public sealed class PatientVisitStatusService
         if (patient is null) return;
         if (!PatientVisitStatuses.CanAutoUpgrade(patient.Status, targetStatus)) return;
 
+        var previous = patient.Status;
         patient.Status = PatientVisitStatuses.Normalize(targetStatus);
         patient.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await LogStatusChangeAsync(clinicId, patient, previous, patient.Status);
     }
 
     public async Task ForceStatusAsync(Guid clinicId, string? patientId, string? patientName, string status)
@@ -82,9 +92,29 @@ public sealed class PatientVisitStatusService
         var patient = await FindPatientAsync(clinicId, patientId, patientName);
         if (patient is null) return;
 
-        patient.Status = PatientVisitStatuses.Normalize(status);
+        var previous = patient.Status;
+        var normalized = PatientVisitStatuses.Normalize(status);
+        if (string.Equals(previous, normalized, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        patient.Status = normalized;
         patient.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await LogStatusChangeAsync(clinicId, patient, previous, normalized);
+    }
+
+    private async Task LogStatusChangeAsync(Guid clinicId, Patient patient, string? previous, string current)
+    {
+        if (string.Equals(previous, current, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var label = string.IsNullOrWhiteSpace(patient.FullName) ? patient.FirstName : patient.FullName;
+        await _audit.LogAsync(
+            clinicId,
+            null,
+            "Patient Status",
+            "Update",
+            $"{label} — {PatientVisitStatuses.Normalize(previous)} → {current}");
     }
 
     public async Task<Patient?> FindPatientAsync(Guid clinicId, string? patientId, string? patientName)

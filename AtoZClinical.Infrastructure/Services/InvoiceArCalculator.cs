@@ -51,11 +51,8 @@ public static class InvoiceArCalculator
         var netPaid = receiptGross - paymentGross;
         var groupNet = groupOwed - netPaid;
 
-        var dynamicCredit = Math.Max(0m, -groupNet);
-        var receiptStoredCredit = matchingReceipts.Sum(GetReceiptUnappliedCredit);
-        var patientCredit = paymentGross > 0
-            ? dynamicCredit
-            : Math.Max(receiptStoredCredit, dynamicCredit);
+        // Patient credit = unapplied overpayment after invoices and refunds (not gross receipt amount).
+        var patientCredit = ComputeUnappliedCredit(siblingList, matchingReceipts, matchingPayments);
 
         var invoiceDue = netInvoice - receiptTotal;
         decimal endingBalance;
@@ -121,16 +118,8 @@ public static class InvoiceArCalculator
     private static decimal ComputeGroupPatientCredit(
         IReadOnlyList<Invoice> siblings,
         IReadOnlyList<CashReceipt> matchingReceipts,
-        IReadOnlyList<CashPayment> matchingPayments)
-    {
-        var paymentGross = matchingPayments.Sum(p => p.Amount);
-        var dynamicCredit = ComputeUnappliedCredit(siblings, matchingReceipts, matchingPayments);
-        if (paymentGross > 0)
-            return dynamicCredit;
-
-        var storedCredit = matchingReceipts.Sum(GetReceiptUnappliedCredit);
-        return Math.Max(storedCredit, dynamicCredit);
-    }
+        IReadOnlyList<CashPayment> matchingPayments) =>
+        ComputeUnappliedCredit(siblings, matchingReceipts, matchingPayments);
 
     private static string PatientGroupKey(Invoice invoice) =>
         !string.IsNullOrWhiteSpace(invoice.PatientId)

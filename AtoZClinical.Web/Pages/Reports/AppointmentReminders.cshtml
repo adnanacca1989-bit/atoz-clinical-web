@@ -130,9 +130,14 @@
                         <td>@r.AppointmentDate.ToString("M/d/yyyy")</td>
                         <td>@timeText</td>
                         <td>
-                            <a class="btn btn-sm appt-adjust-btn"
-                               asp-page="/PatientRegistration/Index"
-                               asp-route-RecordId="@r.PatientId">Adjust Time</a>
+                            <form method="post" asp-page-handler="AdjustTime" class="d-flex gap-1 align-items-center appt-adjust-form">
+                                <input type="hidden" name="patientId" value="@r.PatientId" />
+                                <input type="date" name="appointmentDate" class="clinical-field form-control form-control-sm"
+                                       value="@r.AppointmentDate.ToString("yyyy-MM-dd")" required />
+                                <input type="time" name="appointmentTime" class="clinical-field form-control form-control-sm"
+                                       value="@(r.AppointmentTime.HasValue ? $"{r.AppointmentTime.Value.Hours:D2}:{r.AppointmentTime.Value.Minutes:D2}" : "")" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary appt-adjust-btn">Save</button>
+                            </form>
                         </td>
                         <td><span class="appt-remaining-pill @RemainingClass(r.Status)">@r.RemainingLabel</span></td>
                         <td><span class="appt-status-pill @StatusClass(r.Status)">@r.Status</span></td>

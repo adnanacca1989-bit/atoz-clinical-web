@@ -65,6 +65,23 @@ public class AppointmentRemindersModel : PageModel
         return new JsonResult(new { count });
     }
 
+    public async Task<IActionResult> OnPostAdjustTimeAsync(Guid patientId, DateTime appointmentDate, string? appointmentTime)
+    {
+        var clinicId = await _clinicContext.GetClinicIdAsync();
+        if (clinicId is null) return Forbid();
+
+        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == patientId);
+        if (patient is null) return NotFound();
+
+        patient.AppointmentDate = appointmentDate.Date;
+        if (!string.IsNullOrWhiteSpace(appointmentTime) && TimeSpan.TryParse(appointmentTime, out var time))
+            patient.AppointmentTime = time;
+        patient.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return RedirectToPage(new { FromDate, ToDate, Gender, DoctorName, Specialty, City, Status, PatientSearch });
+    }
+
     private async Task<IActionResult> RunAsync()
     {
         var clinicId = await _clinicContext.GetClinicIdAsync();

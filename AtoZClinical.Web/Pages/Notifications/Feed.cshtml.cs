@@ -19,7 +19,9 @@ public class FeedModel : PageModel
         ["Radiology Result"] = ("Radiology Result", "/Radiology/Result"),
         ["Prescription"] = ("Doctor's Prescription", "/Prescriptions"),
         ["Laboratory Request"] = ("Laboratory Request", "/Laboratory/Request"),
-        ["Laboratory Result"] = ("Laboratory Result", "/Laboratory/Result")
+        ["Laboratory Result"] = ("Laboratory Result", "/Laboratory/Result"),
+        ["Pharmacy Bill"] = ("Pharmacy Bill", "/Pharmacy/Bill"),
+        ["Patient Status"] = ("Patient Status", "/Reports/PatientStatus")
     };
 
     public FeedModel(ClinicContextService clinicContext, ClinicalDbContext db, AppointmentReminderService reminders)
@@ -48,7 +50,8 @@ public class FeedModel : PageModel
 
         var auditEntries = await _db.AuditLogEntries
             .AsNoTracking()
-            .Where(a => a.ClinicId == clinicId && a.DateTime >= since && a.Type == "Create")
+            .Where(a => a.ClinicId == clinicId && a.DateTime >= since &&
+                        (a.Type == "Create" || a.FormName == "Patient Status"))
             .OrderByDescending(a => a.DateTime)
             .Take(100)
             .ToListAsync();
@@ -59,10 +62,11 @@ public class FeedModel : PageModel
             var meta = FormMeta.FirstOrDefault(kv => formName.Contains(kv.Key, StringComparison.OrdinalIgnoreCase));
             if (meta.Key is null) continue;
 
-            var detail = string.IsNullOrWhiteSpace(entry.Details) ? $"{meta.Value.Title} created" : entry.Details;
+            var detail = string.IsNullOrWhiteSpace(entry.Details) ? $"{meta.Value.Title} updated" : entry.Details;
+            var kind = formName.Contains("Patient Status", StringComparison.OrdinalIgnoreCase) ? "status" : "activity";
             items.Add(new NotificationPayload(
                 $"audit-{entry.Id:N}",
-                "activity",
+                kind,
                 meta.Value.Title,
                 detail,
                 meta.Value.Link,

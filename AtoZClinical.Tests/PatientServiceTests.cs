@@ -21,13 +21,14 @@ public class PatientServiceTests
 
         var invoices = new PatientInvoiceService(db.Db);
         var billing = new BillingPropagationService(db.Db, invoices);
+        var audit = new AuditService(db.Db);
         var service = new PatientService(
             db.Db,
             new MasterDataPropagationService(db.Db, billing),
             new InvoiceDeleteGuardService(db.Db),
-            new PatientVisitStatusService(db.Db),
+            new PatientVisitStatusService(db.Db, audit),
             new NoOpWebhookDispatchService(),
-            new AuditService(db.Db));
+            audit);
 
         var saved = await service.SaveAsync(clinicId, new Patient
         {
@@ -57,13 +58,14 @@ public class PatientServiceTests
 
         var invoices = new PatientInvoiceService(db.Db);
         var billing = new BillingPropagationService(db.Db, invoices);
+        var audit = new AuditService(db.Db);
         var service = new PatientService(
             db.Db,
             new MasterDataPropagationService(db.Db, billing),
             new InvoiceDeleteGuardService(db.Db),
-            new PatientVisitStatusService(db.Db),
+            new PatientVisitStatusService(db.Db, audit),
             new NoOpWebhookDispatchService(),
-            new AuditService(db.Db));
+            audit);
 
         var saved = await service.SaveAsync(clinicId, new Patient
         {

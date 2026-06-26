@@ -51,7 +51,7 @@ public class BillModel : ClinicFormPageModel
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (NewRecord)
+        else if (NewRecord || LoadRequestNo.HasValue || !string.IsNullOrWhiteSpace(LoadPatientId))
             await PrepareNew(clinicId.Value);
         else if (Records.Count > 0 && Input.BillNo == 0)
             await LoadRecord(clinicId.Value, Records[0].Id);
@@ -154,8 +154,7 @@ public class BillModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
-        var all = await _service.ListAsync(clinicId);
-        var next = (all.Count > 0 ? all.Max(b => b.BillNo) : 0) + 1;
+        var next = await _service.NextBillNoAsync(clinicId);
         Input = new PharmacyBillInput
         {
             BillNo = next,
@@ -170,18 +169,28 @@ public class BillModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
+        ResolveRecordIdForSave();
         if (!ModelState.IsValid)
         {
             await ReloadFormAsync(clinicId.Value);
             return Page();
         }
-        var entity = Input.ToEntity(RecordId);
+        var entity = Input.ToEntity(RecordIdForSave);
         var lines = Lines
             .Where(l => !string.IsNullOrWhiteSpace(l.MedicineName))
             .Select(l => l.ToEntity())
             .ToList();
         var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
         return RedirectAfterSave(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await ReloadFormAsync(clinicId.Value);
+        if (!RecordId.HasValue)
+            await PrepareNew(clinicId.Value);
     }
 
     private Task<IActionResult> NewCoreAsync() => Task.FromResult(RedirectToNewForm());

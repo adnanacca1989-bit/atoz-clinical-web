@@ -574,19 +574,22 @@ public sealed class CashPaymentService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientInvoiceService _invoices;
     private readonly BillingPropagationService _billing;
+    private readonly PatientVisitStatusService _visitStatus;
 
     public CashPaymentService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
         PatientInvoiceService invoices,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        PatientVisitStatusService visitStatus)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _invoices = invoices;
         _billing = billing;
+        _visitStatus = visitStatus;
     }
 
     public Task<List<CashPayment>> ListAsync(Guid clinicId) =>
@@ -622,6 +625,8 @@ public sealed class CashPaymentService
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Cash Payment", isNew ? "Create" : "Update",
             $"Payment #{item.PaymentNo} — {item.PayeeName}, {item.Amount:N2}");
+        try { await _visitStatus.OnCashPaymentAsync(clinicId, item); }
+        catch { }
         if (previous is not null)
         {
             try { await _billing.SyncCashPaymentAsync(clinicId, item, previous); }
@@ -1009,6 +1014,10 @@ public sealed class PharmacyBillService
     public Task<PharmacyBill?> GetAsync(Guid clinicId, Guid id) =>
         _db.PharmacyBills.Include(b => b.Lines).FirstOrDefaultAsync(b => b.ClinicId == clinicId && b.Id == id);
 
+    public Task<int> NextBillNoAsync(Guid clinicId) =>
+        _db.PharmacyBills.ForClinic(clinicId).Select(b => (int?)b.BillNo).MaxAsync()
+            .ContinueWith(t => (t.Result ?? 0) + 1);
+
     public async Task<PharmacyBill> SaveAsync(Guid clinicId, PharmacyBill item, List<PharmacyBillLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
@@ -1020,19 +1029,38 @@ public sealed class PharmacyBillService
                 .Include(b => b.Lines)
                 .FirstOrDefaultAsync(b => b.Id == item.Id);
             previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
+            if (previous is null)
+                isNew = true;
+        }
+
+        var validLines = lines
+            .Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName)))
+            .ToList();
+        if (validLines.Count == 0)
+            throw new InvalidOperationException("Add at least one pharmacy line with a registered item.");
+
+        foreach (var line in validLines)
+        {
+            var registered = await _inventory.GetOrCreateItemAsync(
+                clinicId, line.Barcode, line.MedicineCode, line.MedicineName, line.Dosage);
+            line.Barcode = registered.Barcode;
+            line.MedicineCode = registered.MedicineCode;
+            line.MedicineName = registered.MedicineName;
+            if (string.IsNullOrWhiteSpace(line.Uom))
+                line.Uom = registered.BaseUom;
         }
 
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
-        item.SubTotal = lines.Sum(l => l.LineTotal);
+        item.SubTotal = validLines.Sum(l => l.LineTotal);
         item.TotalAmount = item.SubTotal - item.Discount;
         item.BalanceDue = item.TotalAmount - item.AmountPaid;
 
         if (isNew)
         {
             item.Id = Guid.NewGuid();
-            item.BillNo = (await _db.PharmacyBills.Where(b => b.ClinicId == clinicId).MaxAsync(b => (int?)b.BillNo) ?? 0) + 1;
             item.CreatedAt = DateTime.UtcNow;
+            item.BillNo = await NextBillNoAsync(clinicId);
             _db.PharmacyBills.Add(item);
         }
         else
@@ -1042,28 +1070,51 @@ public sealed class PharmacyBillService
             _db.PharmacyBills.Update(item);
         }
 
-        foreach (var line in lines)
+        foreach (var line in validLines)
         {
             line.Id = Guid.NewGuid();
             line.PharmacyBillId = item.Id;
             _db.PharmacyBillLines.Add(line);
         }
 
-        await _db.SaveChangesAsync();
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            if (isNew && attempt > 0)
+            {
+                item.BillNo = await NextBillNoAsync(clinicId);
+                _db.Entry(item).Property(b => b.BillNo).IsModified = true;
+            }
+
+            try
+            {
+                await _db.SaveChangesAsync();
+                break;
+            }
+            catch (DbUpdateException ex) when (isNew && attempt < 2 && IsDuplicateBillNo(ex))
+            {
+                // Another bill was saved with the same number; retry with the next available id.
+            }
+        }
 
         if (previous is not null)
         {
-            try { await _billing.SyncPharmacyBillAsync(clinicId, item, lines, previous, previousLines); }
+            try { await _billing.SyncPharmacyBillAsync(clinicId, item, validLines, previous, previousLines); }
             catch { }
         }
 
-        var validLines = lines.Where(l => l.Qty > 0 && (!string.IsNullOrWhiteSpace(l.Barcode) || !string.IsNullOrWhiteSpace(l.MedicineName))).ToList();
         await _inventory.SyncBillOutAsync(clinicId, item, validLines);
         await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName);
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Bill", isNew ? "Create" : "Update",
             $"Bill #{item.BillNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
+    }
+
+    private static bool IsDuplicateBillNo(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? ex.Message;
+        return message.Contains("IX_PharmacyBills_ClinicId_BillNo", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)
