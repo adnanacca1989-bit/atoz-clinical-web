@@ -198,15 +198,41 @@ public sealed class ClinicLookupService
 
         if (isNew)
         {
-            item.Id = Guid.NewGuid();
-            item.VendorNo = (await _db.ClinicVendors.Where(x => x.ClinicId == clinicId).MaxAsync(x => (int?)x.VendorNo) ?? 0) + 1;
-            item.CreatedAt = DateTime.UtcNow;
-            _db.ClinicVendors.Add(item);
+            var template = item;
+            item = await ClinicSaveHelper.InsertWithSequenceRetryAsync(
+                _db,
+                async _ =>
+                {
+                    var nextNo = (await _db.ClinicVendors.Where(x => x.ClinicId == clinicId).MaxAsync(x => (int?)x.VendorNo) ?? 0) + 1;
+                    return new ClinicVendor
+                    {
+                        Id = Guid.NewGuid(),
+                        ClinicId = clinicId,
+                        VendorNo = nextNo,
+                        Name = template.Name,
+                        Phone = template.Phone,
+                        Email = template.Email,
+                        Address = template.Address,
+                        IsActive = template.IsActive,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                },
+                row => _db.ClinicVendors.Add(row),
+                ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_ClinicVendors_ClinicId_VendorNo"),
+                failureMessage: "Could not save vendor");
         }
         else
+        {
+            var existing = await GetVendorAsync(clinicId, item.Id);
+            if (existing is null)
+                throw new InvalidOperationException("Vendor record was not found.");
+            item.VendorNo = existing.VendorNo;
+            item.CreatedAt = existing.CreatedAt;
             _db.ClinicVendors.Update(item);
+            await _db.SaveChangesAsync();
+        }
 
-        await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Define Vendor", isNew ? "Create" : "Update", item.Name);
         return item;
     }

@@ -21,8 +21,6 @@ public class UomModel : SettingsFormPageModel
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
         if (ShouldLoadExistingRecord()) await LoadRecord(clinicId.Value, RecordId!.Value);
-        else if (NewRecord) await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);
         SetFormViewData("Define UOM", null, null, Input.UpdatedAt);
         return Page();

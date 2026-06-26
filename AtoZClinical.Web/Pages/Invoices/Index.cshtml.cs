@@ -43,19 +43,15 @@ public class IndexModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
         await LoadClinicBrandingAsync();
         await LoadAsync(clinicId.Value);
-        if (RecordId.HasValue)
+        if (ShouldLoadExistingRecord())
         {
-            var loaded = await LoadRecord(clinicId.Value, RecordId.Value);
+            var loaded = await LoadRecord(clinicId.Value, RecordId!.Value);
             if (!loaded)
             {
                 TempData["Error"] = "Invoice record was not found. It may have been removed.";
                 return RedirectToPage();
             }
         }
-        else if (NewRecord)
-            await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0)
-            await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Invoice / Billing", null, null, Input.UpdatedAt);

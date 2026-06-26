@@ -222,14 +222,20 @@ public sealed class PharmacyInventoryService
         return items.Select(item =>
         {
             var itemMoves = movements.Where(m => m.PharmacyItemId == item.Id).ToList();
-            var qtyIn = itemMoves.Sum(m => m.QtyIn);
-            var qtyOut = itemMoves.Sum(m => m.QtyOut);
+            var qtyOpening = itemMoves.Where(m => m.MovementType == PharmacyInventoryTypes.OpeningBalance).Sum(m => m.QtyIn);
+            var qtyPurchase = itemMoves.Where(m => m.MovementType == PharmacyInventoryTypes.PurchaseIn).Sum(m => m.QtyIn);
+            var qtyIssued = itemMoves.Where(m => m.MovementType == PharmacyInventoryTypes.BillOut).Sum(m => m.QtyOut);
+            var qtyIn = qtyOpening + qtyPurchase;
+            var qtyOut = qtyIssued;
             return new PharmacyInventoryReportRow(
                 item.ItemNo,
                 item.Barcode,
                 item.MedicineCode,
                 item.MedicineName,
                 item.Dosage,
+                qtyOpening,
+                qtyPurchase,
+                qtyIssued,
                 qtyIn,
                 qtyOut,
                 item.QuantityOnHand,
@@ -288,6 +294,9 @@ public sealed class PharmacyInventoryService
         string MedicineCode,
         string MedicineName,
         string? Dosage,
+        int QtyOpeningBalance,
+        int QtyPurchase,
+        int QtyIssued,
         int QtyIn,
         int QtyOut,
         int QtyBalance,

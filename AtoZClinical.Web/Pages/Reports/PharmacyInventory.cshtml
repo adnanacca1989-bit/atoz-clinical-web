@@ -64,7 +64,7 @@
 
         </div>
 
-        <p class="report-hint">Moving average costing — QTY IN from opening balance and purchases; QTY OUT from pharmacy bills.</p>
+        <p class="report-hint">Moving average costing — Opening = opening balance; Purchase = purchase bills; Issued = pharmacy bills (sales). Filter by date range above.</p>
 
         <div class="report-summary-panel">
 
@@ -88,7 +88,7 @@
 
                         <th data-col="no">No</th><th data-col="barcode">Barcode</th><th data-col="code">Code</th><th data-col="medicineName">Medicine Name</th><th data-col="dosage">Dosage</th><th data-col="expiryDate">Expiry Date</th>
 
-                        <th data-col="qtyIn" class="text-end">QTY IN</th><th data-col="qtyOut" class="text-end">QTY OUT</th><th data-col="balance" class="text-end">Balance</th><th data-col="avgCost" class="text-end">Avg Cost</th><th data-col="value" class="text-end">Value</th>
+                        <th data-col="qtyOpening" class="text-end">Opening</th><th data-col="qtyPurchase" class="text-end">Purchase</th><th data-col="qtyIssued" class="text-end">Issued</th><th data-col="balance" class="text-end">Balance</th><th data-col="avgCost" class="text-end">Avg Cost</th><th data-col="value" class="text-end">Value</th>
 
                     </tr>
 
@@ -125,9 +125,11 @@
 
                         <td>@(r.ExpiryDate?.ToString("yyyy-MM-dd") ?? "—")</td>
 
-                        <td class="text-end">@r.QtyIn</td>
+                        <td class="text-end">@r.QtyOpeningBalance</td>
 
-                        <td class="text-end">@r.QtyOut</td>
+                        <td class="text-end">@r.QtyPurchase</td>
+
+                        <td class="text-end">@r.QtyIssued</td>
 
                         <td class="text-end">@r.QtyBalance</td>
 

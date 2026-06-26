@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     bindInvoiceTotals();
     bindInvoicePrint();
+    bindInvoiceServicePickers();
 
     const tbody = document.querySelector('.invoice-line-grid tbody');
     tbody?.addEventListener('input', e => {
@@ -44,6 +45,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Exposed for inline handlers if needed
 window.lockInvoiceCharges = () => { window.invoiceChargesLocked = true; };
+
+function bindInvoiceServicePickers() {
+    const applyPick = (select) => {
+        const row = select.closest('tr');
+        if (!row) return;
+        const opt = select.selectedOptions[0];
+        const nameInput = row.querySelector('.invoice-service-name');
+        const feeInput = row.querySelector('[name$=".UnitFee"]');
+        if (!opt?.value) return;
+        if (nameInput) nameInput.value = opt.value;
+        if (feeInput && opt.dataset.fee) feeInput.value = Number(opt.dataset.fee).toFixed(2);
+        if (typeof window.recalcInvoiceTotals === 'function') window.recalcInvoiceTotals();
+        if (typeof window.lockInvoiceCharges === 'function') window.lockInvoiceCharges();
+    };
+
+    document.querySelectorAll('.invoice-service-pick').forEach(select => {
+        select.addEventListener('change', () => applyPick(select));
+    });
+
+    document.querySelectorAll('.invoice-service-name').forEach(input => {
+        input.addEventListener('input', () => {
+            const row = input.closest('tr');
+            const select = row?.querySelector('.invoice-service-pick');
+            if (!select) return;
+            const match = [...select.options].find(o => o.value && o.value === input.value.trim());
+            select.value = match?.value ?? '';
+        });
+    });
+}
 
 function bindInvoiceTotals() {
     const subTotalEl = document.getElementById('invoiceSubTotal');

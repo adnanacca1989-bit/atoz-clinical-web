@@ -96,7 +96,14 @@
 
                                     <td class="col-item">
 
-                                        <input asp-for="Lines[i].ServiceName" class="clinical-field invoice-service-name" placeholder="Service / charge description" list="invoiceServiceList" />
+                                        <select class="invoice-service-pick clinical-field mb-1">
+                                            <option value="">— Select service —</option>
+                                            @foreach (var s in Model.Services)
+                                            {
+                                                <option value="@s.Name" data-fee="@s.Fee.ToString(System.Globalization.CultureInfo.InvariantCulture)" selected="@(Model.Lines[i].ServiceName == s.Name)">@s.Name — @s.Fee.ToString("N2")</option>
+                                            }
+                                        </select>
+                                        <input asp-for="Lines[i].ServiceName" class="clinical-field invoice-service-name" placeholder="Or type custom service" />
 
                                     </td>
 
@@ -177,18 +184,6 @@
                 </div>
 
             </div>
-
-            <datalist id="invoiceServiceList">
-
-                @foreach (var s in Model.Services)
-
-                {
-
-                    <option value="@s.Name"></option>
-
-                }
-
-            </datalist>
 
             <div class="clinical-form-right">
 

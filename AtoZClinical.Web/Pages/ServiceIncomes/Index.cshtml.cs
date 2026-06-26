@@ -27,12 +27,8 @@ public class IndexModel : ClinicFormPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
-        if (RecordId.HasValue)
-            await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (NewRecord)
-            await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0 && Input.ServiceNo == 0)
-            await LoadRecord(clinicId.Value, Records[0].Id);
+        if (ShouldLoadExistingRecord())
+            await LoadRecord(clinicId.Value, RecordId!.Value);
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Service Income", null, null, Input.UpdatedAt);

@@ -33,6 +33,8 @@ public sealed class PharmacyCogsService
         if (!string.IsNullOrWhiteSpace(patientName))
             bills = bills.Where(b => b.PatientName?.Contains(patientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
+        if (bills.Count == 0) return [];
+
         var billIds = bills.Select(b => b.Id).ToList();
         var movements = await _db.PharmacyInventoryMovements
             .ForClinic(clinicId)
@@ -45,6 +47,8 @@ public sealed class PharmacyCogsService
             .GroupBy(m => (m.ReferenceId, m.LineNo))
             .ToDictionary(g => g.Key, g => g.First().UnitCost);
 
+        var items = await _db.PharmacyItems.ForClinic(clinicId).Where(i => i.IsActive).ToListAsync();
+
         var rows = new List<CogsRow>();
         foreach (var bill in bills)
         {
@@ -53,9 +57,16 @@ public sealed class PharmacyCogsService
                 if (line.Qty <= 0) continue;
                 if (string.IsNullOrWhiteSpace(line.MedicineName) && string.IsNullOrWhiteSpace(line.Barcode)) continue;
 
-                var unitCost = costByBillLine.TryGetValue((bill.Id, line.LineNo), out var movementCost)
-                    ? movementCost
-                    : 0m;
+                decimal unitCost;
+                if (costByBillLine.TryGetValue((bill.Id, line.LineNo), out var movementCost) && movementCost > 0)
+                    unitCost = movementCost;
+                else
+                {
+                    var registered = PharmacyItemRegistrationService.ResolveForLine(
+                        items, line.Barcode, line.MedicineCode, line.MedicineName);
+                    unitCost = registered?.MovingAverageCost ?? 0m;
+                }
+
                 rows.Add(new CogsRow(
                     bill.BillDate,
                     bill.BillNo,

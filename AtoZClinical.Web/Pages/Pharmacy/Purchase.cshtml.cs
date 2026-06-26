@@ -41,8 +41,6 @@ public class PurchaseModel : ClinicFormPageModel
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         RegisteredVendors = await _lookup.ListVendorsAsync(clinicId.Value, activeOnly: true);
         if (ShouldLoadExistingRecord()) await LoadRecord(clinicId.Value, RecordId!.Value);
-        else if (NewRecord) await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0 && Input.PurchaseNo == 0) await LoadRecord(clinicId.Value, Records[0].Id);
         else await PrepareNew(clinicId.Value);
         SetFormViewData("Pharmacy Purchase Bill", null, null, Input.UpdatedAt);
         ViewData["ShowAddLines"] = true;
@@ -78,10 +76,10 @@ public class PurchaseModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
-        var all = await _service.ListAsync(clinicId);
+        var next = await _service.NextPurchaseNoAsync(clinicId);
         Input = new PurchaseInput
         {
-            PurchaseNo = (all.Count > 0 ? all.Max(b => b.PurchaseNo) : 0) + 1,
+            PurchaseNo = next,
             PurchaseDate = DateTime.Today,
             PaymentMethod = ClinicLookup.PaymentMethods[0],
             PaymentStatus = "Unpaid"

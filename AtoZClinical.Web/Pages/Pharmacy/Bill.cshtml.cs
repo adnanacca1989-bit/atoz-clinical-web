@@ -51,10 +51,6 @@ public class BillModel : ClinicFormPageModel
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         if (ShouldLoadExistingRecord())
             await LoadRecord(clinicId.Value, RecordId!.Value);
-        else if (NewRecord || LoadRequestNo.HasValue || !string.IsNullOrWhiteSpace(LoadPatientId))
-            await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0 && Input.BillNo == 0)
-            await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
 
