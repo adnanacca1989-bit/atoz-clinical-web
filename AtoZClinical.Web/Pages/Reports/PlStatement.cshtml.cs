@@ -95,12 +95,15 @@ public class PlStatementModel : PageModel
 
         CostOfGoodsSold = await _cogs.GetTotalCogsAsync(clinicId.Value, FromDate, ToDate, DoctorName, PatientName);
 
-        var expenseAccountNames = await _db.ChartAccounts
+        var chartAccounts = await _db.ChartAccounts
+            .AsNoTracking()
             .ForClinic(clinicId.Value)
-            .Where(a => a.CategoryType.Equals("Expense", StringComparison.OrdinalIgnoreCase))
-            .Select(a => a.Name)
             .ToListAsync();
-        var expenseAccounts = new HashSet<string>(expenseAccountNames, StringComparer.OrdinalIgnoreCase);
+        var expenseAccounts = new HashSet<string>(
+            chartAccounts
+                .Where(a => string.Equals(a.CategoryType, "Expense", StringComparison.OrdinalIgnoreCase))
+                .Select(a => a.Name),
+            StringComparer.OrdinalIgnoreCase);
 
         var payments = await _db.CashPayments
             .ForClinic(clinicId.Value)
