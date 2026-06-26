@@ -197,6 +197,27 @@ public sealed class BillingPropagationService
             recalcPayments: false);
     }
 
+    public async Task SyncServiceIncomeRequestAsync(
+        Guid clinicId,
+        ServiceIncomeRequest current,
+        IReadOnlyList<ServiceIncomeRequestLine> lines,
+        ServiceIncomeRequest? previous,
+        IReadOnlyList<ServiceIncomeRequestLine>? previousLines)
+    {
+        if (previous is not null)
+            await PropagatePatientDoctorInternalAsync(
+                clinicId,
+                ToContext(previous),
+                ToContext(current),
+                recalcPayments: false);
+
+        await SyncPrefixLinesToInvoicesAsync(
+            clinicId,
+            $"Service #{current.RequestNo}:",
+            lines.Select(l => new BillingLine(l.ServiceName ?? "Service", l.Qty, l.Fee)).ToList(),
+            previousLines?.Select(l => l.ServiceName ?? "Service").ToList());
+    }
+
     private async Task PropagatePatientDoctorInternalAsync(
         Guid clinicId,
         PatientDoctorContext before,
@@ -230,6 +251,20 @@ public sealed class BillingPropagationService
                 .SetProperty(i => i.UpdatedAt, now));
 
         await _db.LabRequests
+            .ForClinic(clinicId)
+            .Where(r => MatchesPatientDoctor(r.PatientBarcode, r.PatientName, r.DoctorName, oldId, oldName, oldDoctor))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.PatientBarcode, newId)
+                .SetProperty(r => r.PatientName, newName)
+                .SetProperty(r => r.Phone, after.Phone)
+                .SetProperty(r => r.Age, after.Age)
+                .SetProperty(r => r.Gender, after.Gender)
+                .SetProperty(r => r.City, after.City)
+                .SetProperty(r => r.DoctorName, newDoctor)
+                .SetProperty(r => r.Specialty, after.Specialty)
+                .SetProperty(r => r.UpdatedAt, now));
+
+        await _db.ServiceIncomeRequests
             .ForClinic(clinicId)
             .Where(r => MatchesPatientDoctor(r.PatientBarcode, r.PatientName, r.DoctorName, oldId, oldName, oldDoctor))
             .ExecuteUpdateAsync(s => s
@@ -417,6 +452,9 @@ public sealed class BillingPropagationService
     }
 
     private static PatientDoctorContext ToContext(LabRequest r) =>
+        new(r.PatientBarcode, r.PatientName, r.DoctorName, r.Age, r.Phone, r.Gender, r.City, r.Specialty);
+
+    private static PatientDoctorContext ToContext(ServiceIncomeRequest r) =>
         new(r.PatientBarcode, r.PatientName, r.DoctorName, r.Age, r.Phone, r.Gender, r.City, r.Specialty);
 
     private static PatientDoctorContext ToContext(LabResult r) =>

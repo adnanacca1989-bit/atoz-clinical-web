@@ -52,6 +52,7 @@ public class ResponsibilitiesModel : PageModel
         (ClinicalFormKeys.RadiologyRequest, "Radiology Request"),
         (ClinicalFormKeys.RadiologyResult, "Radiology Result"),
         (ClinicalFormKeys.ServiceIncomes, "Service Income"),
+        (ClinicalFormKeys.ServiceIncomeRequest, "Service Income Request"),
         (ClinicalFormKeys.Invoices, "Invoice / Billing"),
         (ClinicalFormKeys.CashReceipts, "Cash Receipt"),
         (ClinicalFormKeys.CashPayments, "Cash Payment"),

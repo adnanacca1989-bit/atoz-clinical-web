@@ -6,6 +6,7 @@ public static class ClinicalFormKeys
     public const string Workflow = "Workflow";
     public const string Doctors = "Doctors";
     public const string ServiceIncomes = "ServiceIncomes";
+    public const string ServiceIncomeRequest = "ServiceIncomes.Request";
     public const string PatientRegistration = "PatientRegistration";
     public const string CashReceipts = "CashReceipts";
     public const string CashPayments = "CashPayments";
@@ -42,7 +43,7 @@ public static class ClinicalFormKeys
 
     public static readonly string[] All =
     [
-        Dashboard, Workflow, Doctors, ServiceIncomes, PatientRegistration, CashReceipts, CashPayments,
+        Dashboard, Workflow, Doctors, ServiceIncomes, ServiceIncomeRequest, PatientRegistration, CashReceipts, CashPayments,
         LabRegistration, LabRequest, LabResult,
         RadiologyRegistration, RadiologyRequest, RadiologyResult,
         Prescriptions, Invoices, ChartAccounts,

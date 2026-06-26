@@ -65,6 +65,7 @@ public sealed class FormPermissionService
             "/pharmacy/purchase" => ClinicalFormKeys.PharmacyPurchaseBill,
             "/pharmacy/openingbalance" => ClinicalFormKeys.PharmacyOpeningBalance,
             "/serviceincomes" or "/serviceincomes/index" => ClinicalFormKeys.ServiceIncomes,
+            "/serviceincomes/request" => ClinicalFormKeys.ServiceIncomeRequest,
             "/invoices" or "/invoices/index" => ClinicalFormKeys.Invoices,
             "/cashreceipts" or "/cashreceipts/index" => ClinicalFormKeys.CashReceipts,
             "/cashpayments" or "/cashpayments/index" => ClinicalFormKeys.CashPayments,

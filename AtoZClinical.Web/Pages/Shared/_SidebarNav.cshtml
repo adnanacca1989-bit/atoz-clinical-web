@@ -97,6 +97,10 @@
 {
     <a class="sidebar-link" asp-page="/ServiceIncomes/Index">Service Income</a>
 }
+@if (NavCan(ClinicalFormKeys.ServiceIncomeRequest))
+{
+    <a class="sidebar-link" asp-page="/ServiceIncomes/Request">Service Income Request</a>
+}
 @if (NavCan(ClinicalFormKeys.Invoices))
 {
     <a class="sidebar-link" asp-page="/Invoices/Index">Invoice / Billing</a>

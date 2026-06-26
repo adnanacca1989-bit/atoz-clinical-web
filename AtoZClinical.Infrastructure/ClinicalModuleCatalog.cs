@@ -24,7 +24,7 @@ public static class ClinicalModuleCatalog
             ClinicalFormKeys.PharmacyBill, ClinicalFormKeys.PharmacyPurchaseBill, ClinicalFormKeys.PharmacyOpeningBalance
         ]),
         new("Billing", "Billing", [
-            ClinicalFormKeys.ServiceIncomes, ClinicalFormKeys.Invoices,
+            ClinicalFormKeys.ServiceIncomes, ClinicalFormKeys.ServiceIncomeRequest, ClinicalFormKeys.Invoices,
             ClinicalFormKeys.CashReceipts, ClinicalFormKeys.CashPayments, ClinicalFormKeys.ChartAccounts
         ]),
         new("Reports", "Reports", [

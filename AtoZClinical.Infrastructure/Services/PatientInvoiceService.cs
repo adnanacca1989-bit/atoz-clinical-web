@@ -25,6 +25,28 @@ public sealed class PatientInvoiceService
 
         var lines = new List<PatientChargeLine>();
 
+        var serviceRequests = await _db.ServiceIncomeRequests
+            .Include(r => r.Lines)
+            .ForClinic(clinicId)
+            .Where(r =>
+                (barcode != null && r.PatientBarcode != null && EF.Functions.ILike(r.PatientBarcode, barcode)) ||
+                (name != null && r.PatientName != null && EF.Functions.ILike(r.PatientName, name)))
+            .OrderByDescending(r => r.RequestDate)
+            .ToListAsync();
+
+        foreach (var req in serviceRequests.Where(r => MatchDoctor(r.DoctorName)))
+        {
+            foreach (var line in req.Lines.OrderBy(l => l.LineNo))
+            {
+                if (string.IsNullOrWhiteSpace(line.ServiceName) && line.Fee <= 0) continue;
+                lines.Add(new PatientChargeLine(
+                    $"Service #{req.RequestNo}: {line.ServiceName ?? "Service"}",
+                    line.Qty,
+                    line.Fee,
+                    "Service Income"));
+            }
+        }
+
         var labRequests = await _db.LabRequests
             .Include(r => r.Lines)
             .ForClinic(clinicId)

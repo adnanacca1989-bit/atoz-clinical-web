@@ -27,6 +27,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<ServiceIncome> ServiceIncomes => Set<ServiceIncome>();
+    public DbSet<ServiceIncomeRequest> ServiceIncomeRequests => Set<ServiceIncomeRequest>();
+    public DbSet<ServiceIncomeRequestLine> ServiceIncomeRequestLines => Set<ServiceIncomeRequestLine>();
     public DbSet<CashReceipt> CashReceipts => Set<CashReceipt>();
     public DbSet<LabTest> LabTests => Set<LabTest>();
     public DbSet<LabRequest> LabRequests => Set<LabRequest>();
@@ -119,6 +121,17 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         {
             e.HasIndex(x => new { x.ClinicId, x.ServiceNo }).IsUnique();
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ServiceIncomeRequest>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.RequestNo }).IsUnique();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ServiceIncomeRequestLine>(e =>
+        {
+            e.HasOne(x => x.ServiceIncomeRequest).WithMany(r => r.Lines).HasForeignKey(x => x.ServiceIncomeRequestId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<CashReceipt>(e =>
@@ -383,6 +396,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         ConfigureClinicFilter<Appointment>(builder);
         ConfigureClinicFilter<Doctor>(builder);
         ConfigureClinicFilter<ServiceIncome>(builder);
+        ConfigureClinicFilter<ServiceIncomeRequest>(builder);
         ConfigureClinicFilter<CashReceipt>(builder);
         ConfigureClinicFilter<CashPayment>(builder);
         ConfigureClinicFilter<LabTest>(builder);

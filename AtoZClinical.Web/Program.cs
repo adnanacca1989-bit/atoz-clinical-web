@@ -215,6 +215,7 @@ builder.Services.AddScoped<PatientService>();
 builder.Services.AddScoped<AppointmentService>();
 builder.Services.AddScoped<DoctorService>();
 builder.Services.AddScoped<ServiceIncomeService>();
+builder.Services.AddScoped<ServiceIncomeRequestService>();
 builder.Services.AddScoped<CashReceiptService>();
 builder.Services.AddScoped<LabTestService>();
 builder.Services.AddScoped<LabRequestService>();
