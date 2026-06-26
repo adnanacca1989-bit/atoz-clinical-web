@@ -34,6 +34,7 @@ public sealed class AuditService
 
     public Task<List<AuditLogEntry>> ListAsync(Guid clinicId, int take = 500) =>
         _db.AuditLogEntries
+            .IgnoreQueryFilters()
             .Where(a => a.ClinicId == clinicId)
             .OrderByDescending(a => a.DateTime)
             .Take(take)

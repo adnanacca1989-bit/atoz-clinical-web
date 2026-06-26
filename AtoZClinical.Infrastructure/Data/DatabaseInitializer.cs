@@ -73,8 +73,12 @@ public static class DatabaseInitializer
         }
 
         var clinicIds = await db.Clinics.Select(c => c.Id).ToListAsync();
+        var cache = scope.ServiceProvider.GetService<ClinicRuntimeCache>();
         foreach (var clinicId in clinicIds)
+        {
             await SeedClinicDefaultsAsync(db, clinicId, logger);
+            cache?.InvalidateVisibleForms(clinicId);
+        }
     }
 
     public static async Task SeedClinicDefaultsAsync(ClinicalDbContext db, Guid clinicId, ILogger? logger = null)
@@ -100,10 +104,8 @@ public static class DatabaseInitializer
             db.RolePermissions.AddRange(permissions);
             logger?.LogInformation("Seeded Admin role permissions for clinic {ClinicId}.", clinicId);
         }
-        else
-        {
-            await BackfillRolePermissionsAsync(db, clinicId, logger);
-        }
+
+        await BackfillRolePermissionsAsync(db, clinicId, logger);
 
         if (!await db.ClinicConfigurations.AnyAsync(c => c.ClinicId == clinicId))
         {

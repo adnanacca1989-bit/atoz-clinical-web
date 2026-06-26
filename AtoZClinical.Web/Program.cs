@@ -1,3 +1,4 @@
+using AtoZClinical.Web;
 using AtoZClinical.Web.Filters;
 using AtoZClinical.Web.Api;
 using AtoZClinical.Web.Middleware;
@@ -359,6 +360,7 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         var basic = new Dictionary<string, object?>
         {
             ["status"] = "healthy",
+            ["version"] = AppBuildInfo.Version,
             ["timestamp"] = DateTime.UtcNow
         };
 

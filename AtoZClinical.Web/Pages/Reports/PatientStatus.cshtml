@@ -38,6 +38,8 @@
                     <option>Pending</option>
                     <option>Confirmed</option>
                     <option>Under Process</option>
+                    <option>Scheduled</option>
+                    <option>Overdue</option>
                     <option>Completed</option>
                     <option>Cancelled</option>
                 </select>
@@ -96,6 +98,7 @@
 <partial name="_PatientSelectModal" />
 
 @section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
     <script src="~/js/report-filters.js" asp-append-version="true"></script>
     <partial name="_ReportColumnFilterScript" />

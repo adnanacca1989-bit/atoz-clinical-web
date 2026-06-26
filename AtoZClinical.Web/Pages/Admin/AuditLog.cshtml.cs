@@ -18,7 +18,7 @@ public class AuditLogModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)]
-    public DateTime FromDate { get; set; } = ClinicClock.Today.AddMonths(-1);
+    public DateTime FromDate { get; set; } = ClinicClock.Today.AddMonths(-6);
 
     [BindProperty(SupportsGet = true)]
     public DateTime ToDate { get; set; } = ClinicClock.Today;

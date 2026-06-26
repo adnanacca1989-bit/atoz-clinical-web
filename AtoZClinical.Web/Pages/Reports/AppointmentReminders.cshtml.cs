@@ -24,10 +24,10 @@ public class AppointmentRemindersModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)]
-    public DateTime FromDate { get; set; } = ClinicClock.Today.AddDays(-7);
+    public DateTime FromDate { get; set; } = ClinicClock.Today.AddMonths(-6);
 
     [BindProperty(SupportsGet = true)]
-    public DateTime ToDate { get; set; } = ClinicClock.Today.AddDays(14);
+    public DateTime ToDate { get; set; } = ClinicClock.Today.AddMonths(3);
 
     [BindProperty(SupportsGet = true)]
     public string Gender { get; set; } = "All";
@@ -106,7 +106,7 @@ public class AppointmentRemindersModel : PageModel
 
     private async Task LoadFilterOptionsAsync(Guid clinicId)
     {
-        var patients = await _db.Patients.Where(p => p.ClinicId == clinicId).ToListAsync();
+        var patients = await _db.Patients.IgnoreQueryFilters().Where(p => p.ClinicId == clinicId).ToListAsync();
         DoctorOptions = patients.Select(p => p.DoctorName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).Cast<string>().ToList();
         SpecialtyOptions = patients.Select(p => p.Specialty).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).Cast<string>().ToList();
         CityOptions = patients.Select(p => p.City).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).Cast<string>().ToList();

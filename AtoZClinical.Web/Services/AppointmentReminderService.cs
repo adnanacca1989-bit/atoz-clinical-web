@@ -26,6 +26,7 @@ public sealed class AppointmentReminderService
         var to = ClinicClock.ToClinicDate(toDate);
 
         var patients = await _db.Patients
+            .IgnoreQueryFilters()
             .Where(p => p.ClinicId == clinicId)
             .ToListAsync();
 
@@ -56,10 +57,15 @@ public sealed class AppointmentReminderService
             .ToList();
 
         if (!string.IsNullOrWhiteSpace(statusFilter) && !statusFilter.Equals("All", StringComparison.OrdinalIgnoreCase))
-            rows = rows.Where(r =>
-                PatientVisitStatuses.Normalize(r.Status).Equals(statusFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+            rows = rows.Where(r => StatusMatchesFilter(r.Status, statusFilter)).ToList();
 
         return rows.OrderBy(r => r.AppointmentDateTime).ToList();
+    }
+
+    private static bool StatusMatchesFilter(string status, string filter)
+    {
+        if (string.Equals(status, filter, StringComparison.OrdinalIgnoreCase)) return true;
+        return PatientVisitStatuses.Normalize(status).Equals(filter, StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<int> GetUpcomingReminderCountAsync(Guid clinicId)
@@ -72,6 +78,7 @@ public sealed class AppointmentReminderService
     {
         var today = ClinicClock.Today;
         var patients = await _db.Patients
+            .IgnoreQueryFilters()
             .Where(p => p.ClinicId == clinicId)
             .ToListAsync();
         patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, today, today)).ToList();

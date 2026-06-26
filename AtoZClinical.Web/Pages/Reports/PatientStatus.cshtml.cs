@@ -19,10 +19,10 @@ public class PatientStatusModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)]
-    public DateTime FromDate { get; set; } = ClinicClock.Today.AddMonths(-1);
+    public DateTime FromDate { get; set; } = ClinicClock.Today.AddMonths(-6);
 
     [BindProperty(SupportsGet = true)]
-    public DateTime ToDate { get; set; } = ClinicClock.Today;
+    public DateTime ToDate { get; set; } = ClinicClock.Today.AddMonths(3);
 
     [BindProperty(SupportsGet = true)]
     public string Status { get; set; } = "All";
@@ -51,6 +51,7 @@ public class PatientStatusModel : PageModel
 
         var patients = await _db.Patients
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(p => p.ClinicId == clinicId)
             .ToListAsync();
 
@@ -97,8 +98,7 @@ public class PatientStatusModel : PageModel
         }).OrderBy(r => r.AppointmentDate).ToList();
 
         if (!Status.Equals("All", StringComparison.OrdinalIgnoreCase))
-            rows = rows.Where(r =>
-                PatientVisitStatuses.Normalize(r.Status).Equals(Status, StringComparison.OrdinalIgnoreCase)).ToList();
+            rows = rows.Where(r => StatusMatchesFilter(r.Status, Status)).ToList();
 
         if (!string.IsNullOrWhiteSpace(PatientBarcode))
         {
@@ -117,6 +117,12 @@ public class PatientStatusModel : PageModel
 
         Results = rows;
         return Page();
+    }
+
+    private static bool StatusMatchesFilter(string status, string filter)
+    {
+        if (string.Equals(status, filter, StringComparison.OrdinalIgnoreCase)) return true;
+        return PatientVisitStatuses.Normalize(status).Equals(filter, StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<IActionResult> OnPostExportAsync()
