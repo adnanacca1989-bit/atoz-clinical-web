@@ -29,6 +29,42 @@ public sealed class PharmacyItemRegistrationService
     public Task<PharmacyItem?> GetByBarcodeAsync(Guid clinicId, string barcode) =>
         _db.PharmacyItems.ForClinic(clinicId).FirstOrDefaultAsync(i => i.Barcode == barcode.Trim());
 
+    public async Task<PharmacyItem?> ResolveForLineAsync(Guid clinicId, string? barcode, string? code, string? name)
+    {
+        var items = await ListActiveAsync(clinicId);
+        return ResolveForLine(items, barcode, code, name);
+    }
+
+    public static PharmacyItem? ResolveForLine(IEnumerable<PharmacyItem> items, string? barcode, string? code, string? name)
+    {
+        var bc = barcode?.Trim();
+        if (!string.IsNullOrEmpty(bc))
+        {
+            var byBarcode = items.FirstOrDefault(i =>
+                string.Equals(i.Barcode, bc, StringComparison.OrdinalIgnoreCase));
+            if (byBarcode is not null) return byBarcode;
+        }
+
+        var medicineCode = code?.Trim();
+        if (!string.IsNullOrEmpty(medicineCode))
+        {
+            var byCode = items.FirstOrDefault(i =>
+                string.Equals(i.MedicineCode, medicineCode, StringComparison.OrdinalIgnoreCase));
+            if (byCode is not null) return byCode;
+        }
+
+        var medicineName = name?.Trim();
+        if (string.IsNullOrEmpty(medicineName)) return null;
+
+        var exactName = items.FirstOrDefault(i =>
+            string.Equals(i.MedicineName, medicineName, StringComparison.OrdinalIgnoreCase));
+        if (exactName is not null) return exactName;
+
+        return items.FirstOrDefault(i =>
+            i.MedicineName.Contains(medicineName, StringComparison.OrdinalIgnoreCase) ||
+            medicineName.Contains(i.MedicineName, StringComparison.OrdinalIgnoreCase));
+    }
+
     public Task<int> NextItemNoAsync(Guid clinicId) =>
         _db.PharmacyItems.ForClinic(clinicId).Select(i => (int?)i.ItemNo).MaxAsync()
             .ContinueWith(t => (t.Result ?? 0) + 1);

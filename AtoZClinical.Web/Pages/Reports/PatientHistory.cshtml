@@ -65,6 +65,67 @@
                 </tbody>
             </table>
         </div>
+        <h2 class="h5 mt-4 mb-2">Accounts Receivable</h2>
+        <p class="report-hint">Invoice balances for the selected patient@(string.IsNullOrWhiteSpace(Model.DoctorName) ? "" : " and doctor"). Ending balance uses <strong>Dr</strong> (patient owes) or <strong>Cr</strong> (patient credit).</p>
+        <div class="report-results-scroll">
+            <table class="line-grid report-grid">
+                <thead>
+                    <tr>
+                        <th>Invoice ID</th>
+                        <th>Invoice Date</th>
+                        <th>Patient</th>
+                        <th>Doctor</th>
+                        <th>Specialty</th>
+                        <th>Cash Receipt (Applied)</th>
+                        <th>Cash Payment</th>
+                        <th>Total Received</th>
+                        <th>Patient Credit</th>
+                        <th>Total Invoice</th>
+                        <th>Discount</th>
+                        <th>Ending Balance (Dr+/Cr−)</th>
+                        <th>Aging Days</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.ArResults)
+                {
+                    <tr>
+                        <td>@r.InvoiceId</td>
+                        <td>@r.InvoiceDate.ToString("d")</td>
+                        <td>@r.Patient</td>
+                        <td>@r.Doctor</td>
+                        <td>@r.Specialty</td>
+                        <td>@r.CashReceipt.ToString("N2")</td>
+                        <td>@r.CashPayment.ToString("N2")</td>
+                        <td>@r.TotalReceived.ToString("N2")</td>
+                        <td>@r.PatientCredit.ToString("N2")</td>
+                        <td>@r.TotalInvoice.ToString("N2")</td>
+                        <td>@r.Discount.ToString("N2")</td>
+                        <td class="@(r.EndingBalance < 0 ? "text-success" : r.EndingBalance > 0 ? "text-danger" : "")">@AccountsReceivableModel.FormatEndingBalance(r.EndingBalance)</td>
+                        <td>@r.AgingDays</td>
+                        <td>@r.Status</td>
+                    </tr>
+                }
+                </tbody>
+                @if (Model.ArResults.Count > 0)
+                {
+                <tfoot>
+                    <tr class="report-totals-row fw-bold">
+                        <td colspan="5">Totals</td>
+                        <td>@Model.ArTotalCashReceipt.ToString("N2")</td>
+                        <td>@Model.ArTotalCashPayment.ToString("N2")</td>
+                        <td></td>
+                        <td>@Model.ArTotalPatientCredit.ToString("N2")</td>
+                        <td>@Model.ArTotalInvoiceAmount.ToString("N2")</td>
+                        <td>@Model.ArTotalDiscount.ToString("N2")</td>
+                        <td>@AccountsReceivableModel.FormatEndingBalance(Model.ArTotalEndingBalance)</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+                }
+            </table>
+        </div>
         <div class="clinical-toolbar mt-3 no-print">
             <button type="button" class="btn-form btn-form-primary" id="patientHistoryPrintAllBtn">🖨️ Print All Patient Reports</button>
             <button type="button" class="btn-form" data-print-section="registration">🖨️ Patient Registration</button>

@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyItemToRow(row, data, true);
                 if (itemSelect) {
                     for (const opt of itemSelect.options) {
-                        if (opt.dataset.barcode === data.barcode) {
+                        if (opt.dataset.barcode === data.barcode || opt.value === data.itemId) {
                             itemSelect.value = opt.value;
                             break;
                         }

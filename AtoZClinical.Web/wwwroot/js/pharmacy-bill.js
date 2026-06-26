@@ -5,14 +5,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.value = value ?? '';
     };
 
-    const syncItemSelect = (row, barcode) => {
-        if (!row || !barcode) return;
+    const syncItemSelect = (row, barcode, itemId, medicineName) => {
+        if (!row) return;
         const select = row.querySelector('.pharmacy-item-select');
         if (!select) return;
         for (const opt of select.options) {
-            if (opt.dataset.barcode === barcode || opt.value === barcode) {
+            if (itemId && opt.value === itemId) {
                 select.value = opt.value;
-                break;
+                return;
+            }
+            if (barcode && (opt.dataset.barcode === barcode || opt.value === barcode)) {
+                select.value = opt.value;
+                return;
+            }
+            if (medicineName && opt.dataset.name?.toLowerCase() === medicineName.toLowerCase()) {
+                select.value = opt.value;
+                return;
             }
         }
     };
@@ -43,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setLineField(i, 'Qty', line.qty);
             setLineField(i, 'UnitPrice', price);
             const row = document.querySelector(`.pharmacy-line[data-line="${i}"]`);
-            syncItemSelect(row, line.barcode);
+            syncItemSelect(row, line.barcode, line.itemId, line.medicineName);
             const totalEl = row?.querySelector('.pharmacy-line-total');
             if (totalEl) {
                 const total = line.total ?? (Number(line.qty || 0) * Number(price || 0));

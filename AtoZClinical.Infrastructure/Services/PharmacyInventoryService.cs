@@ -26,36 +26,23 @@ public sealed class PharmacyInventoryService
 
     public async Task<PharmacyItem> GetOrCreateItemAsync(Guid clinicId, string? barcode, string? code, string? name, string? dosage)
     {
+        var items = await _db.PharmacyItems
+            .ForClinic(clinicId)
+            .Where(i => i.IsActive)
+            .ToListAsync();
+        var resolved = PharmacyItemRegistrationService.ResolveForLine(items, barcode, code, name);
+        if (resolved is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(name)) resolved.MedicineName = name.Trim();
+            if (!string.IsNullOrWhiteSpace(code)) resolved.MedicineCode = code.Trim();
+            if (!string.IsNullOrWhiteSpace(dosage)) resolved.Dosage = dosage;
+            return resolved;
+        }
+
         var bc = (barcode ?? string.Empty).Trim();
-        if (!string.IsNullOrEmpty(bc))
-        {
-            var existing = await _db.PharmacyItems.FirstOrDefaultAsync(i => i.ClinicId == clinicId && i.Barcode == bc);
-            if (existing is not null)
-            {
-                if (!string.IsNullOrWhiteSpace(name)) existing.MedicineName = name.Trim();
-                if (!string.IsNullOrWhiteSpace(code)) existing.MedicineCode = code.Trim();
-                if (!string.IsNullOrWhiteSpace(dosage)) existing.Dosage = dosage;
-                return existing;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(code))
-        {
-            var byCode = await _db.PharmacyItems.FirstOrDefaultAsync(i =>
-                i.ClinicId == clinicId && i.MedicineCode == code.Trim());
-            if (byCode is not null) return byCode;
-        }
-
-        if (!string.IsNullOrWhiteSpace(name))
-        {
-            var trimmedName = name.Trim();
-            var byName = await _db.PharmacyItems.FirstOrDefaultAsync(i =>
-                i.ClinicId == clinicId && i.MedicineName.ToLower() == trimmedName.ToLower());
-            if (byName is not null) return byName;
-        }
-
+        var display = !string.IsNullOrEmpty(bc) ? bc : code ?? name ?? "unknown";
         throw new InvalidOperationException(
-            $"Pharmacy item '{(string.IsNullOrEmpty(bc) ? code ?? name ?? "unknown" : bc)}' is not registered. Add it in Pharmacy Registration first.");
+            $"Pharmacy item '{display}' is not registered. Add it in Pharmacy Registration first.");
     }
 
     public static decimal ToBaseUnitCost(decimal enteredCost, string? uom, PharmacyItem item)

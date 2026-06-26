@@ -36,14 +36,6 @@ public class RequestByPatientModel : PageModel
         if (request is null) return new JsonResult(null);
 
         var registeredItems = await _items.ListActiveAsync(clinicId.Value);
-        var priceByBarcode = registeredItems
-            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
-            .GroupBy(i => i.Barcode!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
-        var priceByCode = registeredItems
-            .Where(i => !string.IsNullOrWhiteSpace(i.MedicineCode))
-            .GroupBy(i => i.MedicineCode!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
 
         return new JsonResult(new
         {
@@ -62,20 +54,19 @@ public class RequestByPatientModel : PageModel
                 .OrderBy(l => l.LineNo)
                 .Select(l =>
                 {
-                    decimal defaultPrice = l.UnitPrice;
-                    if (!string.IsNullOrWhiteSpace(l.Barcode) && priceByBarcode.TryGetValue(l.Barcode, out var byBarcode))
-                        defaultPrice = byBarcode;
-                    else if (!string.IsNullOrWhiteSpace(l.MedicineCode) && priceByCode.TryGetValue(l.MedicineCode, out var byCode))
-                        defaultPrice = byCode;
+                    var registered = PharmacyItemRegistrationService.ResolveForLine(
+                        registeredItems, l.Barcode, l.MedicineCode, l.MedicineName);
+                    var defaultPrice = registered?.DefaultUnitPrice ?? l.UnitPrice;
 
                     return new
                     {
                         lineNo = l.LineNo,
-                        barcode = l.Barcode,
-                        medicineCode = l.MedicineCode,
-                        medicineName = l.MedicineName,
-                        dosage = l.Dosage,
-                        uom = l.Uom,
+                        itemId = registered?.Id,
+                        barcode = registered?.Barcode ?? l.Barcode,
+                        medicineCode = registered?.MedicineCode ?? l.MedicineCode,
+                        medicineName = registered?.MedicineName ?? l.MedicineName,
+                        dosage = registered?.Dosage ?? l.Dosage,
+                        uom = registered?.BaseUom ?? l.Uom,
                         qty = l.Qty,
                         unitPrice = defaultPrice,
                         defaultUnitPrice = defaultPrice,

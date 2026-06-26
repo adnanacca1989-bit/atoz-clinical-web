@@ -1,5 +1,5 @@
-using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -11,11 +11,13 @@ public class PatientHistoryModel : PageModel
 {
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
+    private readonly ArReportService _ar;
 
-    public PatientHistoryModel(ClinicalDbContext db, ClinicContextService clinicContext)
+    public PatientHistoryModel(ClinicalDbContext db, ClinicContextService clinicContext, ArReportService ar)
     {
         _db = db;
         _clinicContext = clinicContext;
+        _ar = ar;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -40,6 +42,13 @@ public class PatientHistoryModel : PageModel
     public string? PhoneNumber { get; set; }
 
     public List<HistoryRow> Results { get; private set; } = [];
+    public List<ArReportRow> ArResults { get; private set; } = [];
+    public decimal ArTotalCashReceipt { get; private set; }
+    public decimal ArTotalCashPayment { get; private set; }
+    public decimal ArTotalInvoiceAmount { get; private set; }
+    public decimal ArTotalDiscount { get; private set; }
+    public decimal ArTotalEndingBalance { get; private set; }
+    public decimal ArTotalPatientCredit { get; private set; }
 
     public async Task<IActionResult> OnGetAsync() => await RunSearchAsync();
 
@@ -130,10 +139,21 @@ public class PatientHistoryModel : PageModel
                 Results.Add(new HistoryRow(cr.PatientName ?? "", "Cash Receipt", cr.ReceiptDate, cr.DoctorName ?? "", $"Amount {cr.Amount:N2}"));
 
         foreach (var cp in await _db.CashPayments.Where(x => x.ClinicId == clinicId).ToListAsync())
-            if (MatchPatient(cp.PayeeName, null))
-                Results.Add(new HistoryRow(cp.PayeeName ?? "", "Cash Payment", cp.PaymentDate, "", $"Amount {cp.Amount:N2}"));
+            if (MatchPatient(cp.PayeeName, cp.PatientId) && MatchDoctor(cp.DoctorName))
+                Results.Add(new HistoryRow(cp.PayeeName ?? "", "Cash Payment", cp.PaymentDate, cp.DoctorName ?? "", $"Amount {cp.Amount:N2}"));
 
         Results = Results.OrderByDescending(r => r.Date).ToList();
+
+        var arReport = await _ar.BuildAsync(
+            clinicId.Value, null, null, PatientName, PatientId, DoctorName);
+        ArResults = arReport.Rows;
+        ArTotalCashReceipt = arReport.TotalCashReceipt;
+        ArTotalCashPayment = arReport.TotalCashPayment;
+        ArTotalInvoiceAmount = arReport.TotalInvoiceAmount;
+        ArTotalDiscount = arReport.TotalDiscount;
+        ArTotalEndingBalance = arReport.TotalEndingBalance;
+        ArTotalPatientCredit = arReport.TotalPatientCredit;
+
         return Page();
     }
 

@@ -350,4 +350,89 @@ public class InvoiceArCalculatorTests
         var credit = InvoiceArCalculator.ComputeTotalPatientCredit([invoice], receipts, payments);
         Assert.Equal(0, credit);
     }
+
+    [Fact]
+    public void ForInvoice_separates_receipts_and_payments_by_doctor()
+    {
+        var clinicId = Guid.NewGuid();
+        var invEnt = new Invoice
+        {
+            ClinicId = clinicId,
+            InvoiceNo = 1,
+            InvoiceDate = new DateTime(2026, 6, 26),
+            PatientName = "Jones Elia",
+            PatientId = "PAT-00002",
+            DoctorName = "Mohammed Adnan Karar",
+            Specialty = "ENT",
+            SubTotal = 25_000,
+            TotalAmount = 25_000,
+            AmountPaid = 25_000,
+            BalanceDue = 0
+        };
+        var invDental = new Invoice
+        {
+            ClinicId = clinicId,
+            InvoiceNo = 2,
+            InvoiceDate = new DateTime(2026, 6, 26),
+            PatientName = "Jones Elia",
+            PatientId = "PAT-00002",
+            DoctorName = "Baneen Mohanad",
+            Specialty = "Dental",
+            SubTotal = 95_000,
+            TotalAmount = 95_000,
+            AmountPaid = 95_000,
+            BalanceDue = 0
+        };
+
+        var receipts = new List<CashReceipt>
+        {
+            new()
+            {
+                ClinicId = clinicId,
+                ReceiptNo = 1,
+                ReceiptDate = invEnt.InvoiceDate,
+                PatientName = invEnt.PatientName,
+                PatientId = invEnt.PatientId,
+                DoctorName = invEnt.DoctorName,
+                Amount = 25_000
+            },
+            new()
+            {
+                ClinicId = clinicId,
+                ReceiptNo = 2,
+                ReceiptDate = invDental.InvoiceDate,
+                PatientName = invDental.PatientName,
+                PatientId = invDental.PatientId,
+                DoctorName = invDental.DoctorName,
+                Amount = 100_000
+            }
+        };
+
+        var payments = new List<CashPayment>
+        {
+            new()
+            {
+                ClinicId = clinicId,
+                PaymentNo = 1,
+                PaymentDate = invEnt.InvoiceDate,
+                PayeeName = invEnt.PatientName,
+                PatientId = invEnt.PatientId,
+                DoctorName = invEnt.DoctorName,
+                Amount = 10_000
+            }
+        };
+
+        var siblings = new List<Invoice> { invEnt, invDental };
+        var dentalTotals = InvoiceArCalculator.ForInvoice(invDental, receipts, payments, siblings);
+
+        Assert.Equal(0, dentalTotals.CashPayment);
+        Assert.Equal(95_000, dentalTotals.CashReceipt);
+        Assert.Equal(100_000, dentalTotals.TotalReceived);
+        Assert.Equal(5_000, dentalTotals.PatientCredit);
+        Assert.Equal(-5_000, dentalTotals.EndingBalance);
+
+        var entTotals = InvoiceArCalculator.ForInvoice(invEnt, receipts, payments, siblings);
+        Assert.Equal(10_000, entTotals.CashPayment);
+        Assert.Equal(25_000, entTotals.CashReceipt);
+    }
 }

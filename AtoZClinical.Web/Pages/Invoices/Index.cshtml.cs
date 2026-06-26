@@ -139,13 +139,8 @@ public class IndexModel : ClinicFormPageModel
         var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
         var entity = Input.ToEntity(isNew ? null : RecordId);
         var lines = Lines
-            .Where(l => !string.IsNullOrWhiteSpace(l.ServiceName) || l.UnitFee > 0)
-            .Select(l =>
-            {
-                if (string.IsNullOrWhiteSpace(l.ServiceName))
-                    l.ServiceName = l.UnitFee > 0 ? $"Charge line {l.LineNo}" : l.ServiceName;
-                return l.ToEntity();
-            })
+            .Where(l => !string.IsNullOrWhiteSpace(l.ServiceName))
+            .Select(l => l.ToEntity())
             .ToList();
         var saved = await _invoiceService.SaveAsync(clinicId.Value, entity, lines, UserName);
         await _patientInvoices.RecalculateInvoicePaymentsAsync(clinicId.Value, saved.PatientName, saved.PatientId, saved.DoctorName);

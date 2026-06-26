@@ -106,33 +106,26 @@ public class BillModel : ClinicFormPageModel
         if (requestLines.Count == 0) return;
 
         var items = await _items.ListActiveAsync(clinicId);
-        var priceByBarcode = items
-            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
-            .GroupBy(i => i.Barcode!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
-        var priceByCode = items
-            .Where(i => !string.IsNullOrWhiteSpace(i.MedicineCode))
-            .GroupBy(i => i.MedicineCode!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().DefaultUnitPrice, StringComparer.OrdinalIgnoreCase);
 
         Lines = requestLines.Select(l =>
         {
-            decimal defaultPrice = l.UnitPrice;
-            if (!string.IsNullOrWhiteSpace(l.Barcode) && priceByBarcode.TryGetValue(l.Barcode, out var byBarcode))
-                defaultPrice = byBarcode;
-            else if (!string.IsNullOrWhiteSpace(l.MedicineCode) && priceByCode.TryGetValue(l.MedicineCode, out var byCode))
-                defaultPrice = byCode;
+            var registered = PharmacyItemRegistrationService.ResolveForLine(
+                items, l.Barcode, l.MedicineCode, l.MedicineName);
+            var defaultPrice = registered?.DefaultUnitPrice ?? l.UnitPrice;
+            if (defaultPrice <= 0 && registered is not null)
+                defaultPrice = registered.DefaultUnitPrice;
 
             return new PharmacyBillLineInput
             {
                 LineNo = l.LineNo,
-                Barcode = l.Barcode,
-                MedicineCode = l.MedicineCode,
-                MedicineName = l.MedicineName,
-                Dosage = l.Dosage,
-                Uom = l.Uom,
+                Barcode = registered?.Barcode ?? l.Barcode,
+                MedicineCode = registered?.MedicineCode ?? l.MedicineCode,
+                MedicineName = registered?.MedicineName ?? l.MedicineName,
+                Dosage = registered?.Dosage ?? l.Dosage,
+                Uom = registered?.BaseUom ?? l.Uom,
                 Qty = l.Qty,
-                UnitPrice = defaultPrice
+                UnitPrice = defaultPrice > 0 ? defaultPrice : l.UnitPrice,
+                ResolvedItemId = registered?.Id
             };
         }).ToList();
         EnsureLineRows();
@@ -317,6 +310,7 @@ public class BillModel : ClinicFormPageModel
         public string? Uom { get; set; }
         public int Qty { get; set; } = 1;
         public decimal UnitPrice { get; set; }
+        public Guid? ResolvedItemId { get; set; }
 
         public decimal LineTotal => Qty * UnitPrice;
 

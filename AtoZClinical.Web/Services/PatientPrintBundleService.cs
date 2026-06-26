@@ -127,7 +127,7 @@ public sealed class PatientPrintBundleService
 
         var payments = await _db.CashPayments
             .ForClinic(clinicId).OrderByDescending(r => r.PaymentDate).ToListAsync();
-        foreach (var r in payments.Where(MatchCashPaymentPatient))
+        foreach (var r in payments.Where(r => MatchCashPaymentPatient(r) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildCashPayment(r));
 
         var patientInvoices = invoices.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)).ToList();
@@ -277,18 +277,28 @@ public sealed class PatientPrintBundleService
         var rows = invoices.Select((i, idx) =>
         {
             var totals = lineTotals[idx];
+            var aging = (DateTime.Today - i.InvoiceDate.Date).Days;
+            var status = totals.EndingBalance < 0
+                ? "Credit"
+                : totals.EndingBalance > 0
+                    ? (totals.AmountApplied > 0 ? "Partial" : (i.PaymentStatus ?? "Unpaid"))
+                    : "Paid";
             return new[]
             {
                 i.InvoiceNo.ToString(),
                 i.InvoiceDate.ToString("d"),
+                i.PatientName ?? "",
                 i.DoctorName ?? "",
-                totals.TotalInvoice.ToString("N2"),
-                totals.Discount.ToString("N2"),
-                totals.NetInvoice.ToString("N2"),
+                i.Specialty ?? "",
                 totals.CashReceipt.ToString("N2"),
                 totals.CashPayment.ToString("N2"),
+                totals.TotalReceived.ToString("N2"),
+                totals.PatientCredit.ToString("N2"),
+                totals.TotalInvoice.ToString("N2"),
+                totals.Discount.ToString("N2"),
                 ArBalanceFormatter.Format(totals.EndingBalance),
-                totals.PatientCredit.ToString("N2")
+                aging.ToString(),
+                status
             };
         }).ToList();
 
@@ -312,15 +322,20 @@ public sealed class PatientPrintBundleService
 
         rows.Add(
         [
-            "", "", "Totals", totalInvoice.ToString("N2"), totalDiscount.ToString("N2"), "",
-            totalCashReceipt.ToString("N2"), totalCashPayment.ToString("N2"),
-            ArBalanceFormatter.Format(totalEndingBalance), patientCredit.ToString("N2")
+            "", "", "", "", "Totals",
+            totalCashReceipt.ToString("N2"), totalCashPayment.ToString("N2"), "", patientCredit.ToString("N2"),
+            totalInvoice.ToString("N2"), totalDiscount.ToString("N2"),
+            ArBalanceFormatter.Format(totalEndingBalance), "", ""
         ]);
 
         return new PrintSection(
             "Accounts Receivable Statement",
             Meta(("Patient", patient), ("Statement Date", DateTime.Today.ToString("d"))),
-            ["Invoice No", "Date", "Doctor", "Total Invoice", "Discount", "Net Invoice", "Cash Receipt (Applied)", "Cash Payment", "Ending Balance (Dr/Cr)", "Patient Credit"],
+            [
+                "Invoice ID", "Invoice Date", "Patient", "Doctor", "Specialty",
+                "Cash Receipt (Applied)", "Cash Payment", "Total Received", "Patient Credit",
+                "Total Invoice", "Discount", "Ending Balance (Dr+/Cr−)", "Aging Days", "Status"
+            ],
             rows,
             Footer(
                 ("Net Patient Balance", ArBalanceFormatter.Format(totalEndingBalance)),

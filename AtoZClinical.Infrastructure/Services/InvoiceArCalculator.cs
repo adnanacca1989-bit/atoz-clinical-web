@@ -297,26 +297,21 @@ public static class InvoiceArCalculator
 
     private static bool MatchesDoctor(string? transactionDoctor, string? invoiceDoctor)
     {
-        if (string.IsNullOrWhiteSpace(transactionDoctor)) return true;
-        if (string.IsNullOrWhiteSpace(invoiceDoctor)) return true;
-        var tx = transactionDoctor.Trim();
-        var inv = invoiceDoctor.Trim();
+        var inv = invoiceDoctor?.Trim();
+        var tx = transactionDoctor?.Trim();
+        if (string.IsNullOrWhiteSpace(inv))
+            return string.IsNullOrWhiteSpace(tx);
+        if (string.IsNullOrWhiteSpace(tx))
+            return false;
+
         return string.Equals(tx, inv, StringComparison.OrdinalIgnoreCase) ||
                tx.Contains(inv, StringComparison.OrdinalIgnoreCase) ||
                inv.Contains(tx, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static List<CashReceipt> ResolveMatchingReceipts(IReadOnlyList<CashReceipt> receipts, Invoice invoice)
-    {
-        var strict = receipts.Where(r => MatchesReceipt(r, invoice)).ToList();
-        if (strict.Count > 0) return strict;
-        return receipts.Where(r => MatchesPatient(r.PatientId, r.PatientName, invoice)).ToList();
-    }
+    private static List<CashReceipt> ResolveMatchingReceipts(IReadOnlyList<CashReceipt> receipts, Invoice invoice) =>
+        receipts.Where(r => MatchesReceipt(r, invoice)).ToList();
 
-    private static List<CashPayment> ResolveMatchingPayments(IReadOnlyList<CashPayment> payments, Invoice invoice)
-    {
-        var strict = payments.Where(p => MatchesPayment(p, invoice)).ToList();
-        if (strict.Count > 0) return strict;
-        return payments.Where(p => MatchesPatient(p.PatientId, p.PayeeName, invoice)).ToList();
-    }
+    private static List<CashPayment> ResolveMatchingPayments(IReadOnlyList<CashPayment> payments, Invoice invoice) =>
+        payments.Where(p => MatchesPayment(p, invoice)).ToList();
 }

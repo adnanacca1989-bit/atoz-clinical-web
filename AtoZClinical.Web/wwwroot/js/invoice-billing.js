@@ -1,20 +1,49 @@
 document.addEventListener('DOMContentLoaded', () => {
     if (!document.querySelector('.invoice-erp-page')) return;
 
+    let invoiceChargesLocked = false;
+    window.invoiceChargesLocked = false;
+
+    const lockInvoiceCharges = () => {
+        invoiceChargesLocked = true;
+        window.invoiceChargesLocked = true;
+    };
+
     initPatientPicker({
         patientNameSelector: '#invoicePatientNameInput',
         fieldMap: standardPatientFieldMap(true),
-        onApply: loadPatientInvoiceCharges
+        onApply: patient => {
+            invoiceChargesLocked = false;
+            window.invoiceChargesLocked = false;
+            loadPatientInvoiceCharges(patient);
+        }
     });
     initPatientBarcodeScanner({
         barcodeSelector: '#invoicePatientBarcodeInput',
         patientNameSelector: '#invoicePatientNameInput',
         fieldMap: standardPatientFieldMap(true),
-        onApply: loadPatientInvoiceCharges
+        onApply: patient => {
+            invoiceChargesLocked = false;
+            window.invoiceChargesLocked = false;
+            loadPatientInvoiceCharges(patient);
+        }
     });
     bindInvoiceTotals();
     bindInvoicePrint();
+
+    const tbody = document.querySelector('.invoice-line-grid tbody');
+    tbody?.addEventListener('input', e => {
+        if (e.target.closest('.invoice-service-name, [name$=".Qty"], [name$=".UnitFee"]'))
+            lockInvoiceCharges();
+    });
+    tbody?.addEventListener('click', e => {
+        if (e.target.closest('.delete-line-btn')) lockInvoiceCharges();
+    });
+    document.addEventListener('clinical-line-removed', lockInvoiceCharges);
 });
+
+// Exposed for inline handlers if needed
+window.lockInvoiceCharges = () => { window.invoiceChargesLocked = true; };
 
 function bindInvoiceTotals() {
     const subTotalEl = document.getElementById('invoiceSubTotal');
@@ -142,6 +171,7 @@ function invoicePrintDocument() {
 }
 
 async function loadPatientInvoiceCharges(patient) {
+    if (window.invoiceChargesLocked) return;
     const params = new URLSearchParams();
     if (patient.patientNo) params.set('patientBarcode', patient.patientNo);
     if (patient.name) params.set('patientName', patient.name);

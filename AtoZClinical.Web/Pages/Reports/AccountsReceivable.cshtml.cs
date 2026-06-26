@@ -1,22 +1,19 @@
-using AtoZClinical.Core.Entities;
-using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Reports;
 
 public class AccountsReceivableModel : PageModel
 {
-    private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
+    private readonly ArReportService _ar;
 
-    public AccountsReceivableModel(ClinicalDbContext db, ClinicContextService clinicContext)
+    public AccountsReceivableModel(ClinicContextService clinicContext, ArReportService ar)
     {
-        _db = db;
         _clinicContext = clinicContext;
+        _ar = ar;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -34,7 +31,7 @@ public class AccountsReceivableModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string? DoctorName { get; set; }
 
-    public List<ArRow> Results { get; private set; } = [];
+    public List<ArReportRow> Results { get; private set; } = [];
     public decimal TotalCashReceipt { get; private set; }
     public decimal TotalCashPayment { get; private set; }
     public decimal TotalInvoiceAmount { get; private set; }
@@ -53,113 +50,18 @@ public class AccountsReceivableModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var invoices = await _db.Invoices
-            .ForClinic(clinicId.Value)
-            .Where(i => i.InvoiceDate >= FromDate.Date && i.InvoiceDate <= ToDate.Date)
-            .OrderByDescending(i => i.InvoiceDate)
-            .ToListAsync();
+        var report = await _ar.BuildAsync(
+            clinicId.Value, FromDate, ToDate, PatientName, PatientBarcode, DoctorName);
 
-        if (!string.IsNullOrWhiteSpace(PatientName))
-            invoices = invoices.Where(i => i.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
-        if (!string.IsNullOrWhiteSpace(PatientBarcode))
-            invoices = invoices.Where(i => i.PatientId?.Equals(PatientBarcode.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
-        if (!string.IsNullOrWhiteSpace(DoctorName))
-            invoices = invoices.Where(i => i.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
-
-        var allInvoices = await _db.Invoices
-            .ForClinic(clinicId.Value)
-            .AsNoTracking()
-            .ToListAsync();
-
-        var patients = await _db.Patients
-            .ForClinic(clinicId.Value)
-            .AsNoTracking()
-            .ToListAsync();
-
-        var receipts = await _db.CashReceipts
-            .ForClinic(clinicId.Value)
-            .ToListAsync();
-
-        var patientPayments = await _db.CashPayments
-            .ForClinic(clinicId.Value)
-            .Where(p => p.PayeeName != null || p.PatientId != null)
-            .ToListAsync();
-
-        Results = invoices.Select(i =>
-        {
-            var totals = InvoiceArCalculator.ForInvoice(i, receipts, patientPayments, allInvoices);
-
-            // Safety net: never hide credit when receipts captured overpayment at save time.
-            var endingBalance = totals.EndingBalance;
-
-            var aging = (DateTime.Today - i.InvoiceDate.Date).Days;
-            var status = endingBalance < 0
-                ? "Credit"
-                : endingBalance > 0
-                    ? (totals.AmountApplied > 0 ? "Partial" : (i.PaymentStatus ?? "Unpaid"))
-                    : "Paid";
-            var patient = ResolvePatient(patients, i);
-
-            return new ArRow(
-                i.InvoiceNo,
-                i.InvoiceDate,
-                i.PatientName ?? "",
-                i.DoctorName ?? "",
-                i.Specialty ?? patient?.Specialty ?? "",
-                i.Gender ?? patient?.Gender ?? "",
-                i.City ?? patient?.City ?? "",
-                patient?.MotherName ?? "",
-                patient?.MarriedStatus ?? "",
-                patient?.HealthInsuranceName ?? "",
-                patient?.HealthInsuranceNumber ?? "",
-                patient?.AppointmentDate,
-                patient?.AppointmentTime,
-                totals.CashReceipt,
-                totals.CashPayment,
-                totals.TotalReceived,
-                totals.PatientCredit,
-                totals.TotalInvoice,
-                totals.Discount,
-                endingBalance,
-                aging,
-                status);
-        }).ToList();
-
-        TotalCashReceipt = Results.Sum(r => r.CashReceipt);
-        TotalCashPayment = Results.Sum(r => r.CashPayment);
-        TotalInvoiceAmount = Results.Sum(r => r.TotalInvoice);
-        TotalDiscount = Results.Sum(r => r.Discount);
-        TotalEndingBalance = Results.GroupBy(r => (r.Patient, r.Doctor))
-            .Sum(g =>
-            {
-                var debits = g.Where(x => x.EndingBalance > 0).ToList();
-                if (debits.Count > 0)
-                    return debits.Sum(x => x.EndingBalance);
-                var credit = g.FirstOrDefault(x => x.EndingBalance < 0);
-                return credit?.EndingBalance ?? 0m;
-            });
-        TotalPatientCredit = Results.GroupBy(r => (r.Patient, r.Doctor))
-            .Sum(g => g.First().PatientCredit);
+        Results = report.Rows;
+        TotalCashReceipt = report.TotalCashReceipt;
+        TotalCashPayment = report.TotalCashPayment;
+        TotalInvoiceAmount = report.TotalInvoiceAmount;
+        TotalDiscount = report.TotalDiscount;
+        TotalEndingBalance = report.TotalEndingBalance;
+        TotalPatientCredit = report.TotalPatientCredit;
 
         return Page();
-    }
-
-    private static Patient? ResolvePatient(List<Patient> patients, Invoice invoice)
-    {
-        if (!string.IsNullOrWhiteSpace(invoice.PatientId))
-        {
-            var byId = patients.FirstOrDefault(p =>
-                string.Equals(p.PatientNo, invoice.PatientId, StringComparison.OrdinalIgnoreCase));
-            if (byId is not null) return byId;
-        }
-
-        if (!string.IsNullOrWhiteSpace(invoice.PatientName))
-        {
-            return patients.FirstOrDefault(p =>
-                string.Equals(p.FullName, invoice.PatientName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return null;
     }
 
     public async Task<IActionResult> OnPostExportAsync()
@@ -188,30 +90,5 @@ public class AccountsReceivableModel : PageModel
     private static string FormatTime(TimeSpan? time) =>
         time is null ? "" : DateTime.Today.Add(time.Value).ToString("t");
 
-    /// <summary>Positive = debit (owed). Negative = credit (overpaid).</summary>
     public static string FormatEndingBalance(decimal balance) => ArBalanceFormatter.Format(balance);
-
-    public sealed record ArRow(
-        int InvoiceId,
-        DateTime InvoiceDate,
-        string Patient,
-        string Doctor,
-        string Specialty,
-        string Gender,
-        string City,
-        string MotherName,
-        string MarriedStatus,
-        string HealthInsurance,
-        string HealthInsuranceNo,
-        DateTime? AppointmentDate,
-        TimeSpan? AppointmentTime,
-        decimal CashReceipt,
-        decimal CashPayment,
-        decimal TotalReceived,
-        decimal PatientCredit,
-        decimal TotalInvoice,
-        decimal Discount,
-        decimal EndingBalance,
-        int AgingDays,
-        string Status);
 }
