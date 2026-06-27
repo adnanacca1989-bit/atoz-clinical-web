@@ -30,13 +30,8 @@ public sealed class DataProtectionRecoveryMiddleware
             if (context.Response.HasStarted)
                 throw;
 
-            DataProtectionExceptionHelper.ClearProtectedCookies(context);
-
             context.Response.Clear();
-            var redirect = HttpMethods.IsPost(context.Request.Method)
-                ? (context.Request.Path.Value ?? "/Account/Login")
-                : "/Account/Login?session=refresh";
-            context.Response.Redirect(redirect);
+            await LoginRecoveryHelper.RecoverToLoginAsync(context);
         }
     }
 }

@@ -175,10 +175,18 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
+        await context.HttpContext.Response.WriteAsync(
+            "Too many sign-in attempts. Please wait one minute and try again.",
+            cancellationToken);
+    };
     options.AddFixedWindowLimiter("auth", limiter =>
     {
         limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 15;
+        limiter.PermitLimit = 30;
         limiter.QueueLimit = 0;
     });
     options.AddFixedWindowLimiter("register", limiter =>

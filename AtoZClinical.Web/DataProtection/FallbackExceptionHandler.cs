@@ -36,8 +36,7 @@ public sealed class FallbackExceptionHandler : IExceptionHandler
         if (path.StartsWith("/Account", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/Error", StringComparison.OrdinalIgnoreCase))
         {
-            DataProtectionExceptionHelper.ClearProtectedCookies(context);
-            context.Response.Redirect("/Account/Login?session=refresh");
+            await LoginRecoveryHelper.RecoverToLoginAsync(context);
             return true;
         }
 
