@@ -2,7 +2,7 @@ using AtoZClinical.Web.DataProtection;
 
 namespace AtoZClinical.Web.Middleware;
 
-/// <summary>Recovers from stale encrypted cookies without redirect loops.</summary>
+/// <summary>Recovers from stale encrypted cookies without swallowing login POST results.</summary>
 public sealed class DataProtectionRecoveryMiddleware
 {
     private readonly RequestDelegate _next;
@@ -37,6 +37,12 @@ public sealed class DataProtectionRecoveryMiddleware
 
             if (LoginRecoveryHelper.IsLoginPath(context))
             {
+                if (HttpMethods.IsPost(context.Request.Method))
+                {
+                    context.Response.Redirect("/Account/Login?recovered=1");
+                    return;
+                }
+
                 context.Response.StatusCode = StatusCodes.Status200OK;
                 context.Response.ContentType = "text/html; charset=utf-8";
                 await context.Response.WriteAsync(LoginRecoveryHelper.EmergencyLoginHtml);

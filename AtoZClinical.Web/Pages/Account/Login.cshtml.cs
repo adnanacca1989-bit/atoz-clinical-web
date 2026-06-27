@@ -44,8 +44,13 @@ public class LoginModel : PageModel
 
     public bool ShowResendConfirmation { get; private set; }
 
-    public void OnGet()
+    public void OnGet(string? recovered)
     {
+        if (string.Equals(recovered, "1", StringComparison.Ordinal))
+        {
+            ModelState.AddModelError(string.Empty,
+                "Your browser session was reset. Please sign in again.");
+        }
     }
 
     public async Task<IActionResult> OnPostAsync()

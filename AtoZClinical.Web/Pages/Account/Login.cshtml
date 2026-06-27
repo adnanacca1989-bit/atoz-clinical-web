@@ -2,18 +2,23 @@
 @model AtoZClinical.Web.Pages.Account.LoginModel
 @inject IConfiguration Config
 @{
-    ViewData["Title"] = "Login";
     Layout = null;
+    var errors = ViewData.ModelState.Values
+        .SelectMany(v => v.Errors)
+        .Select(e => e.ErrorMessage)
+        .Where(m => !string.IsNullOrWhiteSpace(m))
+        .ToList();
+    var googleEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Google:ClientId"]);
+    var msEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Microsoft:ClientId"]);
 }
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login - A to Z Clinical</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/css/clinical.css" />
 </head>
 <body>
     <div class="login-panel atz-card p-4">
@@ -21,58 +26,69 @@
             <h3 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h3>
             <p class="text-muted mb-0">Sign in to continue</p>
         </div>
-        <form method="post">
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-            @if (Model.ShowResendConfirmation)
-            {
-                <p class="small text-center mb-3">
-                    <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.Input.Username">Resend confirmation email</a>
-                </p>
-            }
+
+        @if (errors.Count > 0)
+        {
+            <div class="alert alert-danger py-2">
+                @foreach (var err in errors)
+                {
+                    <div>@err</div>
+                }
+            </div>
+        }
+
+        @if (Model.ShowResendConfirmation)
+        {
+            <p class="small text-center mb-3">
+                <a href="/Account/ResendConfirmation?username=@Uri.EscapeDataString(Model.Input.Username)">Resend confirmation email</a>
+            </p>
+        }
+
+        <form method="post" action="/Account/Login">
             <div class="mb-3">
-                <label asp-for="Input.Username" class="form-label"></label>
-                <input asp-for="Input.Username" class="form-control" autocomplete="username" />
-                <span asp-validation-for="Input.Username" class="text-danger"></span>
+                <label class="form-label" for="username">Username</label>
+                <input id="username" name="Input.Username" class="form-control" autocomplete="username"
+                       value="@Model.Input.Username" required />
             </div>
             <div class="mb-3">
-                <label asp-for="Input.Password" class="form-label"></label>
-                <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
-                <span asp-validation-for="Input.Password" class="text-danger"></span>
+                <label class="form-label" for="password">Password</label>
+                <input id="password" name="Input.Password" type="password" class="form-control"
+                       autocomplete="current-password" required />
             </div>
             <div class="form-check mb-3">
-                <input asp-for="Input.RememberMe" class="form-check-input" />
-                <label asp-for="Input.RememberMe" class="form-check-label"></label>
+                <input id="rememberMe" name="Input.RememberMe" type="checkbox" class="form-check-input" value="true"
+                       @(Model.Input.RememberMe ? "checked" : null) />
+                <label class="form-check-label" for="rememberMe">Remember me</label>
             </div>
             <button type="submit" class="btn btn-atz-primary w-100">Login</button>
         </form>
-        @{
-            var googleEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Google:ClientId"]);
-            var msEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Microsoft:ClientId"]);
-        }
+
         @if (googleEnabled || msEnabled)
         {
             <div class="text-center my-3 text-muted small">or</div>
             <div class="d-grid gap-2">
                 @if (googleEnabled)
                 {
-                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Google" asp-antiforgery="false">
+                    <form method="post" action="/Account/ExternalLogin">
+                        <input type="hidden" name="provider" value="Google" />
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Google</button>
                     </form>
                 }
                 @if (msEnabled)
                 {
-                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Microsoft" asp-antiforgery="false">
+                    <form method="post" action="/Account/ExternalLogin">
+                        <input type="hidden" name="provider" value="Microsoft" />
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Microsoft</button>
                     </form>
                 }
             </div>
         }
+
         <div class="text-center mt-3 d-flex flex-column gap-1">
-            <a asp-page="/Account/ForgotPassword">Forgot password?</a>
-            <a asp-page="/Portal/Login">Patient portal</a>
-            <a asp-page="/Index">Back to home</a>
+            <a href="/Account/ForgotPassword">Forgot password?</a>
+            <a href="/Portal/Login">Patient portal</a>
+            <a href="/">Back to home</a>
         </div>
     </div>
-    <partial name="_ValidationScriptsPartial" />
 </body>
 </html>

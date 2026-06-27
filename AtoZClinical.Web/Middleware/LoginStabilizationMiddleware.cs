@@ -26,16 +26,15 @@ public sealed class LoginStabilizationMiddleware
         context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
         context.Response.Headers.Pragma = "no-cache";
 
-        // Legacy r67 redirect target — strip query and start fresh (before rate limiter runs).
-        if (HttpMethods.IsGet(context.Request.Method) && context.Request.Query.Count > 0)
+        // Legacy r67 redirect target only — do not strip other query params (e.g. recovered=1).
+        if (HttpMethods.IsGet(context.Request.Method) && context.Request.Query.ContainsKey("session"))
         {
             DataProtectionExceptionHelper.ClearProtectedCookies(context);
             context.Response.Redirect(path);
             return;
         }
 
-        if (HttpMethods.IsGet(context.Request.Method)
-            && context.Request.Cookies.Keys.Any(DataProtectionExceptionHelper.IsProtectedCookie))
+        if (HttpMethods.IsGet(context.Request.Method))
         {
             DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
         }
