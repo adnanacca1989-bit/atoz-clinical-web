@@ -8,31 +8,7 @@ public static class LoginRecoveryHelper
         return path.StartsWith("/Account/Login", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// Clears stale cookies and either redirects to login or shows a fallback login form
-    /// (avoids redirect loops that trigger HTTP 429 rate limits).
-    /// </summary>
-    public static async Task RecoverToLoginAsync(HttpContext context)
-    {
-        DataProtectionExceptionHelper.ClearProtectedCookies(context);
-
-        if (context.Response.HasStarted)
-            return;
-
-        context.Response.Clear();
-
-        if (IsLoginPath(context))
-        {
-            context.Response.StatusCode = StatusCodes.Status200OK;
-            context.Response.ContentType = "text/html; charset=utf-8";
-            await context.Response.WriteAsync(EmergencyLoginHtml);
-            return;
-        }
-
-        context.Response.Redirect("/Account/Login");
-    }
-
-    private const string EmergencyLoginHtml =
+    public const string EmergencyLoginHtml =
         """
         <!DOCTYPE html>
         <html lang="en">
@@ -51,7 +27,7 @@ public static class LoginRecoveryHelper
         </head>
         <body>
             <h2>A to Z Clinical</h2>
-            <p class="note">Your session was reset after a system update. Sign in below.</p>
+            <p class="note">Your session was reset. Sign in below.</p>
             <form method="post" action="/Account/Login">
                 <label for="username">Username</label>
                 <input id="username" name="Input.Username" autocomplete="username" required />

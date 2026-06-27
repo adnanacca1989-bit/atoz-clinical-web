@@ -53,8 +53,7 @@ public static class ClinicalDataProtectionSetup
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Data protection warm-up failed.");
-            throw;
+            logger.LogWarning(ex, "Data protection warm-up failed; keys will be created on first use.");
         }
     }
 }

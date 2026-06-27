@@ -102,8 +102,6 @@ builder.Services.AddDbContext<ClinicalDbContext>(options =>
 });
 
 builder.Services.AddClinicalDataProtection(builder.Configuration, connectionString, useSqlite);
-builder.Services.AddExceptionHandler<DataProtectionExceptionHandler>();
-builder.Services.AddExceptionHandler<FallbackExceptionHandler>();
 
 builder.Services.AddAntiforgery(options =>
 {
@@ -328,6 +326,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Settings");
     options.Conventions.AuthorizeFolder("/Notifications");
     options.Conventions.AuthorizeFolder("/Messages");
+    options.Conventions.AllowAnonymousToPage("/Error");
     options.Conventions.AllowAnonymousToPage("/Account/Login");
     options.Conventions.AllowAnonymousToPage("/Account/Logout");
     options.Conventions.AllowAnonymousToPage("/Account/LicenseBlocked");
@@ -358,14 +357,14 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler();
-    app.UseHsts();
+    app.UseDeveloperExceptionPage();
 }
-else if (builder.Configuration.GetValue("UseHttpsRedirection", true))
+else
 {
-    app.UseHttpsRedirection();
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
 }
 app.UseStaticFiles();
 app.UseMiddleware<SecurityHeadersMiddleware>();

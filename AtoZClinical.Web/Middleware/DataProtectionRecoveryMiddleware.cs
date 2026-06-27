@@ -2,6 +2,7 @@ using AtoZClinical.Web.DataProtection;
 
 namespace AtoZClinical.Web.Middleware;
 
+/// <summary>Recovers from stale encrypted cookies without redirect loops.</summary>
 public sealed class DataProtectionRecoveryMiddleware
 {
     private readonly RequestDelegate _next;
@@ -23,15 +24,26 @@ public sealed class DataProtectionRecoveryMiddleware
         {
             _logger.LogWarning(
                 ex,
-                "Data protection / antiforgery failure on {Path} trace={TraceId}",
+                "Recoverable data protection failure on {Method} {Path} trace={TraceId}",
+                context.Request.Method,
                 context.Request.Path,
                 context.TraceIdentifier);
 
             if (context.Response.HasStarted)
                 throw;
 
+            DataProtectionExceptionHelper.ClearProtectedCookies(context);
             context.Response.Clear();
-            await LoginRecoveryHelper.RecoverToLoginAsync(context);
+
+            if (LoginRecoveryHelper.IsLoginPath(context))
+            {
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "text/html; charset=utf-8";
+                await context.Response.WriteAsync(LoginRecoveryHelper.EmergencyLoginHtml);
+                return;
+            }
+
+            context.Response.Redirect("/Account/Login");
         }
     }
 }

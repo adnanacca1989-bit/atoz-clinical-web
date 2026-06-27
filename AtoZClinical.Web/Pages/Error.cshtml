@@ -1,7 +1,6 @@
 ﻿@page
 @model ErrorModel
 @{
-    ViewData["Title"] = "Error";
     Layout = null;
 }
 <!DOCTYPE html>
@@ -10,37 +9,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Error - A to Z Clinical</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+    <style>
+        body { font-family: Segoe UI, sans-serif; background: #f5f7fa; margin: 0; padding: 2rem; }
+        .card { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        h1 { color: #b00020; margin-top: 0; }
+        .muted { color: #555; }
+        a { color: #0b4f8a; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }
+    </style>
 </head>
-<body class="bg-light">
-<div class="clinical-form-page" style="max-width: 640px; margin: 2rem auto;">
-    <div class="atz-card p-4 shadow-sm bg-white rounded">
-        <h1 class="page-title text-danger mb-3">Something went wrong</h1>
-        <p class="text-muted mb-3">
-            An unexpected error occurred while processing your request. Please try again.
-            If the problem continues, contact your system administrator.
-        </p>
-        @if (Model.ShowRequestId)
-        {
-            <p class="small text-muted mb-0">
-                <strong>Reference:</strong> <code>@Model.RequestId</code>
-            </p>
-        }
-        <div class="mt-4 d-flex gap-2 flex-wrap">
-            <a class="btn btn-primary" asp-page="/Account/Login">Sign in</a>
-            <a class="btn btn-outline-secondary" asp-page="/Dashboard/Index">Return to Dashboard</a>
-        </div>
-        @if (Model.ShowDevelopmentDetails)
-        {
-            <hr class="my-4" />
-            <h2 class="h6 text-danger">Development Mode</h2>
-            <p class="small text-muted mb-0">
-                Detailed exception information is shown only in Development.
-                Do not enable Development on production servers.
-            </p>
-        }
-    </div>
+<body>
+<div class="card">
+    <h1>Something went wrong</h1>
+    <p class="muted">An unexpected error occurred while processing your request. Please try again.</p>
+    @if (Model.ShowRequestId)
+    {
+        <p class="muted"><strong>Reference:</strong> <code>@Model.RequestId</code></p>
+    }
+    <p><a href="/Account/Login">Sign in</a> &nbsp;|&nbsp; <a href="/">Home</a></p>
 </div>
 </body>
 </html>

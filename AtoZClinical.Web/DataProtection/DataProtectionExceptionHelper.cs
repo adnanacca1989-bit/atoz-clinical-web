@@ -26,11 +26,16 @@ public static class DataProtectionExceptionHelper
         return false;
     }
 
+    public static bool IsProtectedCookie(string name) =>
+        name.StartsWith(".AspNetCore.", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("__Clinical", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("atz_patient_portal", StringComparison.OrdinalIgnoreCase);
+
     public static void ClearProtectedCookies(HttpContext context)
     {
         foreach (var cookie in context.Request.Cookies.Keys)
         {
-            if (ShouldClearCookie(cookie))
+            if (IsProtectedCookie(cookie))
                 context.Response.Cookies.Delete(cookie);
         }
     }
@@ -39,21 +44,16 @@ public static class DataProtectionExceptionHelper
     {
         foreach (var cookie in context.Request.Cookies.Keys)
         {
-            if (ShouldClearCookie(cookie))
+            if (!IsProtectedCookie(cookie))
+                continue;
+
+            context.Response.Cookies.Delete(cookie, new CookieOptions
             {
-                context.Response.Cookies.Delete(cookie, new CookieOptions
-                {
-                    Path = "/",
-                    Secure = context.Request.IsHttps,
-                    SameSite = SameSiteMode.Lax,
-                    HttpOnly = true
-                });
-            }
+                Path = "/",
+                Secure = context.Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                HttpOnly = true
+            });
         }
     }
-
-    private static bool ShouldClearCookie(string name) =>
-        name.StartsWith(".AspNetCore.", StringComparison.OrdinalIgnoreCase)
-        || name.StartsWith("__Clinical", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("atz_patient_portal", StringComparison.OrdinalIgnoreCase);
 }

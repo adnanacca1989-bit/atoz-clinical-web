@@ -13,7 +13,6 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace AtoZClinical.Web.Pages.Account;
 
 [IgnoreAntiforgeryToken]
-[DisableRateLimiting]
 public class LoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signIn;
@@ -48,6 +47,7 @@ public class LoginModel : PageModel
     {
     }
 
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();

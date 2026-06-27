@@ -31,6 +31,13 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Error_page_is_reachable()
+    {
+        var response = await _client.GetAsync("/Error");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Portal_login_page_is_reachable()
     {
         var response = await _client.GetAsync("/Portal/Login");
