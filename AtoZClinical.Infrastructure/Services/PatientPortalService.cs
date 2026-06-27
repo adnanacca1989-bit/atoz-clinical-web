@@ -54,16 +54,18 @@ public sealed class PatientPortalService
         return patient;
     }
 
-    public Task<List<Appointment>> GetUpcomingAppointmentsAsync(Guid clinicId, Guid patientId) =>
-        _db.Appointments
+    public Task<List<Appointment>> GetUpcomingAppointmentsAsync(Guid clinicId, Guid patientId)
+    {
+        var today = ClinicClock.Today;
+        return _db.Appointments
             .AsNoTracking()
             .ForClinic(clinicId)
-            .Where(a => a.PatientId == patientId
-                        && a.AppointmentDate.Date >= DateTime.UtcNow.Date)
+            .Where(a => a.PatientId == patientId && a.AppointmentDate.Date >= today)
             .OrderBy(a => a.AppointmentDate)
             .ThenBy(a => a.StartTime)
             .Take(20)
             .ToListAsync();
+    }
 
     public Task<List<Prescription>> GetRecentPrescriptionsAsync(Guid clinicId, string patientFullName) =>
         _db.Prescriptions
@@ -83,13 +85,19 @@ public sealed class PatientPortalService
             .Take(10)
             .ToListAsync();
 
-    public Task<List<Doctor>> GetBookableDoctorsAsync(Guid clinicId) =>
-        _db.Doctors
+    public async Task<List<Doctor>> GetBookableDoctorsAsync(Guid clinicId)
+    {
+        var doctors = await _db.Doctors
             .AsNoTracking()
             .ForClinic(clinicId)
-            .Where(d => d.ClinicId == clinicId && d.Status != null && d.Status.ToLower() == "active")
             .OrderBy(d => d.Name)
             .ToListAsync();
+
+        return doctors
+            .Where(d => string.IsNullOrWhiteSpace(d.Status)
+                        || d.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
 
     public async Task<(bool Success, string? Error)> RequestAppointmentAsync(
         Guid clinicId,
@@ -106,7 +114,7 @@ public sealed class PatientPortalService
         if (config?.PatientPortalEnabled == false)
             return (false, "Patient portal is not enabled.");
 
-        if (appointmentDate.Date < DateTime.UtcNow.Date)
+        if (appointmentDate.Date < ClinicClock.Today)
             return (false, "Please choose today or a future date.");
 
         var patientExists = await _db.Patients.ForClinic(clinicId).AnyAsync(p => p.Id == patientId);
@@ -123,11 +131,11 @@ public sealed class PatientPortalService
         if (!string.IsNullOrWhiteSpace(doctorName))
         {
             var doc = doctorName.Trim();
-            var doctorOk = await _db.Doctors.ForClinic(clinicId).AnyAsync(d =>
-                d.Name == doc
-                && d.Status != null
-                && d.Status.ToLower() == "active");
-            if (!doctorOk)
+            var doctorOk = await _db.Doctors.ForClinic(clinicId)
+                .Where(d => d.Name == doc)
+                .ToListAsync();
+            if (!doctorOk.Any(d => string.IsNullOrWhiteSpace(d.Status)
+                                   || d.Status.Equals("active", StringComparison.OrdinalIgnoreCase)))
                 return (false, "Selected doctor is not available.");
         }
 

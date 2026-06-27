@@ -1,0 +1,14 @@
+@page "/Portal/Reports"
+@model AtoZClinical.Web.Pages.Portal.ReportsModel
+@{
+    Layout = "_PrintLayout";
+    ViewData["Title"] = "My health reports";
+}
+
+<div class="print-toolbar-screen no-print">
+    <a asp-page="/Portal/Index" class="btn-form">← Back to portal</a>
+    <button type="button" class="btn-form btn-form-primary" onclick="window.print();">Print / Save as PDF</button>
+</div>
+
+<partial name="_ReportBranding" />
+<partial name="_PatientPrintBundleBody" model="Model.Bundle" />

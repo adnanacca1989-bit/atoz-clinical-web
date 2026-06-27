@@ -32,6 +32,8 @@ public class IndexModel : PageModel
         if (session is null)
             return RedirectToPage("/Portal/Login");
 
+        HttpContext.Items[HttpContextClinicProvider.TenantClinicIdKey] = session.ClinicId;
+
         Patient = await _db.Patients.AsNoTracking()
             .ForClinic(session.ClinicId)
             .FirstOrDefaultAsync(p => p.Id == session.PatientId);

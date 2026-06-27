@@ -8,16 +8,19 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace AtoZClinical.Web.Pages.Portal;
 
-[EnableRateLimiting("register")]
+[DisableRateLimiting]
+[IgnoreAntiforgeryToken]
 public class BookModel : PageModel
 {
     private readonly PatientPortalSession _session;
     private readonly PatientPortalService _portal;
+    private readonly ILogger<BookModel> _logger;
 
-    public BookModel(PatientPortalSession session, PatientPortalService portal)
+    public BookModel(PatientPortalSession session, PatientPortalService portal, ILogger<BookModel> logger)
     {
         _session = session;
         _portal = portal;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -32,16 +35,28 @@ public class BookModel : PageModel
         var session = _session.Get(HttpContext);
         if (session is null) return RedirectToPage("/Portal/Login");
 
-        Doctors = await _portal.GetBookableDoctorsAsync(session.ClinicId);
-        Input.AppointmentDate = DateTime.Today.AddDays(1);
-        Input.StartTime = new TimeSpan(9, 0, 0);
-        return Page();
+        HttpContext.Items[HttpContextClinicProvider.TenantClinicIdKey] = session.ClinicId;
+
+        try
+        {
+            Doctors = await _portal.GetBookableDoctorsAsync(session.ClinicId);
+            Input.AppointmentDate = ClinicClock.Today.AddDays(1);
+            Input.StartTime = new TimeSpan(9, 0, 0);
+            return Page();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Portal Book GET failed clinicId={ClinicId}", session.ClinicId);
+            throw;
+        }
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
         var session = _session.Get(HttpContext);
         if (session is null) return RedirectToPage("/Portal/Login");
+
+        HttpContext.Items[HttpContextClinicProvider.TenantClinicIdKey] = session.ClinicId;
 
         Doctors = await _portal.GetBookableDoctorsAsync(session.ClinicId);
         if (!ModelState.IsValid) return Page();
@@ -59,6 +74,12 @@ public class BookModel : PageModel
             ModelState.AddModelError(string.Empty, error ?? "Could not book appointment.");
             return Page();
         }
+
+        _logger.LogInformation(
+            "Portal appointment booked patientId={PatientId} clinicId={ClinicId} date={Date}",
+            session.PatientId,
+            session.ClinicId,
+            Input.AppointmentDate.ToString("yyyy-MM-dd"));
 
         Success = true;
         Message = "Your appointment request has been submitted. The clinic will confirm shortly.";
