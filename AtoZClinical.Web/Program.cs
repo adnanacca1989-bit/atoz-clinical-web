@@ -283,6 +283,7 @@ builder.Services.AddScoped<PatientPortalService>();
 builder.Services.AddScoped<ReportingDataService>();
 builder.Services.AddScoped<PatientPortalSession>();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, SignalRUserIdProvider>();
 builder.Services.AddSingleton<ChatPresenceService>();
 builder.Services.AddScoped<ClinicMessagingService>();
 builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(15));

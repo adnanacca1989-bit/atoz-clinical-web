@@ -1,7 +1,9 @@
 using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Hubs;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 
 namespace AtoZClinical.Web.Pages.Messages;
 
@@ -10,15 +12,18 @@ public class IndexModel : PageModel
     private readonly ClinicContextService _clinicContext;
     private readonly ClinicMessagingService _messaging;
     private readonly ChatPresenceService _presence;
+    private readonly IHubContext<ChatHub> _hub;
 
     public IndexModel(
         ClinicContextService clinicContext,
         ClinicMessagingService messaging,
-        ChatPresenceService presence)
+        ChatPresenceService presence,
+        IHubContext<ChatHub> hub)
     {
         _clinicContext = clinicContext;
         _messaging = messaging;
         _presence = presence;
+        _hub = hub;
     }
 
     public string CurrentUserId { get; private set; } = "";
@@ -115,6 +120,30 @@ public class IndexModel : PageModel
             fileName = file.FileName,
             contentType = file.ContentType
         });
+    }
+
+    public async Task<IActionResult> OnPostSendAsync(
+        [FromForm] string recipientUserId,
+        [FromForm] string? body,
+        [FromForm] Guid? attachmentId)
+    {
+        var user = await _clinicContext.GetCurrentUserAsync();
+        if (user?.ClinicId is null) return Forbid();
+        if (string.IsNullOrWhiteSpace(recipientUserId)) return BadRequest(new { error = "Recipient is required." });
+
+        var message = await _messaging.SendMessageAsync(
+            user.ClinicId.Value, user.Id, recipientUserId, body, attachmentId);
+
+        if (message is null)
+            return BadRequest(new { error = "Could not send message. Check the recipient is in your clinic." });
+
+        var recipientPayload = ChatPayloadFormatter.ToPayload(message, recipientUserId);
+        var senderPayload = ChatPayloadFormatter.ToPayload(message, user.Id);
+
+        await _hub.Clients.User(recipientUserId).SendAsync("ReceiveMessage", recipientPayload);
+        await _hub.Clients.User(user.Id).SendAsync("ReceiveMessage", senderPayload);
+
+        return new JsonResult(senderPayload);
     }
 
     public async Task<IActionResult> OnGetDownloadAsync(Guid id)

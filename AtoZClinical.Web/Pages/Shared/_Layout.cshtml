@@ -135,7 +135,7 @@
         <script src="~/js/clinical-notifications.js" asp-append-version="true"></script>
         @if (!User.IsInRole("Vendor"))
         {
-            <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
+            <script src="~/lib/signalr/signalr.min.js" asp-append-version="true"></script>
             <script src="~/js/clinical-chat.js" asp-append-version="true"></script>
             <script>
                 document.addEventListener('DOMContentLoaded', () => {

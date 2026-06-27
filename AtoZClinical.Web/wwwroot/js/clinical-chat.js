@@ -29,7 +29,15 @@
         return name.slice(0, 2).toUpperCase();
     };
 
+    const hasSignalR = () => typeof signalR !== 'undefined';
+
+    const isConnected = (connection) =>
+        hasSignalR() &&
+        connection &&
+        connection.state === signalR.HubConnectionState.Connected;
+
     async function buildConnection(hubUrl) {
+        if (!hasSignalR()) return null;
         return new signalR.HubConnectionBuilder()
             .withUrl(hubUrl)
             .withAutomaticReconnect([0, 2000, 5000, 10000, 30000, 60000])
@@ -38,13 +46,15 @@
     }
 
     async function startConnection(connection, label) {
-        if (!connection) return;
+        if (!connection) return false;
         try {
-            if (connection.state === signalR.HubConnectionState.Connected) return;
+            if (connection.state === signalR.HubConnectionState.Connected) return true;
             await connection.start();
+            return true;
         } catch (err) {
             console.warn(`Chat ${label} connect failed, retrying...`, err);
             setTimeout(() => startConnection(connection, label), 5000);
+            return false;
         }
     }
 
@@ -71,13 +81,41 @@
         }
     }
 
+    async function sendViaHttp(options, recipientUserId, text, attachmentId) {
+        const formData = new FormData();
+        formData.append('recipientUserId', recipientUserId);
+        if (text) formData.append('body', text);
+        if (attachmentId) formData.append('attachmentId', attachmentId);
+        if (options.antiforgeryToken) {
+            formData.append('__RequestVerificationToken', options.antiforgeryToken);
+        }
+
+        const res = await fetch(options.sendUrl, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error ?? 'Could not send message.');
+        }
+        return data;
+    }
+
     window.initClinicalChatNav = function (options) {
         const badge = document.getElementById('clinicalChatBadge');
         if (!badge || !options?.hubUrl) return;
 
         refreshNavUnread(options.unreadUrl);
 
+        if (!hasSignalR()) {
+            setInterval(() => refreshNavUnread(options.unreadUrl), 60000);
+            return;
+        }
+
         buildConnection(options.hubUrl).then((conn) => {
+            if (!conn) return;
             navConnection = conn;
 
             conn.on('ReceiveMessage', (msg) => {
@@ -116,8 +154,9 @@
         const fileInput = document.getElementById('chatFileInput');
         const searchInput = document.getElementById('chatUserSearch');
         const refreshBtn = document.getElementById('chatRefreshUsersBtn');
+        const statusEl = document.getElementById('chatConnectionStatus');
 
-        if (!userList || !options?.currentUserId) return;
+        if (!userList || !options?.currentUserId || !options?.sendUrl) return;
 
         let users = [];
         let onlineSet = new Set();
@@ -127,6 +166,13 @@
         const peerNameEl = document.getElementById('chatPeerName');
         const peerStatusEl = document.getElementById('chatPeerStatus');
         const peerDotEl = document.getElementById('chatPeerDot');
+
+        function setConnectionStatus(text, isError) {
+            if (!statusEl) return;
+            statusEl.textContent = text;
+            statusEl.classList.toggle('text-danger', !!isError);
+            statusEl.classList.toggle('text-muted', !isError);
+        }
 
         function renderUsers(filter) {
             const term = (filter ?? '').trim().toLowerCase();
@@ -223,7 +269,16 @@
                     messages.forEach(m => messagesEl.appendChild(renderMessage(m)));
                     messagesEl.scrollTop = messagesEl.scrollHeight;
                 }
-                if (pageConnection) await pageConnection.invoke('MarkRead', peerUserId);
+                if (isConnected(pageConnection)) {
+                    await pageConnection.invoke('MarkRead', peerUserId);
+                } else {
+                    const fd = new FormData();
+                    fd.append('peerUserId', peerUserId);
+                    if (options.antiforgeryToken) {
+                        fd.append('__RequestVerificationToken', options.antiforgeryToken);
+                    }
+                    await fetch(options.markReadUrl, { method: 'POST', body: fd, credentials: 'same-origin' });
+                }
                 await loadUsers();
             } catch {
                 messagesEl.innerHTML = '<div class="clinical-chat-empty">Could not load messages.</div>';
@@ -243,7 +298,8 @@
         function appendMessage(msg) {
             if (!selectedPeer) return;
             const peerId = selectedPeer.userId;
-            if (msg.senderUserId !== peerId && msg.recipientUserId !== peerId) return;
+            if (msg.senderUserId !== peerId && msg.recipientUserId !== peerId &&
+                msg.senderUserId !== options.currentUserId) return;
 
             const empty = messagesEl.querySelector('.clinical-chat-empty');
             if (empty) empty.remove();
@@ -258,15 +314,36 @@
             messagesEl.scrollTop = messagesEl.scrollHeight;
         }
 
+        async function deliverMessage(recipientUserId, text, attachmentId) {
+            if (isConnected(pageConnection)) {
+                try {
+                    await pageConnection.invoke(
+                        'SendMessage',
+                        recipientUserId,
+                        text || null,
+                        attachmentId ?? null);
+                    return;
+                } catch (err) {
+                    console.warn('SignalR send failed, using HTTP fallback.', err);
+                }
+            }
+
+            const msg = await sendViaHttp(options, recipientUserId, text, attachmentId);
+            appendMessage(msg);
+        }
+
         async function sendMessage() {
-            if (!selectedPeer || !pageConnection) return;
+            if (!selectedPeer) {
+                alert('Select a colleague to message.');
+                return;
+            }
+
             const text = (input?.value ?? '').trim();
             if (!text && !pendingAttachment) return;
 
             sendBtn.disabled = true;
             try {
-                await pageConnection.invoke(
-                    'SendMessage',
+                await deliverMessage(
                     selectedPeer.userId,
                     text || null,
                     pendingAttachment?.attachmentId ?? null);
@@ -275,7 +352,7 @@
                 await loadUsers();
             } catch (err) {
                 console.error(err);
-                alert('Could not send message. Please try again.');
+                alert(err.message ?? 'Could not send message. Please try again.');
             } finally {
                 sendBtn.disabled = false;
             }
@@ -311,17 +388,15 @@
                     alert(data.error ?? 'Upload failed.');
                     return;
                 }
-                pendingAttachment = data;
-                await pageConnection.invoke(
-                    'SendMessage',
+                await deliverMessage(
                     selectedPeer.userId,
                     input?.value?.trim() || null,
                     data.attachmentId);
                 if (input) input.value = '';
                 pendingAttachment = null;
                 await loadUsers();
-            } catch {
-                alert('Upload failed.');
+            } catch (err) {
+                alert(err.message ?? 'Upload failed.');
             } finally {
                 sendBtn.disabled = false;
             }
@@ -338,29 +413,43 @@
         searchInput?.addEventListener('input', () => renderUsers(searchInput.value));
         refreshBtn?.addEventListener('click', loadUsers);
 
-        buildConnection(options.hubUrl).then((conn) => {
-            pageConnection = conn;
+        if (!hasSignalR()) {
+            setConnectionStatus('Real-time updates unavailable — messages still send via server.', false);
+        } else {
+            buildConnection(options.hubUrl).then((conn) => {
+                if (!conn) {
+                    setConnectionStatus('Real-time connection unavailable — messages still send via server.', false);
+                    return;
+                }
 
-            conn.on('ReceiveMessage', (msg) => {
-                appendMessage(msg);
-                loadUsers();
+                pageConnection = conn;
+
+                conn.on('ReceiveMessage', (msg) => {
+                    appendMessage(msg);
+                    loadUsers();
+                });
+
+                conn.on('PresenceChanged', (onlineIds) => {
+                    onlineSet = new Set(onlineIds ?? []);
+                    users.forEach(u => { u.isOnline = onlineSet.has(u.userId); });
+                    renderUsers(searchInput?.value ?? '');
+                    updatePeerHeader();
+                });
+
+                conn.on('MessagesRead', () => loadUsers());
+
+                conn.onreconnected(() => {
+                    setConnectionStatus('Connected', false);
+                    if (selectedPeer) loadHistory(selectedPeer.userId);
+                });
+
+                conn.onclose(() => setConnectionStatus('Reconnecting…', true));
+
+                startConnection(conn, 'page').then((ok) => {
+                    setConnectionStatus(ok ? 'Connected' : 'Connecting…', !ok);
+                });
             });
-
-            conn.on('PresenceChanged', (onlineIds) => {
-                onlineSet = new Set(onlineIds ?? []);
-                users.forEach(u => { u.isOnline = onlineSet.has(u.userId); });
-                renderUsers(searchInput?.value ?? '');
-                updatePeerHeader();
-            });
-
-            conn.on('MessagesRead', () => loadUsers());
-
-            conn.onreconnected(() => {
-                if (selectedPeer) loadHistory(selectedPeer.userId);
-            });
-
-            startConnection(conn, 'page');
-        });
+        }
 
         loadUsers();
     };

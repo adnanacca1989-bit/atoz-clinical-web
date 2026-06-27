@@ -23,7 +23,7 @@ public sealed class SecurityHeadersMiddleware
         if (_config.GetValue("Security:CspEnabled", true))
         {
             var csp = _config["Security:ContentSecurityPolicy"]
-                ?? "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://hcaptcha.com https://*.hcaptcha.com; frame-src https://hcaptcha.com https://*.hcaptcha.com https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+                ?? "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: https://hcaptcha.com https://*.hcaptcha.com; frame-src https://hcaptcha.com https://*.hcaptcha.com https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
             headers["Content-Security-Policy"] = csp;
         }
 

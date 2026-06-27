@@ -42,6 +42,7 @@
                         <div>
                             <div class="clinical-chat-peer-name" id="chatPeerName"></div>
                             <div class="clinical-chat-peer-status" id="chatPeerStatus">Offline</div>
+                            <div class="clinical-chat-peer-status small" id="chatConnectionStatus"></div>
                         </div>
                     </div>
                 </header>
@@ -61,7 +62,7 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
+    <script src="~/lib/signalr/signalr.min.js" asp-append-version="true"></script>
     <script src="~/js/clinical-chat.js" asp-append-version="true"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -71,6 +72,8 @@
                     hubUrl: '/hubs/chat',
                     usersUrl: '@Url.Page("Index", "Users")',
                     historyUrl: '@Url.Page("Index", "History")',
+                    sendUrl: '@Url.Page("Index", "Send")',
+                    markReadUrl: '@Url.Page("Index", "MarkRead")',
                     uploadUrl: '@Url.Page("Index", "Upload")',
                     downloadUrl: '@Url.Page("Index", "Download")',
                     antiforgeryToken: document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''

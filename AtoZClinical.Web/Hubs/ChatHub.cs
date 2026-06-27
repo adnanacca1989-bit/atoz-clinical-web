@@ -57,10 +57,11 @@ public sealed class ChatHub : Hub
 
         var message = await _messaging.SendMessageAsync(
             user.ClinicId.Value, user.Id, recipientUserId, body, attachmentId);
-        if (message is null) return;
+        if (message is null)
+            throw new HubException("Message could not be sent. Check the recipient is in your clinic.");
 
-        await Clients.User(recipientUserId).SendAsync("ReceiveMessage", ToPayload(message, recipientUserId));
-        await Clients.Caller.SendAsync("ReceiveMessage", ToPayload(message, user.Id));
+        await Clients.User(recipientUserId).SendAsync("ReceiveMessage", ChatPayloadFormatter.ToPayload(message, recipientUserId));
+        await Clients.Caller.SendAsync("ReceiveMessage", ChatPayloadFormatter.ToPayload(message, user.Id));
     }
 
     public async Task MarkRead(string peerUserId)
@@ -82,18 +83,4 @@ public sealed class ChatHub : Hub
         await _users.GetUserAsync(Context.User!);
 
     private static string ClinicGroup(Guid clinicId) => $"clinic-{clinicId:N}";
-
-    private static object ToPayload(ChatMessageDto message, string viewerUserId) => new
-    {
-        id = message.Id,
-        senderUserId = message.SenderUserId,
-        recipientUserId = message.RecipientUserId,
-        body = message.Body,
-        sentAt = message.SentAt,
-        readAt = message.ReadAt,
-        attachmentId = message.AttachmentId,
-        attachmentFileName = message.AttachmentFileName,
-        attachmentContentType = message.AttachmentContentType,
-        isMine = message.SenderUserId == viewerUserId
-    };
 }
