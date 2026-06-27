@@ -38,6 +38,7 @@
             <tr>
                 <th>Code</th>
                 <th>Clinic Name</th>
+                <th>Phone</th>
                 <th>Contact</th>
                 <th>Plan</th>
                 <th>Expires</th>
@@ -63,7 +64,30 @@
             <tr>
                 <td>@clinic.ClinicCode</td>
                 <td>@clinic.Name</td>
-                <td>@clinic.Phone<br /><small class="text-muted">@clinic.Email</small></td>
+                <td>
+                    @if (!string.IsNullOrWhiteSpace(clinic.Phone))
+                    {
+                        <a href="tel:@clinic.Phone">@clinic.Phone</a>
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td>
+                    @if (!string.IsNullOrWhiteSpace(clinic.ContactPerson))
+                    {
+                        <div>@clinic.ContactPerson</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(clinic.Email))
+                    {
+                        <small class="text-muted">@clinic.Email</small>
+                    }
+                    else if (string.IsNullOrWhiteSpace(clinic.ContactPerson))
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
                 <td>
                     @clinic.PlanName
                     @if (isTrial)

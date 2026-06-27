@@ -112,6 +112,21 @@
 
                 <tr><th>Clinic Code</th><td><strong>@Model.Clinic.ClinicCode</strong></td></tr>
 
+                <tr><th>Contact Person</th><td>@(Model.Clinic.ContactPerson ?? "—")</td></tr>
+
+                <tr><th>Phone</th><td>
+                    @if (!string.IsNullOrWhiteSpace(Model.Clinic.Phone))
+                    {
+                        <a href="tel:@Model.Clinic.Phone"><strong>@Model.Clinic.Phone</strong></a>
+                    }
+                    else
+                    {
+                        @:—
+                    }
+                </td></tr>
+
+                <tr><th>Email</th><td>@(Model.Clinic.Email ?? "—")</td></tr>
+
                 <tr><th>License Key</th><td><code>@Model.Clinic.LicenseKey</code></td></tr>
 
                 <tr><th>Plan</th><td>@Model.Clinic.PlanName (@Model.Clinic.MaxUsers users max)</td></tr>
