@@ -56,7 +56,7 @@ public sealed class FallbackExceptionHandler : IExceptionHandler
             <p>An unexpected error occurred. Please try again or sign in again.</p>
             <p><strong>Reference:</strong> <code>{context.TraceIdentifier}</code></p>
             {detail}
-            <p><a href="/Account/Login?session=refresh">Sign in</a></p>
+            <p><a href="/Account/Login">Sign in</a></p>
             </body></html>
             """,
             cancellationToken);

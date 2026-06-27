@@ -2,21 +2,22 @@ using AtoZClinical.Web.DataProtection;
 
 namespace AtoZClinical.Web.Middleware;
 
-/// <summary>Clears stale encrypted cookies once when directed to login after deploy.</summary>
+/// <summary>Clears stale encrypted cookies before login pages render or auth runs.</summary>
 public sealed class LoginCookieResetMiddleware
 {
+    private static readonly string[] LoginGetPaths = ["/Account/Login", "/Portal/Login"];
+
     private readonly RequestDelegate _next;
 
     public LoginCookieResetMiddleware(RequestDelegate next) => _next = next;
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var path = context.Request.Path.Value ?? string.Empty;
-        if (HttpMethods.IsGet(context.Request.Method)
-            && path.StartsWith("/Account/Login", StringComparison.OrdinalIgnoreCase)
-            && context.Request.Query.ContainsKey("session"))
+        if (HttpMethods.IsGet(context.Request.Method))
         {
-            DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
+            var path = context.Request.Path.Value ?? string.Empty;
+            if (LoginGetPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+                DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
         }
 
         await _next(context);

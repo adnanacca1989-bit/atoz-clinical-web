@@ -55,13 +55,13 @@
             <div class="d-grid gap-2">
                 @if (googleEnabled)
                 {
-                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Google" asp-antiforgery="true">
+                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Google" asp-antiforgery="false">
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Google</button>
                     </form>
                 }
                 @if (msEnabled)
                 {
-                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Microsoft" asp-antiforgery="true">
+                    <form method="post" asp-page="/Account/ExternalLogin" asp-route-provider="Microsoft" asp-antiforgery="false">
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Microsoft</button>
                     </form>
                 }

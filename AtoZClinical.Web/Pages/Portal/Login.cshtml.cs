@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Portal;
 
-[EnableRateLimiting("auth")]
+[DisableRateLimiting]
 public class LoginModel : PageModel
 {
     private readonly PatientPortalService _portal;
