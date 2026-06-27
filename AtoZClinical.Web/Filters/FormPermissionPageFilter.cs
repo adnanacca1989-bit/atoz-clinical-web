@@ -45,6 +45,13 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
                 return;
             }
 
+            if (formKey == ClinicalFormKeys.Messaging &&
+                visible.Contains(ClinicalFormKeys.Dashboard))
+            {
+                await next();
+                return;
+            }
+
             context.Result = new RedirectToPageResult("/Dashboard/Index");
             return;
         }

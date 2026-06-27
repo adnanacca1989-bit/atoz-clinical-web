@@ -66,7 +66,10 @@ public class AppointmentRemindersModel : PageModel
         return new JsonResult(new { count });
     }
 
-    public async Task<IActionResult> OnPostAdjustTimeAsync(Guid patientId, DateTime appointmentDate, string? appointmentTime)
+    public async Task<IActionResult> OnPostAdjustTimeAsync(
+        [FromForm] Guid patientId,
+        [FromForm] DateTime appointmentDate,
+        [FromForm] string? appointmentTime)
     {
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();

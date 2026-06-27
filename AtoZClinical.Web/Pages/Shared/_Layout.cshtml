@@ -9,8 +9,6 @@
     var primaryColor = Context.Items["ClinicPrimaryColor"] as string ?? "#0b4f8a";
     var clinicLogo = Context.Items["ClinicLogoBase64"] as string;
     var clinicName = Context.Items["ClinicDisplayName"] as string;
-    var visibleForms = Context.Items[FormPermissionService.VisibleFormsItemKey] as HashSet<string>;
-    var canChat = visibleForms is null || visibleForms.Contains(ClinicalFormKeys.Messaging);
 }
 <html lang="@uiLang" dir="@(isRtl ? "rtl" : "ltr")">
 <head>
@@ -61,12 +59,12 @@
                         🗓️ Reminders
                         <span id="apptReminderBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
                     </a>
-                    @if (canChat)
+                    @if (!User.IsInRole("Vendor"))
                     {
                         <a class="btn btn-sm btn-outline-light position-relative clinical-chat-nav-btn"
                            asp-page="/Messages/Index"
                            title="Messages">
-                            💬
+                            💬 Chat
                             <span id="clinicalChatBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success d-none">0</span>
                         </a>
                     }
@@ -135,7 +133,7 @@
         <script src="~/js/clinical-column-filter.js" asp-append-version="true"></script>
         <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
         <script src="~/js/clinical-notifications.js" asp-append-version="true"></script>
-        @if (canChat)
+        @if (!User.IsInRole("Vendor"))
         {
             <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
             <script src="~/js/clinical-chat.js" asp-append-version="true"></script>

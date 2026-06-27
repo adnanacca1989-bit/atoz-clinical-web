@@ -34,6 +34,7 @@ public static class DatabaseInitializer
         await EnsureSaasPlatformSchemaAsync(db, logger);
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
         await EnsureMessagingSchemaAsync(db, logger);
+        await BackfillClinicEnabledModulesAsync(db, logger);
         await BackfillCashReceiptPatientCreditsAsync(db, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
@@ -503,6 +504,43 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Service income request schema verification skipped.");
+        }
+    }
+
+    private static async Task BackfillClinicEnabledModulesAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            var allKeys = ClinicalModuleCatalog.AllFormKeys();
+            var clinics = await db.Clinics.ToListAsync();
+            var updated = 0;
+
+            foreach (var clinic in clinics)
+            {
+                var enabled = ClinicModuleService.ParseEnabledForms(clinic);
+                var before = enabled.Count;
+                foreach (var key in allKeys)
+                    enabled.Add(key);
+
+                if (enabled.Count <= before)
+                    continue;
+
+                clinic.EnabledFormKeys = ClinicModuleService.SerializeEnabledForms(enabled);
+                updated++;
+            }
+
+            if (updated > 0)
+            {
+                await db.SaveChangesAsync();
+                logger.LogInformation("Backfilled enabled modules for {Count} clinic(s).", updated);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Enabled module backfill skipped.");
         }
     }
 
