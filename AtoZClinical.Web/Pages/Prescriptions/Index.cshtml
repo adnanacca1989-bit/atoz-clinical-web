@@ -82,7 +82,7 @@
                                             <option value="">-- Medication --</option>
                                             @foreach (var item in Model.RegisteredItems)
                                             {
-                                                <option value="@item.Id" selected="@(medItemId == item.Id)" data-name="@item.MedicineName" data-dosage="@item.Dosage" data-base-uom="@item.BaseUom">@item.MedicineName</option>
+                                                <option value="@item.Id" selected="@(medItemId == item.Id ? "selected" : null)" data-name="@item.MedicineName" data-dosage="@item.Dosage" data-base-uom="@item.BaseUom">@item.MedicineName</option>
                                             }
                                         </select>
                                     </td>

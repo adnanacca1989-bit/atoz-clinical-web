@@ -33,6 +33,7 @@ public static class DatabaseInitializer
         await EnsureEnterpriseSchemaAsync(db, logger);
         await EnsureSaasPlatformSchemaAsync(db, logger);
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
+        await EnsurePrescriptionLinesSchemaAsync(db, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -505,6 +506,50 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Service income request schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsurePrescriptionLinesSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "PrescriptionLines" (
+                    "Id" uuid NOT NULL,
+                    "PrescriptionId" uuid NOT NULL,
+                    "LineNo" integer NOT NULL,
+                    "PharmacyItemId" uuid NULL,
+                    "MedicineName" text NULL,
+                    "MedicationForm" text NULL,
+                    "Dose" text NULL,
+                    "Unit" text NULL,
+                    "Frequency" text NULL,
+                    "Duration" text NULL,
+                    "Instruction" text NULL,
+                    CONSTRAINT "PK_PrescriptionLines" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_PrescriptionLines_Prescriptions_PrescriptionId"
+                        FOREIGN KEY ("PrescriptionId") REFERENCES "Prescriptions" ("Id") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS "IX_PrescriptionLines_PrescriptionId"
+                    ON "PrescriptionLines" ("PrescriptionId");
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('20260627150000_AddPrescriptionLines', '8.0.11')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+
+            logger.LogInformation("Prescription lines schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Prescription lines schema verification skipped.");
         }
     }
 
