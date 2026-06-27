@@ -101,7 +101,7 @@ builder.Services.AddDbContext<ClinicalDbContext>(options =>
             npgsql.MigrationsAssembly(typeof(ClinicalDbContext).Assembly.FullName));
 });
 
-builder.Services.AddClinicalDataProtection(builder.Configuration, persistKeysToDatabase: !useSqlite);
+builder.Services.AddClinicalDataProtection(builder.Configuration, connectionString, useSqlite);
 
 builder.Services.AddAntiforgery(options =>
 {
@@ -318,6 +318,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Settings");
     options.Conventions.AuthorizeFolder("/Notifications");
     options.Conventions.AuthorizeFolder("/Messages");
+    options.Conventions.AllowAnonymousToPage("/Account/Login");
     options.Conventions.AllowAnonymousToPage("/Account/Logout");
     options.Conventions.AllowAnonymousToPage("/Account/LicenseBlocked");
     options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
@@ -340,6 +341,7 @@ if (!string.IsNullOrEmpty(port))
 var app = builder.Build();
 
 await DatabaseInitializer.InitializeAsync(app.Services);
+await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
@@ -361,7 +363,7 @@ app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
-app.UseMiddleware<AntiforgeryRecoveryMiddleware>();
+app.UseMiddleware<DataProtectionRecoveryMiddleware>();
 app.UseMiddleware<ClinicSubdomainMiddleware>();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseMiddleware<TenantContextMiddleware>();
