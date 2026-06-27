@@ -1,4 +1,5 @@
 using AtoZClinical.Web;
+using AtoZClinical.Web.DataProtection;
 using AtoZClinical.Web.Filters;
 using AtoZClinical.Web.Hubs;
 using AtoZClinical.Web.Api;
@@ -98,6 +99,19 @@ builder.Services.AddDbContext<ClinicalDbContext>(options =>
     else
         options.UseNpgsql(connectionString, npgsql =>
             npgsql.MigrationsAssembly(typeof(ClinicalDbContext).Assembly.FullName));
+});
+
+builder.Services.AddClinicalDataProtection(builder.Configuration, persistKeysToDatabase: !useSqlite);
+
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.Name = "__ClinicalAntiforgery";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.HeaderName = "X-CSRF-TOKEN";
 });
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -346,6 +360,7 @@ app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<AntiforgeryRecoveryMiddleware>();
 app.UseMiddleware<ClinicSubdomainMiddleware>();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseMiddleware<TenantContextMiddleware>();

@@ -1,11 +1,12 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Identity;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Infrastructure.Data;
 
-public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
+public class ClinicalDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionKeyContext
 {
     private readonly Guid? _tenantClinicId;
     private readonly bool _bypassTenantFilter;
@@ -69,6 +70,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ClinicBackupHistory> ClinicBackupHistories => Set<ClinicBackupHistory>();
     public DbSet<ClinicMessage> ClinicMessages => Set<ClinicMessage>();
     public DbSet<ClinicMessageAttachment> ClinicMessageAttachments => Set<ClinicMessageAttachment>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -151,6 +153,11 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.Property(x => x.UploadedByUserId).HasMaxLength(450).IsRequired();
             e.Property(x => x.FileName).HasMaxLength(260).IsRequired();
             e.Property(x => x.ContentType).HasMaxLength(128).IsRequired();
+        });
+
+        builder.Entity<DataProtectionKey>(e =>
+        {
+            e.ToTable("DataProtectionKeys");
         });
 
         builder.Entity<CashReceipt>(e =>
