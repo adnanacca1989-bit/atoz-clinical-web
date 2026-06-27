@@ -1,10 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Core.Entities;
-using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Radiology;
 
@@ -12,18 +10,15 @@ public class RequestModel : ClinicFormPageModel
 {
     private readonly RadiologyRequestService _service;
     private readonly RadiologyTestService _radiologyTests;
-    private readonly ClinicalDbContext _db;
     private const int DefaultLineCount = 6;
 
     public RequestModel(
         ClinicContextService clinicContext,
         RadiologyRequestService service,
-        RadiologyTestService radiologyTests,
-        ClinicalDbContext db) : base(clinicContext)
+        RadiologyTestService radiologyTests) : base(clinicContext)
     {
         _service = service;
         _radiologyTests = radiologyTests;
-        _db = db;
     }
 
     [BindProperty]
@@ -132,17 +127,7 @@ public class RequestModel : ClinicFormPageModel
 
     private async Task BackfillFromPatientAsync(Guid clinicId)
     {
-        if (string.IsNullOrWhiteSpace(Input.PatientName) && string.IsNullOrWhiteSpace(Input.PatientBarcode))
-            return;
-
-        var query = _db.Patients.ForClinic(clinicId).AsNoTracking();
-        Patient? patient = null;
-        if (!string.IsNullOrWhiteSpace(Input.PatientBarcode))
-            patient = await query.FirstOrDefaultAsync(p => p.PatientNo == Input.PatientBarcode);
-        if (patient is null && !string.IsNullOrWhiteSpace(Input.PatientName))
-            patient = await query.OrderByDescending(p => p.PatientNo)
-                .FirstOrDefaultAsync(p => p.FullName == Input.PatientName);
-
+        var patient = await FindPatientAsync(clinicId, Input.PatientName, Input.PatientBarcode);
         if (patient is null) return;
 
         Input.PatientName ??= patient.FullName;

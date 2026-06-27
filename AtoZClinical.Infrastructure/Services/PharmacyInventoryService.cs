@@ -90,7 +90,8 @@ public sealed class PharmacyInventoryService
         await _db.SaveChangesAsync();
 
         var openingItemIds = await _db.PharmacyInventoryMovements
-            .Where(m => m.ClinicId == clinicId && m.ReferenceType == PharmacyInventoryTypes.ReferenceOpeningBalance && m.ReferenceId == header.Id)
+            .ForClinic(clinicId)
+            .Where(m => m.ReferenceType == PharmacyInventoryTypes.ReferenceOpeningBalance && m.ReferenceId == header.Id)
             .Select(m => m.PharmacyItemId)
             .Distinct()
             .ToListAsync();
@@ -133,7 +134,8 @@ public sealed class PharmacyInventoryService
         await _db.SaveChangesAsync();
 
         var itemIds = await _db.PharmacyInventoryMovements
-            .Where(m => m.ClinicId == clinicId && m.ReferenceType == PharmacyInventoryTypes.ReferencePurchase && m.ReferenceId == bill.Id)
+            .ForClinic(clinicId)
+            .Where(m => m.ReferenceType == PharmacyInventoryTypes.ReferencePurchase && m.ReferenceId == bill.Id)
             .Select(m => m.PharmacyItemId)
             .Distinct()
             .ToListAsync();
@@ -176,7 +178,8 @@ public sealed class PharmacyInventoryService
         await _db.SaveChangesAsync();
 
         var billItemIds = await _db.PharmacyInventoryMovements
-            .Where(m => m.ClinicId == clinicId && m.ReferenceType == PharmacyInventoryTypes.ReferenceBill && m.ReferenceId == bill.Id)
+            .ForClinic(clinicId)
+            .Where(m => m.ReferenceType == PharmacyInventoryTypes.ReferenceBill && m.ReferenceId == bill.Id)
             .Select(m => m.PharmacyItemId)
             .Distinct()
             .ToListAsync();
@@ -187,7 +190,8 @@ public sealed class PharmacyInventoryService
     public async Task RemoveReferenceMovementsAsync(Guid clinicId, string referenceType, Guid referenceId)
     {
         var movements = await _db.PharmacyInventoryMovements
-            .Where(m => m.ClinicId == clinicId && m.ReferenceType == referenceType && m.ReferenceId == referenceId)
+            .ForClinic(clinicId)
+            .Where(m => m.ReferenceType == referenceType && m.ReferenceId == referenceId)
             .ToListAsync();
         if (movements.Count == 0) return;
 
@@ -199,8 +203,22 @@ public sealed class PharmacyInventoryService
             await RecalculateItemAsync(itemId);
     }
 
+    public async Task RecalculateClinicInventoryAsync(Guid clinicId)
+    {
+        var itemIds = await _db.PharmacyInventoryMovements
+            .ForClinic(clinicId)
+            .Select(m => m.PharmacyItemId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var itemId in itemIds)
+            await RecalculateItemAsync(itemId);
+    }
+
     public async Task<List<PharmacyInventoryReportRow>> GetReportAsync(Guid clinicId, DateTime? fromDate, DateTime? toDate, string? search, bool expiredOnly = false)
     {
+        await RecalculateClinicInventoryAsync(clinicId);
+
         var items = await _db.PharmacyItems.ForClinic(clinicId).OrderBy(i => i.ItemNo).ToListAsync();
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -231,6 +249,20 @@ public sealed class PharmacyInventoryService
             var qtyIssued = periodMovements.Where(m => m.PharmacyItemId == item.Id && m.MovementType == PharmacyInventoryTypes.BillOut).Sum(m => m.QtyOut);
             var qtyIn = qtyOpening + qtyPurchase;
             var qtyOut = qtyIssued;
+            var qtyBalance = item.QuantityOnHand > 0
+                ? item.QuantityOnHand
+                : Math.Max(0, qtyOpening + qtyPurchase - qtyIssued);
+            var avgCost = item.MovingAverageCost;
+            if (avgCost <= 0)
+            {
+                var lastMove = allMovements
+                    .Where(m => m.PharmacyItemId == item.Id)
+                    .OrderBy(m => m.MovementDate)
+                    .ThenBy(m => m.CreatedAt)
+                    .LastOrDefault();
+                avgCost = lastMove?.MovingAvgCostAfter ?? 0m;
+            }
+
             return new PharmacyInventoryReportRow(
                 item.ItemNo,
                 item.Barcode,
@@ -242,9 +274,9 @@ public sealed class PharmacyInventoryService
                 qtyIssued,
                 qtyIn,
                 qtyOut,
-                item.QuantityOnHand,
-                item.MovingAverageCost,
-                item.QuantityOnHand * item.MovingAverageCost,
+                qtyBalance,
+                avgCost,
+                qtyBalance * avgCost,
                 item.ExpiryDate);
         }).Where(r => expiredOnly
             ? r.ExpiryDate.HasValue && r.ExpiryDate.Value.Date < DateTime.Today
@@ -253,10 +285,11 @@ public sealed class PharmacyInventoryService
 
     private async Task RecalculateItemAsync(Guid itemId)
     {
-        var item = await _db.PharmacyItems.FindAsync(itemId);
+        var item = await _db.PharmacyItems.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.Id == itemId);
         if (item is null) return;
 
         var movements = await _db.PharmacyInventoryMovements
+            .ForClinic(item.ClinicId)
             .Where(m => m.PharmacyItemId == itemId)
             .OrderBy(m => m.MovementDate)
             .ThenBy(m => m.CreatedAt)

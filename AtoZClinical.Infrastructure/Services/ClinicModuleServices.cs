@@ -802,10 +802,10 @@ public sealed class LabResultService
     }
 
     public Task<List<LabResult>> ListAsync(Guid clinicId) =>
-        _db.LabResults.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
+        _db.LabResults.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
 
     public Task<LabResult?> GetAsync(Guid clinicId, Guid id) =>
-        _db.LabResults.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+        _db.LabResults.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
     public async Task<LabResult> SaveAsync(Guid clinicId, LabResult item, List<LabResultLine> lines)
     {
@@ -822,7 +822,7 @@ public sealed class LabResultService
         if (item.Id == Guid.Empty)
         {
             item.Id = Guid.NewGuid();
-            item.ResultNo = (await _db.LabResults.Where(r => r.ClinicId == clinicId).MaxAsync(r => (int?)r.ResultNo) ?? 0) + 1;
+            item.ResultNo = (await _db.LabResults.ForClinic(clinicId).MaxAsync(r => (int?)r.ResultNo) ?? 0) + 1;
             item.CreatedAt = DateTime.UtcNow;
             _db.LabResults.Add(item);
         }

@@ -329,10 +329,10 @@ public sealed class RadiologyResultService
     }
 
     public Task<List<RadiologyResult>> ListAsync(Guid clinicId) =>
-        _db.RadiologyResults.Include(r => r.Lines).Where(r => r.ClinicId == clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
+        _db.RadiologyResults.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
 
     public Task<RadiologyResult?> GetAsync(Guid clinicId, Guid id) =>
-        _db.RadiologyResults.Include(r => r.Lines).FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+        _db.RadiologyResults.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
     public async Task<RadiologyResult> SaveAsync(Guid clinicId, RadiologyResult item, List<RadiologyResultLine> lines, string? userName = null)
     {
@@ -350,7 +350,7 @@ public sealed class RadiologyResultService
         if (isNew)
         {
             item.Id = Guid.NewGuid();
-            item.ResultNo = (await _db.RadiologyResults.Where(r => r.ClinicId == clinicId).MaxAsync(r => (int?)r.ResultNo) ?? 0) + 1;
+            item.ResultNo = (await _db.RadiologyResults.ForClinic(clinicId).MaxAsync(r => (int?)r.ResultNo) ?? 0) + 1;
             item.CreatedAt = DateTime.UtcNow;
             _db.RadiologyResults.Add(item);
         }

@@ -1,3 +1,4 @@
+using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
@@ -83,6 +84,24 @@ public abstract class ClinicFormPageModel : PageModel
         var db = HttpContext.RequestServices.GetRequiredService<ClinicalDbContext>();
         var map = await DoctorSpecialtyResolver.BuildMapAsync(db, clinicId);
         return DoctorSpecialtyResolver.ResolveFromMap(doctorName, stored, map);
+    }
+
+    protected async Task<Patient?> FindPatientAsync(Guid clinicId, string? patientName, string? patientBarcode)
+    {
+        var db = HttpContext.RequestServices.GetRequiredService<ClinicalDbContext>();
+        var query = db.Patients.ForClinic(clinicId).AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(patientBarcode))
+        {
+            var barcode = patientBarcode.Trim();
+            var byNo = await query.FirstOrDefaultAsync(p => p.PatientNo == barcode);
+            if (byNo is not null) return byNo;
+        }
+
+        if (string.IsNullOrWhiteSpace(patientName)) return null;
+        var normalized = patientName.Trim();
+        var candidates = await query.OrderByDescending(p => p.PatientNo).Take(300).ToListAsync();
+        return candidates.FirstOrDefault(p =>
+            string.Equals(p.FullName, normalized, StringComparison.OrdinalIgnoreCase));
     }
 
     protected IActionResult RedirectAfterSave(Guid savedId) =>

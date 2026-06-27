@@ -1,23 +1,19 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using AtoZClinical.Core.Entities;
-using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Prescriptions;
 
 public class IndexModel : ClinicFormPageModel
 {
     private readonly PrescriptionService _service;
-    private readonly ClinicalDbContext _db;
 
-    public IndexModel(ClinicContextService clinicContext, PrescriptionService service, ClinicalDbContext db) : base(clinicContext)
+    public IndexModel(ClinicContextService clinicContext, PrescriptionService service) : base(clinicContext)
     {
         _service = service;
-        _db = db;
     }
 
     [BindProperty]
@@ -117,17 +113,7 @@ public class IndexModel : ClinicFormPageModel
 
     private async Task BackfillFromPatientAsync(Guid clinicId)
     {
-        if (string.IsNullOrWhiteSpace(Input.PatientName) && string.IsNullOrWhiteSpace(Input.PatientBarcode))
-            return;
-
-        var query = _db.Patients.ForClinic(clinicId).AsNoTracking();
-        Patient? patient = null;
-        if (!string.IsNullOrWhiteSpace(Input.PatientBarcode))
-            patient = await query.FirstOrDefaultAsync(p => p.PatientNo == Input.PatientBarcode);
-        if (patient is null && !string.IsNullOrWhiteSpace(Input.PatientName))
-            patient = await query.OrderByDescending(p => p.PatientNo)
-                .FirstOrDefaultAsync(p => p.FullName == Input.PatientName);
-
+        var patient = await FindPatientAsync(clinicId, Input.PatientName, Input.PatientBarcode);
         if (patient is null) return;
 
         Input.PatientName ??= patient.FullName;

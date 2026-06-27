@@ -116,13 +116,25 @@ public class ResultModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
-        var entity = Input.ToEntity(RecordId);
+        ResolveRecordIdForSave();
+        var entity = Input.ToEntity(RecordIdForSave);
         var lines = Lines
             .Where(l => !string.IsNullOrWhiteSpace(l.TestCode) || !string.IsNullOrWhiteSpace(l.TestName))
             .Select(l => l.ToEntity())
             .ToList();
         var saved = await _service.SaveAsync(clinicId.Value, entity, lines);
         return RedirectAfterSave(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
+        EnsureLineRows();
+        SetFormViewData("Laboratory Result", null, null, Input.UpdatedAt);
     }
 
     private Task<IActionResult> NewCoreAsync()

@@ -12,15 +12,18 @@ public class BalanceSheetModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
     private readonly FinancialReportCalculator _financial;
+    private readonly PharmacyInventoryService _inventory;
 
     public BalanceSheetModel(
         ClinicalDbContext db,
         ClinicContextService clinicContext,
-        FinancialReportCalculator financial)
+        FinancialReportCalculator financial,
+        PharmacyInventoryService inventory)
     {
         _db = db;
         _clinicContext = clinicContext;
         _financial = financial;
+        _inventory = inventory;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -130,6 +133,7 @@ public class BalanceSheetModel : PageModel
 
     private async Task<decimal> SumInventoryValueAsync(Guid clinicId)
     {
+        await _inventory.RecalculateClinicInventoryAsync(clinicId);
         var items = await _db.PharmacyItems.ForClinic(clinicId)
             .Select(p => new { p.QuantityOnHand, p.MovingAverageCost })
             .ToListAsync();

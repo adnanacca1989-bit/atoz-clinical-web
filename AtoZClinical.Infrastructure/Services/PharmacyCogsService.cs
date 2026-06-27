@@ -7,8 +7,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class PharmacyCogsService
 {
     private readonly ClinicalDbContext _db;
+    private readonly PharmacyInventoryService _inventory;
 
-    public PharmacyCogsService(ClinicalDbContext db) => _db = db;
+    public PharmacyCogsService(ClinicalDbContext db, PharmacyInventoryService inventory)
+    {
+        _db = db;
+        _inventory = inventory;
+    }
 
     public async Task<List<CogsRow>> GetCogsRowsAsync(
         Guid clinicId,
@@ -17,6 +22,8 @@ public sealed class PharmacyCogsService
         string? doctorName,
         string? patientName)
     {
+        await _inventory.RecalculateClinicInventoryAsync(clinicId);
+
         var from = fromDate.Date;
         var to = toDate.Date;
 
