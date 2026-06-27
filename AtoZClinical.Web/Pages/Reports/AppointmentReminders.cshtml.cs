@@ -12,15 +12,18 @@ public class AppointmentRemindersModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
     private readonly AppointmentReminderService _reminders;
+    private readonly ILogger<AppointmentRemindersModel> _logger;
 
     public AppointmentRemindersModel(
         ClinicalDbContext db,
         ClinicContextService clinicContext,
-        AppointmentReminderService reminders)
+        AppointmentReminderService reminders,
+        ILogger<AppointmentRemindersModel> logger)
     {
         _db = db;
         _clinicContext = clinicContext;
         _reminders = reminders;
+        _logger = logger;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -72,16 +75,38 @@ public class AppointmentRemindersModel : PageModel
         [FromForm] string? appointmentTime)
     {
         var clinicId = await _clinicContext.GetClinicIdAsync();
-        if (clinicId is null) return Forbid();
+        if (clinicId is null)
+        {
+            _logger.LogWarning("AdjustTime denied: no clinic context for user trace={TraceId}", HttpContext.TraceIdentifier);
+            return Forbid();
+        }
 
-        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == patientId);
-        if (patient is null) return NotFound();
+        var patient = await _db.Patients
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == patientId);
+        if (patient is null)
+        {
+            _logger.LogWarning(
+                "AdjustTime patient not found patientId={PatientId} clinicId={ClinicId} trace={TraceId}",
+                patientId,
+                clinicId,
+                HttpContext.TraceIdentifier);
+            return NotFound();
+        }
 
         patient.AppointmentDate = appointmentDate.Date;
         if (!string.IsNullOrWhiteSpace(appointmentTime) && TimeSpan.TryParse(appointmentTime, out var time))
             patient.AppointmentTime = time;
         patient.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "AdjustTime saved patientId={PatientId} date={Date} time={Time} clinicId={ClinicId} trace={TraceId}",
+            patientId,
+            appointmentDate.ToString("yyyy-MM-dd"),
+            appointmentTime ?? "(unchanged)",
+            clinicId,
+            HttpContext.TraceIdentifier);
 
         return RedirectToPage(new { FromDate, ToDate, Gender, DoctorName, Specialty, City, Status, PatientSearch });
     }

@@ -133,7 +133,7 @@
                     <td>@r.AppointmentDate.ToString("M/d/yyyy")</td>
                     <td>@timeText</td>
                     <td>
-                        <form method="post" action="@Url.Page("/Reports/AppointmentReminders", "AdjustTime")" asp-antiforgery="true" data-skip-form-guard="true" class="d-flex gap-1 align-items-center appt-adjust-form">
+                        <form method="post" asp-page="/Reports/AppointmentReminders" asp-page-handler="AdjustTime" asp-antiforgery="true" data-skip-form-guard="true" class="d-flex gap-1 align-items-center appt-adjust-form">
                             <input type="hidden" asp-for="FromDate" />
                             <input type="hidden" asp-for="ToDate" />
                             <input type="hidden" asp-for="Gender" />
@@ -181,31 +181,6 @@
                 patientFieldMap: {
                     '#reportPatientNameInput': p => p.name || ''
                 }
-            });
-
-            document.querySelectorAll('.appt-adjust-form').forEach(form => {
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const btn = form.querySelector('.appt-adjust-btn');
-                    if (btn) btn.disabled = true;
-                    try {
-                        const res = await fetch(form.action, {
-                            method: 'POST',
-                            body: new FormData(form),
-                            credentials: 'same-origin',
-                            redirect: 'follow'
-                        });
-                        if (res.ok || res.redirected) {
-                            window.location.href = res.url || window.location.pathname + window.location.search;
-                            return;
-                        }
-                        alert('Could not save appointment time. Please try again.');
-                    } catch {
-                        alert('Could not save appointment time. Please try again.');
-                    } finally {
-                        if (btn) btn.disabled = false;
-                    }
-                });
             });
         });
     </script>
