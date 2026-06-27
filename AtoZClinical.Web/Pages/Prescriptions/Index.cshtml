@@ -3,10 +3,10 @@
 @{
     ViewData["Title"] = "Doctor's Prescription";
     Layout = "_Layout";
-    ViewData["FormHint"] = "Select patient first — age, gender, doctor, and specialty populate automatically. Complete diagnosis text before saving.";
+    ViewData["FormHint"] = "Select patient first — age, gender, doctor, and specialty populate automatically. Choose medications from pharmacy registration (display only). Complete diagnosis text before saving.";
 }
 
-<div class="clinical-form-page clinical-standard-form clinical-his-compact prescription-his-layout">
+<div class="clinical-form-page clinical-standard-form prescription-his-layout prescription-expanded">
     <h1 class="page-title">Doctor's Prescription</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
     <partial name="_ClinicalFormHint" />
@@ -33,7 +33,7 @@
                     </div>
                 </div>
                 <div class="section-caption">Chronic Diseases</div>
-                <div class="line-grid-scroll prescription-chronic-scroll">
+                <div class="prescription-chronic-scroll">
                     <table class="line-grid clinical-line-grid">
                         <thead><tr><th>Chronic Disease Type</th><th>Details</th></tr></thead>
                         <tbody>
@@ -49,8 +49,55 @@
                 </div>
                 <div class="prescription-diagnosis-block">
                     <label class="clinical-field-label field-required">Diagnosis Text</label>
-                    <textarea asp-for="Input.DiagnosisText" class="clinical-field" rows="5" required></textarea>
+                    <textarea asp-for="Input.DiagnosisText" class="clinical-field" rows="3" required></textarea>
                     <span asp-validation-for="Input.DiagnosisText" class="text-danger small"></span>
+                </div>
+                <div class="clinical-form-grid-area prescription-medication-area">
+                    <div class="section-caption">Medications</div>
+                    <div class="line-grid-scroll prescription-medication-scroll">
+                        <table class="line-grid clinical-line-grid prescription-medication-grid">
+                            <thead>
+                                <tr>
+                                    <th class="col-no">#</th>
+                                    <th class="col-medication">Medication</th>
+                                    <th class="col-from">From</th>
+                                    <th class="col-dose">Dose</th>
+                                    <th class="col-unit">Unit</th>
+                                    <th class="col-frequency">Frequency</th>
+                                    <th class="col-duration">Duration</th>
+                                    <th class="col-instruction">Instruction</th>
+                                    <th class="col-del">Del</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.Medications.Count; i++)
+                            {
+                                var medItemId = Model.Medications[i].PharmacyItemId;
+                                <tr class="prescription-line" data-line="@i">
+                                    <td><input asp-for="Medications[i].LineNo" readonly /></td>
+                                    <td class="col-medication">
+                                        <input type="hidden" asp-for="Medications[i].PharmacyItemId" class="prescription-pharmacy-id" />
+                                        <input type="hidden" asp-for="Medications[i].MedicineName" class="prescription-medicine-name" />
+                                        <select class="prescription-item-select clinical-field">
+                                            <option value="">-- Medication --</option>
+                                            @foreach (var item in Model.RegisteredItems)
+                                            {
+                                                <option value="@item.Id" selected="@(medItemId == item.Id)" data-name="@item.MedicineName" data-dosage="@item.Dosage" data-base-uom="@item.BaseUom">@item.MedicineName</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td><input asp-for="Medications[i].MedicationForm" class="prescription-med-form" placeholder="Form" /></td>
+                                    <td><input asp-for="Medications[i].Dose" class="prescription-dose" placeholder="Dose" /></td>
+                                    <td><input asp-for="Medications[i].Unit" class="prescription-unit" placeholder="Unit" /></td>
+                                    <td><input asp-for="Medications[i].Frequency" placeholder="e.g. BID" /></td>
+                                    <td><input asp-for="Medications[i].Duration" placeholder="e.g. 7 days" /></td>
+                                    <td><input asp-for="Medications[i].Instruction" class="prescription-instruction" placeholder="Instructions" /></td>
+                                    <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             <div class="clinical-form-right">
@@ -90,5 +137,7 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
     <script src="~/js/prescriptions.js" asp-append-version="true"></script>
+    <script src="~/js/prescription-medications.js" asp-append-version="true"></script>
 }

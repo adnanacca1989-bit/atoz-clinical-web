@@ -18,4 +18,22 @@ public class Prescription : IClinicScoped
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public Clinic Clinic { get; set; } = null!;
+    public ICollection<PrescriptionLine> Lines { get; set; } = [];
+}
+
+public class PrescriptionLine
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid PrescriptionId { get; set; }
+    public int LineNo { get; set; }
+    public Guid? PharmacyItemId { get; set; }
+    public string? MedicineName { get; set; }
+    public string? MedicationForm { get; set; }
+    public string? Dose { get; set; }
+    public string? Unit { get; set; }
+    public string? Frequency { get; set; }
+    public string? Duration { get; set; }
+    public string? Instruction { get; set; }
+
+    public Prescription Prescription { get; set; } = null!;
 }

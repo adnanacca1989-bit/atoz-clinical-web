@@ -5,16 +5,17 @@ function initClinicalLineGrid(options = {}) {
     const addBtn = document.getElementById('addClinicalLinesBtn');
     if (!tbody) return;
 
-    const rowSelector = options.rowSelector || 'tr[data-line], tr.pharmacy-line, tr.invoice-line, tr.lab-line, tr.radiology-line, tr.clinical-line';
+    const rowSelector = options.rowSelector || 'tr[data-line], tr.pharmacy-line, tr.invoice-line, tr.lab-line, tr.radiology-line, tr.clinical-line, tr.prescription-line';
+    const namePrefix = options.namePrefix || 'Lines';
 
     const reindexRows = () => {
         tbody.querySelectorAll(rowSelector).forEach((row, i) => {
             row.dataset.line = String(i);
-            row.querySelectorAll('[name^="Lines["]').forEach(input => {
-                input.name = input.name.replace(/Lines\[\d+\]/, `Lines[${i}]`);
-                if (input.id) input.id = input.id.replace(/Lines_\d+__/, `Lines_${i}__`);
+            row.querySelectorAll(`[name^="${namePrefix}["]`).forEach(input => {
+                input.name = input.name.replace(new RegExp(`${namePrefix}\\[\\d+\\]`), `${namePrefix}[${i}]`);
+                if (input.id) input.id = input.id.replace(new RegExp(`${namePrefix}_\\d+__`), `${namePrefix}_${i}__`);
             });
-            const lineNo = row.querySelector('[name$=".LineNo"]');
+            const lineNo = row.querySelector(`[name$=".LineNo"]`);
             if (lineNo) lineNo.value = String(i + 1);
         });
     };
@@ -22,7 +23,12 @@ function initClinicalLineGrid(options = {}) {
     const clearRow = (row) => {
         row.querySelectorAll('input, select, textarea').forEach(el => {
             if (el.readOnly && el.name?.endsWith('.LineNo')) return;
+            if (el.classList.contains('prescription-pharmacy-id') || el.classList.contains('prescription-medicine-name')) {
+                el.value = '';
+                return;
+            }
             if (el.classList.contains('invoice-service-pick')) { el.selectedIndex = 0; return; }
+            if (el.classList.contains('prescription-item-select')) { el.selectedIndex = 0; return; }
             if (el.tagName === 'SELECT') el.selectedIndex = 0;
             else if (el.type === 'number') {
                 if (el.classList.contains('pharmacy-qty') || el.classList.contains('purchase-qty') || el.name?.includes('.Qty'))
@@ -62,6 +68,7 @@ function initClinicalLineGrid(options = {}) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (document.querySelector('.prescription-medication-scroll')) return;
     if (document.querySelector('.line-grid-scroll, .clinical-line-grid, .pharmacy-line-grid, .invoice-line-grid'))
         initClinicalLineGrid();
 });

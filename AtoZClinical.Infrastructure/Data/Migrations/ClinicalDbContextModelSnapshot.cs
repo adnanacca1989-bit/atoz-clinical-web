@@ -1951,6 +1951,49 @@ namespace AtoZClinical.Infrastructure.Data.Migrations
                     b.ToTable("Prescriptions");
                 });
 
+            modelBuilder.Entity("AtoZClinical.Core.Entities.PrescriptionLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Dose")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Duration")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Frequency")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Instruction")
+                        .HasColumnType("text");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MedicationForm")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MedicineName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PharmacyItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PrescriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Unit")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrescriptionId");
+
+                    b.ToTable("PrescriptionLines");
+                });
+
             modelBuilder.Entity("AtoZClinical.Core.Entities.RadiologyRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2908,6 +2951,17 @@ namespace AtoZClinical.Infrastructure.Data.Migrations
                     b.Navigation("Clinic");
                 });
 
+            modelBuilder.Entity("AtoZClinical.Core.Entities.PrescriptionLine", b =>
+                {
+                    b.HasOne("AtoZClinical.Core.Entities.Prescription", "Prescription")
+                        .WithMany("Lines")
+                        .HasForeignKey("PrescriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Prescription");
+                });
+
             modelBuilder.Entity("AtoZClinical.Core.Entities.RadiologyRequest", b =>
                 {
                     b.HasOne("AtoZClinical.Core.Entities.Clinic", "Clinic")
@@ -3095,6 +3149,11 @@ namespace AtoZClinical.Infrastructure.Data.Migrations
                 });
 
             modelBuilder.Entity("AtoZClinical.Core.Entities.PharmacyRequest", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("AtoZClinical.Core.Entities.Prescription", b =>
                 {
                     b.Navigation("Lines");
                 });

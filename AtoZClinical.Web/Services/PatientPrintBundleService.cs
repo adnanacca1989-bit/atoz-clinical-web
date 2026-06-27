@@ -121,7 +121,7 @@ public sealed class PatientPrintBundleService
         foreach (var r in invoices.Where(r => MatchPatient(r.PatientName, r.PatientId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildInvoice(r));
 
-        var prescriptions = await _db.Prescriptions
+        var prescriptions = await _db.Prescriptions.Include(r => r.Lines)
             .ForClinic(clinicId).OrderByDescending(r => r.DatePrescription).ToListAsync();
         foreach (var r in prescriptions.Where(r => MatchPatient(r.PatientName, effectiveId) && MatchDoctor(r.DoctorName)))
             bundle.Sections.Add(BuildPrescription(r));
@@ -218,7 +218,27 @@ public sealed class PatientPrintBundleService
 
     private PrintSection BuildPrescription(Prescription r)
     {
-        var rows = ParseChronicRows(r.ChronicDiseasesJson);
+        var chronicRows = ParseChronicRows(r.ChronicDiseasesJson);
+        var medRows = r.Lines.OrderBy(l => l.LineNo)
+            .Where(l => !string.IsNullOrWhiteSpace(l.MedicineName))
+            .Select(l => new[]
+            {
+                l.LineNo.ToString(),
+                l.MedicineName ?? "",
+                l.MedicationForm ?? "",
+                l.Dose ?? "",
+                l.Unit ?? "",
+                l.Frequency ?? "",
+                l.Duration ?? "",
+                l.Instruction ?? ""
+            })
+            .ToList();
+
+        var tableHeaders = medRows.Count > 0
+            ? new[] { "#", "Medication", "From", "Dose", "Unit", "Frequency", "Duration", "Instruction" }
+            : chronicRows.Count > 0 ? new[] { "Chronic Disease", "Details" } : null;
+        var tableRows = medRows.Count > 0 ? medRows : chronicRows;
+
         return new PrintSection(
             "Doctor's Prescription",
             Meta(
@@ -228,8 +248,8 @@ public sealed class PatientPrintBundleService
                 ("Doctor", r.DoctorName ?? ""),
                 ("Specialty", Spec(r.DoctorName, r.Specialty)),
                 ("Disease", r.DiseaseName ?? "")),
-            rows.Count > 0 ? ["Chronic Disease", "Details"] : null,
-            rows,
+            tableHeaders,
+            tableRows,
             Footer(("Diagnosis", r.DiagnosisText ?? "")));
     }
 

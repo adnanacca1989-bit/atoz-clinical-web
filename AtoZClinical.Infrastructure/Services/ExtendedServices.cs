@@ -414,12 +414,12 @@ public sealed class PrescriptionService
     }
 
     public Task<List<Prescription>> ListAsync(Guid clinicId) =>
-        _db.Prescriptions.Where(p => p.ClinicId == clinicId).OrderByDescending(p => p.PrescriptionNo).ToListAsync();
+        _db.Prescriptions.Include(p => p.Lines).ForClinic(clinicId).OrderByDescending(p => p.PrescriptionNo).ToListAsync();
 
     public Task<Prescription?> GetAsync(Guid clinicId, Guid id) =>
-        _db.Prescriptions.FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == id);
+        _db.Prescriptions.Include(p => p.Lines).ForClinic(clinicId).FirstOrDefaultAsync(p => p.Id == id);
 
-    public async Task<Prescription> SaveAsync(Guid clinicId, Prescription item, string? userName = null)
+    public async Task<Prescription> SaveAsync(Guid clinicId, Prescription item, List<PrescriptionLine> lines, string? userName = null)
     {
         var isNew = item.Id == Guid.Empty;
         Prescription? previous = null;
@@ -429,16 +429,37 @@ public sealed class PrescriptionService
                 .FirstOrDefaultAsync(p => p.Id == item.Id);
         }
 
+        var validLines = lines
+            .Where(l => !string.IsNullOrWhiteSpace(l.MedicineName))
+            .Select((l, i) =>
+            {
+                l.LineNo = i + 1;
+                return l;
+            })
+            .ToList();
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (isNew)
         {
             item.Id = Guid.NewGuid();
-            item.PrescriptionNo = (await _db.Prescriptions.Where(p => p.ClinicId == clinicId).MaxAsync(p => (int?)p.PrescriptionNo) ?? 0) + 1;
+            item.PrescriptionNo = (await _db.Prescriptions.ForClinic(clinicId).MaxAsync(p => (int?)p.PrescriptionNo) ?? 0) + 1;
             item.CreatedAt = DateTime.UtcNow;
             _db.Prescriptions.Add(item);
         }
-        else _db.Prescriptions.Update(item);
+        else
+        {
+            var existing = await _db.PrescriptionLines.Where(l => l.PrescriptionId == item.Id).ToListAsync();
+            _db.PrescriptionLines.RemoveRange(existing);
+            _db.Prescriptions.Update(item);
+        }
+
+        foreach (var line in validLines)
+        {
+            line.Id = Guid.NewGuid();
+            line.PrescriptionId = item.Id;
+            _db.PrescriptionLines.Add(line);
+        }
 
         await _db.SaveChangesAsync();
         if (previous is not null)

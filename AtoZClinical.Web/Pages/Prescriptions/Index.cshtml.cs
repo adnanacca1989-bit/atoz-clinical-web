@@ -10,10 +10,16 @@ namespace AtoZClinical.Web.Pages.Prescriptions;
 public class IndexModel : ClinicFormPageModel
 {
     private readonly PrescriptionService _service;
+    private readonly PharmacyItemRegistrationService _items;
+    private const int DefaultMedicationLineCount = 6;
 
-    public IndexModel(ClinicContextService clinicContext, PrescriptionService service) : base(clinicContext)
+    public IndexModel(
+        ClinicContextService clinicContext,
+        PrescriptionService service,
+        PharmacyItemRegistrationService items) : base(clinicContext)
     {
         _service = service;
+        _items = items;
     }
 
     [BindProperty]
@@ -22,13 +28,18 @@ public class IndexModel : ClinicFormPageModel
     [BindProperty]
     public List<ChronicDiseaseInput> ChronicDiseases { get; set; } = [];
 
+    [BindProperty]
+    public List<PrescriptionMedicationInput> Medications { get; set; } = [];
+
     public List<Prescription> Records { get; private set; } = [];
+    public List<PharmacyItem> RegisteredItems { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
+        RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
         if (RecordId.HasValue)
             await LoadRecord(clinicId.Value, RecordId.Value);
         else if (NewRecord)
@@ -38,6 +49,7 @@ public class IndexModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
         SetFormViewData("Doctor's Prescription", null, null, Input.UpdatedAt);
         return Page();
     }
@@ -67,6 +79,8 @@ public class IndexModel : ClinicFormPageModel
         Input = PrescriptionInput.FromEntity(item);
         Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
         ChronicDiseases = DeserializeChronic(item.ChronicDiseasesJson);
+        Medications = item.Lines.OrderBy(l => l.LineNo).Select(PrescriptionMedicationInput.FromEntity).ToList();
+        EnsureMedicationRows();
     }
 
     private async Task PrepareNew(Guid clinicId)
@@ -78,6 +92,26 @@ public class IndexModel : ClinicFormPageModel
         ChronicDiseases = ClinicLookup.ChronicDiseaseTypes
             .Select(t => new ChronicDiseaseInput { DiseaseType = t })
             .ToList();
+        Medications = Enumerable.Range(1, DefaultMedicationLineCount)
+            .Select(i => new PrescriptionMedicationInput { LineNo = i })
+            .ToList();
+    }
+
+    private void EnsureMedicationRows()
+    {
+        while (Medications.Count < DefaultMedicationLineCount)
+            Medications.Add(new PrescriptionMedicationInput { LineNo = Medications.Count + 1 });
+        for (var i = 0; i < Medications.Count; i++)
+            Medications[i].LineNo = i + 1;
+    }
+
+    private async Task LoadFormContextAsync(Guid clinicId)
+    {
+        await LoadAsync(clinicId);
+        RegisteredItems = await _items.ListActiveAsync(clinicId);
+        ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
+        SetFormViewData("Doctor's Prescription", null, null, Input.UpdatedAt);
     }
 
     private async Task<IActionResult> SaveCoreAsync()
@@ -89,16 +123,18 @@ public class IndexModel : ClinicFormPageModel
 
         if (!ModelState.IsValid)
         {
-            await LoadAsync(clinicId.Value);
-            ViewData["OpenPatientSelect"] = true;
-            SetFormViewData("Doctor's Prescription", null, null, Input.UpdatedAt);
+            await LoadFormContextAsync(clinicId.Value);
             return Page();
         }
 
         ResolveRecordIdForSave();
         var entity = Input.ToEntity(RecordIdForSave);
         entity.ChronicDiseasesJson = JsonSerializer.Serialize(ChronicDiseases.Where(c => !string.IsNullOrWhiteSpace(c.Details)));
-        var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
+        var lines = Medications
+            .Where(m => !string.IsNullOrWhiteSpace(m.MedicineName))
+            .Select(m => m.ToEntity())
+            .ToList();
+        var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
         return RedirectAfterSave(saved.Id);
     }
 
@@ -106,9 +142,7 @@ public class IndexModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return;
-        await LoadAsync(clinicId.Value);
-        ViewData["OpenPatientSelect"] = true;
-        SetFormViewData("Doctor's Prescription", null, null, Input.UpdatedAt);
+        await LoadFormContextAsync(clinicId.Value);
     }
 
     private async Task BackfillFromPatientAsync(Guid clinicId)
@@ -244,5 +278,44 @@ public class IndexModel : ClinicFormPageModel
     {
         public string DiseaseType { get; set; } = string.Empty;
         public string? Details { get; set; }
+    }
+
+    public sealed class PrescriptionMedicationInput
+    {
+        public int LineNo { get; set; }
+        public Guid? PharmacyItemId { get; set; }
+        public string? MedicineName { get; set; }
+        public string? MedicationForm { get; set; }
+        public string? Dose { get; set; }
+        public string? Unit { get; set; }
+        public string? Frequency { get; set; }
+        public string? Duration { get; set; }
+        public string? Instruction { get; set; }
+
+        public static PrescriptionMedicationInput FromEntity(PrescriptionLine line) => new()
+        {
+            LineNo = line.LineNo,
+            PharmacyItemId = line.PharmacyItemId,
+            MedicineName = line.MedicineName,
+            MedicationForm = line.MedicationForm,
+            Dose = line.Dose,
+            Unit = line.Unit,
+            Frequency = line.Frequency,
+            Duration = line.Duration,
+            Instruction = line.Instruction
+        };
+
+        public PrescriptionLine ToEntity() => new()
+        {
+            LineNo = LineNo,
+            PharmacyItemId = PharmacyItemId,
+            MedicineName = MedicineName,
+            MedicationForm = MedicationForm,
+            Dose = Dose,
+            Unit = Unit,
+            Frequency = Frequency,
+            Duration = Duration,
+            Instruction = Instruction
+        };
     }
 }

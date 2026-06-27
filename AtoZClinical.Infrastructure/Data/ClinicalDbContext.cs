@@ -41,6 +41,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RadiologyResult> RadiologyResults => Set<RadiologyResult>();
     public DbSet<RadiologyResultLine> RadiologyResultLines => Set<RadiologyResultLine>();
     public DbSet<Prescription> Prescriptions => Set<Prescription>();
+    public DbSet<PrescriptionLine> PrescriptionLines => Set<PrescriptionLine>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
     public DbSet<CashPayment> CashPayments => Set<CashPayment>();
@@ -219,6 +220,11 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         {
             e.HasIndex(x => new { x.ClinicId, x.PrescriptionNo }).IsUnique();
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PrescriptionLine>(e =>
+        {
+            e.HasOne(x => x.Prescription).WithMany(p => p.Lines).HasForeignKey(x => x.PrescriptionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Invoice>(e =>
