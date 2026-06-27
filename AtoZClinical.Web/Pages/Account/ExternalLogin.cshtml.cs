@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AtoZClinical.Web.Pages.Account;
 
+[IgnoreAntiforgeryToken]
 public class ExternalLoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signIn;

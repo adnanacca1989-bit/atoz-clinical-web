@@ -102,6 +102,7 @@ builder.Services.AddDbContext<ClinicalDbContext>(options =>
 });
 
 builder.Services.AddClinicalDataProtection(builder.Configuration, connectionString, useSqlite);
+builder.Services.AddExceptionHandler<DataProtectionExceptionHandler>();
 
 builder.Services.AddAntiforgery(options =>
 {
@@ -362,8 +363,9 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
 app.UseRateLimiter();
-app.UseAuthentication();
+app.UseMiddleware<LoginCookieResetMiddleware>();
 app.UseMiddleware<DataProtectionRecoveryMiddleware>();
+app.UseAuthentication();
 app.UseMiddleware<ClinicSubdomainMiddleware>();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseMiddleware<TenantContextMiddleware>();

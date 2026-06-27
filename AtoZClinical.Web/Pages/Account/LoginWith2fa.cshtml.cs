@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace AtoZClinical.Web.Pages.Account;
 
 [EnableRateLimiting("auth")]
+[IgnoreAntiforgeryToken]
 public class LoginWith2faModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signIn;
