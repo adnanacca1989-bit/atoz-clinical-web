@@ -82,9 +82,18 @@ public class RegistrationModel : ClinicFormPageModel
             return Page();
         }
 
-        var entity = Input.ToEntity(RecordId);
+        ResolveRecordIdForSave();
+        var entity = Input.ToEntity(RecordIdForSave);
         var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
         return RedirectAfterSave(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        SetFormViewData("Radiology Registration", null, null, Input.UpdatedAt);
     }
 
     private Task<IActionResult> NewCoreAsync()

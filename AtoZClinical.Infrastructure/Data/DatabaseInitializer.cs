@@ -95,12 +95,12 @@ public static class DatabaseInitializer
             logger?.LogError(ex, "Could not seed standard chart accounts for clinic {ClinicId}.", clinicId);
         }
 
-        if (!await db.RolePermissions.AnyAsync(r => r.ClinicId == clinicId && r.RoleName == ClinicalRoles.ClinicAdmin))
+        if (!await db.RolePermissions.AnyAsync(r => r.ClinicId == clinicId && (r.RoleName == "Admin" || r.RoleName == ClinicalRoles.ClinicAdmin)))
         {
             var permissions = ClinicalFormKeys.All.Select(formKey => new RolePermission
             {
                 ClinicId = clinicId,
-                RoleName = ClinicalRoles.ClinicAdmin,
+                RoleName = "Admin",
                 FormKey = formKey,
                 IsVisible = true
             });
@@ -626,6 +626,11 @@ public static class DatabaseInitializer
                 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
                 VALUES ('20260627120000_AddClinicMessaging', '8.0.11')
                 ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE "RolePermissions" SET "RoleName" = 'Admin' WHERE "RoleName" = 'ClinicAdmin';
                 """);
 
             logger.LogInformation("Clinic messaging schema verified.");

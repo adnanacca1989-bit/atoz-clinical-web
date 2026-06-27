@@ -8,11 +8,16 @@ namespace AtoZClinical.Web.Pages.Radiology;
 public class ResultModel : ClinicFormPageModel
 {
     private readonly RadiologyResultService _service;
+    private readonly RadiologyRequestService _requestService;
     private const int DefaultLineCount = 6;
 
-    public ResultModel(ClinicContextService clinicContext, RadiologyResultService service) : base(clinicContext)
+    public ResultModel(
+        ClinicContextService clinicContext,
+        RadiologyResultService service,
+        RadiologyRequestService requestService) : base(clinicContext)
     {
         _service = service;
+        _requestService = requestService;
     }
 
     [BindProperty]
@@ -69,6 +74,36 @@ public class ResultModel : ClinicFormPageModel
         Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(RadiologyResultLineInput.FromEntity).ToList();
         EnsureLineRows();
+        await BackfillFromRadiologyRequestAsync(clinicId);
+    }
+
+    private async Task BackfillFromRadiologyRequestAsync(Guid clinicId)
+    {
+        var needsDoctor = string.IsNullOrWhiteSpace(Input.DoctorName);
+        var needsLines = Lines.All(l => string.IsNullOrWhiteSpace(l.TestCode) && string.IsNullOrWhiteSpace(l.TestName));
+        if (!needsDoctor && !needsLines && Input.RequestNo.HasValue) return;
+
+        var request = await _requestService.GetLatestByPatientAsync(clinicId, Input.PatientName, Input.PatientBarcode);
+        if (request is null) return;
+
+        if (!Input.RequestNo.HasValue) Input.RequestNo = request.RequestNo;
+        if (needsDoctor)
+        {
+            Input.DoctorName ??= request.DoctorName;
+            Input.Specialty ??= request.Specialty;
+        }
+
+        if (needsLines && request.Lines.Count > 0)
+        {
+            Lines = request.Lines.OrderBy(l => l.LineNo).Select(l => new RadiologyResultLineInput
+            {
+                LineNo = l.LineNo,
+                TestCode = l.TestCode,
+                TestName = l.TestName,
+                Category = l.Category
+            }).ToList();
+            EnsureLineRows();
+        }
     }
 
     private async Task PrepareNew(Guid clinicId)
@@ -84,13 +119,28 @@ public class ResultModel : ClinicFormPageModel
     {
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
-        var entity = Input.ToEntity(RecordId);
+
+        await BackfillFromRadiologyRequestAsync(clinicId.Value);
+        ResolveRecordIdForSave();
+
+        var entity = Input.ToEntity(RecordIdForSave);
         var lines = Lines
             .Where(l => !string.IsNullOrWhiteSpace(l.TestCode) || !string.IsNullOrWhiteSpace(l.TestName))
             .Select(l => l.ToEntity())
             .ToList();
         var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
         return RedirectAfterSave(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
+        EnsureLineRows();
+        SetFormViewData("Radiology Result", null, null, Input.UpdatedAt);
     }
 
     private Task<IActionResult> NewCoreAsync()
@@ -181,8 +231,8 @@ public class ResultModel : ClinicFormPageModel
         public string? TestName { get; set; }
         public string? Category { get; set; }
         public string? Result { get; set; }
-        public string? NormalRange { get; set; }
-        public string? Unit { get; set; }
+        public string? Impression { get; set; }
+        public string? Findings { get; set; }
 
         public static RadiologyResultLineInput FromEntity(RadiologyResultLine l) => new()
         {
@@ -191,8 +241,8 @@ public class ResultModel : ClinicFormPageModel
             TestName = l.TestName,
             Category = l.Category,
             Result = l.Result,
-            NormalRange = l.Impression,
-            Unit = l.Findings
+            Impression = l.Impression,
+            Findings = l.Findings
         };
 
         public RadiologyResultLine ToEntity() => new()
@@ -202,8 +252,8 @@ public class ResultModel : ClinicFormPageModel
             TestName = TestName,
             Category = Category,
             Result = Result,
-            Impression = NormalRange,
-            Findings = Unit
+            Impression = Impression,
+            Findings = Findings
         };
     }
 }

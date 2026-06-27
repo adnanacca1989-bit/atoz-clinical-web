@@ -19,18 +19,18 @@
                         <div class="ctx-field ctx-date"><label class="clinical-field-label">Request Date</label><input asp-for="Input.RequestDate" class="clinical-field" type="date" /></div>
                         <div class="ctx-field ctx-patient">
                             <label class="clinical-field-label field-required">Patient Name</label>
-                            <input asp-for="Input.PatientName" id="radiologyRequestPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." required />
+                            <input asp-for="Input.PatientName" id="radiologyRequestPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
                             <span asp-validation-for="Input.PatientName" class="text-danger small"></span>
                         </div>
                     </div>
                     <div class="ctx-row ctx-demographics">
                         <div class="ctx-field ctx-sm"><label class="clinical-field-label">MRN / Barcode</label><input asp-for="Input.PatientBarcode" id="radiologyRequestPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" /></div>
-                        <div class="ctx-field ctx-xs"><label class="clinical-field-label field-required">Age</label><input asp-for="Input.Age" class="clinical-field" type="number" readonly required /><span asp-validation-for="Input.Age" class="text-danger small"></span></div>
-                        <div class="ctx-field ctx-xs"><label class="clinical-field-label field-required">Sex</label><input asp-for="Input.Gender" class="clinical-field" readonly required /><span asp-validation-for="Input.Gender" class="text-danger small"></span></div>
-                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">Phone</label><input asp-for="Input.Phone" class="clinical-field" readonly required /><span asp-validation-for="Input.Phone" class="text-danger small"></span></div>
-                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">City</label><input asp-for="Input.City" class="clinical-field" readonly required /><span asp-validation-for="Input.City" class="text-danger small"></span></div>
-                        <div class="ctx-field ctx-lg"><label class="clinical-field-label field-required">Doctor</label><input asp-for="Input.DoctorName" class="clinical-field" readonly required /><span asp-validation-for="Input.DoctorName" class="text-danger small"></span></div>
-                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">Specialty</label><input asp-for="Input.Specialty" class="clinical-field" readonly required /><span asp-validation-for="Input.Specialty" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label field-required">Age</label><input asp-for="Input.Age" class="clinical-field" type="number" readonly /><span asp-validation-for="Input.Age" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-xs"><label class="clinical-field-label field-required">Sex</label><input asp-for="Input.Gender" class="clinical-field" readonly /><span asp-validation-for="Input.Gender" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">Phone</label><input asp-for="Input.Phone" class="clinical-field" readonly /><span asp-validation-for="Input.Phone" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">City</label><input asp-for="Input.City" class="clinical-field" readonly /><span asp-validation-for="Input.City" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-lg"><label class="clinical-field-label field-required">Doctor</label><input asp-for="Input.DoctorName" class="clinical-field" readonly /><span asp-validation-for="Input.DoctorName" class="text-danger small"></span></div>
+                        <div class="ctx-field ctx-md"><label class="clinical-field-label field-required">Specialty</label><input asp-for="Input.Specialty" class="clinical-field" readonly /><span asp-validation-for="Input.Specialty" class="text-danger small"></span></div>
                     </div>
                 </div>
                 <div class="clinical-form-grid-area">
@@ -54,7 +54,7 @@
                                             <option value="">-- Select Test --</option>
                                             @foreach (var t in Model.RegisteredTests)
                                             {
-                                                <option value="@t.TestCode" selected="@(lineCode == t.TestCode)" data-code="@t.TestCode" data-name="@t.TestName" data-category="@t.Category" data-fee="@t.Fee">@t.TestCode - @t.TestName</option>
+                                                <option value="@t.TestCode" selected="@(lineCode == t.TestCode ? "selected" : null)" data-code="@t.TestCode" data-name="@t.TestName" data-category="@t.Category" data-fee="@t.Fee">@t.TestCode - @t.TestName</option>
                                             }
                                         </select>
                                     </td>

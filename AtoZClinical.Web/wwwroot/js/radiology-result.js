@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < 20; i++) {
             if (!document.querySelector(`[name="Lines[${i}].TestCode"]`)) break;
             setLineField(i, 'LineNo', i + 1);
-            ['TestCode', 'TestName', 'Category', 'Result', 'NormalRange', 'Unit'].forEach(f => setLineField(i, f, ''));
+            ['TestCode', 'TestName', 'Category', 'Result', 'Impression', 'Findings'].forEach(f => setLineField(i, f, ''));
         }
     };
 

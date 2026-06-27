@@ -201,7 +201,7 @@ public sealed class PharmacyInventoryService
 
     public async Task<List<PharmacyInventoryReportRow>> GetReportAsync(Guid clinicId, DateTime? fromDate, DateTime? toDate, string? search, bool expiredOnly = false)
     {
-        var items = await _db.PharmacyItems.Where(i => i.ClinicId == clinicId).OrderBy(i => i.ItemNo).ToListAsync();
+        var items = await _db.PharmacyItems.ForClinic(clinicId).OrderBy(i => i.ItemNo).ToListAsync();
         if (!string.IsNullOrWhiteSpace(search))
         {
             items = items.Where(i =>
@@ -213,18 +213,22 @@ public sealed class PharmacyInventoryService
         if (expiredOnly)
             items = items.Where(i => i.ExpiryDate.HasValue && i.ExpiryDate.Value.Date < DateTime.Today).ToList();
 
-        var movements = await _db.PharmacyInventoryMovements.Where(m => m.ClinicId == clinicId).ToListAsync();
+        var allMovements = await _db.PharmacyInventoryMovements.ForClinic(clinicId).ToListAsync();
+        var openingMovements = allMovements
+            .Where(m => m.MovementType == PharmacyInventoryTypes.OpeningBalance)
+            .ToList();
+
+        var periodMovements = allMovements;
         if (fromDate.HasValue)
-            movements = movements.Where(m => m.MovementDate.Date >= fromDate.Value.Date).ToList();
+            periodMovements = periodMovements.Where(m => m.MovementDate.Date >= fromDate.Value.Date).ToList();
         if (toDate.HasValue)
-            movements = movements.Where(m => m.MovementDate.Date <= toDate.Value.Date).ToList();
+            periodMovements = periodMovements.Where(m => m.MovementDate.Date <= toDate.Value.Date).ToList();
 
         return items.Select(item =>
         {
-            var itemMoves = movements.Where(m => m.PharmacyItemId == item.Id).ToList();
-            var qtyOpening = itemMoves.Where(m => m.MovementType == PharmacyInventoryTypes.OpeningBalance).Sum(m => m.QtyIn);
-            var qtyPurchase = itemMoves.Where(m => m.MovementType == PharmacyInventoryTypes.PurchaseIn).Sum(m => m.QtyIn);
-            var qtyIssued = itemMoves.Where(m => m.MovementType == PharmacyInventoryTypes.BillOut).Sum(m => m.QtyOut);
+            var qtyOpening = openingMovements.Where(m => m.PharmacyItemId == item.Id).Sum(m => m.QtyIn);
+            var qtyPurchase = periodMovements.Where(m => m.PharmacyItemId == item.Id && m.MovementType == PharmacyInventoryTypes.PurchaseIn).Sum(m => m.QtyIn);
+            var qtyIssued = periodMovements.Where(m => m.PharmacyItemId == item.Id && m.MovementType == PharmacyInventoryTypes.BillOut).Sum(m => m.QtyOut);
             var qtyIn = qtyOpening + qtyPurchase;
             var qtyOut = qtyIssued;
             return new PharmacyInventoryReportRow(

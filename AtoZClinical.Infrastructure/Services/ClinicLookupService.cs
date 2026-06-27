@@ -181,13 +181,13 @@ public sealed class ClinicLookupService
 
     public Task<List<ClinicVendor>> ListVendorsAsync(Guid clinicId, bool activeOnly = false)
     {
-        var q = _db.ClinicVendors.Where(x => x.ClinicId == clinicId);
+        var q = _db.ClinicVendors.ForClinic(clinicId);
         if (activeOnly) q = q.Where(x => x.IsActive);
         return q.OrderBy(x => x.VendorNo).ToListAsync();
     }
 
     public Task<ClinicVendor?> GetVendorAsync(Guid clinicId, Guid id) =>
-        _db.ClinicVendors.FirstOrDefaultAsync(x => x.ClinicId == clinicId && x.Id == id);
+        _db.ClinicVendors.ForClinic(clinicId).FirstOrDefaultAsync(x => x.Id == id);
 
     public async Task<ClinicVendor> SaveVendorAsync(Guid clinicId, ClinicVendor item, string? userName = null)
     {
@@ -203,7 +203,7 @@ public sealed class ClinicLookupService
                 _db,
                 async _ =>
                 {
-                    var nextNo = (await _db.ClinicVendors.Where(x => x.ClinicId == clinicId).MaxAsync(x => (int?)x.VendorNo) ?? 0) + 1;
+                    var nextNo = (await _db.ClinicVendors.ForClinic(clinicId).MaxAsync(x => (int?)x.VendorNo) ?? 0) + 1;
                     return new ClinicVendor
                     {
                         Id = Guid.NewGuid(),

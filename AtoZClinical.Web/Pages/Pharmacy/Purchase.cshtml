@@ -36,8 +36,8 @@
                             @foreach (var v in Model.RegisteredVendors)
                             {
                                 <option value="@v.Name"
-                                        selected="@(Model.Input.SupplierName == v.Name)"
-                                        data-phone="@v.Phone">@v.Name</option>
+                                        data-phone="@v.Phone"
+                                        selected="@(Model.Input.SupplierName == v.Name ? "selected" : null)">@v.Name</option>
                             }
                         </select>
                     </div>

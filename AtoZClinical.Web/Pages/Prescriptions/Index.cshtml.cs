@@ -1,19 +1,23 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Prescriptions;
 
 public class IndexModel : ClinicFormPageModel
 {
     private readonly PrescriptionService _service;
+    private readonly ClinicalDbContext _db;
 
-    public IndexModel(ClinicContextService clinicContext, PrescriptionService service) : base(clinicContext)
+    public IndexModel(ClinicContextService clinicContext, PrescriptionService service, ClinicalDbContext db) : base(clinicContext)
     {
         _service = service;
+        _db = db;
     }
 
     [BindProperty]
@@ -85,6 +89,8 @@ public class IndexModel : ClinicFormPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
 
+        await BackfillFromPatientAsync(clinicId.Value);
+
         if (!ModelState.IsValid)
         {
             await LoadAsync(clinicId.Value);
@@ -98,6 +104,38 @@ public class IndexModel : ClinicFormPageModel
         entity.ChronicDiseasesJson = JsonSerializer.Serialize(ChronicDiseases.Where(c => !string.IsNullOrWhiteSpace(c.Details)));
         var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
         return RedirectAfterSave(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        ViewData["OpenPatientSelect"] = true;
+        SetFormViewData("Doctor's Prescription", null, null, Input.UpdatedAt);
+    }
+
+    private async Task BackfillFromPatientAsync(Guid clinicId)
+    {
+        if (string.IsNullOrWhiteSpace(Input.PatientName) && string.IsNullOrWhiteSpace(Input.PatientBarcode))
+            return;
+
+        var query = _db.Patients.ForClinic(clinicId).AsNoTracking();
+        Patient? patient = null;
+        if (!string.IsNullOrWhiteSpace(Input.PatientBarcode))
+            patient = await query.FirstOrDefaultAsync(p => p.PatientNo == Input.PatientBarcode);
+        if (patient is null && !string.IsNullOrWhiteSpace(Input.PatientName))
+            patient = await query.OrderByDescending(p => p.PatientNo)
+                .FirstOrDefaultAsync(p => p.FullName == Input.PatientName);
+
+        if (patient is null) return;
+
+        Input.PatientName ??= patient.FullName;
+        Input.PatientBarcode ??= patient.PatientNo;
+        Input.Age ??= patient.AgeYears;
+        Input.Gender ??= patient.Gender;
+        Input.DoctorName ??= patient.DoctorName;
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, patient.DoctorName, patient.Specialty ?? Input.Specialty);
     }
 
     private Task<IActionResult> NewCoreAsync()

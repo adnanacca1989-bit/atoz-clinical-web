@@ -121,7 +121,15 @@ public class ResponsibilitiesModel : PageModel
             if (user is not null)
             {
                 user.ClinicRole = ClinicUserRoleHelper.ParseResponsibilityRole(UserRole);
-                await _users.UpdateAsync(user);
+                var result = await _users.UpdateAsync(user);
+                if (!result.Succeeded)
+                {
+                    foreach (var error in result.Errors)
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    await LoadUsersAsync(clinicId.Value);
+                    await LoadFormsAsync(clinicId.Value);
+                    return Page();
+                }
             }
         }
 
@@ -141,6 +149,9 @@ public class ResponsibilitiesModel : PageModel
     private async Task LoadFormsAsync(Guid clinicId)
     {
         var existing = await _service.ListForRoleAsync(clinicId, UserRole);
+        if (existing.Count == 0 && UserRole.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            existing = await _service.ListForRoleAsync(clinicId, ClinicalRoles.ClinicAdmin);
+
         Forms = FormDefinitions.Select(fd =>
         {
             var match = existing.FirstOrDefault(e => e.FormKey == fd.Key);

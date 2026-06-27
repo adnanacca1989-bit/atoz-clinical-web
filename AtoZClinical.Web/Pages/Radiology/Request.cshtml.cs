@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Radiology;
 
@@ -10,12 +12,18 @@ public class RequestModel : ClinicFormPageModel
 {
     private readonly RadiologyRequestService _service;
     private readonly RadiologyTestService _radiologyTests;
+    private readonly ClinicalDbContext _db;
     private const int DefaultLineCount = 6;
 
-    public RequestModel(ClinicContextService clinicContext, RadiologyRequestService service, RadiologyTestService radiologyTests) : base(clinicContext)
+    public RequestModel(
+        ClinicContextService clinicContext,
+        RadiologyRequestService service,
+        RadiologyTestService radiologyTests,
+        ClinicalDbContext db) : base(clinicContext)
     {
         _service = service;
         _radiologyTests = radiologyTests;
+        _db = db;
     }
 
     [BindProperty]
@@ -87,23 +95,64 @@ public class RequestModel : ClinicFormPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
 
+        await BackfillFromPatientAsync(clinicId.Value);
+
         if (!ModelState.IsValid)
         {
             await LoadAsync(clinicId.Value);
             RegisteredTests = await _radiologyTests.ListAsync(clinicId.Value);
             ViewData["OpenPatientSelect"] = true;
+            ViewData["ShowAddLines"] = true;
             SetFormViewData("Radiology Request", null, null, Input.UpdatedAt);
             EnsureLineRows();
             return Page();
         }
 
-        var entity = Input.ToEntity(RecordId);
+        ResolveRecordIdForSave();
+        var entity = Input.ToEntity(RecordIdForSave);
         var lines = Lines
             .Where(l => !string.IsNullOrWhiteSpace(l.TestCode) || !string.IsNullOrWhiteSpace(l.TestName))
             .Select(l => l.ToEntity())
             .ToList();
         var saved = await _service.SaveAsync(clinicId.Value, entity, lines, UserName);
         return RedirectAfterSave(saved.Id);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        RegisteredTests = await _radiologyTests.ListAsync(clinicId.Value);
+        ViewData["OpenPatientSelect"] = true;
+        ViewData["ShowAddLines"] = true;
+        EnsureLineRows();
+        SetFormViewData("Radiology Request", null, null, Input.UpdatedAt);
+    }
+
+    private async Task BackfillFromPatientAsync(Guid clinicId)
+    {
+        if (string.IsNullOrWhiteSpace(Input.PatientName) && string.IsNullOrWhiteSpace(Input.PatientBarcode))
+            return;
+
+        var query = _db.Patients.ForClinic(clinicId).AsNoTracking();
+        Patient? patient = null;
+        if (!string.IsNullOrWhiteSpace(Input.PatientBarcode))
+            patient = await query.FirstOrDefaultAsync(p => p.PatientNo == Input.PatientBarcode);
+        if (patient is null && !string.IsNullOrWhiteSpace(Input.PatientName))
+            patient = await query.OrderByDescending(p => p.PatientNo)
+                .FirstOrDefaultAsync(p => p.FullName == Input.PatientName);
+
+        if (patient is null) return;
+
+        Input.PatientName ??= patient.FullName;
+        Input.PatientBarcode ??= patient.PatientNo;
+        Input.Age ??= patient.AgeYears;
+        Input.Gender ??= patient.Gender;
+        Input.Phone ??= patient.Phone;
+        Input.City ??= patient.City;
+        Input.DoctorName ??= patient.DoctorName;
+        Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, patient.DoctorName, patient.Specialty ?? Input.Specialty);
     }
 
     private Task<IActionResult> NewCoreAsync()

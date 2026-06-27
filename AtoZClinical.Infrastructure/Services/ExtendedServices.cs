@@ -1,4 +1,5 @@
 using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -276,17 +277,33 @@ public sealed class RadiologyRequestService
         await _audit.LogAsync(clinicId, userName, "Radiology Request", "Delete", $"Request #{item.RequestNo}");
     }
 
-    public Task<RadiologyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode) =>
-        _db.RadiologyRequests
+    public Task<RadiologyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode)
+    {
+        var barcode = patientBarcode?.Trim();
+        var name = patientName?.Trim();
+        return GetLatestByPatientCoreAsync(clinicId, name, barcode);
+    }
+
+    private async Task<RadiologyRequest?> GetLatestByPatientCoreAsync(Guid clinicId, string? patientName, string? patientBarcode)
+    {
+        if (string.IsNullOrWhiteSpace(patientName) && string.IsNullOrWhiteSpace(patientBarcode))
+            return null;
+
+        var recent = await _db.RadiologyRequests
             .Include(r => r.Lines)
             .ForClinic(clinicId)
-            .Where(r =>
-                (!string.IsNullOrWhiteSpace(patientBarcode) && r.PatientBarcode != null &&
-                 EF.Functions.ILike(r.PatientBarcode, patientBarcode.Trim())) ||
-                (!string.IsNullOrWhiteSpace(patientName) && r.PatientName != null &&
-                 EF.Functions.ILike(r.PatientName, patientName.Trim())))
             .OrderByDescending(r => r.RequestNo)
-            .FirstOrDefaultAsync();
+            .Take(200)
+            .ToListAsync();
+
+        return recent.FirstOrDefault(r =>
+            (!string.IsNullOrWhiteSpace(patientBarcode) &&
+             !string.IsNullOrWhiteSpace(r.PatientBarcode) &&
+             string.Equals(r.PatientBarcode.Trim(), patientBarcode, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(patientName) &&
+             !string.IsNullOrWhiteSpace(r.PatientName) &&
+             string.Equals(r.PatientName.Trim(), patientName, StringComparison.OrdinalIgnoreCase)));
+    }
 }
 
 public sealed class RadiologyResultService
@@ -744,13 +761,13 @@ public sealed class RolePermissionService
     }
 
     public Task<List<RolePermission>> ListAsync(Guid clinicId) =>
-        _db.RolePermissions.Where(r => r.ClinicId == clinicId).OrderBy(r => r.RoleName).ThenBy(r => r.FormKey).ToListAsync();
+        _db.RolePermissions.ForClinic(clinicId).OrderBy(r => r.RoleName).ThenBy(r => r.FormKey).ToListAsync();
 
     public Task<List<RolePermission>> ListForRoleAsync(Guid clinicId, string roleName) =>
-        _db.RolePermissions.Where(r => r.ClinicId == clinicId && r.RoleName == roleName).OrderBy(r => r.FormKey).ToListAsync();
+        _db.RolePermissions.ForClinic(clinicId).Where(r => r.RoleName == roleName).OrderBy(r => r.FormKey).ToListAsync();
 
     public Task<RolePermission?> GetAsync(Guid clinicId, Guid id) =>
-        _db.RolePermissions.FirstOrDefaultAsync(r => r.ClinicId == clinicId && r.Id == id);
+        _db.RolePermissions.ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
 
     public async Task<RolePermission> SaveAsync(Guid clinicId, RolePermission item, string? userName = null)
     {
@@ -772,7 +789,14 @@ public sealed class RolePermissionService
 
     public async Task SaveBulkAsync(Guid clinicId, string roleName, IEnumerable<RolePermission> items, string? userName = null)
     {
-        var existing = await _db.RolePermissions.Where(r => r.ClinicId == clinicId && r.RoleName == roleName).ToListAsync();
+        var roleNames = roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+            ? new[] { "Admin", ClinicalRoles.ClinicAdmin }
+            : new[] { roleName };
+
+        var existing = await _db.RolePermissions
+            .ForClinic(clinicId)
+            .Where(r => roleNames.Contains(r.RoleName))
+            .ToListAsync();
         _db.RolePermissions.RemoveRange(existing);
 
         foreach (var item in items)
