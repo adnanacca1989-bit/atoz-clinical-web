@@ -1,5 +1,6 @@
 using AtoZClinical.Web;
 using AtoZClinical.Web.Filters;
+using AtoZClinical.Web.Hubs;
 using AtoZClinical.Web.Api;
 using AtoZClinical.Web.Middleware;
 using AtoZClinical.Infrastructure;
@@ -267,6 +268,9 @@ builder.Services.AddScoped<SubdomainClinicResolver>();
 builder.Services.AddScoped<PatientPortalService>();
 builder.Services.AddScoped<ReportingDataService>();
 builder.Services.AddScoped<PatientPortalSession>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ChatPresenceService>();
+builder.Services.AddScoped<ClinicMessagingService>();
 builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHostedService<ClinicLicenseMaintenanceService>();
 builder.Services.AddRazorPages(options =>
@@ -298,6 +302,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Pharmacy");
     options.Conventions.AuthorizeFolder("/Settings");
     options.Conventions.AuthorizeFolder("/Notifications");
+    options.Conventions.AuthorizeFolder("/Messages");
     options.Conventions.AllowAnonymousToPage("/Account/Logout");
     options.Conventions.AllowAnonymousToPage("/Account/LicenseBlocked");
     options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
@@ -401,6 +406,7 @@ app.MapPost("/api/stripe/webhook", async (HttpContext ctx, IStripeBillingService
     }
 }).AllowAnonymous();
 app.MapClinicalApi();
+app.MapHub<ChatHub>("/hubs/chat");
 app.MapRazorPages();
 app.Run();
 

@@ -1,4 +1,6 @@
 ﻿<!DOCTYPE html>
+@using AtoZClinical.Infrastructure
+@using AtoZClinical.Infrastructure.Services
 @{
     var uiLang = Context.Request.Cookies["clinical_lang"] ?? "en";
     var isRtl = uiLang.Equals("ar", StringComparison.OrdinalIgnoreCase);
@@ -7,6 +9,8 @@
     var primaryColor = Context.Items["ClinicPrimaryColor"] as string ?? "#0b4f8a";
     var clinicLogo = Context.Items["ClinicLogoBase64"] as string;
     var clinicName = Context.Items["ClinicDisplayName"] as string;
+    var visibleForms = Context.Items[FormPermissionService.VisibleFormsItemKey] as HashSet<string>;
+    var canChat = visibleForms is null || visibleForms.Contains(ClinicalFormKeys.Messaging);
 }
 <html lang="@uiLang" dir="@(isRtl ? "rtl" : "ltr")">
 <head>
@@ -57,6 +61,15 @@
                         🗓️ Reminders
                         <span id="apptReminderBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
                     </a>
+                    @if (canChat)
+                    {
+                        <a class="btn btn-sm btn-outline-light position-relative clinical-chat-nav-btn"
+                           asp-page="/Messages/Index"
+                           title="Messages">
+                            💬
+                            <span id="clinicalChatBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success d-none">0</span>
+                        </a>
+                    }
                     <div class="dropdown">
                         <button class="btn btn-sm btn-outline-light position-relative dropdown-toggle clinical-notify-bell"
                                 type="button" id="clinicalNotifyBell" data-bs-toggle="dropdown" aria-expanded="false"
@@ -122,6 +135,21 @@
         <script src="~/js/clinical-column-filter.js" asp-append-version="true"></script>
         <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
         <script src="~/js/clinical-notifications.js" asp-append-version="true"></script>
+        @if (canChat)
+        {
+            <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
+            <script src="~/js/clinical-chat.js" asp-append-version="true"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (window.initClinicalChatNav) {
+                        initClinicalChatNav({
+                            hubUrl: '/hubs/chat',
+                            unreadUrl: '@Url.Page("/Messages/Index", "Unread")'
+                        });
+                    }
+                });
+            </script>
+        }
         <script src="~/js/global-search.js" asp-append-version="true"></script>
         <script src="~/js/clinical-lang.js" asp-append-version="true"></script>
         <script src="~/js/clinical-form-guard.js" asp-append-version="true"></script>

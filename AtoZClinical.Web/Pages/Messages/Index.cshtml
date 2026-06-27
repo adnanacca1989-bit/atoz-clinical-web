@@ -1,0 +1,81 @@
+@page
+@model AtoZClinical.Web.Pages.Messages.IndexModel
+@{
+    ViewData["Title"] = "Messages";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/clinical-chat.css" asp-append-version="true" />
+}
+
+<div class="clinical-chat-page" data-current-user-id="@Model.CurrentUserId">
+    @Html.AntiForgeryToken()
+    <div class="clinical-chat-shell">
+        <aside class="clinical-chat-users" id="chatUsersPanel">
+            <div class="clinical-chat-users-header">
+                <div>
+                    <h2 class="clinical-chat-title">Messages</h2>
+                    <div class="clinical-chat-subtitle">@Model.CurrentUserName</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="chatRefreshUsersBtn" title="Refresh">↻</button>
+            </div>
+            <div class="clinical-chat-search-wrap">
+                <input type="search" id="chatUserSearch" class="form-control form-control-sm" placeholder="Search staff..." />
+            </div>
+            <div class="clinical-chat-user-list" id="chatUserList">
+                <div class="clinical-chat-empty">Loading users...</div>
+            </div>
+        </aside>
+
+        <section class="clinical-chat-window" id="chatWindow">
+            <div class="clinical-chat-placeholder" id="chatPlaceholder">
+                <div class="clinical-chat-placeholder-icon">💬</div>
+                <h3>Clinic Messaging</h3>
+                <p>Select a colleague to start chatting. Only users in your clinic can see messages.</p>
+            </div>
+
+            <div class="clinical-chat-active d-none" id="chatActive">
+                <header class="clinical-chat-header">
+                    <div class="clinical-chat-peer">
+                        <span class="clinical-chat-peer-dot" id="chatPeerDot"></span>
+                        <div>
+                            <div class="clinical-chat-peer-name" id="chatPeerName"></div>
+                            <div class="clinical-chat-peer-status" id="chatPeerStatus">Offline</div>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="clinical-chat-messages" id="chatMessages"></div>
+
+                <footer class="clinical-chat-composer">
+                    <input type="file" id="chatFileInput" class="d-none"
+                           accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.bmp,.xls,.xlsx,image/*,application/pdf" />
+                    <button type="button" class="clinical-chat-attach-btn" id="chatAttachBtn" title="Attach file">📎</button>
+                    <textarea id="chatMessageInput" class="clinical-chat-input" rows="1" placeholder="Type a message..." maxlength="4000"></textarea>
+                    <button type="button" class="clinical-chat-send-btn" id="chatSendBtn" title="Send">➤</button>
+                </footer>
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
+    <script src="~/js/clinical-chat.js" asp-append-version="true"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.initClinicalChatPage) {
+                initClinicalChatPage({
+                    currentUserId: '@Model.CurrentUserId',
+                    hubUrl: '/hubs/chat',
+                    usersUrl: '@Url.Page("Index", "Users")',
+                    historyUrl: '@Url.Page("Index", "History")',
+                    uploadUrl: '@Url.Page("Index", "Upload")',
+                    downloadUrl: '@Url.Page("Index", "Download")',
+                    antiforgeryToken: document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+                });
+            }
+        });
+    </script>
+}

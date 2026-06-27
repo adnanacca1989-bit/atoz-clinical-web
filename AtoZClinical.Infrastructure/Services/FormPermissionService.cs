@@ -88,7 +88,8 @@ public sealed class FormPermissionService
             "/settings" or "/settings/index" or "/settings/users" or "/settings/uom"
                 or "/settings/currency" or "/settings/language" or "/settings/owner"
                 or "/settings/vendor" or "/settings/maintenance" or "/settings/changepassword"
-                or "/settings/formstyle" => ClinicalFormKeys.Settings,
+                or             "/settings/formstyle" => ClinicalFormKeys.Settings,
+            "/messages" or "/messages/index" => ClinicalFormKeys.Messaging,
             "/search/query" => null,
             _ => null
         };

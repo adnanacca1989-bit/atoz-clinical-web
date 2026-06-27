@@ -11,7 +11,7 @@ public static class ClinicalModuleCatalog
         new("Core", "Core Clinic", [
             ClinicalFormKeys.Dashboard, ClinicalFormKeys.Workflow,
             ClinicalFormKeys.PatientRegistration, ClinicalFormKeys.Doctors,
-            ClinicalFormKeys.Prescriptions
+            ClinicalFormKeys.Prescriptions, ClinicalFormKeys.Messaging
         ]),
         new("Laboratory", "Laboratory", [
             ClinicalFormKeys.LabRegistration, ClinicalFormKeys.LabRequest, ClinicalFormKeys.LabResult

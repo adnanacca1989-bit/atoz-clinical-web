@@ -13,6 +13,10 @@
 {
     <a class="sidebar-link" asp-page="/Dashboard/Index">Dashboard</a>
 }
+@if (NavCan(ClinicalFormKeys.Messaging))
+{
+    <a class="sidebar-link" asp-page="/Messages/Index">Messages</a>
+}
 @if (NavCan(ClinicalFormKeys.Workflow))
 {
     <a class="sidebar-link" asp-page="/Workflow/Index">Workflow</a>

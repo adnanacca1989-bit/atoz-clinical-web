@@ -33,6 +33,7 @@ public static class DatabaseInitializer
         await EnsureEnterpriseSchemaAsync(db, logger);
         await EnsureSaasPlatformSchemaAsync(db, logger);
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
+        await EnsureMessagingSchemaAsync(db, logger);
         await BackfillCashReceiptPatientCreditsAsync(db, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
@@ -502,6 +503,65 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Service income request schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureMessagingSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "ClinicMessageAttachments" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "UploadedByUserId" character varying(450) NOT NULL,
+                    "FileName" character varying(260) NOT NULL,
+                    "ContentType" character varying(128) NOT NULL,
+                    "FileSize" integer NOT NULL,
+                    "Data" bytea NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_ClinicMessageAttachments" PRIMARY KEY ("Id")
+                );
+                CREATE INDEX IF NOT EXISTS "IX_ClinicMessageAttachments_ClinicId"
+                    ON "ClinicMessageAttachments" ("ClinicId");
+
+                CREATE TABLE IF NOT EXISTS "ClinicMessages" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "SenderUserId" character varying(450) NOT NULL,
+                    "RecipientUserId" character varying(450) NOT NULL,
+                    "Body" character varying(4000) NULL,
+                    "SentAt" timestamp without time zone NOT NULL,
+                    "ReadAt" timestamp without time zone NULL,
+                    "AttachmentId" uuid NULL,
+                    CONSTRAINT "PK_ClinicMessages" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ClinicMessages_ClinicMessageAttachments_AttachmentId"
+                        FOREIGN KEY ("AttachmentId") REFERENCES "ClinicMessageAttachments" ("Id") ON DELETE SET NULL
+                );
+                CREATE INDEX IF NOT EXISTS "IX_ClinicMessages_ClinicId_SenderUserId_RecipientUserId_SentAt"
+                    ON "ClinicMessages" ("ClinicId", "SenderUserId", "RecipientUserId", "SentAt");
+                CREATE INDEX IF NOT EXISTS "IX_ClinicMessages_ClinicId_RecipientUserId_ReadAt"
+                    ON "ClinicMessages" ("ClinicId", "RecipientUserId", "ReadAt");
+                CREATE INDEX IF NOT EXISTS "IX_ClinicMessages_AttachmentId"
+                    ON "ClinicMessages" ("AttachmentId");
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('20260627120000_AddClinicMessaging', '8.0.11')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+
+            logger.LogInformation("Clinic messaging schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Clinic messaging schema verification skipped.");
         }
     }
 

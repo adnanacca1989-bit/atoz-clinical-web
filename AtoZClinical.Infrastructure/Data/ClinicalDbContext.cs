@@ -67,6 +67,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
     public DbSet<SecurityAuditEntry> SecurityAuditEntries => Set<SecurityAuditEntry>();
     public DbSet<ClinicBackupHistory> ClinicBackupHistories => Set<ClinicBackupHistory>();
+    public DbSet<ClinicMessage> ClinicMessages => Set<ClinicMessage>();
+    public DbSet<ClinicMessageAttachment> ClinicMessageAttachments => Set<ClinicMessageAttachment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -132,6 +134,23 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ServiceIncomeRequestLine>(e =>
         {
             e.HasOne(x => x.ServiceIncomeRequest).WithMany(r => r.Lines).HasForeignKey(x => x.ServiceIncomeRequestId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ClinicMessage>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.SenderUserId, x.RecipientUserId, x.SentAt });
+            e.HasIndex(x => new { x.ClinicId, x.RecipientUserId, x.ReadAt });
+            e.Property(x => x.SenderUserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.RecipientUserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.Body).HasMaxLength(4000);
+            e.HasOne(x => x.Attachment).WithMany().HasForeignKey(x => x.AttachmentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ClinicMessageAttachment>(e =>
+        {
+            e.Property(x => x.UploadedByUserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            e.Property(x => x.ContentType).HasMaxLength(128).IsRequired();
         });
 
         builder.Entity<CashReceipt>(e =>
@@ -425,6 +444,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         ConfigureClinicFilter<PharmacyPurchaseBill>(builder);
         ConfigureClinicFilter<ClinicApiKey>(builder);
         ConfigureClinicFilter<WebhookSubscription>(builder);
+        ConfigureClinicFilter<ClinicMessage>(builder);
+        ConfigureClinicFilter<ClinicMessageAttachment>(builder);
     }
 
     private void ConfigureClinicFilter<TEntity>(ModelBuilder builder) where TEntity : class, IClinicScoped

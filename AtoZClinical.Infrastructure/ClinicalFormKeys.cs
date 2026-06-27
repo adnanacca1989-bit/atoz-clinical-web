@@ -40,6 +40,7 @@ public static class ClinicalFormKeys
     public const string DoctorReport = "Reports.DoctorReport";
     public const string Backup = "Admin.Backup";
     public const string Settings = "Settings";
+    public const string Messaging = "Messaging";
 
     public static readonly string[] All =
     [
@@ -50,6 +51,6 @@ public static class ClinicalFormKeys
         PharmacyRegistration, PharmacyRequest, PharmacyBill, PharmacyPurchaseBill, PharmacyOpeningBalance,
         PatientHistory, AppointmentReminders, PatientStatus, PlStatement, CostOfGoodsSold, BalanceSheet,
         AccountsReceivable, AccountsPayable, OperatingReport, CashReport, PharmacyInventory, DoctorReport,
-        AuditLog, RolePermissions, Backup, Settings
+        AuditLog, RolePermissions, Backup, Settings, Messaging
     ];
 }
