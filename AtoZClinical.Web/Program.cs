@@ -173,20 +173,6 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.OnRejected = async (context, cancellationToken) =>
-    {
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
-        await context.HttpContext.Response.WriteAsync(
-            "Too many sign-in attempts. Please wait one minute and try again.",
-            cancellationToken);
-    };
-    options.AddFixedWindowLimiter("auth", limiter =>
-    {
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 30;
-        limiter.QueueLimit = 0;
-    });
     options.AddFixedWindowLimiter("register", limiter =>
     {
         limiter.Window = TimeSpan.FromHours(1);
@@ -307,6 +293,14 @@ builder.Services.AddRazorPages(options =>
     {
         model.Filters.Add(new ServiceFilterAttribute(typeof(ReportBrandingPageFilter)));
     });
+    options.Conventions.AddFolderApplicationModelConvention("/Account", model =>
+    {
+        model.Filters.Add(new IgnoreAntiforgeryTokenAttribute());
+    });
+    options.Conventions.AddPageApplicationModelConvention("/Error", model =>
+    {
+        model.Filters.Add(new IgnoreAntiforgeryTokenAttribute());
+    });
     options.Conventions.AuthorizeFolder("/Vendor", ClinicalRoles.Vendor);
     options.Conventions.AuthorizeFolder("/Dashboard");
     options.Conventions.AuthorizeFolder("/Doctors");
@@ -363,7 +357,11 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    app.UseExceptionHandler("/Error");
+    app.UseExceptionHandler(new ExceptionHandlerOptions
+    {
+        ExceptionHandlingPath = "/Error",
+        AllowStatusCode404Response = true
+    });
     app.UseHsts();
 }
 app.UseStaticFiles();
@@ -371,6 +369,7 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
 app.UseMiddleware<LoginStabilizationMiddleware>();
+app.UseMiddleware<AuthPostRateLimitMiddleware>();
 app.UseRateLimiter();
 app.UseMiddleware<DataProtectionRecoveryMiddleware>();
 app.UseAuthentication();

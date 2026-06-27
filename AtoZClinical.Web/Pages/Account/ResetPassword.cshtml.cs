@@ -31,7 +31,6 @@ public class ResetPasswordModel : PageModel
         return Page();
     }
 
-    [EnableRateLimiting("auth")]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();

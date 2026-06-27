@@ -3,12 +3,12 @@ using AtoZClinical.Web.DataProtection;
 namespace AtoZClinical.Web.Middleware;
 
 /// <summary>
-/// Runs before the rate limiter: strips legacy login query strings, clears stale cookies,
+/// Runs before rate limiting: strips legacy login query strings, clears stale cookies,
 /// and prevents cached 429 responses on the login page.
 /// </summary>
 public sealed class LoginStabilizationMiddleware
 {
-    private static readonly string[] LoginPaths = ["/Account/Login", "/Portal/Login"];
+    private static readonly string[] LoginPaths = ["/Account/Login", "/Portal/Login", "/Error"];
 
     private readonly RequestDelegate _next;
 
@@ -26,15 +26,21 @@ public sealed class LoginStabilizationMiddleware
         context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
         context.Response.Headers.Pragma = "no-cache";
 
-        // Legacy r67 redirect target only — do not strip other query params (e.g. recovered=1).
-        if (HttpMethods.IsGet(context.Request.Method) && context.Request.Query.ContainsKey("session"))
+        if (path.StartsWith("/Account/Login", StringComparison.OrdinalIgnoreCase))
         {
-            DataProtectionExceptionHelper.ClearProtectedCookies(context);
-            context.Response.Redirect(path);
-            return;
+            if (HttpMethods.IsGet(context.Request.Method) && context.Request.Query.ContainsKey("session"))
+            {
+                DataProtectionExceptionHelper.ClearProtectedCookies(context);
+                context.Response.Redirect("/Account/Login");
+                return;
+            }
+
+            if (HttpMethods.IsGet(context.Request.Method))
+                DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
         }
 
-        if (HttpMethods.IsGet(context.Request.Method))
+        if (path.StartsWith("/Error", StringComparison.OrdinalIgnoreCase)
+            && HttpMethods.IsGet(context.Request.Method))
         {
             DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
         }

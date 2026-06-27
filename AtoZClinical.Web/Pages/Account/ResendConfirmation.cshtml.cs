@@ -38,7 +38,6 @@ public class ResendConfirmationModel : PageModel
             Input.Username = username.Trim();
     }
 
-    [EnableRateLimiting("auth")]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();
