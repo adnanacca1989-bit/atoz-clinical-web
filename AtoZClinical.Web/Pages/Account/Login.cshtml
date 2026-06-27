@@ -163,10 +163,16 @@
                     return;
                 }
 
+                if (form.dataset.submitting === '1') {
+                    e.preventDefault();
+                    return;
+                }
+
+                form.dataset.submitting = '1';
                 password.type = 'password';
                 if (toggle) toggle.textContent = 'Show';
-                submitBtn.disabled = true;
                 submitBtn.textContent = 'Signing in…';
+                submitBtn.setAttribute('aria-busy', 'true');
             });
 
             function clearCredentials() {
@@ -176,6 +182,8 @@
                 if (toggle) toggle.textContent = 'Show';
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Login';
+                submitBtn.removeAttribute('aria-busy');
+                form.dataset.submitting = '0';
                 hideClientError();
             }
 

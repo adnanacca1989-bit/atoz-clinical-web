@@ -60,7 +60,9 @@ public sealed class DataProtectionRecoveryMiddleware
 
             if (IsLoginPath(path) && HttpMethods.IsPost(context.Request.Method))
             {
-                context.Response.Redirect("/Account/Login?recovered=1");
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "text/html; charset=utf-8";
+                await context.Response.WriteAsync(LoginFallbackHtml.Render(showSessionResetMessage: true));
                 return;
             }
 

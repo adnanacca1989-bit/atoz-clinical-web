@@ -75,8 +75,13 @@ public static class LoginFallbackHtml
                             (u ? password : username).focus();
                             return;
                         }
-                        submitBtn.disabled = true;
+                        if (form.dataset.submitting === '1') {
+                            e.preventDefault();
+                            return;
+                        }
+                        form.dataset.submitting = '1';
                         submitBtn.textContent = 'Signing in…';
+                        submitBtn.setAttribute('aria-busy', 'true');
                     });
                 })();
                 </script>
