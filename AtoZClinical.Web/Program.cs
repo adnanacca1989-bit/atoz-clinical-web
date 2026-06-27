@@ -10,6 +10,7 @@ using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -168,6 +169,55 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
+
+    options.Events = new CookieAuthenticationEvents
+    {
+        OnSigningIn = context =>
+        {
+            var logger = context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("AuthCookie");
+            logger.LogInformation(
+                "SignIn cookie being issued for {User} scheme={Scheme} persistent={Persistent} expires={Expires} trace={TraceId}",
+                context.Principal?.Identity?.Name ?? "(unknown)",
+                context.Scheme.Name,
+                context.Properties.IsPersistent,
+                context.Properties.ExpiresUtc?.ToString("O") ?? "(session)",
+                context.HttpContext.TraceIdentifier);
+            return Task.CompletedTask;
+        },
+        OnSignedIn = context =>
+        {
+            var logger = context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("AuthCookie");
+            logger.LogInformation(
+                "SignIn cookie issued for {User} scheme={Scheme} trace={TraceId}",
+                context.Principal?.Identity?.Name ?? "(unknown)",
+                context.Scheme.Name,
+                context.HttpContext.TraceIdentifier);
+            return Task.CompletedTask;
+        },
+        OnValidatePrincipal = context =>
+        {
+            if (context.Principal?.Identity?.IsAuthenticated != true)
+                return Task.CompletedTask;
+
+            var path = context.HttpContext.Request.Path.Value ?? string.Empty;
+            if (path.StartsWith("/Account/Login", StringComparison.OrdinalIgnoreCase))
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("AuthCookie");
+                logger.LogDebug(
+                    "Existing auth cookie validated on login path for {User} trace={TraceId}",
+                    context.Principal.Identity?.Name,
+                    context.HttpContext.TraceIdentifier);
+            }
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddRateLimiter(options =>
@@ -346,10 +396,14 @@ var app = builder.Build();
 await DatabaseInitializer.InitializeAsync(app.Services);
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+var forwardedHeaders = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardLimit = 2
+};
+forwardedHeaders.KnownNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeaders);
 
 if (app.Environment.IsDevelopment())
 {
@@ -371,6 +425,7 @@ app.UseRouting();
 app.UseMiddleware<LoginStabilizationMiddleware>();
 app.UseMiddleware<AuthPostRateLimitMiddleware>();
 app.UseRateLimiter();
+app.UseMiddleware<LoginCookieSanitizerMiddleware>();
 app.UseMiddleware<DataProtectionRecoveryMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<ClinicSubdomainMiddleware>();
@@ -383,7 +438,8 @@ app.UseMiddleware<MfaEnforcementMiddleware>();
 app.UseMiddleware<PhiAccessAuditMiddleware>();
 app.UseMiddleware<OperationsMonitoringMiddleware>();
 app.UseMiddleware<LoginAuditMiddleware>();
-app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalMetrics metrics, IConfiguration config) =>
+app.UseMiddleware<LoginAuthDiagnosticsMiddleware>();
+app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalMetrics metrics, IConfiguration config, DataProtectionDbContext dpDb) =>
 {
     try
     {
@@ -394,7 +450,8 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         {
             ["status"] = "healthy",
             ["version"] = AppBuildInfo.Version,
-            ["timestamp"] = DateTime.UtcNow
+            ["timestamp"] = DateTime.UtcNow,
+            ["isHttps"] = ctx.Request.IsHttps
         };
 
         var token = config["Operations:HealthToken"];
@@ -404,6 +461,14 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         {
             basic["database"] = "connected";
             basic["metrics"] = metrics.GetSnapshot();
+            try
+            {
+                basic["dataProtectionKeys"] = await dpDb.DataProtectionKeys.CountAsync();
+            }
+            catch (Exception ex)
+            {
+                basic["dataProtectionKeys"] = $"error: {ex.Message}";
+            }
         }
 
         return Results.Content(JsonSerializer.Serialize(basic), "application/json");

@@ -36,6 +36,21 @@ public sealed class DataProtectionRecoveryMiddleware
             if (context.Response.HasStarted)
                 throw;
 
+            var authenticated = context.User.Identity?.IsAuthenticated == true;
+            var redirectStatus = context.Response.StatusCode is StatusCodes.Status302Found
+                or StatusCodes.Status303SeeOther;
+            var redirectLocation = context.Response.Headers.Location.ToString();
+
+            if (authenticated && redirectStatus && !string.IsNullOrEmpty(redirectLocation))
+            {
+                _logger.LogInformation(
+                    "Preserving successful login redirect for {User} to {Location} trace={TraceId}",
+                    context.User.Identity?.Name,
+                    redirectLocation,
+                    context.TraceIdentifier);
+                return;
+            }
+
             var staleCookies = context.Request.Cookies.Keys.Where(DataProtectionExceptionHelper.IsProtectedCookie).ToList();
             if (staleCookies.Count > 0)
             {
@@ -60,6 +75,11 @@ public sealed class DataProtectionRecoveryMiddleware
 
             if (IsLoginPath(path) && HttpMethods.IsPost(context.Request.Method))
             {
+                _logger.LogWarning(
+                    "Login POST aborted by data-protection recovery for {ClientIp} trace={TraceId}",
+                    clientIp,
+                    context.TraceIdentifier);
+
                 context.Response.StatusCode = StatusCodes.Status200OK;
                 context.Response.ContentType = "text/html; charset=utf-8";
                 await context.Response.WriteAsync(LoginFallbackHtml.Render(showSessionResetMessage: true));
