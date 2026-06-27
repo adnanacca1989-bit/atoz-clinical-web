@@ -4,6 +4,7 @@ using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Middleware;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -67,9 +68,15 @@ public class LoginModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var clientIp = ClientIpHelper.GetClientIp(HttpContext);
+
+        _logger.LogInformation(
+            "Login POST received for user {Username} client={ClientIp} trace={TraceId}",
+            Input.Username,
+            clientIp,
+            HttpContext.TraceIdentifier);
 
         if (!ModelState.IsValid)
         {

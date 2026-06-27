@@ -31,6 +31,22 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Login_page_form_has_post_submit_and_antiforgery()
+    {
+        var response = await _client.GetAsync("/Account/Login");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("method=\"post\"", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("id=\"loginForm\"", html);
+        Assert.Contains("type=\"submit\"", html);
+        Assert.Contains("id=\"loginSubmitBtn\"", html);
+        Assert.Contains("name=\"Input.Username\"", html);
+        Assert.Contains("name=\"Input.Password\"", html);
+        Assert.Contains("name=\"__RequestVerificationToken\"", html);
+    }
+
+    [Fact]
     public async Task Login_post_with_invalid_credentials_returns_page_not_429()
     {
         var content = new FormUrlEncodedContent(new Dictionary<string, string>

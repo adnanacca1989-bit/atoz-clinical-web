@@ -1,6 +1,7 @@
 @page
 @model AtoZClinical.Web.Pages.Account.LoginModel
 @inject IConfiguration Config
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     Layout = null;
     var errors = ViewData.ModelState.Values
@@ -10,6 +11,7 @@
         .ToList();
     var googleEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Google:ClientId"]);
     var msEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Microsoft:ClientId"]);
+    var antiforgery = Antiforgery.GetAndStoreTokens(HttpContext);
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -32,6 +34,7 @@
             color: #6c757d;
             font-size: 0.85rem;
             padding: 0.25rem 0.5rem;
+            z-index: 2;
         }
         .password-toggle:hover { color: #0b4f8a; }
     </style>
@@ -42,6 +45,8 @@
             <h3 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h3>
             <p class="text-muted mb-0">Sign in to continue</p>
         </div>
+
+        <div id="clientError" class="alert alert-danger py-2 d-none" role="alert"></div>
 
         @if (errors.Count > 0)
         {
@@ -60,26 +65,28 @@
             </p>
         }
 
-        <form method="post" action="/Account/Login" id="loginForm" autocomplete="on">
+        <form method="post" asp-page="/Account/Login" id="loginForm" autocomplete="on" novalidate>
+            <input type="hidden" name="@antiforgery.FormFieldName" value="@antiforgery.RequestToken" />
             <div class="mb-3">
                 <label class="form-label" for="username">Username</label>
                 <input id="username" name="Input.Username" class="form-control" autocomplete="username"
-                       value="@Model.Input.Username" required />
+                       value="@Model.Input.Username" />
             </div>
             <div class="mb-3">
                 <label class="form-label" for="password">Password</label>
                 <div class="password-wrap">
                     <input id="password" name="Input.Password" type="password" class="form-control pe-5"
-                           autocomplete="current-password" required />
+                           autocomplete="current-password" />
                     <button type="button" class="password-toggle" id="togglePassword" aria-label="Show password">Show</button>
                 </div>
             </div>
             <div class="form-check mb-3">
+                <input type="hidden" name="Input.RememberMe" value="false" />
                 <input id="rememberMe" name="Input.RememberMe" type="checkbox" class="form-check-input" value="true"
                        @(Model.Input.RememberMe ? "checked" : null) />
                 <label class="form-check-label" for="rememberMe">Remember me</label>
             </div>
-            <button type="submit" class="btn btn-atz-primary w-100">Login</button>
+            <button type="submit" id="loginSubmitBtn" class="btn btn-atz-primary w-100">Login</button>
         </form>
 
         @if (googleEnabled || msEnabled)
@@ -88,14 +95,14 @@
             <div class="d-grid gap-2">
                 @if (googleEnabled)
                 {
-                    <form method="post" action="/Account/ExternalLogin">
+                    <form method="post" asp-page="/Account/ExternalLogin">
                         <input type="hidden" name="provider" value="Google" />
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Google</button>
                     </form>
                 }
                 @if (msEnabled)
                 {
-                    <form method="post" action="/Account/ExternalLogin">
+                    <form method="post" asp-page="/Account/ExternalLogin">
                         <input type="hidden" name="provider" value="Microsoft" />
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Microsoft</button>
                     </form>
@@ -115,24 +122,64 @@
             var username = document.getElementById('username');
             var password = document.getElementById('password');
             var toggle = document.getElementById('togglePassword');
+            var submitBtn = document.getElementById('loginSubmitBtn');
+            var clientError = document.getElementById('clientError');
 
-            toggle.addEventListener('click', function () {
-                var hidden = password.type === 'password';
-                password.type = hidden ? 'text' : 'password';
-                toggle.textContent = hidden ? 'Hide' : 'Show';
-                toggle.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
-            });
+            if (!form || !username || !password || !submitBtn) {
+                return;
+            }
 
-            form.addEventListener('submit', function () {
+            function showClientError(message) {
+                if (!clientError) return;
+                clientError.textContent = message;
+                clientError.classList.remove('d-none');
+            }
+
+            function hideClientError() {
+                if (!clientError) return;
+                clientError.textContent = '';
+                clientError.classList.add('d-none');
+            }
+
+            if (toggle) {
+                toggle.addEventListener('click', function () {
+                    var hidden = password.type === 'password';
+                    password.type = hidden ? 'text' : 'password';
+                    toggle.textContent = hidden ? 'Hide' : 'Show';
+                    toggle.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+                });
+            }
+
+            form.addEventListener('submit', function (e) {
+                hideClientError();
+
+                var userValue = (username.value || '').trim();
+                var passValue = password.value || '';
+                if (!userValue || !passValue) {
+                    e.preventDefault();
+                    showClientError('Please enter your username and password.');
+                    if (!userValue) {
+                        username.focus();
+                    } else {
+                        password.focus();
+                    }
+                    return;
+                }
+
                 password.type = 'password';
-                toggle.textContent = 'Show';
+                if (toggle) toggle.textContent = 'Show';
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Signing in…';
             });
 
             function clearCredentials() {
                 username.value = '';
                 password.value = '';
                 password.type = 'password';
-                toggle.textContent = 'Show';
+                if (toggle) toggle.textContent = 'Show';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+                hideClientError();
             }
 
             window.addEventListener('pageshow', function (e) {
