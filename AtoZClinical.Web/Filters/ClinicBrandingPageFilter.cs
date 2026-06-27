@@ -21,6 +21,14 @@ public sealed class ClinicBrandingPageFilter : IAsyncPageFilter
 
     public async Task OnPageHandlerExecutionAsync(PageHandlerExecutingContext context, PageHandlerExecutionDelegate next)
     {
+        var path = context.HttpContext.Request.Path.Value ?? "";
+        if (path.StartsWith("/Error", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/Account", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
         if (context.HandlerInstance is PageModel && !await _clinicContext.IsVendorAsync())
         {
             var clinicId = await _clinicContext.GetClinicIdAsync();

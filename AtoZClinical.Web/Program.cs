@@ -103,6 +103,7 @@ builder.Services.AddDbContext<ClinicalDbContext>(options =>
 
 builder.Services.AddClinicalDataProtection(builder.Configuration, connectionString, useSqlite);
 builder.Services.AddExceptionHandler<DataProtectionExceptionHandler>();
+builder.Services.AddExceptionHandler<FallbackExceptionHandler>();
 
 builder.Services.AddAntiforgery(options =>
 {
@@ -351,7 +352,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
+    app.UseExceptionHandler();
     app.UseHsts();
 }
 else if (builder.Configuration.GetValue("UseHttpsRedirection", true))
