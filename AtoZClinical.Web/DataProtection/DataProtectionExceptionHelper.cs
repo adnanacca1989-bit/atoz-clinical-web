@@ -36,7 +36,7 @@ public static class DataProtectionExceptionHelper
         foreach (var cookie in context.Request.Cookies.Keys)
         {
             if (IsProtectedCookie(cookie))
-                context.Response.Cookies.Delete(cookie);
+                DeleteCookie(context, cookie);
         }
     }
 
@@ -44,16 +44,27 @@ public static class DataProtectionExceptionHelper
     {
         foreach (var cookie in context.Request.Cookies.Keys)
         {
-            if (!IsProtectedCookie(cookie))
-                continue;
-
-            context.Response.Cookies.Delete(cookie, new CookieOptions
-            {
-                Path = "/",
-                Secure = context.Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
-                HttpOnly = true
-            });
+            if (IsProtectedCookie(cookie))
+                DeleteCookie(context, cookie);
         }
     }
+
+    private static void DeleteCookie(HttpContext context, string cookie)
+    {
+        context.Response.Cookies.Delete(cookie, BuildDeleteOptions(context));
+
+        // Identity may set chunked cookies (.C1, .C2, …).
+        for (var i = 0; i < 5; i++)
+            context.Response.Cookies.Delete($"{cookie}C{i}", BuildDeleteOptions(context));
+    }
+
+    private static CookieOptions BuildDeleteOptions(HttpContext context) =>
+        new()
+        {
+            Path = "/",
+            Secure = context.Request.IsHttps,
+            SameSite = SameSiteMode.Lax,
+            HttpOnly = true,
+            Expires = DateTimeOffset.UnixEpoch
+        };
 }

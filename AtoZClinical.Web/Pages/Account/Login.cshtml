@@ -1,7 +1,6 @@
 @page
 @model AtoZClinical.Web.Pages.Account.LoginModel
 @inject IConfiguration Config
-@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     Layout = null;
     var errors = ViewData.ModelState.Values
@@ -11,7 +10,6 @@
         .ToList();
     var googleEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Google:ClientId"]);
     var msEnabled = !string.IsNullOrWhiteSpace(Config["Authentication:Microsoft:ClientId"]);
-    var antiforgery = Antiforgery.GetAndStoreTokens(HttpContext);
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -65,8 +63,7 @@
             </p>
         }
 
-        <form method="post" asp-page="/Account/Login" id="loginForm" autocomplete="on" novalidate>
-            <input type="hidden" name="@antiforgery.FormFieldName" value="@antiforgery.RequestToken" />
+        <form method="post" action="/Account/Login" id="loginForm" autocomplete="on" novalidate>
             <div class="mb-3">
                 <label class="form-label" for="username">Username</label>
                 <input id="username" name="Input.Username" class="form-control" autocomplete="username"
@@ -95,14 +92,14 @@
             <div class="d-grid gap-2">
                 @if (googleEnabled)
                 {
-                    <form method="post" asp-page="/Account/ExternalLogin">
+                    <form method="post" action="/Account/ExternalLogin">
                         <input type="hidden" name="provider" value="Google" />
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Google</button>
                     </form>
                 }
                 @if (msEnabled)
                 {
-                    <form method="post" asp-page="/Account/ExternalLogin">
+                    <form method="post" action="/Account/ExternalLogin">
                         <input type="hidden" name="provider" value="Microsoft" />
                         <button type="submit" class="btn btn-outline-secondary w-100">Sign in with Microsoft</button>
                     </form>

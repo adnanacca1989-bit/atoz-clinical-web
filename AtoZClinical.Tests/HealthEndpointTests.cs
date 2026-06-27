@@ -31,7 +31,7 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Login_page_form_has_post_submit_and_antiforgery()
+    public async Task Login_page_form_has_post_submit()
     {
         var response = await _client.GetAsync("/Account/Login");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -43,7 +43,18 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
         Assert.Contains("id=\"loginSubmitBtn\"", html);
         Assert.Contains("name=\"Input.Username\"", html);
         Assert.Contains("name=\"Input.Password\"", html);
-        Assert.Contains("name=\"__RequestVerificationToken\"", html);
+        Assert.DoesNotContain("Session reset required", html);
+    }
+
+    [Fact]
+    public async Task Login_recovered_query_returns_login_form_not_dead_end()
+    {
+        var response = await _client.GetAsync("/Account/Login?recovered=1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("id=\"loginForm\"", html);
+        Assert.DoesNotContain("Continue to sign in", html);
     }
 
     [Fact]

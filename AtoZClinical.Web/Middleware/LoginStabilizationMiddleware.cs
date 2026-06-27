@@ -45,6 +45,9 @@ public sealed class LoginStabilizationMiddleware
                 return;
             }
 
+            if (HttpMethods.IsGet(context.Request.Method) && context.Request.Query.ContainsKey("recovered"))
+                DataProtectionExceptionHelper.ClearProtectedCookies(context);
+
             if (context.Request.Cookies.Keys.Any(DataProtectionExceptionHelper.IsProtectedCookie))
                 DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
         }

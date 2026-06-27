@@ -5,18 +5,6 @@ namespace AtoZClinical.Web.Middleware;
 /// <summary>Recovers from stale encrypted cookies without redirect loops.</summary>
 public sealed class DataProtectionRecoveryMiddleware
 {
-    private const string RecoveryFlagKey = "__clinical_dp_recovery";
-
-    private static readonly string SessionResetHtml =
-        """
-        <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Sign in</title></head>
-        <body style="font-family:Segoe UI,sans-serif;max-width:420px;margin:2rem auto;padding:1rem;">
-        <h2>Session reset required</h2>
-        <p>Your browser had outdated session cookies. They were cleared automatically.</p>
-        <p><a href="/Account/Login">Continue to sign in</a></p>
-        </body></html>
-        """;
-
     private readonly RequestDelegate _next;
     private readonly ILogger<DataProtectionRecoveryMiddleware> _logger;
 
@@ -61,17 +49,16 @@ public sealed class DataProtectionRecoveryMiddleware
             DataProtectionExceptionHelper.ClearProtectedCookies(context);
             context.Response.Clear();
 
-            if (IsLoginPath(path) && (context.Items.ContainsKey(RecoveryFlagKey) || context.Request.Query.ContainsKey("recovered")))
+            if (IsLoginPath(path) && HttpMethods.IsGet(context.Request.Method))
             {
+                var showReset = context.Request.Query.ContainsKey("recovered");
                 context.Response.StatusCode = StatusCodes.Status200OK;
                 context.Response.ContentType = "text/html; charset=utf-8";
-                await context.Response.WriteAsync(SessionResetHtml);
+                await context.Response.WriteAsync(LoginFallbackHtml.Render(showReset));
                 return;
             }
 
-            context.Items[RecoveryFlagKey] = true;
-
-            if (IsLoginPath(path))
+            if (IsLoginPath(path) && HttpMethods.IsPost(context.Request.Method))
             {
                 context.Response.Redirect("/Account/Login?recovered=1");
                 return;
