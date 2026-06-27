@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace AtoZClinical.Web.Pages.Account;
 
-[EnableRateLimiting("auth")]
+[DisableRateLimiting]
 public class ForgotPasswordModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _users;
@@ -32,6 +32,7 @@ public class ForgotPasswordModel : PageModel
 
     public void OnGet() { }
 
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();

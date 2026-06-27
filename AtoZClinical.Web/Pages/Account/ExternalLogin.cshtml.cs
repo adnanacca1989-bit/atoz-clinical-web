@@ -4,10 +4,12 @@ using AtoZClinical.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AtoZClinical.Web.Pages.Account;
 
 [IgnoreAntiforgeryToken]
+[DisableRateLimiting]
 public class ExternalLoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signIn;

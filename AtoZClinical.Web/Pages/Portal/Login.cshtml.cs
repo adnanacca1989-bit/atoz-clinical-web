@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AtoZClinical.Web.Pages.Portal;
 
+[DisableRateLimiting]
 public class LoginModel : PageModel
 {
     private readonly PatientPortalService _portal;
@@ -37,7 +38,6 @@ public class LoginModel : PageModel
         return Page();
     }
 
-    [EnableRateLimiting("auth")]
     public async Task<IActionResult> OnPostAsync()
     {
         await LoadClinicContextAsync();

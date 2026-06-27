@@ -370,8 +370,8 @@ app.UseStaticFiles();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
+app.UseMiddleware<LoginStabilizationMiddleware>();
 app.UseRateLimiter();
-app.UseMiddleware<LoginCookieResetMiddleware>();
 app.UseMiddleware<DataProtectionRecoveryMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<ClinicSubdomainMiddleware>();
@@ -413,7 +413,7 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         Log.Error(ex, "Health check failed");
         return Results.Problem("Health check failed", statusCode: StatusCodes.Status503ServiceUnavailable);
     }
-}).AllowAnonymous();
+}).AllowAnonymous().DisableRateLimiting();
 app.MapPost("/api/stripe/webhook", async (HttpContext ctx, IStripeBillingService billing, ILogger<Program> logger) =>
 {
     if (!billing.IsConfigured)

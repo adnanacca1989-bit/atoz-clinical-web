@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace AtoZClinical.Web.Pages.Account;
 
-[EnableRateLimiting("auth")]
+[DisableRateLimiting]
 public class ResendConfirmationModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _users;
@@ -38,6 +38,7 @@ public class ResendConfirmationModel : PageModel
             Input.Username = username.Trim();
     }
 
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();

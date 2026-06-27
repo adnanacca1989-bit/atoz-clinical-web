@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace AtoZClinical.Web.Pages.Account;
 
-[EnableRateLimiting("auth")]
+[DisableRateLimiting]
 public class ResetPasswordModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _users;
@@ -31,6 +31,7 @@ public class ResetPasswordModel : PageModel
         return Page();
     }
 
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();
