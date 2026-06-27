@@ -23,6 +23,7 @@ public sealed class PatientPortalSession
             HttpOnly = true,
             Secure = context.Request.IsHttps,
             SameSite = SameSiteMode.Lax,
+            Path = "/",
             MaxAge = TimeSpan.FromHours(2),
             IsEssential = true
         });

@@ -26,20 +26,25 @@ public sealed class PatientPortalService
             .AsNoTracking()
             .ForClinic(clinicId)
             .FirstOrDefaultAsync();
-        if (config is null || !config.PatientPortalEnabled) return null;
+        if (config?.PatientPortalEnabled == false) return null;
 
         var normalizedNo = patientNo.Trim();
         var last4 = phoneLast4.Trim();
         if (last4.Length != 4 || !last4.All(char.IsDigit)) return null;
 
         var normalizedNoLower = normalizedNo.ToLowerInvariant();
-        var patient = await _db.Patients
+        var enteredDob = ClinicClock.ToClinicDate(dateOfBirth);
+
+        var candidates = await _db.Patients
             .AsNoTracking()
             .ForClinic(clinicId)
-            .FirstOrDefaultAsync(p =>
+            .Where(p =>
                 p.PatientNo.ToLower() == normalizedNoLower
-                && p.DateOfBirth != null
-                && p.DateOfBirth.Value.Date == dateOfBirth.Date);
+                && p.DateOfBirth != null)
+            .ToListAsync();
+
+        var patient = candidates.FirstOrDefault(p =>
+            ClinicClock.ToClinicDate(p.DateOfBirth) == enteredDob);
 
         if (patient is null || string.IsNullOrWhiteSpace(patient.Phone)) return null;
 
@@ -98,7 +103,7 @@ public sealed class PatientPortalService
             .AsNoTracking()
             .ForClinic(clinicId)
             .FirstOrDefaultAsync();
-        if (config is null || !config.PatientPortalEnabled)
+        if (config?.PatientPortalEnabled == false)
             return (false, "Patient portal is not enabled.");
 
         if (appointmentDate.Date < DateTime.UtcNow.Date)

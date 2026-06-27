@@ -10,17 +10,24 @@ using Microsoft.EntityFrameworkCore;
 namespace AtoZClinical.Web.Pages.Portal;
 
 [DisableRateLimiting]
+[IgnoreAntiforgeryToken]
 public class LoginModel : PageModel
 {
     private readonly PatientPortalService _portal;
     private readonly PatientPortalSession _session;
     private readonly ClinicalDbContext _db;
+    private readonly ILogger<LoginModel> _logger;
 
-    public LoginModel(PatientPortalService portal, PatientPortalSession session, ClinicalDbContext db)
+    public LoginModel(
+        PatientPortalService portal,
+        PatientPortalSession session,
+        ClinicalDbContext db,
+        ILogger<LoginModel> logger)
     {
         _portal = portal;
         _session = session;
         _db = db;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -41,16 +48,22 @@ public class LoginModel : PageModel
     public async Task<IActionResult> OnPostAsync()
     {
         await LoadClinicContextAsync();
-        if (PortalDisabled) return Page();
+        if (PortalDisabled)
+        {
+            _logger.LogWarning("Portal login blocked: portal disabled for clinic trace={TraceId}", HttpContext.TraceIdentifier);
+            return Page();
+        }
 
         if (!ModelState.IsValid) return Page();
 
         var clinicId = await ResolveClinicIdAsync();
         if (clinicId is null)
         {
-            ModelState.AddModelError(string.Empty, "Clinic not found.");
+            ModelState.AddModelError(string.Empty, "Clinic not found. Use your clinic code (e.g. CLN-0012) or clinic name (e.g. ABC).");
             return Page();
         }
+
+        HttpContext.Items[HttpContextClinicProvider.TenantClinicIdKey] = clinicId.Value;
 
         var patient = await _portal.AuthenticateAsync(
             clinicId.Value,
@@ -60,9 +73,21 @@ public class LoginModel : PageModel
 
         if (patient is null)
         {
-            ModelState.AddModelError(string.Empty, "We could not verify your details. Check your information and try again.");
+            _logger.LogWarning(
+                "Portal login failed clinicId={ClinicId} patientNo={PatientNo} trace={TraceId}",
+                clinicId,
+                Input.PatientNo,
+                HttpContext.TraceIdentifier);
+            ModelState.AddModelError(string.Empty,
+                "We could not verify your details. Check patient number, date of birth, and the last 4 digits of the phone on file at the clinic.");
             return Page();
         }
+
+        _logger.LogInformation(
+            "Portal login succeeded clinicId={ClinicId} patientId={PatientId} trace={TraceId}",
+            clinicId,
+            patient.Id,
+            HttpContext.TraceIdentifier);
 
         _session.SignIn(HttpContext, clinicId.Value, patient.Id);
         return RedirectToPage("/Portal/Index");
@@ -78,7 +103,7 @@ public class LoginModel : PageModel
             .FirstOrDefaultAsync();
         var clinic = await _db.Clinics.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clinicId);
         ClinicName = clinic?.Name;
-        PortalDisabled = config is null || !config.PatientPortalEnabled;
+        PortalDisabled = config?.PatientPortalEnabled == false;
     }
 
     private async Task<Guid?> ResolveClinicIdAsync()
