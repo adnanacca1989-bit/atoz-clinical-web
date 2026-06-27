@@ -382,6 +382,7 @@ app.UseAuthorization();
 app.UseMiddleware<MfaEnforcementMiddleware>();
 app.UseMiddleware<PhiAccessAuditMiddleware>();
 app.UseMiddleware<OperationsMonitoringMiddleware>();
+app.UseMiddleware<LoginAuditMiddleware>();
 app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalMetrics metrics, IConfiguration config) =>
 {
     try

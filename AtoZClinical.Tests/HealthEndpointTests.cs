@@ -31,6 +31,20 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Login_post_with_invalid_credentials_returns_page_not_429()
+    {
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Input.Username"] = "nonexistent_user",
+            ["Input.Password"] = "WrongPassword123!"
+        });
+
+        var response = await _client.PostAsync("/Account/Login", content);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Error_page_is_reachable()
     {
         var response = await _client.GetAsync("/Error");

@@ -3,21 +3,26 @@ using AtoZClinical.Web.DataProtection;
 namespace AtoZClinical.Web.Middleware;
 
 /// <summary>
-/// Runs before rate limiting: strips legacy login query strings, clears stale cookies,
-/// and prevents cached 429 responses on the login page.
+/// Prepares login/error pages: strips legacy query strings, clears stale cookies,
+/// prevents cached responses, and avoids redirect loops.
 /// </summary>
 public sealed class LoginStabilizationMiddleware
 {
-    private static readonly string[] LoginPaths = ["/Account/Login", "/Portal/Login", "/Error"];
+    private static readonly string[] StabilizedPaths = ["/Account/Login", "/Portal/Login", "/Error"];
 
     private readonly RequestDelegate _next;
+    private readonly ILogger<LoginStabilizationMiddleware> _logger;
 
-    public LoginStabilizationMiddleware(RequestDelegate next) => _next = next;
+    public LoginStabilizationMiddleware(RequestDelegate next, ILogger<LoginStabilizationMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
         var path = context.Request.Path.Value ?? string.Empty;
-        if (!LoginPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+        if (!StabilizedPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
         {
             await _next(context);
             return;
@@ -30,17 +35,23 @@ public sealed class LoginStabilizationMiddleware
         {
             if (HttpMethods.IsGet(context.Request.Method) && context.Request.Query.ContainsKey("session"))
             {
+                _logger.LogInformation(
+                    "Stripping legacy session query for {ClientIp} trace={TraceId}",
+                    ClientIpHelper.GetClientIp(context),
+                    context.TraceIdentifier);
+
                 DataProtectionExceptionHelper.ClearProtectedCookies(context);
                 context.Response.Redirect("/Account/Login");
                 return;
             }
 
-            if (HttpMethods.IsGet(context.Request.Method))
+            if (context.Request.Cookies.Keys.Any(DataProtectionExceptionHelper.IsProtectedCookie))
                 DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
         }
 
         if (path.StartsWith("/Error", StringComparison.OrdinalIgnoreCase)
-            && HttpMethods.IsGet(context.Request.Method))
+            && HttpMethods.IsGet(context.Request.Method)
+            && context.Request.Cookies.Keys.Any(DataProtectionExceptionHelper.IsProtectedCookie))
         {
             DataProtectionExceptionHelper.ClearProtectedCookiesForNextRequest(context);
         }

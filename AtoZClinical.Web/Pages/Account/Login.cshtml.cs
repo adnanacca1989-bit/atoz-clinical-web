@@ -22,6 +22,7 @@ public class LoginModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly SecurityAuditService _securityAudit;
     private readonly IClinicalEmailSender _email;
+    private readonly ILogger<LoginModel> _logger;
 
     public LoginModel(
         SignInManager<ApplicationUser> signIn,
@@ -29,7 +30,8 @@ public class LoginModel : PageModel
         ClinicAccessService access,
         ClinicalDbContext db,
         SecurityAuditService securityAudit,
-        IClinicalEmailSender email)
+        IClinicalEmailSender email,
+        ILogger<LoginModel> logger)
     {
         _signIn = signIn;
         _users = users;
@@ -37,6 +39,7 @@ public class LoginModel : PageModel
         _db = db;
         _securityAudit = securityAudit;
         _email = email;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -66,8 +69,11 @@ public class LoginModel : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Login POST validation failed for user {Username} client={ClientIp}", Input.Username, clientIp);
             Input.Password = string.Empty;
             return Page();
         }
@@ -75,6 +81,7 @@ public class LoginModel : PageModel
         var user = await _users.FindByNameAsync(Input.Username);
         if (user is null || !user.IsActive)
         {
+            _logger.LogWarning("Login failed: unknown or inactive user {Username} client={ClientIp}", Input.Username, clientIp);
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             Input.Password = string.Empty;
             return Page();
@@ -86,6 +93,13 @@ public class LoginModel : PageModel
 
         if (!result.Succeeded)
         {
+            _logger.LogWarning(
+                "Login failed for {Username} client={ClientIp} lockedOut={LockedOut} notAllowed={NotAllowed}",
+                Input.Username,
+                clientIp,
+                result.IsLockedOut,
+                result.IsNotAllowed);
+
             await _securityAudit.LogAsync(
                 SecurityAuditEvents.LoginFailed,
                 Input.Username,
@@ -120,6 +134,7 @@ public class LoginModel : PageModel
 
         if (user.IsVendorAdmin || await _users.IsInRoleAsync(user, ClinicalRoles.Vendor))
         {
+            _logger.LogInformation("Vendor login succeeded for {Username} client={ClientIp}", user.UserName, clientIp);
             await _securityAudit.LogAsync(
                 SecurityAuditEvents.Login,
                 user.UserName,
@@ -140,12 +155,18 @@ public class LoginModel : PageModel
             return RedirectToPage("/Account/LicenseBlocked", new { reason = (int)access.Reason });
         }
 
+        _logger.LogInformation(
+            "Clinic login succeeded for {Username} clinicId={ClinicId} client={ClientIp}",
+            user.UserName,
+            user.ClinicId,
+            clientIp);
+
         await _securityAudit.LogAsync(
             SecurityAuditEvents.Login,
             user.UserName,
             user.ClinicId,
             $"Clinic login: {clinic?.Name}",
-            HttpContext.Connection.RemoteIpAddress?.ToString());
+            clientIp);
 
         return RedirectToPage("/Dashboard/Index");
     }

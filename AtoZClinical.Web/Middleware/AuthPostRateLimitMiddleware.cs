@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using AtoZClinical.Web.DataProtection;
 
 namespace AtoZClinical.Web.Middleware;
 
@@ -23,13 +24,18 @@ public sealed class AuthPostRateLimitMiddleware
                 _ => new FixedWindowRateLimiterOptions
                 {
                     Window = TimeSpan.FromMinutes(1),
-                    PermitLimit = 30,
+                    PermitLimit = 20,
                     QueueLimit = 0
                 }));
 
     private readonly RequestDelegate _next;
+    private readonly ILogger<AuthPostRateLimitMiddleware> _logger;
 
-    public AuthPostRateLimitMiddleware(RequestDelegate next) => _next = next;
+    public AuthPostRateLimitMiddleware(RequestDelegate next, ILogger<AuthPostRateLimitMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -39,14 +45,27 @@ public sealed class AuthPostRateLimitMiddleware
             return;
         }
 
-        var partition = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        using var lease = await Limiter.AcquireAsync(partition, 1, context.RequestAborted);
+        var clientIp = ClientIpHelper.GetClientIp(context);
+        using var lease = await Limiter.AcquireAsync(clientIp, 1, context.RequestAborted);
         if (!lease.IsAcquired)
         {
+            _logger.LogWarning(
+                "Auth POST rate limit exceeded for {ClientIp} on {Path} trace={TraceId}",
+                clientIp,
+                context.Request.Path,
+                context.TraceIdentifier);
+
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-            context.Response.ContentType = "text/plain; charset=utf-8";
+            context.Response.ContentType = "text/html; charset=utf-8";
             await context.Response.WriteAsync(
-                "Too many sign-in attempts. Please wait one minute and try again.");
+                """
+                <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Too many attempts</title></head>
+                <body style="font-family:Segoe UI,sans-serif;max-width:420px;margin:2rem auto;padding:1rem;">
+                <h2>Too many sign-in attempts</h2>
+                <p>Please wait one minute and try again.</p>
+                <p><a href="/Account/Login">Back to sign in</a></p>
+                </body></html>
+                """);
             return;
         }
 
