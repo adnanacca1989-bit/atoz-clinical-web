@@ -236,6 +236,12 @@
             peerDotEl.classList.toggle('online', online);
         }
 
+        function buildDownloadUrl(attachmentId) {
+            const url = new URL(options.downloadUrl, window.location.origin);
+            url.searchParams.set('id', attachmentId);
+            return url.pathname + url.search;
+        }
+
         function renderMessage(msg) {
             const mine = msg.isMine || msg.senderUserId === options.currentUserId;
             const bubble = document.createElement('div');
@@ -244,7 +250,7 @@
 
             let html = '';
             if (msg.attachmentId) {
-                const url = `${options.downloadUrl}&id=${msg.attachmentId}`;
+                const url = buildDownloadUrl(msg.attachmentId);
                 const label = msg.attachmentFileName ?? 'Download file';
                 html += `<a class="clinical-chat-attachment" href="${url}" target="_blank" rel="noopener">📎 ${escapeHtml(label)}</a>`;
             }

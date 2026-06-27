@@ -35,7 +35,8 @@ public sealed class ClinicMessagingService
 
         var unread = await _db.ClinicMessages
             .AsNoTracking()
-            .Where(m => m.ClinicId == clinicId && m.RecipientUserId == currentUserId && m.ReadAt == null)
+            .ForClinic(clinicId)
+            .Where(m => m.RecipientUserId == currentUserId && m.ReadAt == null)
             .GroupBy(m => m.SenderUserId)
             .Select(g => new { UserId = g.Key, Count = g.Count() })
             .ToListAsync();
@@ -44,8 +45,8 @@ public sealed class ClinicMessagingService
 
         var lastMessages = await _db.ClinicMessages
             .AsNoTracking()
-            .Where(m => m.ClinicId == clinicId &&
-                        (m.SenderUserId == currentUserId || m.RecipientUserId == currentUserId))
+            .ForClinic(clinicId)
+            .Where(m => m.SenderUserId == currentUserId || m.RecipientUserId == currentUserId)
             .OrderByDescending(m => m.SentAt)
             .Take(500)
             .ToListAsync();
@@ -81,9 +82,9 @@ public sealed class ClinicMessagingService
         var query = _db.ClinicMessages
             .AsNoTracking()
             .Include(m => m.Attachment)
-            .Where(m => m.ClinicId == clinicId &&
-                        ((m.SenderUserId == currentUserId && m.RecipientUserId == peerUserId) ||
-                         (m.SenderUserId == peerUserId && m.RecipientUserId == currentUserId)));
+            .ForClinic(clinicId)
+            .Where(m => (m.SenderUserId == currentUserId && m.RecipientUserId == peerUserId) ||
+                        (m.SenderUserId == peerUserId && m.RecipientUserId == currentUserId));
 
         if (before.HasValue)
             query = query.Where(m => m.SentAt < before.Value);
@@ -111,7 +112,8 @@ public sealed class ClinicMessagingService
         if (attachmentId.HasValue)
         {
             var attachment = await _db.ClinicMessageAttachments
-                .FirstOrDefaultAsync(a => a.Id == attachmentId && a.ClinicId == clinicId && a.UploadedByUserId == senderUserId);
+                .ForClinic(clinicId)
+                .FirstOrDefaultAsync(a => a.Id == attachmentId && a.UploadedByUserId == senderUserId);
             if (attachment is null)
                 return null;
         }
@@ -135,14 +137,14 @@ public sealed class ClinicMessagingService
     }
 
     public async Task<int> GetUnreadCountAsync(Guid clinicId, string userId) =>
-        await _db.ClinicMessages.CountAsync(m =>
-            m.ClinicId == clinicId && m.RecipientUserId == userId && m.ReadAt == null);
+        await _db.ClinicMessages.ForClinic(clinicId).CountAsync(m =>
+            m.RecipientUserId == userId && m.ReadAt == null);
 
     public async Task MarkConversationReadAsync(Guid clinicId, string currentUserId, string peerUserId)
     {
         var unread = await _db.ClinicMessages
-            .Where(m => m.ClinicId == clinicId &&
-                        m.SenderUserId == peerUserId &&
+            .ForClinic(clinicId)
+            .Where(m => m.SenderUserId == peerUserId &&
                         m.RecipientUserId == currentUserId &&
                         m.ReadAt == null)
             .ToListAsync();
@@ -189,14 +191,20 @@ public sealed class ClinicMessagingService
     {
         var attachment = await _db.ClinicMessageAttachments
             .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == attachmentId && a.ClinicId == clinicId);
+            .ForClinic(clinicId)
+            .FirstOrDefaultAsync(a => a.Id == attachmentId);
 
         if (attachment is null) return null;
 
-        var linked = await _db.ClinicMessages.AnyAsync(m =>
-            m.ClinicId == clinicId &&
-            m.AttachmentId == attachmentId &&
-            (m.SenderUserId == userId || m.RecipientUserId == userId));
+        if (string.Equals(attachment.UploadedByUserId, userId, StringComparison.Ordinal))
+            return attachment;
+
+        var linked = await _db.ClinicMessages
+            .AsNoTracking()
+            .ForClinic(clinicId)
+            .AnyAsync(m =>
+                m.AttachmentId == attachmentId &&
+                (m.SenderUserId == userId || m.RecipientUserId == userId));
 
         return linked ? attachment : null;
     }

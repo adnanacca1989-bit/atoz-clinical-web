@@ -1,8 +1,13 @@
 /* A4 print layout for clinical forms and patient document bundles */
 
-@page {
+@page portrait-page {
     size: A4 portrait;
     margin: 10mm 8mm;
+}
+
+@page landscape-page {
+    size: A4 landscape;
+    margin: 8mm;
 }
 
 .print-layout-body {
@@ -21,6 +26,13 @@
     box-sizing: border-box;
     page-break-after: always;
     break-after: page;
+    page: portrait-page;
+}
+
+.a4-page-landscape {
+    width: 297mm;
+    min-height: 190mm;
+    page: landscape-page;
 }
 
 .a4-page:last-child {
@@ -291,6 +303,20 @@
         margin: 0;
         padding: 0;
         box-shadow: none;
+    }
+
+    .a4-page-landscape {
+        width: auto;
+        min-height: auto;
+    }
+
+    .a4-page-landscape .print-doc-table {
+        font-size: 0.68rem;
+    }
+
+    .a4-page-landscape .print-doc-table th,
+    .a4-page-landscape .print-doc-table td {
+        padding: 0.15rem 0.25rem;
     }
 
     .print-toolbar-screen,

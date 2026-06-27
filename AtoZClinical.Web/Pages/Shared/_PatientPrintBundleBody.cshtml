@@ -11,7 +11,7 @@ else
 {
     @foreach (var doc in Model.Sections)
     {
-        <section class="a4-page">
+        <section class="a4-page@(doc.Title == "Accounts Receivable Statement" ? " a4-page-landscape" : "")">
             <h2 class="print-doc-title">@doc.Title</h2>
             <div class="print-doc-meta">
                 @foreach (var field in doc.HeaderFields)
