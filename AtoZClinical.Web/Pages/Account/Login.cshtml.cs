@@ -44,23 +44,39 @@ public class LoginModel : PageModel
 
     public bool ShowResendConfirmation { get; private set; }
 
-    public void OnGet(string? recovered)
+    public IActionResult OnGet(string? recovered)
     {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            if (User.IsInRole(ClinicalRoles.Vendor))
+                return RedirectToPage("/Vendor/Dashboard");
+            return RedirectToPage("/Dashboard/Index");
+        }
+
+        Input.Password = string.Empty;
+
         if (string.Equals(recovered, "1", StringComparison.Ordinal))
         {
             ModelState.AddModelError(string.Empty,
                 "Your browser session was reset. Please sign in again.");
         }
+
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (!ModelState.IsValid) return Page();
+        if (!ModelState.IsValid)
+        {
+            Input.Password = string.Empty;
+            return Page();
+        }
 
         var user = await _users.FindByNameAsync(Input.Username);
         if (user is null || !user.IsActive)
         {
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
+            Input.Password = string.Empty;
             return Page();
         }
 
@@ -77,6 +93,7 @@ public class LoginModel : PageModel
                 "Invalid password or account locked.",
                 HttpContext.Connection.RemoteIpAddress?.ToString());
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
+            Input.Password = string.Empty;
             return Page();
         }
 
@@ -96,6 +113,7 @@ public class LoginModel : PageModel
                 ShowResendConfirmation = true;
                 ModelState.AddModelError(string.Empty,
                     "Please confirm your email before signing in. Check your inbox for the confirmation link.");
+                Input.Password = string.Empty;
                 return Page();
             }
         }

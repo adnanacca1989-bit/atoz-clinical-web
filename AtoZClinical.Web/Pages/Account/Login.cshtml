@@ -16,9 +16,25 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
     <title>Login - A to Z Clinical</title>
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/css/clinical.css" />
+    <style>
+        .password-wrap { position: relative; }
+        .password-toggle {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 0;
+            background: transparent;
+            color: #6c757d;
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .password-toggle:hover { color: #0b4f8a; }
+    </style>
 </head>
 <body>
     <div class="login-panel atz-card p-4">
@@ -44,7 +60,7 @@
             </p>
         }
 
-        <form method="post" action="/Account/Login">
+        <form method="post" action="/Account/Login" id="loginForm" autocomplete="on">
             <div class="mb-3">
                 <label class="form-label" for="username">Username</label>
                 <input id="username" name="Input.Username" class="form-control" autocomplete="username"
@@ -52,8 +68,11 @@
             </div>
             <div class="mb-3">
                 <label class="form-label" for="password">Password</label>
-                <input id="password" name="Input.Password" type="password" class="form-control"
-                       autocomplete="current-password" required />
+                <div class="password-wrap">
+                    <input id="password" name="Input.Password" type="password" class="form-control pe-5"
+                           autocomplete="current-password" required />
+                    <button type="button" class="password-toggle" id="togglePassword" aria-label="Show password">Show</button>
+                </div>
             </div>
             <div class="form-check mb-3">
                 <input id="rememberMe" name="Input.RememberMe" type="checkbox" class="form-check-input" value="true"
@@ -90,5 +109,36 @@
             <a href="/">Back to home</a>
         </div>
     </div>
+    <script>
+        (function () {
+            var form = document.getElementById('loginForm');
+            var username = document.getElementById('username');
+            var password = document.getElementById('password');
+            var toggle = document.getElementById('togglePassword');
+
+            toggle.addEventListener('click', function () {
+                var hidden = password.type === 'password';
+                password.type = hidden ? 'text' : 'password';
+                toggle.textContent = hidden ? 'Hide' : 'Show';
+                toggle.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+            });
+
+            form.addEventListener('submit', function () {
+                password.type = 'password';
+                toggle.textContent = 'Show';
+            });
+
+            function clearCredentials() {
+                username.value = '';
+                password.value = '';
+                password.type = 'password';
+                toggle.textContent = 'Show';
+            }
+
+            window.addEventListener('pageshow', function (e) {
+                if (e.persisted) clearCredentials();
+            });
+        })();
+    </script>
 </body>
 </html>
