@@ -7,11 +7,18 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class DashboardService
 {
     private readonly ReportingDataService _reporting;
+    private readonly PatientVisitStatusService _visitStatus;
 
-    public DashboardService(ReportingDataService reporting) => _reporting = reporting;
+    public DashboardService(ReportingDataService reporting, PatientVisitStatusService visitStatus)
+    {
+        _reporting = reporting;
+        _visitStatus = visitStatus;
+    }
 
     public async Task<DashboardSummary> GetSummaryAsync(Guid clinicId, DateTime from, DateTime to, bool isTodayScope)
     {
+        await _visitStatus.SyncAllPatientStatusesForClinicAsync(clinicId);
+
         var db = _reporting.ReadDb;
         var today = DateTime.Today;
         var rangeFrom = isTodayScope ? today : from.Date;

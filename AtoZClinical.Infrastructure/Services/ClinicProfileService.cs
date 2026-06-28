@@ -35,14 +35,14 @@ public sealed class ClinicProfileService
             clinic.Address,
             clinic.City,
             clinic.Country,
-            clinic.TimeZoneId ?? config.TimeZoneId,
-            config.LanguageCode,
-            config.LanguageName,
+            string.IsNullOrWhiteSpace(clinic.TimeZoneId) ? config.TimeZoneId ?? "UTC" : clinic.TimeZoneId,
+            string.IsNullOrWhiteSpace(config.LanguageCode) ? "en" : config.LanguageCode,
+            string.IsNullOrWhiteSpace(config.LanguageName) ? "English" : config.LanguageName,
             config.LogoBase64,
             config.Tagline,
             config.Website,
-            config.PrimaryColor,
-            config.FormStyle);
+            string.IsNullOrWhiteSpace(config.PrimaryColor) ? "#0b4f8a" : config.PrimaryColor,
+            string.IsNullOrWhiteSpace(config.FormStyle) ? "Default" : config.FormStyle);
     }
 
     public async Task SaveAsync(Guid clinicId, ClinicProfileInput input, CancellationToken ct = default)

@@ -602,7 +602,7 @@ public sealed class InvoiceService
             });
         }
 
-        try { await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName); }
+        try { await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName, item.PatientRecordId); }
         catch { }
 
         try

@@ -28,6 +28,41 @@ public class PatientVisitStatusServiceTests
         return (db, clinicId, status);
     }
 
+    [Fact]
+    public async Task SyncAllPatientStatusesForClinicAsync_marks_invoiced_patients_completed()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+
+        var patientId = Guid.NewGuid();
+        db.Db.Patients.Add(new Patient
+        {
+            Id = patientId,
+            ClinicId = clinicId,
+            PatientNo = "PAT-00001",
+            FirstName = "Zaid",
+            Status = PatientVisitStatuses.Pending
+        });
+        db.Db.Invoices.Add(new Invoice
+        {
+            ClinicId = clinicId,
+            InvoiceNo = 1,
+            PatientRecordId = patientId,
+            PatientName = "Zaid",
+            InvoiceDate = DateTime.Today,
+            TotalAmount = 1000m
+        });
+        await db.Db.SaveChangesAsync();
+
+        var audit = new AuditService(db.Db);
+        var status = new PatientVisitStatusService(db.Db, audit);
+        var updated = await status.SyncAllPatientStatusesForClinicAsync(clinicId);
+
+        Assert.Equal(1, updated);
+        Assert.Equal(PatientVisitStatuses.Completed, await GetStatusAsync(db, clinicId));
+    }
+
     private static async Task<string> GetStatusAsync(SqliteTestDatabase db, Guid clinicId) =>
         (await db.Db.Patients.ForClinic(clinicId).SingleAsync()).Status;
 

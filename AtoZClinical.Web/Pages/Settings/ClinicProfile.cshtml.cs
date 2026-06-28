@@ -8,13 +8,16 @@ namespace AtoZClinical.Web.Pages.Settings;
 public class ClinicProfileModel : SettingsPageModel
 {
     private readonly ClinicProfileService _profile;
+    private readonly ILogger<ClinicProfileModel> _logger;
 
     public ClinicProfileModel(
         ClinicContextService clinicContext,
         ClinicSettingsService settingsService,
-        ClinicProfileService profile) : base(clinicContext, settingsService)
+        ClinicProfileService profile,
+        ILogger<ClinicProfileModel> logger) : base(clinicContext, settingsService)
     {
         _profile = profile;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -44,25 +47,36 @@ public class ClinicProfileModel : SettingsPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
 
-        var profile = await _profile.GetAsync(clinicId.Value);
-        Input = new ClinicProfileInput
+        try
         {
-            Name = profile.Name,
-            ContactPerson = profile.ContactPerson,
-            Email = profile.Email,
-            Phone = profile.Phone,
-            Address = profile.Address,
-            City = profile.City,
-            Country = profile.Country,
-            TimeZoneId = profile.TimeZoneId,
-            LanguageCode = profile.LanguageCode,
-            LanguageName = profile.LanguageName,
-            LogoBase64 = profile.LogoBase64,
-            Tagline = profile.Tagline,
-            Website = profile.Website,
-            PrimaryColor = profile.PrimaryColor,
-            FormStyle = profile.FormStyle
-        };
+            var profile = await _profile.GetAsync(clinicId.Value);
+            Input = new ClinicProfileInput
+            {
+                Name = profile.Name,
+                ContactPerson = profile.ContactPerson,
+                Email = profile.Email,
+                Phone = profile.Phone,
+                Address = profile.Address,
+                City = profile.City,
+                Country = profile.Country,
+                TimeZoneId = profile.TimeZoneId,
+                LanguageCode = profile.LanguageCode,
+                LanguageName = profile.LanguageName,
+                LogoBase64 = profile.LogoBase64,
+                Tagline = profile.Tagline,
+                Website = profile.Website,
+                PrimaryColor = profile.PrimaryColor,
+                FormStyle = profile.FormStyle
+            };
+            ErrorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load clinic profile for clinic {ClinicId}", clinicId);
+            ErrorMessage = "Could not load clinic profile. If this continues after refresh, contact support.";
+            Input.Name = "Clinic";
+        }
+
         return Page();
     }
 

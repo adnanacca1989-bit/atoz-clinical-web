@@ -7,6 +7,14 @@ namespace AtoZClinical.Tests;
 
 public class DashboardServiceTests
 {
+    private static DashboardService CreateService(SqliteTestDatabase db, Guid tenantClinicId)
+    {
+        var config = new ConfigurationBuilder().Build();
+        var reporting = new ReportingDataService(db.Db, config, TestClinicProvider.ForClinic(tenantClinicId));
+        var visitStatus = new PatientVisitStatusService(db.Db, new AuditService(db.Db));
+        return new DashboardService(reporting, visitStatus);
+    }
+
     [Fact]
     public async Task GetSummaryAsync_returns_clinic_data_even_when_tenant_filter_mismatches()
     {
@@ -32,7 +40,8 @@ public class DashboardServiceTests
             InvoiceNo = 1,
             InvoiceDate = today,
             TotalAmount = 25_000m,
-            BalanceDue = 0m
+            BalanceDue = 0m,
+            PatientName = "Adnan"
         });
         db.Db.CashReceipts.Add(new CashReceipt
         {
@@ -44,15 +53,14 @@ public class DashboardServiceTests
         });
         await db.Db.SaveChangesAsync();
 
-        var config = new ConfigurationBuilder().Build();
-        var reporting = new ReportingDataService(db.Db, config, TestClinicProvider.ForClinic(otherClinicId));
-        var service = new DashboardService(reporting);
+        var service = CreateService(db, otherClinicId);
 
         var summary = await service.GetSummaryAsync(clinicId, today.AddDays(-7), today, isTodayScope: false);
 
         Assert.Equal(1, summary.ActiveDoctorCount);
         Assert.Equal(1, summary.NewRegistrations);
-        Assert.Equal(1, summary.PeriodPending);
+        Assert.Equal(0, summary.PeriodPending);
+        Assert.Equal(1, summary.PeriodCompleted);
         Assert.Equal(25_000m, summary.InvoiceTotal);
         Assert.Equal(100_000m, summary.CashReceived);
     }
@@ -76,9 +84,7 @@ public class DashboardServiceTests
         });
         await db.Db.SaveChangesAsync();
 
-        var config = new ConfigurationBuilder().Build();
-        var reporting = new ReportingDataService(db.Db, config, TestClinicProvider.ForClinic(clinicId));
-        var service = new DashboardService(reporting);
+        var service = CreateService(db, clinicId);
 
         var summary = await service.GetSummaryAsync(clinicId, today, today, isTodayScope: true);
 

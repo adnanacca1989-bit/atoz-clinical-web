@@ -66,40 +66,97 @@ public sealed class PatientVisitStatusService
     }
 
     public Task OnCashReceiptAsync(Guid clinicId, CashReceipt receipt) =>
-        TryUpgradeAsync(clinicId, receipt.PatientId, receipt.PatientName, PatientVisitStatuses.Confirmed);
+        TryUpgradeAsync(
+            clinicId,
+            receipt.PatientId,
+            receipt.PatientName,
+            PatientVisitStatuses.Confirmed,
+            receipt.PatientRecordId);
 
     public Task OnCashPaymentAsync(Guid clinicId, CashPayment payment)
     {
         if (payment.VendorId.HasValue)
             return Task.CompletedTask;
 
-        if (string.IsNullOrWhiteSpace(payment.PatientId) && string.IsNullOrWhiteSpace(payment.PayeeName))
+        if (string.IsNullOrWhiteSpace(payment.PatientId) &&
+            string.IsNullOrWhiteSpace(payment.PayeeName) &&
+            !payment.PatientRecordId.HasValue)
             return Task.CompletedTask;
 
-        return OnClinicalActivityAsync(clinicId, payment.PatientId, payment.PayeeName);
+        return OnClinicalActivityAsync(
+            clinicId,
+            payment.PatientId,
+            payment.PayeeName,
+            payment.PatientRecordId);
     }
 
     public Task OnClinicalCheckInAsync(Guid clinicId, string? patientId, string? patientName) =>
         OnClinicalActivityAsync(clinicId, patientId, patientName);
 
-    public Task OnClinicalActivityAsync(Guid clinicId, string? patientId, string? patientName) =>
-        TryUpgradeAsync(clinicId, patientId, patientName, PatientVisitStatuses.UnderProcess);
+    public Task OnClinicalActivityAsync(
+        Guid clinicId,
+        string? patientId,
+        string? patientName,
+        Guid? patientRecordId = null) =>
+        TryUpgradeAsync(clinicId, patientId, patientName, PatientVisitStatuses.UnderProcess, patientRecordId);
 
-    public Task OnInvoiceBillingAsync(Guid clinicId, string? patientId, string? patientName) =>
-        ForceStatusAsync(clinicId, patientId, patientName, PatientVisitStatuses.Completed);
+    public Task OnInvoiceBillingAsync(
+        Guid clinicId,
+        string? patientId,
+        string? patientName,
+        Guid? patientRecordId = null) =>
+        ForceStatusAsync(clinicId, patientId, patientName, PatientVisitStatuses.Completed, patientRecordId);
 
-    public async Task TryUpgradeAsync(Guid clinicId, string? patientId, string? patientName, string targetStatus)
+    /// <summary>Reconcile every patient status from invoices, receipts, and clinical activity.</summary>
+    public async Task<int> SyncAllPatientStatusesForClinicAsync(Guid clinicId, CancellationToken ct = default)
     {
-        var patient = await FindPatientAsync(clinicId, patientId, patientName);
+        var patients = await _db.Patients.ForClinic(clinicId).ToListAsync(ct);
+        if (patients.Count == 0)
+            return 0;
+
+        var updated = 0;
+        foreach (var patient in patients)
+        {
+            if (PatientVisitStatuses.IsCancelled(patient.Status))
+                continue;
+
+            var derived = await DeriveStatusFromActivityAsync(clinicId, patient, ct);
+            if (string.Equals(PatientVisitStatuses.Normalize(patient.Status), derived, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            patient.Status = derived;
+            patient.UpdatedAt = DateTime.UtcNow;
+            updated++;
+        }
+
+        if (updated > 0)
+            await _db.SaveChangesAsync(ct);
+
+        return updated;
+    }
+
+    public async Task TryUpgradeAsync(
+        Guid clinicId,
+        string? patientId,
+        string? patientName,
+        string targetStatus,
+        Guid? patientRecordId = null)
+    {
+        var patient = await FindPatientAsync(clinicId, patientId, patientName, patientRecordId);
         if (patient is null) return;
         if (!PatientVisitStatuses.CanAutoUpgrade(patient.Status, targetStatus)) return;
 
         await SetPatientStatusAsync(clinicId, patient, PatientVisitStatuses.Normalize(targetStatus));
     }
 
-    public async Task ForceStatusAsync(Guid clinicId, string? patientId, string? patientName, string status)
+    public async Task ForceStatusAsync(
+        Guid clinicId,
+        string? patientId,
+        string? patientName,
+        string status,
+        Guid? patientRecordId = null)
     {
-        var patient = await FindPatientAsync(clinicId, patientId, patientName);
+        var patient = await FindPatientAsync(clinicId, patientId, patientName, patientRecordId);
         if (patient is null) return;
 
         var normalized = PatientVisitStatuses.Normalize(status);
@@ -111,6 +168,117 @@ public sealed class PatientVisitStatusService
             return;
 
         await SetPatientStatusAsync(clinicId, patient, normalized);
+    }
+
+    private async Task<string> DeriveStatusFromActivityAsync(
+        Guid clinicId,
+        Patient patient,
+        CancellationToken ct)
+    {
+        if (await HasInvoiceActivityAsync(clinicId, patient, ct))
+            return PatientVisitStatuses.Completed;
+
+        if (await HasReceiptActivityAsync(clinicId, patient, ct))
+            return PatientVisitStatuses.Confirmed;
+
+        if (await HasClinicalActivityAsync(clinicId, patient, ct))
+            return PatientVisitStatuses.UnderProcess;
+
+        return PatientVisitStatuses.Pending;
+    }
+
+    private async Task<bool> HasInvoiceActivityAsync(Guid clinicId, Patient patient, CancellationToken ct)
+    {
+        if (await _db.Invoices.ForClinic(clinicId).AsNoTracking()
+                .AnyAsync(i => i.PatientRecordId == patient.Id, ct))
+            return true;
+
+        var patientNo = patient.PatientNo;
+        if (!string.IsNullOrWhiteSpace(patientNo) &&
+            await _db.Invoices.ForClinic(clinicId).AsNoTracking()
+                .AnyAsync(i => i.PatientId == patientNo, ct))
+            return true;
+
+        return await MatchesPatientNameInMemoryAsync(
+            await _db.Invoices.ForClinic(clinicId).AsNoTracking()
+                .Select(i => new { i.PatientName })
+                .ToListAsync(ct),
+            patient,
+            row => row.PatientName);
+    }
+
+    private async Task<bool> HasReceiptActivityAsync(Guid clinicId, Patient patient, CancellationToken ct)
+    {
+        if (await _db.CashReceipts.ForClinic(clinicId).AsNoTracking()
+                .AnyAsync(r => r.PatientRecordId == patient.Id, ct))
+            return true;
+
+        var patientNo = patient.PatientNo;
+        if (!string.IsNullOrWhiteSpace(patientNo) &&
+            await _db.CashReceipts.ForClinic(clinicId).AsNoTracking()
+                .AnyAsync(r => r.PatientId == patientNo, ct))
+            return true;
+
+        return await MatchesPatientNameInMemoryAsync(
+            await _db.CashReceipts.ForClinic(clinicId).AsNoTracking()
+                .Select(r => new { r.PatientName })
+                .ToListAsync(ct),
+            patient,
+            row => row.PatientName);
+    }
+
+    private async Task<bool> HasClinicalActivityAsync(Guid clinicId, Patient patient, CancellationToken ct)
+    {
+        if (await _db.LabRequests.ForClinic(clinicId).AsNoTracking().AnyAsync(r => r.PatientRecordId == patient.Id, ct))
+            return true;
+        if (await _db.RadiologyRequests.ForClinic(clinicId).AsNoTracking().AnyAsync(r => r.PatientRecordId == patient.Id, ct))
+            return true;
+        if (await _db.PharmacyRequests.ForClinic(clinicId).AsNoTracking().AnyAsync(r => r.PatientRecordId == patient.Id, ct))
+            return true;
+        if (await _db.Prescriptions.ForClinic(clinicId).AsNoTracking().AnyAsync(r => r.PatientRecordId == patient.Id, ct))
+            return true;
+        if (await _db.ServiceIncomeRequests.ForClinic(clinicId).AsNoTracking().AnyAsync(r => r.PatientRecordId == patient.Id, ct))
+            return true;
+
+        var patientNo = patient.PatientNo;
+        if (!string.IsNullOrWhiteSpace(patientNo))
+        {
+            if (await _db.LabRequests.ForClinic(clinicId).AsNoTracking()
+                    .AnyAsync(r => r.PatientBarcode == patientNo, ct))
+                return true;
+            if (await _db.RadiologyRequests.ForClinic(clinicId).AsNoTracking()
+                    .AnyAsync(r => r.PatientBarcode == patientNo, ct))
+                return true;
+            if (await _db.PharmacyRequests.ForClinic(clinicId).AsNoTracking()
+                    .AnyAsync(r => r.PatientId == patientNo, ct))
+                return true;
+        }
+
+        var labNames = await _db.LabRequests.ForClinic(clinicId).AsNoTracking().Select(r => r.PatientName).ToListAsync(ct);
+        if (await MatchesPatientNameInMemoryAsync(labNames.Select(n => new { PatientName = n }).ToList(), patient, r => r.PatientName))
+            return true;
+
+        var radNames = await _db.RadiologyRequests.ForClinic(clinicId).AsNoTracking().Select(r => r.PatientName).ToListAsync(ct);
+        if (await MatchesPatientNameInMemoryAsync(radNames.Select(n => new { PatientName = n }).ToList(), patient, r => r.PatientName))
+            return true;
+
+        var rxNames = await _db.Prescriptions.ForClinic(clinicId).AsNoTracking().Select(r => r.PatientName).ToListAsync(ct);
+        return await MatchesPatientNameInMemoryAsync(rxNames.Select(n => new { PatientName = n }).ToList(), patient, r => r.PatientName);
+    }
+
+    private static Task<bool> MatchesPatientNameInMemoryAsync<T>(
+        IReadOnlyList<T> rows,
+        Patient patient,
+        Func<T, string?> getName)
+    {
+        foreach (var row in rows)
+        {
+            var name = getName(row);
+            if (PatientChargeMatcher.MatchesPatient(patient.PatientNo, patient.FullName, null, patient.PatientNo, name))
+                return Task.FromResult(true);
+        }
+
+        return Task.FromResult(false);
     }
 
     private async Task SetPatientStatusAsync(Guid clinicId, Patient patient, string newStatus)
@@ -136,8 +304,23 @@ public sealed class PatientVisitStatusService
             $"{label} — {PatientVisitStatuses.Normalize(previous)} → {current}");
     }
 
-    public async Task<Patient?> FindPatientAsync(Guid clinicId, string? patientId, string? patientName)
+    public Task<Patient?> FindPatientAsync(Guid clinicId, string? patientId, string? patientName) =>
+        FindPatientAsync(clinicId, patientId, patientName, null);
+
+    public async Task<Patient?> FindPatientAsync(
+        Guid clinicId,
+        string? patientId,
+        string? patientName,
+        Guid? patientRecordId)
     {
+        if (patientRecordId.HasValue)
+        {
+            var byRecord = await _db.Patients.ForClinic(clinicId)
+                .FirstOrDefaultAsync(p => p.Id == patientRecordId.Value);
+            if (byRecord is not null)
+                return byRecord;
+        }
+
         if (string.IsNullOrWhiteSpace(patientId) && string.IsNullOrWhiteSpace(patientName))
             return null;
 

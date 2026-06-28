@@ -42,6 +42,7 @@ public static class DatabaseInitializer
         await BackfillDoctorRecordLinksAsync(db, scope.ServiceProvider, logger);
         await EnsurePatientRecordLinkSchemaAsync(db, logger);
         await BackfillPatientRecordLinksAsync(db, scope.ServiceProvider, logger);
+        await BackfillPatientVisitStatusesAsync(db, scope.ServiceProvider, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -378,6 +379,10 @@ public static class DatabaseInitializer
                 ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "LogoBase64" text NULL;
                 ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "Tagline" character varying(200) NULL;
                 ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "Website" character varying(256) NULL;
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "PrimaryColor" text NOT NULL DEFAULT '#0b4f8a';
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "FormStyle" text NOT NULL DEFAULT 'Default';
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "LanguageCode" text NOT NULL DEFAULT 'en';
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "LanguageName" text NOT NULL DEFAULT 'English';
                 """);
 
             await db.Database.ExecuteSqlRawAsync(
@@ -804,6 +809,27 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Patient record link backfill skipped.");
+        }
+    }
+
+    private static async Task BackfillPatientVisitStatusesAsync(
+        ClinicalDbContext db,
+        IServiceProvider services,
+        ILogger logger)
+    {
+        try
+        {
+            var visitStatus = services.GetRequiredService<PatientVisitStatusService>();
+            var clinicIds = await db.Clinics.AsNoTracking().Select(c => c.Id).ToListAsync();
+            var total = 0;
+            foreach (var clinicId in clinicIds)
+                total += await visitStatus.SyncAllPatientStatusesForClinicAsync(clinicId);
+
+            logger.LogInformation("Patient visit status backfill updated {Count} patient rows.", total);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Patient visit status backfill skipped.");
         }
     }
 
