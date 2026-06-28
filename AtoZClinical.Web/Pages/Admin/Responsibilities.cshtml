@@ -8,6 +8,7 @@
 <div class="clinical-form-page">
     <h1 class="page-title">Responsibilities</h1>
     <form method="post" asp-page="./Responsibilities">
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
         <div class="row g-3 mb-3">
             <div class="col-md-3">
                 <label class="clinical-field-label">Role</label>
@@ -40,6 +41,13 @@
                     Checkboxes apply to every user with this role.
                 </div>
             }
+        }
+        @if (Model.RoleHasNoPermissions)
+        {
+            <div class="alert alert-warning py-2 small mb-3">
+                This role has no permissions and users will not be able to access the system.
+                Select at least <strong>Dashboard</strong> and click Save.
+            </div>
         }
         <p class="text-primary small">Select role permissions below. When a username is selected, Save also assigns that role to the user for login.</p>
         <div class="clinical-record-grid" style="min-height: 400px;">

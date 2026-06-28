@@ -36,6 +36,8 @@ public class ResponsibilitiesModel : PageModel
 
     public List<ApplicationUser> ClinicUsers { get; private set; } = [];
 
+    public bool RoleHasNoPermissions => Forms.Count > 0 && !Forms.Any(f => f.IsVisible);
+
     public static readonly string[] Roles = ClinicUserRoleHelper.ResponsibilityRoles;
 
     public static readonly (string Key, string Label)[] FormDefinitions =
@@ -121,6 +123,15 @@ public class ResponsibilitiesModel : PageModel
         }
 
         var postedByKey = Forms.ToDictionary(f => f.FormKey, f => f.IsVisible, StringComparer.OrdinalIgnoreCase);
+        if (!postedByKey.Values.Any(v => v))
+        {
+            ModelState.AddModelError(string.Empty,
+                "This role has no permissions and users will not be able to access the system. Select at least Dashboard.");
+            await LoadUsersAsync(clinicId.Value);
+            await LoadFormsAsync(clinicId.Value);
+            return Page();
+        }
+
         var items = FormDefinitions.Select(fd => new Core.Entities.RolePermission
         {
             FormKey = fd.Key,

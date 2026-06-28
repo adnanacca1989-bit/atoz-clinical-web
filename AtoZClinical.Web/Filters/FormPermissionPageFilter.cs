@@ -1,5 +1,6 @@
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -8,10 +9,30 @@ namespace AtoZClinical.Web.Filters;
 
 public sealed class FormPermissionPageFilter : IAsyncPageFilter
 {
+    public const string NoPermissionsMessage =
+        "No permissions assigned to this role. Please contact admin.";
+
     private static readonly string[] SkipPrefixes =
     [
         "/Account", "/Vendor", "/Register", "/Error", "/Index", "/Privacy", "/Search"
     ];
+
+    private readonly ILogger<FormPermissionPageFilter> _logger;
+    private readonly AuditService _audit;
+    private readonly ClinicContextService _clinicContext;
+    private readonly FormPermissionService _permissions;
+
+    public FormPermissionPageFilter(
+        ILogger<FormPermissionPageFilter> logger,
+        AuditService audit,
+        ClinicContextService clinicContext,
+        FormPermissionService permissions)
+    {
+        _logger = logger;
+        _audit = audit;
+        _clinicContext = clinicContext;
+        _permissions = permissions;
+    }
 
     public async Task OnPageHandlerExecutionAsync(PageHandlerExecutingContext context, PageHandlerExecutionDelegate next)
     {
@@ -42,7 +63,7 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
         {
             if (isClinicUser)
             {
-                context.Result = DenyAccess(path);
+                context.Result = await DenyAccessAsync(context.HttpContext, path, hasNoPermissions: true);
                 return;
             }
 
@@ -66,26 +87,41 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
                 return;
             }
 
+            var noPermissions = visible.Count == 0;
             context.Result = visible.Contains(ClinicalFormKeys.Dashboard)
                 && !path.StartsWith("/dashboard", StringComparison.OrdinalIgnoreCase)
                 ? new RedirectToPageResult("/Dashboard/Index")
-                : DenyAccess(path);
+                : await DenyAccessAsync(context.HttpContext, path, noPermissions);
             return;
         }
 
         await next();
     }
 
-    private static IActionResult DenyAccess(string path)
+    private async Task<IActionResult> DenyAccessAsync(HttpContext httpContext, string path, bool hasNoPermissions)
     {
-        if (path.StartsWith("/dashboard", StringComparison.OrdinalIgnoreCase))
-            return new ContentResult
+        if (path.StartsWith("/dashboard", StringComparison.OrdinalIgnoreCase) || hasNoPermissions)
+        {
+            var user = await _clinicContext.GetCurrentUserAsync();
+            var role = user is not null ? _permissions.ResolveResponsibilityRole(user) : null;
+            _logger.LogWarning(
+                "Login access blocked for {User} role={Role} path={Path} visibleFormCount=0",
+                user?.UserName ?? httpContext.User.Identity?.Name,
+                role,
+                path);
+
+            if (user?.ClinicId is Guid clinicId)
             {
-                StatusCode = 403,
-                Content = "You do not have permission to access any clinic forms. " +
-                          "Ask your clinic admin to open Responsibilities, select your role (e.g. Doctor), " +
-                          "check the forms this user needs, and click Save."
-            };
+                await _audit.LogAsync(
+                    clinicId,
+                    user.UserName,
+                    "Login Access",
+                    "Permission Denied",
+                    $"User {user.UserName} blocked at {path} — role {role} has no assigned permissions.");
+            }
+
+            return new ContentResult { StatusCode = 403, Content = NoPermissionsMessage };
+        }
 
         return new RedirectToPageResult("/Dashboard/Index");
     }
