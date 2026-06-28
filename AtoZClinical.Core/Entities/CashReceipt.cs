@@ -16,6 +16,7 @@ public class CashReceipt : IClinicScoped
     public string? Specialty { get; set; }
     public DateTime? AppointmentDate { get; set; }
     public TimeSpan? AppointmentTime { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public string? DoctorName { get; set; }
     public decimal BalanceDue { get; set; }
     public string? BalanceStatus { get; set; }

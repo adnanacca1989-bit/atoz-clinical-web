@@ -57,6 +57,13 @@ public class PatientStatusModel : PageModel
             .Where(p => p.ClinicId == clinicId)
             .ToListAsync();
 
+        var doctors = await _db.Doctors
+            .AsNoTracking()
+            .Where(d => d.ClinicId == clinicId)
+            .ToListAsync();
+
+        var demographics = new ClinicalDemographicsSyncService(_db);
+
         patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, from, to)).ToList();
 
         var arReport = await _ar.BuildAsync(clinicId.Value, null, null, null, null, null);
@@ -65,8 +72,11 @@ public class PatientStatusModel : PageModel
         var rows = patients.Select(p =>
         {
             var fullName = p.FullName;
+            var liveDoctor = demographics.ResolveDoctorFromList(doctors, p.DoctorRecordId, p.DoctorName);
+            var doctorName = liveDoctor?.Name ?? p.DoctorName ?? "";
+            var specialty = liveDoctor?.Specialty ?? p.Specialty ?? "";
             var balance = ArReportService.ResolvePatientDoctorEndingBalance(
-                arReport.Rows, fullName, p.DoctorName ?? "");
+                arReport.Rows, fullName, doctorName);
 
             var effectiveDate = PatientReportDateHelper.GetEffectiveAppointmentDate(p);
             var liveStatus = AppointmentReminderService.ResolveVisitStatus(p, now);
@@ -76,8 +86,8 @@ public class PatientStatusModel : PageModel
                 p.PatientNo,
                 effectiveDate,
                 p.AppointmentTime,
-                p.DoctorName ?? "",
-                p.Specialty ?? "",
+                doctorName,
+                specialty,
                 balance,
                 liveStatus);
         }).OrderBy(r => r.AppointmentDate).ToList();

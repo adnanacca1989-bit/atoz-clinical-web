@@ -12,6 +12,7 @@ public class LabRequest : IClinicScoped
     public string? Gender { get; set; }
     public string? Phone { get; set; }
     public string? City { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public string? DoctorName { get; set; }
     public string? Specialty { get; set; }
     public decimal TotalAmount { get; set; }

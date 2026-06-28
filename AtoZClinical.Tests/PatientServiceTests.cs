@@ -26,7 +26,8 @@ public class PatientServiceTests
             new InvoiceDeleteGuardService(db.Db),
             new PatientVisitStatusService(db.Db, audit),
             new NoOpWebhookDispatchService(),
-            audit);
+            audit,
+            new ClinicalDemographicsSyncService(db.Db));
 
         var saved = await service.SaveAsync(clinicId, new Patient
         {
@@ -61,7 +62,8 @@ public class PatientServiceTests
             new InvoiceDeleteGuardService(db.Db),
             new PatientVisitStatusService(db.Db, audit),
             new NoOpWebhookDispatchService(),
-            audit);
+            audit,
+            new ClinicalDemographicsSyncService(db.Db));
 
         var saved = await service.SaveAsync(clinicId, new Patient
         {

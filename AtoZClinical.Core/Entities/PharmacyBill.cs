@@ -9,6 +9,7 @@ public class PharmacyBill : IClinicScoped
     public int? RequestNo { get; set; }
     public string? PatientName { get; set; }
     public string? PatientId { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public string? DoctorName { get; set; }
     public string? Specialty { get; set; }
     public decimal SubTotal { get; set; }

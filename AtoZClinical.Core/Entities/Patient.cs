@@ -19,6 +19,7 @@ public class Patient : IClinicScoped
     public string? EmergencyContact { get; set; }
     public string? HealthInsuranceName { get; set; }
     public string? HealthInsuranceNumber { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public string? DoctorName { get; set; }
     public string? Specialty { get; set; }
     public string? AppointmentId { get; set; }

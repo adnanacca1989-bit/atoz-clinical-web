@@ -73,6 +73,7 @@ public sealed class ClinicalDemographicsSyncService
         invoice.Gender = patient.Gender;
         invoice.City = patient.City;
         invoice.DoctorName = patient.DoctorName;
+        invoice.DoctorRecordId = patient.DoctorRecordId;
         invoice.Specialty = patient.Specialty;
     }
 
@@ -170,6 +171,29 @@ public sealed class ClinicalDemographicsSyncService
         var doctor = await ResolveDoctorAsync(clinicId, invoice.DoctorRecordId, invoice.DoctorName ?? patient?.DoctorName);
         if (doctor is not null)
             await ApplyDoctorToInvoiceAsync(clinicId, doctor, invoice);
+    }
+
+    public Doctor? ResolveDoctorFromList(IReadOnlyList<Doctor> doctors, Guid? recordId, string? doctorName) =>
+        DoctorNameMatcher.ResolveSingleDoctor(doctors, recordId, doctorName);
+
+    public async Task LinkPatientDoctorAsync(Guid clinicId, Patient patient)
+    {
+        var doctor = await ResolveDoctorAsync(clinicId, patient.DoctorRecordId, patient.DoctorName);
+        if (doctor is null)
+            return;
+
+        patient.DoctorRecordId = doctor.Id;
+        patient.DoctorName = doctor.Name;
+        patient.Specialty = doctor.Specialty ?? patient.Specialty;
+    }
+
+    public async Task LinkDoctorFieldsAsync(Guid clinicId, Guid? doctorRecordId, string? doctorName, Action<Doctor> apply)
+    {
+        var doctor = await ResolveDoctorAsync(clinicId, doctorRecordId, doctorName);
+        if (doctor is null)
+            return;
+
+        apply(doctor);
     }
 
     public static bool IsConsultationLine(string? serviceName, string doctorName) =>

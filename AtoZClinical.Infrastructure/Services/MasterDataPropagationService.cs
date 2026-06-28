@@ -240,117 +240,473 @@ public sealed class MasterDataPropagationService
     {
         var oldName = previous.Name.Trim();
         var newName = current.Name.Trim();
-        var oldNorm = oldName.ToLowerInvariant();
         var specialty = current.Specialty;
         var now = DateTime.UtcNow;
 
         if (oldName == newName && previous.Specialty == current.Specialty && previous.ConsultationFee == current.ConsultationFee)
             return;
 
-        await _db.Patients
-            .Where(p => p.ClinicId == clinicId && p.DoctorName != null && p.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.DoctorName, newName)
-                .SetProperty(p => p.Specialty, specialty)
-                .SetProperty(p => p.UpdatedAt, now));
+        var variants = await BuildDoctorNameVariantsAsync(clinicId, current.Id, oldName, newName);
+        var anyChanged = false;
 
-        await _db.Invoices
-            .Where(i => i.ClinicId == clinicId &&
-                        (i.DoctorRecordId == current.Id ||
-                         (i.DoctorName != null && i.DoctorName.Trim().ToLower() == oldNorm)))
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(i => i.DoctorRecordId, current.Id)
-                .SetProperty(i => i.DoctorName, newName)
-                .SetProperty(i => i.Specialty, specialty)
-                .SetProperty(i => i.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.Patients.Where(p => p.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.LabRequests
-            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.DoctorName, newName)
-                .SetProperty(r => r.Specialty, specialty)
-                .SetProperty(r => r.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.LabRequests.Where(r => r.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.LabResults
-            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.DoctorName, newName)
-                .SetProperty(r => r.Specialty, specialty)
-                .SetProperty(r => r.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.LabResults.Where(r => r.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.RadiologyRequests
-            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.DoctorName, newName)
-                .SetProperty(r => r.Specialty, specialty)
-                .SetProperty(r => r.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.RadiologyRequests.Where(r => r.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.RadiologyResults
-            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.DoctorName, newName)
-                .SetProperty(r => r.Specialty, specialty)
-                .SetProperty(r => r.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.RadiologyResults.Where(r => r.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.PharmacyRequests
-            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.DoctorName, newName)
-                .SetProperty(r => r.Specialty, specialty)
-                .SetProperty(r => r.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.PharmacyRequests.Where(r => r.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.PharmacyBills
-            .Where(b => b.ClinicId == clinicId && b.DoctorName != null && b.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(b => b.DoctorName, newName)
-                .SetProperty(b => b.Specialty, specialty)
-                .SetProperty(b => b.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.PharmacyBills.Where(b => b.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.CashReceipts
-            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.DoctorName, newName)
-                .SetProperty(r => r.Specialty, specialty)
-                .SetProperty(r => r.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.CashReceipts.Where(r => r.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.CashPayments
-            .Where(p => p.ClinicId == clinicId && p.DoctorName != null && p.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.DoctorName, newName)
-                .SetProperty(p => p.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.CashPayments.Where(p => p.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, _, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.Prescriptions
-            .Where(p => p.ClinicId == clinicId && p.DoctorName != null && p.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.DoctorName, newName)
-                .SetProperty(p => p.Specialty, specialty)
-                .SetProperty(p => p.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.Prescriptions.Where(p => p.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.ServiceIncomeRequests
-            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.DoctorName, newName)
-                .SetProperty(r => r.Specialty, specialty)
-                .SetProperty(r => r.UpdatedAt, now));
+        anyChanged |= UpdateDoctorRows(
+            await _db.ServiceIncomeRequests.Where(r => r.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, ts) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Specialty = spec;
+                row.UpdatedAt = ts;
+            },
+            newName, specialty, now);
 
-        await _db.Appointments
-            .Where(a => a.ClinicId == clinicId && a.DoctorName != null && a.DoctorName.Trim().ToLower() == oldNorm)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(a => a.DoctorName, newName)
-                .SetProperty(a => a.Department, specialty));
+        anyChanged |= UpdateDoctorRows(
+            await _db.Appointments.Where(a => a.ClinicId == clinicId).ToListAsync(),
+            current.Id, variants,
+            (row, name, spec, _) =>
+            {
+                row.DoctorRecordId = current.Id;
+                row.DoctorName = name;
+                row.Department = spec;
+            },
+            newName, specialty, now);
 
-        if (previous.ConsultationFee != current.ConsultationFee)
-            await PropagateConsultationFeeAsync(clinicId, current);
+        var invoices = await _db.Invoices
+            .Include(i => i.Lines)
+            .Where(i => i.ClinicId == clinicId)
+            .ToListAsync();
 
-        await PropagateJournalPatientDoctorNamesAsync(clinicId, null, null, oldName, newName);
+        foreach (var invoice in invoices)
+        {
+            if (!DoctorNameMatcher.ShouldUpdateDoctor(invoice.DoctorRecordId, invoice.DoctorName, current.Id, variants))
+                continue;
+
+            invoice.DoctorRecordId = current.Id;
+            invoice.DoctorName = newName;
+            invoice.Specialty = specialty;
+            invoice.UpdatedAt = now;
+
+            foreach (var line in invoice.Lines.Where(l => IsConsultationLine(l.ServiceName, oldName) || IsConsultationLine(l.ServiceName, newName)))
+                line.ServiceName = $"Consultation Fee - {newName}";
+
+            anyChanged = true;
+        }
+
+        if (anyChanged)
+            await _db.SaveChangesAsync();
+
+        if (previous.ConsultationFee != current.ConsultationFee || !string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+            await PropagateConsultationFeeAsync(clinicId, current, variants);
+
+        await PropagateJournalDoctorNamesAsync(clinicId, variants, newName);
     }
 
-    private async Task PropagateConsultationFeeAsync(Guid clinicId, Doctor doctor)
+    public async Task SyncDoctorLinkedRowsAsync(Guid clinicId, Doctor doctor)
+    {
+        var now = DateTime.UtcNow;
+        var anyChanged = false;
+
+        foreach (var row in await _db.Patients.Where(p => p.ClinicId == clinicId && p.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.Invoices.Where(i => i.ClinicId == clinicId && i.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.LabRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.LabResults.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.RadiologyRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.RadiologyResults.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.PharmacyRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.PharmacyBills.Where(b => b.ClinicId == clinicId && b.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.CashReceipts.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.CashPayments.Where(p => p.ClinicId == clinicId && p.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.Prescriptions.Where(p => p.ClinicId == clinicId && p.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.ServiceIncomeRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Specialty = doctor.Specialty;
+            row.UpdatedAt = now;
+            anyChanged = true;
+        }
+
+        foreach (var row in await _db.Appointments.Where(a => a.ClinicId == clinicId && a.DoctorRecordId == doctor.Id).ToListAsync())
+        {
+            row.DoctorName = doctor.Name;
+            row.Department = doctor.Specialty;
+            anyChanged = true;
+        }
+
+        if (anyChanged)
+            await _db.SaveChangesAsync();
+    }
+
+    public async Task SyncAllDoctorLinkedRowsAsync(Guid clinicId)
+    {
+        var doctors = await _db.Doctors.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        foreach (var doctor in doctors)
+            await SyncDoctorLinkedRowsAsync(clinicId, doctor);
+    }
+
+    private async Task<HashSet<string>> BuildDoctorNameVariantsAsync(
+        Guid clinicId,
+        Guid doctorId,
+        string oldName,
+        string newName)
+    {
+        var doctors = await _db.Doctors.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var variants = DoctorNameMatcher.BuildNameVariants(oldName, newName, Array.Empty<string?>());
+
+        DoctorNameMatcher.CollectUnambiguousVariants(doctors, doctorId, oldName, variants);
+        DoctorNameMatcher.CollectUnambiguousVariants(doctors, doctorId, newName, variants);
+
+        void AddLinkedNames(IEnumerable<string?> names)
+        {
+            foreach (var name in names)
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                    variants.Add(name.Trim());
+            }
+        }
+
+        AddLinkedNames(await _db.Patients.Where(p => p.ClinicId == clinicId && p.DoctorRecordId == doctorId).Select(p => p.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.Invoices.Where(i => i.ClinicId == clinicId && i.DoctorRecordId == doctorId).Select(i => i.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.LabRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctorId).Select(r => r.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.LabResults.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctorId).Select(r => r.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.RadiologyRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctorId).Select(r => r.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.RadiologyResults.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctorId).Select(r => r.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.PharmacyRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctorId).Select(r => r.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.PharmacyBills.Where(b => b.ClinicId == clinicId && b.DoctorRecordId == doctorId).Select(b => b.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.CashReceipts.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctorId).Select(r => r.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.CashPayments.Where(p => p.ClinicId == clinicId && p.DoctorRecordId == doctorId).Select(p => p.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.Prescriptions.Where(p => p.ClinicId == clinicId && p.DoctorRecordId == doctorId).Select(p => p.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.ServiceIncomeRequests.Where(r => r.ClinicId == clinicId && r.DoctorRecordId == doctorId).Select(r => r.DoctorName).ToListAsync());
+        AddLinkedNames(await _db.Appointments.Where(a => a.ClinicId == clinicId && a.DoctorRecordId == doctorId).Select(a => a.DoctorName).ToListAsync());
+
+        foreach (var storedName in await CollectDistinctStoredDoctorNamesAsync(clinicId))
+        {
+            if (!DoctorNameMatcher.NamesReferToSameDoctor(oldName, storedName))
+                continue;
+
+            var matches = doctors.Where(d => DoctorNameMatcher.NamesReferToSameDoctor(d.Name, storedName)).ToList();
+            if (matches.Count == 1 && matches[0].Id == doctorId)
+                variants.Add(storedName);
+        }
+
+        return variants;
+    }
+
+    private async Task<List<string>> CollectDistinctStoredDoctorNamesAsync(Guid clinicId)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(IEnumerable<string?> source)
+        {
+            foreach (var name in source)
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name.Trim());
+            }
+        }
+
+        Add(await _db.Patients.Where(p => p.ClinicId == clinicId).Select(p => p.DoctorName).ToListAsync());
+        Add(await _db.Invoices.Where(i => i.ClinicId == clinicId).Select(i => i.DoctorName).ToListAsync());
+        Add(await _db.LabRequests.Where(r => r.ClinicId == clinicId).Select(r => r.DoctorName).ToListAsync());
+        Add(await _db.LabResults.Where(r => r.ClinicId == clinicId).Select(r => r.DoctorName).ToListAsync());
+        Add(await _db.RadiologyRequests.Where(r => r.ClinicId == clinicId).Select(r => r.DoctorName).ToListAsync());
+        Add(await _db.RadiologyResults.Where(r => r.ClinicId == clinicId).Select(r => r.DoctorName).ToListAsync());
+        Add(await _db.PharmacyRequests.Where(r => r.ClinicId == clinicId).Select(r => r.DoctorName).ToListAsync());
+        Add(await _db.PharmacyBills.Where(b => b.ClinicId == clinicId).Select(b => b.DoctorName).ToListAsync());
+        Add(await _db.CashReceipts.Where(r => r.ClinicId == clinicId).Select(r => r.DoctorName).ToListAsync());
+        Add(await _db.CashPayments.Where(p => p.ClinicId == clinicId).Select(p => p.DoctorName).ToListAsync());
+        Add(await _db.Prescriptions.Where(p => p.ClinicId == clinicId).Select(p => p.DoctorName).ToListAsync());
+        Add(await _db.ServiceIncomeRequests.Where(r => r.ClinicId == clinicId).Select(r => r.DoctorName).ToListAsync());
+        Add(await _db.Appointments.Where(a => a.ClinicId == clinicId).Select(a => a.DoctorName).ToListAsync());
+        Add(await _db.JournalEntries.Where(j => j.ClinicId == clinicId).Select(j => j.DoctorName).ToListAsync());
+
+        return names.ToList();
+    }
+
+    private static bool UpdateDoctorRows<T>(
+        IList<T> rows,
+        Guid doctorId,
+        ISet<string> variants,
+        Action<T, string, string?, DateTime> apply,
+        string newName,
+        string? specialty,
+        DateTime now)
+    {
+        var changed = false;
+        foreach (var row in rows)
+        {
+            var recordId = row switch
+            {
+                Patient p => p.DoctorRecordId,
+                LabRequest r => r.DoctorRecordId,
+                LabResult r => r.DoctorRecordId,
+                RadiologyRequest r => r.DoctorRecordId,
+                RadiologyResult r => r.DoctorRecordId,
+                PharmacyRequest r => r.DoctorRecordId,
+                PharmacyBill b => b.DoctorRecordId,
+                CashReceipt r => r.DoctorRecordId,
+                CashPayment p => p.DoctorRecordId,
+                Prescription p => p.DoctorRecordId,
+                ServiceIncomeRequest r => r.DoctorRecordId,
+                Appointment a => a.DoctorRecordId,
+                _ => null
+            };
+
+            var doctorName = row switch
+            {
+                Patient p => p.DoctorName,
+                LabRequest r => r.DoctorName,
+                LabResult r => r.DoctorName,
+                RadiologyRequest r => r.DoctorName,
+                RadiologyResult r => r.DoctorName,
+                PharmacyRequest r => r.DoctorName,
+                PharmacyBill b => b.DoctorName,
+                CashReceipt r => r.DoctorName,
+                CashPayment p => p.DoctorName,
+                Prescription p => p.DoctorName,
+                ServiceIncomeRequest r => r.DoctorName,
+                Appointment a => a.DoctorName,
+                _ => null
+            };
+
+            if (!DoctorNameMatcher.ShouldUpdateDoctor(recordId, doctorName, doctorId, variants))
+                continue;
+
+            apply(row, newName, specialty, now);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private async Task PropagateJournalDoctorNamesAsync(Guid clinicId, HashSet<string> variants, string newName)
+    {
+        var now = DateTime.UtcNow;
+        var entries = await _db.JournalEntries
+            .ForClinic(clinicId)
+            .Where(j => j.DoctorName != null)
+            .ToListAsync();
+
+        var changed = false;
+        foreach (var entry in entries)
+        {
+            if (!variants.Contains(entry.DoctorName!.Trim()))
+                continue;
+
+            entry.DoctorName = newName;
+            entry.UpdatedAt = now;
+            changed = true;
+        }
+
+        if (changed)
+            await _db.SaveChangesAsync();
+    }
+
+    private async Task PropagateConsultationFeeAsync(Guid clinicId, Doctor doctor, HashSet<string> variants)
     {
         var invoices = await _db.Invoices
             .Include(i => i.Lines)
-            .Where(i => i.ClinicId == clinicId && i.DoctorName == doctor.Name)
+            .Where(i => i.ClinicId == clinicId)
             .ToListAsync();
+
+        invoices = invoices.Where(i =>
+            i.DoctorRecordId == doctor.Id ||
+            (i.DoctorName != null && variants.Contains(i.DoctorName.Trim()))).ToList();
 
         foreach (var invoice in invoices)
         {

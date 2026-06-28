@@ -66,12 +66,19 @@ public sealed class DoctorReportService
             .Where(p => p.PaymentDate >= from && p.PaymentDate <= to)
             .ToListAsync();
 
+        var doctors = await _db.Doctors.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var demographics = new ClinicalDemographicsSyncService(_db);
+
         var rows = new List<DoctorReportRow>();
         foreach (var p in patients)
         {
+            var liveDoctor = demographics.ResolveDoctorFromList(doctors, p.DoctorRecordId, p.DoctorName);
+            var displayDoctorName = liveDoctor?.Name ?? p.DoctorName ?? "";
+            var displaySpecialty = liveDoctor?.Specialty ?? p.Specialty ?? "";
+
             var matchedInvoices = invoices.Where(i =>
                 MatchesPatient(i.PatientId, i.PatientName, p) &&
-                DoctorMatches(i.DoctorName, p.DoctorName)).ToList();
+                DoctorMatches(i.DoctorName, p.DoctorName, i.DoctorRecordId, p.DoctorRecordId)).ToList();
 
             var invoiceAmount = matchedInvoices.Sum(i => i.TotalAmount);
             var consultationFee = matchedInvoices
@@ -84,15 +91,15 @@ public sealed class DoctorReportService
 
             var cashReceipt = receipts.Where(r =>
                 MatchesPatient(r.PatientId, r.PatientName, p) &&
-                DoctorMatches(r.DoctorName, p.DoctorName)).Sum(r => r.Amount);
+                DoctorMatches(r.DoctorName, p.DoctorName, r.DoctorRecordId, p.DoctorRecordId)).Sum(r => r.Amount);
 
             var cashPayment = payments.Where(pay =>
                 MatchesPatient(pay.PatientId, pay.PayeeName, p) &&
-                DoctorMatches(pay.DoctorName, p.DoctorName)).Sum(pay => pay.Amount);
+                DoctorMatches(pay.DoctorName, p.DoctorName, pay.DoctorRecordId, p.DoctorRecordId)).Sum(pay => pay.Amount);
 
             rows.Add(new DoctorReportRow(
-                p.DoctorName ?? "",
-                p.Specialty ?? "",
+                displayDoctorName,
+                displaySpecialty,
                 p.FullName,
                 consultationFee,
                 p.Phone ?? "",
@@ -114,13 +121,16 @@ public sealed class DoctorReportService
         return rows;
     }
 
-    private static bool DoctorMatches(string? recordDoctor, string? patientDoctor)
+    private static bool DoctorMatches(string? recordDoctor, string? patientDoctor, Guid? recordDoctorId, Guid? patientDoctorId)
     {
+        if (recordDoctorId is Guid left && patientDoctorId is Guid right && left == right)
+            return true;
+
         if (string.IsNullOrWhiteSpace(recordDoctor) || string.IsNullOrWhiteSpace(patientDoctor))
             return string.IsNullOrWhiteSpace(recordDoctor) && string.IsNullOrWhiteSpace(patientDoctor);
+
         return string.Equals(recordDoctor.Trim(), patientDoctor.Trim(), StringComparison.OrdinalIgnoreCase)
-            || recordDoctor.Contains(patientDoctor, StringComparison.OrdinalIgnoreCase)
-            || patientDoctor.Contains(recordDoctor, StringComparison.OrdinalIgnoreCase);
+            || DoctorNameMatcher.NamesReferToSameDoctor(recordDoctor, patientDoctor);
     }
 
     private static bool MatchesPatient(string? barcode, string? name, Patient patient)

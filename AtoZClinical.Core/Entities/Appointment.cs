@@ -10,6 +10,7 @@ public class Appointment : IClinicScoped
     public DateTime AppointmentDate { get; set; }
     public TimeSpan StartTime { get; set; }
     public TimeSpan? EndTime { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public string? DoctorName { get; set; }
     public string? Department { get; set; }
     public string? Reason { get; set; }

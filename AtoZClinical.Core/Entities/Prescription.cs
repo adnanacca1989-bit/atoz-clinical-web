@@ -8,6 +8,7 @@ public class Prescription : IClinicScoped
     public string? PatientName { get; set; }
     public int? Age { get; set; }
     public string? Gender { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public string? DoctorName { get; set; }
     public string? Specialty { get; set; }
     public DateTime DatePrescription { get; set; } = DateTime.Today;

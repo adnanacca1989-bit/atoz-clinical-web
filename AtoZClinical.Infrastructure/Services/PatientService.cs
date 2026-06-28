@@ -14,13 +14,16 @@ public sealed class PatientService
     private readonly IWebhookDispatchService _webhooks;
     private readonly AuditService _audit;
 
+    private readonly ClinicalDemographicsSyncService _demographics;
+
     public PatientService(
         ClinicalDbContext db,
         MasterDataPropagationService propagation,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
         IWebhookDispatchService webhooks,
-        AuditService audit)
+        AuditService audit,
+        ClinicalDemographicsSyncService demographics)
     {
         _db = db;
         _propagation = propagation;
@@ -28,6 +31,7 @@ public sealed class PatientService
         _visitStatus = visitStatus;
         _webhooks = webhooks;
         _audit = audit;
+        _demographics = demographics;
     }
 
     private IQueryable<Patient> ForClinic(Guid clinicId) => _db.Patients.ForClinic(clinicId);
@@ -117,6 +121,7 @@ public sealed class PatientService
         patient.ClinicId = clinicId;
         patient.UpdatedAt = DateTime.UtcNow;
         patient.UpdatedBy = userName;
+        await _demographics.LinkPatientDoctorAsync(clinicId, patient);
 
         if (isNew)
         {

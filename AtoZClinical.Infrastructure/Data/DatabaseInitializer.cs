@@ -38,6 +38,8 @@ public static class DatabaseInitializer
         await EnsureVendorPaymentSchemaAsync(db, logger);
         await EnsureJournalEntryNamesSchemaAsync(db, logger);
         await EnsureInvoiceRecordLinkSchemaAsync(db, logger);
+        await EnsureDoctorRecordLinkSchemaAsync(db, logger);
+        await BackfillDoctorRecordLinksAsync(db, scope.ServiceProvider, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -696,6 +698,59 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Journal entry name columns verification skipped.");
+        }
+    }
+
+    private static async Task EnsureDoctorRecordLinkSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "LabRequests" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "LabResults" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "RadiologyRequests" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "RadiologyResults" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "PharmacyRequests" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "PharmacyBills" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "CashReceipts" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "CashPayments" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "Prescriptions" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "ServiceIncomeRequests" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                ALTER TABLE "Appointments" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                """);
+
+            logger.LogInformation("Doctor record link columns verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Doctor record link columns verification skipped.");
+        }
+    }
+
+    private static async Task BackfillDoctorRecordLinksAsync(
+        ClinicalDbContext db,
+        IServiceProvider services,
+        ILogger logger)
+    {
+        try
+        {
+            await DoctorRecordLinkBackfill.BackfillAsync(db);
+
+            var propagation = services.GetRequiredService<MasterDataPropagationService>();
+            var clinicIds = await db.Clinics.AsNoTracking().Select(c => c.Id).ToListAsync();
+            foreach (var clinicId in clinicIds)
+                await propagation.SyncAllDoctorLinkedRowsAsync(clinicId);
+
+            logger.LogInformation("Doctor record links backfilled and synced.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Doctor record link backfill skipped.");
         }
     }
 

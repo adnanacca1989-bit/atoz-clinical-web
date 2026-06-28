@@ -91,6 +91,9 @@ public class PatientHistoryModel : PageModel
 
         _matchedPatients = patients;
 
+        var doctors = await _db.Doctors.Where(d => d.ClinicId == clinicId).AsNoTracking().ToListAsync();
+        var demographics = new ClinicalDemographicsSyncService(_db);
+
         if (patients.Count == 1)
         {
             var p = patients[0];
@@ -107,79 +110,84 @@ public class PatientHistoryModel : PageModel
         string DisplayPatientName(string? storedName, string? storedBarcode) =>
             ResolveLivePatient(storedName, storedBarcode)?.FullName ?? storedName ?? "";
 
-        string DisplayDoctorName(string? storedDoctor, string? storedName, string? storedBarcode) =>
-            ResolveLivePatient(storedName, storedBarcode)?.DoctorName ?? storedDoctor ?? "";
+        string DisplayDoctorName(string? storedDoctor, Guid? doctorRecordId, string? storedName, string? storedBarcode) =>
+            demographics.ResolveDoctorFromList(doctors, doctorRecordId, storedDoctor)?.Name
+            ?? ResolveLivePatient(storedName, storedBarcode)?.DoctorName
+            ?? storedDoctor ?? "";
 
         foreach (var p in patients)
-            Results.Add(new HistoryRow(p.FullName, "Patient Registration", p.UpdatedAt, p.DoctorName ?? "", $"Status: {p.Status}"));
+        {
+            var doctorName = DisplayDoctorName(p.DoctorName, p.DoctorRecordId, p.FullName, p.PatientNo);
+            Results.Add(new HistoryRow(p.FullName, "Patient Registration", p.UpdatedAt, doctorName, $"Status: {p.Status}"));
+        }
 
         foreach (var rx in await _db.Prescriptions.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(rx.PatientName, null) && MatchDoctor(rx.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(rx.PatientName, null), "Doctor's Prescription", rx.DatePrescription,
-                    DisplayDoctorName(rx.DoctorName, rx.PatientName, null), rx.DiseaseName ?? rx.DiagnosisText));
+                    DisplayDoctorName(rx.DoctorName, rx.DoctorRecordId, rx.PatientName, null), rx.DiseaseName ?? rx.DiagnosisText));
 
         foreach (var inv in await _db.Invoices.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(inv.PatientName, inv.PatientId) && MatchDoctor(inv.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(inv.PatientName, inv.PatientId), "Invoice / Billing", inv.InvoiceDate,
-                    DisplayDoctorName(inv.DoctorName, inv.PatientName, inv.PatientId),
+                    DisplayDoctorName(inv.DoctorName, inv.DoctorRecordId, inv.PatientName, inv.PatientId),
                     $"Total {inv.TotalAmount:N2}, Paid {inv.AmountPaid:N2}, Balance {inv.BalanceDue:N2}"));
 
         foreach (var lr in await _db.LabRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(lr.PatientName, lr.PatientBarcode) && MatchDoctor(lr.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(lr.PatientName, lr.PatientBarcode), "Laboratory Request", lr.RequestDate,
-                    DisplayDoctorName(lr.DoctorName, lr.PatientName, lr.PatientBarcode), $"Request #{lr.RequestNo}, Total {lr.TotalAmount:N2}"));
+                    DisplayDoctorName(lr.DoctorName, lr.DoctorRecordId, lr.PatientName, lr.PatientBarcode), $"Request #{lr.RequestNo}, Total {lr.TotalAmount:N2}"));
 
         foreach (var lr in await _db.LabResults.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(lr.PatientName, null) && MatchDoctor(lr.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(lr.PatientName, null), "Laboratory Result", lr.ResultDate,
-                    DisplayDoctorName(lr.DoctorName, lr.PatientName, null), $"Result #{lr.ResultNo}"));
+                    DisplayDoctorName(lr.DoctorName, lr.DoctorRecordId, lr.PatientName, null), $"Result #{lr.ResultNo}"));
 
         foreach (var rr in await _db.RadiologyRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(rr.PatientName, rr.PatientBarcode) && MatchDoctor(rr.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(rr.PatientName, rr.PatientBarcode), "Radiology Request", rr.RequestDate,
-                    DisplayDoctorName(rr.DoctorName, rr.PatientName, rr.PatientBarcode), $"Request #{rr.RequestNo}, Total {rr.TotalAmount:N2}"));
+                    DisplayDoctorName(rr.DoctorName, rr.DoctorRecordId, rr.PatientName, rr.PatientBarcode), $"Request #{rr.RequestNo}, Total {rr.TotalAmount:N2}"));
 
         foreach (var rr in await _db.RadiologyResults.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(rr.PatientName, null) && MatchDoctor(rr.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(rr.PatientName, null), "Radiology Result", rr.ResultDate,
-                    DisplayDoctorName(rr.DoctorName, rr.PatientName, null), $"Result #{rr.ResultNo}"));
+                    DisplayDoctorName(rr.DoctorName, rr.DoctorRecordId, rr.PatientName, null), $"Result #{rr.ResultNo}"));
 
         foreach (var pr in await _db.PharmacyRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(pr.PatientName, pr.PatientId) && MatchDoctor(pr.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(pr.PatientName, pr.PatientId), "Pharmacy Request", pr.RequestDate,
-                    DisplayDoctorName(pr.DoctorName, pr.PatientName, pr.PatientId), $"Request #{pr.RequestNo}, Total {pr.TotalAmount:N2}"));
+                    DisplayDoctorName(pr.DoctorName, pr.DoctorRecordId, pr.PatientName, pr.PatientId), $"Request #{pr.RequestNo}, Total {pr.TotalAmount:N2}"));
 
         foreach (var pb in await _db.PharmacyBills.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(pb.PatientName, pb.PatientId) && MatchDoctor(pb.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(pb.PatientName, pb.PatientId), "Pharmacy Bill", pb.BillDate,
-                    DisplayDoctorName(pb.DoctorName, pb.PatientName, pb.PatientId), $"Bill #{pb.BillNo}, Total {pb.TotalAmount:N2}"));
+                    DisplayDoctorName(pb.DoctorName, pb.DoctorRecordId, pb.PatientName, pb.PatientId), $"Bill #{pb.BillNo}, Total {pb.TotalAmount:N2}"));
 
         foreach (var sir in await _db.ServiceIncomeRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(sir.PatientName, sir.PatientBarcode) && MatchDoctor(sir.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(sir.PatientName, sir.PatientBarcode), "Service Income Request", sir.RequestDate,
-                    DisplayDoctorName(sir.DoctorName, sir.PatientName, sir.PatientBarcode),
+                    DisplayDoctorName(sir.DoctorName, sir.DoctorRecordId, sir.PatientName, sir.PatientBarcode),
                     $"Request #{sir.RequestNo}, Total {sir.TotalAmount:N2}"));
 
         foreach (var cr in await _db.CashReceipts.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(cr.PatientName, cr.PatientId) && MatchDoctor(cr.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(cr.PatientName, cr.PatientId), "Cash Receipt", cr.ReceiptDate,
-                    DisplayDoctorName(cr.DoctorName, cr.PatientName, cr.PatientId), $"Amount {cr.Amount:N2}"));
+                    DisplayDoctorName(cr.DoctorName, cr.DoctorRecordId, cr.PatientName, cr.PatientId), $"Amount {cr.Amount:N2}"));
 
         foreach (var cp in await _db.CashPayments.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(cp.PayeeName, cp.PatientId) && MatchDoctor(cp.DoctorName))
                 Results.Add(new HistoryRow(
                     DisplayPatientName(cp.PayeeName, cp.PatientId), "Cash Payment", cp.PaymentDate,
-                    DisplayDoctorName(cp.DoctorName, cp.PayeeName, cp.PatientId), $"Amount {cp.Amount:N2}"));
+                    DisplayDoctorName(cp.DoctorName, cp.DoctorRecordId, cp.PayeeName, cp.PatientId), $"Amount {cp.Amount:N2}"));
 
         Results = Results.OrderByDescending(r => r.Date).ToList();
 
