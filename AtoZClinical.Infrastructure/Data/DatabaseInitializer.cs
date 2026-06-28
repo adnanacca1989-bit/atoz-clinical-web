@@ -125,7 +125,7 @@ public static class DatabaseInitializer
         }
 
         await BackfillRolePermissionsAsync(db, clinicId, logger);
-        await EnsureStandardRolePermissionsAsync(db, clinicId, logger, audit);
+        await RolePermissionBootstrap.EnsureClinicRolesAsync(db, clinicId, logger, audit);
 
         if (!await db.ClinicConfigurations.AnyAsync(c => c.ClinicId == clinicId))
         {
@@ -465,46 +465,6 @@ public static class DatabaseInitializer
 
         if (added > 0)
             logger?.LogInformation("Backfilled {Count} role permission(s) for clinic {ClinicId}.", added, clinicId);
-    }
-
-    private static async Task EnsureStandardRolePermissionsAsync(
-        ClinicalDbContext db,
-        Guid clinicId,
-        ILogger? logger,
-        AuditService? audit)
-    {
-        foreach (var roleName in RolePermissionDefaults.ByRole.Keys)
-        {
-            if (await db.RolePermissions.AnyAsync(r => r.ClinicId == clinicId && r.RoleName == roleName))
-                continue;
-
-            var visibleCount = 0;
-            foreach (var seed in RolePermissionDefaults.SeedsForRole(roleName))
-            {
-                if (seed.IsVisible) visibleCount++;
-                db.RolePermissions.Add(new RolePermission
-                {
-                    ClinicId = clinicId,
-                    RoleName = roleName,
-                    FormKey = seed.FormKey,
-                    IsVisible = seed.IsVisible
-                });
-            }
-
-            logger?.LogInformation(
-                "Seeded default {Role} role permissions for clinic {ClinicId} ({VisibleCount} visible forms).",
-                roleName, clinicId, visibleCount);
-
-            if (audit is not null)
-            {
-                await audit.LogAsync(
-                    clinicId,
-                    "system",
-                    "Role Permissions",
-                    "Seed Defaults",
-                    $"Seeded default permissions for role {roleName} ({visibleCount} visible forms).");
-            }
-        }
     }
 
     private static async Task EnsureServiceIncomeRequestSchemaAsync(ClinicalDbContext db, ILogger logger)

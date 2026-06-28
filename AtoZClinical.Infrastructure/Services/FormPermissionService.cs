@@ -1,4 +1,5 @@
 using AtoZClinical.Core.Enums;
+using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -25,23 +26,39 @@ public sealed class FormPermissionService
     }
 
     public Task<HashSet<string>> GetVisibleFormsAsync(Guid clinicId, string roleName) =>
-        _cache.GetOrCreateAsync(ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName), async () =>
+        _cache.GetOrCreateAsync(ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName), () =>
+            LoadVisibleFormsAsync(clinicId, roleName));
+
+    private async Task<HashSet<string>> LoadVisibleFormsAsync(Guid clinicId, string roleName)
+    {
+        var visible = await BuildVisibleSetAsync(clinicId, roleName);
+        if (visible.Count == 0)
         {
-            var configured = await LoadConfiguredPermissionsAsync(clinicId, roleName);
+            var repaired = await RolePermissionBootstrap.TryRepairAsync(_db, _cache, clinicId, roleName);
+            if (repaired)
+                visible = await BuildVisibleSetAsync(clinicId, roleName);
+        }
 
-            if (configured.Count == 0)
-            {
-                if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-                    return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
+        return visible;
+    }
 
-                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            }
+    private async Task<HashSet<string>> BuildVisibleSetAsync(Guid clinicId, string roleName)
+    {
+        var configured = await LoadConfiguredPermissionsAsync(clinicId, roleName);
 
-            return configured
-                .Where(r => r.IsVisible)
-                .Select(r => r.FormKey)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        });
+        if (configured.Count == 0)
+        {
+            if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
+
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return configured
+            .Where(r => r.IsVisible)
+            .Select(r => r.FormKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
 
     private async Task<List<Core.Entities.RolePermission>> LoadConfiguredPermissionsAsync(Guid clinicId, string roleName)
     {
