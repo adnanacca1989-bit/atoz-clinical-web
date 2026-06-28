@@ -25,6 +25,27 @@ main:has(.clinical-form-page) {
     flex-direction: column;
 }
 
+/* Toolbar sits directly below form body (same as Lab/Radiology Registration) */
+.clinical-form-expanded form .clinical-form-body {
+    flex: 0 0 auto;
+}
+
+.clinical-form-page .clinical-toolbar {
+    margin: 0.5rem 0.5rem 0;
+    position: relative;
+    bottom: auto;
+}
+
+.clinical-form-page .clinical-form-meta-bar,
+.clinical-form-page .clinical-form-mode-banner,
+.clinical-form-page .clinical-form-success-alert {
+    margin: 0 0.5rem 0.25rem;
+}
+
+.clinical-form-page .clinical-form-footer {
+    margin: 0 0.5rem 1rem;
+}
+
 .clinical-form-body {
     display: grid;
     grid-template-columns: 1fr 340px;
@@ -1292,7 +1313,7 @@ main:has(.clinical-form-page) {
 
 .clinical-his-compact .clinical-toolbar {
     padding: 0.4rem 0.5rem 0.35rem;
-    margin: 0 0.35rem 0;
+    margin: 0.5rem 0.35rem 0;
     gap: 0.25rem;
 }
 
@@ -1563,6 +1584,32 @@ main:has(.clinical-form-page) {
     min-height: 220px;
 }
 
+/* Line-grid forms: scroll inside table area, toolbar stays below form body */
+.clinical-form-expanded.clinical-standard-form .clinical-form-left:has(.clinical-form-grid-area),
+.clinical-form-expanded.prescription-his-layout .clinical-form-left.prescription-clinical-block {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.clinical-form-expanded.clinical-standard-form .clinical-form-grid-area,
+.clinical-form-expanded .prescription-medication-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.clinical-form-expanded.clinical-standard-form .clinical-line-grid-scroll,
+.clinical-form-expanded .prescription-medication-scroll {
+    flex: 1 1 auto;
+    min-height: 10rem;
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+}
+
 /* Prescription HIS layout */
 .prescription-his-layout .clinical-form-body {
     grid-template-columns: 1fr 240px;
@@ -1817,279 +1864,4 @@ main:has(.clinical-form-page) {
     font-size: 0.85rem;
     font-weight: 600;
     border-radius: 4px;
-}
-
-/* ——— ERP viewport layout: fill screen height, sticky toolbar, internal table scroll ——— */
-
-.clinical-form-erp-layout {
-    display: flex;
-    flex-direction: column;
-    min-height: calc(100dvh - 8.5rem);
-    max-height: calc(100dvh - 8.5rem);
-    margin: -0.25rem -0.5rem 0;
-    padding: 0 0 0.15rem;
-    overflow: hidden;
-    box-sizing: border-box;
-}
-
-.clinical-form-erp-layout.clinical-form-expanded .clinical-form-body {
-    min-height: 0 !important;
-    max-height: none !important;
-}
-
-.clinical-form-erp-layout.clinical-form-expanded .clinical-form-left {
-    min-height: 0 !important;
-}
-
-.clinical-form-erp-layout.clinical-form-expanded .clinical-record-grid {
-    max-height: none !important;
-}
-
-.clinical-form-erp-layout.clinical-form-expanded .clinical-form-fields-scroll {
-    min-height: 0 !important;
-    max-height: none !important;
-}
-
-.clinical-form-erp-layout > .page-title {
-    flex-shrink: 0;
-    padding: 0.3rem 0.65rem 0.2rem;
-    font-size: 1.1rem;
-}
-
-.clinical-form-erp-layout > .validation-summary-errors,
-.clinical-form-erp-layout form > .validation-summary-errors,
-.clinical-form-erp-layout > .clinical-form-hint,
-.clinical-form-erp-layout form > .clinical-form-hint,
-.clinical-form-erp-layout > .clinical-form-hint-details {
-    flex-shrink: 0;
-    margin-bottom: 0.25rem !important;
-    padding: 0.35rem 0.6rem !important;
-}
-
-.clinical-form-erp-layout > form {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.clinical-form-erp-layout .clinical-form-body {
-    flex: 1 1 auto;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: hidden;
-    padding: 0 0.35rem;
-}
-
-.clinical-form-erp-layout.clinical-form-expanded .clinical-form-body,
-.clinical-form-erp-layout.clinical-his-compact .clinical-form-body,
-.clinical-form-erp-layout.clinical-standard-form .clinical-form-body {
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: hidden !important;
-}
-
-.clinical-form-erp-layout .clinical-form-left {
-    min-height: 0 !important;
-    max-height: none !important;
-    padding: 0.4rem 0.6rem;
-    gap: 0.25rem;
-    overflow: hidden;
-}
-
-.clinical-form-erp-layout .clinical-form-right {
-    min-height: 0 !important;
-    overflow: hidden;
-}
-
-.clinical-form-erp-layout .clinical-form-left > .row.g-3,
-.clinical-form-erp-layout .clinical-form-left > .clinical-form-header-fields > .row.g-3 {
-    --bs-gutter-y: 0.45rem;
-    --bs-gutter-x: 0.65rem;
-    flex-shrink: 0;
-}
-
-.clinical-form-erp-layout .clinical-form-left > .row.g-3 .clinical-field-label,
-.clinical-form-erp-layout .clinical-field-label {
-    margin-bottom: 0.1rem;
-    font-size: 0.76rem;
-}
-
-.clinical-form-erp-layout .clinical-form-left > .row.g-3 .clinical-field,
-.clinical-form-erp-layout .clinical-form-fields-scroll .clinical-field {
-    padding: 0.28rem 0.45rem;
-    font-size: 0.85rem;
-}
-
-.clinical-form-erp-layout .clinical-form-fields-scroll {
-    flex: 1 1 auto;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    padding-right: 0.2rem;
-    scrollbar-gutter: stable;
-}
-
-.clinical-form-erp-layout .clinical-form-left.clinical-form-scroll:not(:has(.clinical-form-grid-area)):not(.prescription-clinical-block) {
-    flex: 1 1 auto;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.clinical-form-erp-layout .clinical-form-left:has(.clinical-form-grid-area),
-.clinical-form-erp-layout .clinical-form-left.prescription-clinical-block {
-    overflow: hidden !important;
-    display: flex;
-    flex-direction: column;
-}
-
-.clinical-form-erp-layout .clinical-form-left:not(:has(.clinical-form-grid-area)):not(:has(.prescription-medication-area)) {
-    overflow-y: auto;
-}
-
-.clinical-form-erp-layout .clinical-form-grid-area {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.clinical-form-erp-layout .clinical-form-grid-area > .line-grid-scroll,
-.clinical-form-erp-layout .clinical-form-grid-area > .clinical-line-grid-scroll,
-.clinical-form-erp-layout .clinical-line-grid-scroll,
-.clinical-form-erp-layout .line-grid-scroll {
-    flex: 1 1 auto;
-    min-height: 8rem !important;
-    max-height: none !important;
-    height: auto !important;
-    overflow-y: auto !important;
-    overflow-x: auto;
-    margin-bottom: 0;
-}
-
-.clinical-form-erp-layout.clinical-standard-form .clinical-line-grid-scroll {
-    flex: 1 1 auto !important;
-    min-height: 8rem !important;
-    max-height: none !important;
-}
-
-.clinical-form-erp-layout .clinical-form-totals-section,
-.clinical-form-erp-layout .clinical-grand-total-row,
-.clinical-form-erp-layout .section-caption {
-    flex-shrink: 0;
-    margin-bottom: 0.25rem;
-}
-
-.clinical-form-erp-layout .clinical-form-meta-bar,
-.clinical-form-erp-layout .clinical-form-mode-banner,
-.clinical-form-erp-layout .clinical-form-success-alert {
-    flex-shrink: 0;
-    margin: 0 0.35rem 0.2rem !important;
-    padding: 0.3rem 0.55rem;
-}
-
-.clinical-form-erp-layout .clinical-toolbar {
-    flex-shrink: 0;
-    margin: 0 0.35rem 0 !important;
-    padding: 0.35rem 0.5rem !important;
-    border-top: 2px solid #b0b0b0;
-    background: #ececec;
-    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.08);
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-}
-
-.clinical-form-erp-layout .clinical-toolbar .btn-form {
-    padding: 0.3rem 0.6rem;
-    min-height: 1.85rem;
-    font-size: 0.8rem;
-}
-
-.clinical-form-erp-layout .clinical-form-footer {
-    flex-shrink: 0;
-    margin: 0 0.35rem 0 !important;
-    padding: 0.3rem 0.65rem !important;
-    font-size: 0.7rem;
-}
-
-.clinical-form-erp-layout .clinical-record-grid,
-.clinical-form-erp-layout .clinical-record-grid-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: none !important;
-    overflow: auto;
-}
-
-.clinical-form-erp-layout.clinical-form-expanded .clinical-record-grid,
-.clinical-form-erp-layout.prescription-his-layout .clinical-record-grid {
-    max-height: none !important;
-}
-
-.clinical-form-erp-layout .clinical-context-strip {
-    margin-bottom: 0.2rem;
-    padding: 0.3rem 0.45rem;
-}
-
-.clinical-form-erp-layout.prescription-his-layout .clinical-form-left {
-    overflow: hidden;
-}
-
-.clinical-form-erp-layout .prescription-clinical-block {
-    gap: 0.2rem;
-}
-
-.clinical-form-erp-layout .prescription-chronic-scroll {
-    flex-shrink: 0;
-    max-height: 4.5rem;
-    min-height: 3rem;
-    overflow-y: auto;
-}
-
-.clinical-form-erp-layout .prescription-diagnosis-block {
-    flex-shrink: 0;
-}
-
-.clinical-form-erp-layout .prescription-diagnosis-block textarea {
-    min-height: 2.75rem;
-    max-height: 4rem;
-}
-
-.clinical-form-erp-layout .prescription-medication-area {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.clinical-form-erp-layout .prescription-medication-scroll {
-    flex: 1 1 auto;
-    min-height: 8rem !important;
-    max-height: none !important;
-    overflow: auto;
-}
-
-@media (max-width: 992px) {
-    .clinical-form-erp-layout {
-        min-height: auto;
-        max-height: none;
-        overflow: visible;
-    }
-
-    .clinical-form-erp-layout .clinical-form-body {
-        max-height: none !important;
-        overflow: visible;
-    }
-
-    .clinical-form-erp-layout .clinical-toolbar {
-        position: relative;
-    }
 }
