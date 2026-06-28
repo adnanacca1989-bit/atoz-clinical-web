@@ -11,7 +11,7 @@
         <div class="row g-3 mb-3">
             <div class="col-md-3">
                 <label class="clinical-field-label">Role</label>
-                <select asp-for="UserRole" class="clinical-field" onchange="location.href='?role=' + encodeURIComponent(this.value);">
+                <select asp-for="UserRole" id="responsibilityRoleSelect" class="clinical-field">
                     @foreach (var role in ResponsibilitiesModel.Roles)
                     {
                         <option value="@role">@role</option>
@@ -20,7 +20,7 @@
             </div>
             <div class="col-md-4">
                 <label class="clinical-field-label">Username (assign role on save)</label>
-                <select asp-for="SelectedUserId" class="clinical-field" onchange="if(this.value) location.href='?userId=' + encodeURIComponent(this.value);">
+                <select asp-for="SelectedUserId" id="responsibilityUserSelect" class="clinical-field">
                     <option value="">-- Select user --</option>
                     @foreach (var u in Model.ClinicUsers)
                     {
@@ -58,3 +58,21 @@
         </div>
     </form>
 </div>
+<script>
+    (function () {
+        const roleSelect = document.getElementById('responsibilityRoleSelect');
+        const userSelect = document.getElementById('responsibilityUserSelect');
+        if (!roleSelect || !userSelect) return;
+
+        const buildUrl = () => {
+            const params = new URLSearchParams();
+            if (roleSelect.value) params.set('role', roleSelect.value);
+            if (userSelect.value) params.set('userId', userSelect.value);
+            const query = params.toString();
+            return query ? '?' + query : window.location.pathname;
+        };
+
+        roleSelect.addEventListener('change', () => { window.location.href = buildUrl(); });
+        userSelect.addEventListener('change', () => { window.location.href = buildUrl(); });
+    })();
+</script>

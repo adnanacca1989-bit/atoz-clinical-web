@@ -103,6 +103,12 @@ public class UsersModel : SettingsFormPageModel
                 await LoadAsync(clinicId.Value);
                 return Page();
             }
+            if (Input.Role == ClinicUserRole.Doctor && Input.DoctorRecordId is null)
+            {
+                ModelState.AddModelError(string.Empty, "Select the doctor name and specialty for a Doctor user.");
+                await LoadAsync(clinicId.Value);
+                return Page();
+            }
             try
             {
                 var (_, _) = await _vendor.CreateClinicUserAsync(new CreateClinicUserRequest
@@ -113,7 +119,8 @@ public class UsersModel : SettingsFormPageModel
                     FullName = Input.FullName,
                     Email = Input.Email,
                     Password = Input.Password,
-                    Role = Input.Role
+                    Role = Input.Role,
+                    DoctorRecordId = Input.Role == ClinicUserRole.Doctor ? Input.DoctorRecordId : null
                 });
                 var created = await _users.FindByNameAsync(Input.Username);
                 if (SaveMode == "New")
@@ -130,6 +137,13 @@ public class UsersModel : SettingsFormPageModel
 
         var user = await _users.FindByIdAsync(UserRecordId!);
         if (user is null || user.ClinicId != clinicId) return RedirectToPage();
+        if (Input.Role == ClinicUserRole.Doctor && Input.DoctorRecordId is null)
+        {
+            ModelState.AddModelError(string.Empty, "Select the doctor name and specialty for a Doctor user.");
+            await LoadAsync(clinicId.Value);
+            await LoadRecord(clinicId.Value, UserRecordId!);
+            return Page();
+        }
         user.FullName = Input.FullName.Trim();
         user.Email = Input.Email?.Trim();
         user.ClinicRole = Input.Role;

@@ -27,19 +27,39 @@ public sealed class FormPermissionService
     public Task<HashSet<string>> GetVisibleFormsAsync(Guid clinicId, string roleName) =>
         _cache.GetOrCreateAsync(ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName), async () =>
         {
-            var configured = await _db.RolePermissions
-                .AsNoTracking()
-                .Where(r => r.ClinicId == clinicId && r.RoleName == roleName)
-                .ToListAsync();
+            var configured = await LoadConfiguredPermissionsAsync(clinicId, roleName);
 
             if (configured.Count == 0)
-                return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
+            {
+                if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                    return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
+
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
 
             return configured
                 .Where(r => r.IsVisible)
                 .Select(r => r.FormKey)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         });
+
+    private async Task<List<Core.Entities.RolePermission>> LoadConfiguredPermissionsAsync(Guid clinicId, string roleName)
+    {
+        var configured = await _db.RolePermissions
+            .AsNoTracking()
+            .Where(r => r.ClinicId == clinicId && r.RoleName == roleName)
+            .ToListAsync();
+
+        if (configured.Count == 0 && roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+        {
+            configured = await _db.RolePermissions
+                .AsNoTracking()
+                .Where(r => r.ClinicId == clinicId && r.RoleName == ClinicalRoles.ClinicAdmin)
+                .ToListAsync();
+        }
+
+        return configured;
+    }
 
     public static string? ResolveFormKeyFromPath(string? path)
     {

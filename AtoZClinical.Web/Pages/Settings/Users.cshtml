@@ -50,12 +50,15 @@
                         </select>
                     </div>
                     <div class="col-md-4" id="doctorLinkField" style="@(Model.Input.Role == ClinicUserRole.Doctor ? "" : "display:none")">
-                        <label class="clinical-field-label">Linked Doctor</label>
+                        <label class="clinical-field-label">Linked Doctor (name &amp; specialty)</label>
                         <select asp-for="Input.DoctorRecordId" class="clinical-field">
                             <option value="">— Select doctor —</option>
                             @foreach (var d in Model.DoctorOptions)
                             {
-                                <option value="@d.Id" selected="@(Model.Input.DoctorRecordId == d.Id)">@d.Name</option>
+                                var doctorLabel = string.IsNullOrWhiteSpace(d.Specialty)
+                                    ? d.Name
+                                    : $"{d.Name} — {d.Specialty}";
+                                <option value="@d.Id" selected="@(Model.Input.DoctorRecordId == d.Id)">@doctorLabel</option>
                             }
                         </select>
                     </div>

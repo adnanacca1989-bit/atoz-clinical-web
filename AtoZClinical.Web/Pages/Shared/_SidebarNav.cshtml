@@ -4,7 +4,7 @@
     bool NavCan(string key)
     {
         var visible = Context.Items[FormPermissionService.VisibleFormsItemKey] as HashSet<string>;
-        return visible is null || visible.Contains(key);
+        return visible?.Contains(key) == true;
     }
 }
 
@@ -13,7 +13,10 @@
 {
     <a class="sidebar-link" asp-page="/Dashboard/Index">Dashboard</a>
 }
-<a class="sidebar-link" asp-page="/Messages/Index">Messages</a>
+@if (NavCan(ClinicalFormKeys.Messaging))
+{
+    <a class="sidebar-link" asp-page="/Messages/Index">Messages</a>
+}
 @if (NavCan(ClinicalFormKeys.Workflow))
 {
     <a class="sidebar-link" asp-page="/Workflow/Index">Workflow</a>

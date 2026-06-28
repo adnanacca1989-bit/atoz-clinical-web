@@ -1086,6 +1086,11 @@ public sealed class RolePermissionService
 
     public async Task SaveBulkAsync(Guid clinicId, string roleName, IEnumerable<RolePermission> items, string? userName = null)
     {
+        var posted = items.ToList();
+        if (posted.Count == 0)
+            throw new InvalidOperationException("No permission data was received. Save was not applied.");
+
+        var byKey = posted.ToDictionary(i => i.FormKey, i => i.IsVisible, StringComparer.OrdinalIgnoreCase);
         var roleNames = roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase)
             ? new[] { "Admin", ClinicalRoles.ClinicAdmin }
             : new[] { roleName };
@@ -1096,12 +1101,16 @@ public sealed class RolePermissionService
             .ToListAsync();
         _db.RolePermissions.RemoveRange(existing);
 
-        foreach (var item in items)
+        foreach (var formKey in ClinicalFormKeys.All)
         {
-            item.Id = Guid.NewGuid();
-            item.ClinicId = clinicId;
-            item.RoleName = roleName;
-            _db.RolePermissions.Add(item);
+            _db.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                ClinicId = clinicId,
+                RoleName = roleName,
+                FormKey = formKey,
+                IsVisible = byKey.TryGetValue(formKey, out var visible) && visible
+            });
         }
 
         await _db.SaveChangesAsync();

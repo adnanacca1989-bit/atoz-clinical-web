@@ -147,6 +147,7 @@ public sealed class VendorClinicService
             ClinicId = request.ClinicId,
             ClinicRole = request.Role,
             UserNo = request.UserNo,
+            DoctorRecordId = request.Role == ClinicUserRole.Doctor ? request.DoctorRecordId : null,
             EmailConfirmed = true
         };
 
@@ -340,6 +341,7 @@ public sealed class CreateClinicUserRequest
     public string? Password { get; set; }
     public ClinicUserRole Role { get; set; } = ClinicUserRole.Receptionist;
     public int UserNo { get; set; }
+    public Guid? DoctorRecordId { get; set; }
 }
 
 public sealed class PublicClinicRegistrationRequest

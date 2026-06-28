@@ -97,10 +97,9 @@ public class ResponsibilitiesModel : PageModel
             if (user?.ClinicRole is not null)
                 UserRole = ClinicUserRoleHelper.ToResponsibilityRole(user.ClinicRole.Value);
         }
-        else if (!string.IsNullOrWhiteSpace(role))
-        {
+
+        if (!string.IsNullOrWhiteSpace(role))
             UserRole = role;
-        }
 
         await LoadFormsAsync(clinicId.Value);
         return Page();
@@ -111,10 +110,19 @@ public class ResponsibilitiesModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var items = Forms.Select(f => new Core.Entities.RolePermission
+        if (Forms.Count == 0)
         {
-            FormKey = f.FormKey,
-            IsVisible = f.IsVisible
+            ModelState.AddModelError(string.Empty, "No permission rows were received. Please reload the page and try again.");
+            await LoadUsersAsync(clinicId.Value);
+            await LoadFormsAsync(clinicId.Value);
+            return Page();
+        }
+
+        var postedByKey = Forms.ToDictionary(f => f.FormKey, f => f.IsVisible, StringComparer.OrdinalIgnoreCase);
+        var items = FormDefinitions.Select(fd => new Core.Entities.RolePermission
+        {
+            FormKey = fd.Key,
+            IsVisible = postedByKey.TryGetValue(fd.Key, out var visible) && visible
         });
         await _service.SaveBulkAsync(clinicId.Value, UserRole, items, User.Identity?.Name);
 
@@ -158,11 +166,12 @@ public class ResponsibilitiesModel : PageModel
         Forms = FormDefinitions.Select(fd =>
         {
             var match = existing.FirstOrDefault(e => e.FormKey == fd.Key);
+            var defaultVisible = UserRole.Equals("Admin", StringComparison.OrdinalIgnoreCase);
             return new FormPermissionInput
             {
                 FormKey = fd.Key,
                 FormLabel = fd.Label,
-                IsVisible = match?.IsVisible ?? true
+                IsVisible = match?.IsVisible ?? defaultVisible
             };
         }).ToList();
     }

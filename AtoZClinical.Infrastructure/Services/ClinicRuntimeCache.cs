@@ -7,8 +7,8 @@ public sealed class ClinicRuntimeCache
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
     private static readonly string[] KnownRoles =
     [
-        "Admin", "Doctor", "Reception", "Accountant", "Pharmacist",
-        "Lab Technician", "Radiology Technician", "Nurse"
+        "Admin", "Doctor", "Reception", "Lab", "Radiology", "Cashier",
+        "Accountant", "Pharmacist", "Lab Technician", "Radiology Technician", "Nurse"
     ];
 
     private readonly IMemoryCache _cache;

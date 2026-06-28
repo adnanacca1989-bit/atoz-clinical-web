@@ -35,8 +35,22 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
             return;
         }
 
-        if (context.HttpContext.Items[FormPermissionService.VisibleFormsItemKey] is HashSet<string> visible &&
-            !visible.Contains(formKey))
+        var isClinicUser = context.HttpContext.User.Identity?.IsAuthenticated == true
+            && !context.HttpContext.User.IsInRole("Vendor");
+
+        if (context.HttpContext.Items[FormPermissionService.VisibleFormsItemKey] is not HashSet<string> visible)
+        {
+            if (isClinicUser)
+            {
+                context.Result = DenyAccess(path);
+                return;
+            }
+
+            await next();
+            return;
+        }
+
+        if (!visible.Contains(formKey))
         {
             if (formKey == ClinicalFormKeys.ServiceIncomeRequest &&
                 visible.Contains(ClinicalFormKeys.ServiceIncomes))
@@ -52,11 +66,22 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
                 return;
             }
 
-            context.Result = new RedirectToPageResult("/Dashboard/Index");
+            context.Result = visible.Contains(ClinicalFormKeys.Dashboard)
+                && !path.StartsWith("/dashboard", StringComparison.OrdinalIgnoreCase)
+                ? new RedirectToPageResult("/Dashboard/Index")
+                : DenyAccess(path);
             return;
         }
 
         await next();
+    }
+
+    private static IActionResult DenyAccess(string path)
+    {
+        if (path.StartsWith("/dashboard", StringComparison.OrdinalIgnoreCase))
+            return new ContentResult { StatusCode = 403, Content = "You do not have permission to access any clinic forms." };
+
+        return new RedirectToPageResult("/Dashboard/Index");
     }
 
     public Task OnPageHandlerSelectionAsync(PageHandlerSelectedContext context) => Task.CompletedTask;
