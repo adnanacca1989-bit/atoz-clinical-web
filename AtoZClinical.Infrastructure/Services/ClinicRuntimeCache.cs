@@ -24,6 +24,13 @@ public sealed class ClinicRuntimeCache
         }))!;
     }
 
+    public bool TryGet<T>(string key, out T? value) => _cache.TryGetValue(key, out value);
+
+    public void SetWithTtl<T>(string key, T value)
+    {
+        _cache.Set(key, value, Ttl);
+    }
+
     public void InvalidateConfiguration(Guid clinicId) =>
         _cache.Remove(ConfigurationKey(clinicId));
 

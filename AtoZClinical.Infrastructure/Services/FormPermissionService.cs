@@ -43,9 +43,19 @@ public sealed class FormPermissionService
 
         try
         {
-            return await _cache.GetOrCreateAsync(
-                ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName),
-                () => LoadVisibleFormsAsync(clinicId, roleName));
+            var cacheKey = ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName);
+            if (_cache.TryGet<HashSet<string>>(cacheKey, out var cached) && cached is { Count: > 0 })
+                return cached;
+
+            var visible = await LoadVisibleFormsAsync(clinicId, roleName);
+            if (visible.Count > 0)
+            {
+                _cache.SetWithTtl(cacheKey, visible);
+                return visible;
+            }
+
+            _cache.InvalidateVisibleForms(clinicId, roleName);
+            return visible;
         }
         catch (Exception ex)
         {
@@ -62,6 +72,7 @@ public sealed class FormPermissionService
         if (visible.Count > 0)
             return visible;
 
+        _cache.InvalidateVisibleForms(clinicId, roleName);
         var repaired = await RolePermissionBootstrap.TryRepairAsync(_db, _cache, clinicId, roleName, logger: _logger);
         if (repaired)
             visible = await BuildVisibleSetAsync(clinicId, roleName);
@@ -107,6 +118,7 @@ public sealed class FormPermissionService
     private async Task<List<Core.Entities.RolePermission>> LoadConfiguredPermissionsAsync(Guid clinicId, string roleName)
     {
         var configured = await _db.RolePermissions
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(r => r.ClinicId == clinicId && r.RoleName == roleName)
             .ToListAsync();
@@ -114,6 +126,7 @@ public sealed class FormPermissionService
         if (configured.Count == 0 && roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
         {
             configured = await _db.RolePermissions
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(r => r.ClinicId == clinicId && r.RoleName == ClinicalRoles.ClinicAdmin)
                 .ToListAsync();

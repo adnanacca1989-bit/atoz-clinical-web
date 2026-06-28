@@ -43,16 +43,20 @@ public static class RolePermissionBootstrap
                 return await EnsureRoleAsync(db, clinicId, roleName, cache, logger, audit, adminAllVisible: true);
 
             if (!RolePermissionDefaults.ByRole.ContainsKey(roleName))
-                return false;
+                return await EnsureMinimumDashboardAsync(db, clinicId, roleName, cache, logger, audit);
 
-            return await EnsureRoleAsync(db, clinicId, roleName, cache, logger, audit);
+            var repaired = await EnsureRoleAsync(db, clinicId, roleName, cache, logger, audit);
+            if (repaired)
+                return true;
+
+            return await EnsureMinimumDashboardAsync(db, clinicId, roleName, cache, logger, audit);
         }
         catch (DbUpdateException ex)
         {
             logger?.LogWarning(ex,
                 "Permission repair conflict for role {Role} clinic {ClinicId} — another process may have seeded first.",
                 roleName, clinicId);
-            return false;
+            return await EnsureMinimumDashboardAsync(db, clinicId, roleName, cache, logger, audit);
         }
         catch (Exception ex)
         {
@@ -63,6 +67,69 @@ public static class RolePermissionBootstrap
         {
             gate.Release();
         }
+    }
+
+    public static async Task<bool> EnsureMinimumDashboardAsync(
+        ClinicalDbContext db,
+        Guid clinicId,
+        string roleName,
+        ClinicRuntimeCache? cache,
+        ILogger? logger,
+        AuditService? audit)
+    {
+        var hasVisibleDashboard = await db.RolePermissions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(r =>
+                r.ClinicId == clinicId &&
+                r.RoleName == roleName &&
+                r.FormKey == ClinicalFormKeys.Dashboard &&
+                r.IsVisible);
+
+        if (hasVisibleDashboard)
+            return false;
+
+        var existing = await db.RolePermissions
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r =>
+                r.ClinicId == clinicId &&
+                r.RoleName == roleName &&
+                r.FormKey == ClinicalFormKeys.Dashboard);
+
+        if (existing is not null)
+        {
+            existing.IsVisible = true;
+            db.RolePermissions.Update(existing);
+        }
+        else
+        {
+            db.RolePermissions.Add(new RolePermission
+            {
+                ClinicId = clinicId,
+                RoleName = roleName,
+                FormKey = ClinicalFormKeys.Dashboard,
+                IsVisible = true
+            });
+        }
+
+        await db.SaveChangesAsync();
+        cache?.InvalidateVisibleForms(clinicId, roleName);
+
+        logger?.LogWarning(
+            "Granted minimum Dashboard permission for role {Role} clinic {ClinicId}.",
+            roleName, clinicId);
+
+        if (audit is not null)
+        {
+            await audit.LogAsync(
+                clinicId,
+                "system",
+                "Role Permissions",
+                "Minimum Access",
+                $"Granted Dashboard access for role {roleName}.");
+        }
+
+        return true;
     }
 
     private static async Task<bool> EnsureRoleAsync(
@@ -79,6 +146,7 @@ public static class RolePermissionBootstrap
             : new[] { roleName };
 
         var rows = await db.RolePermissions
+            .IgnoreQueryFilters()
             .Where(r => r.ClinicId == clinicId && roleNames.Contains(r.RoleName))
             .ToListAsync();
 

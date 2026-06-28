@@ -25,6 +25,7 @@ public class LoginModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly SecurityAuditService _securityAudit;
     private readonly FormPermissionService _permissions;
+    private readonly ClinicRuntimeCache _runtimeCache;
     private readonly IClinicalEmailSender _email;
     private readonly ILogger<LoginModel> _logger;
 
@@ -35,6 +36,7 @@ public class LoginModel : PageModel
         ClinicalDbContext db,
         SecurityAuditService securityAudit,
         FormPermissionService permissions,
+        ClinicRuntimeCache runtimeCache,
         IClinicalEmailSender email,
         ILogger<LoginModel> logger)
     {
@@ -44,6 +46,7 @@ public class LoginModel : PageModel
         _db = db;
         _securityAudit = securityAudit;
         _permissions = permissions;
+        _runtimeCache = runtimeCache;
         _email = email;
         _logger = logger;
     }
@@ -233,7 +236,11 @@ public class LoginModel : PageModel
 
         if (user.ClinicId is Guid clinicId)
         {
+            HttpContext.Items[HttpContextClinicProvider.TenantClinicIdKey] = clinicId;
+
             var responsibilityRole = _permissions.ResolveResponsibilityRole(user);
+            _runtimeCache.InvalidateVisibleForms(clinicId, responsibilityRole);
+
             var visibleForms = await _permissions.GetVisibleFormsAsync(clinicId, responsibilityRole);
             if (visibleForms.Count == 0)
             {
@@ -247,7 +254,8 @@ public class LoginModel : PageModel
                     clinicId,
                     $"No permissions for role {responsibilityRole}.",
                     clientIp);
-                ModelState.AddModelError(string.Empty, FormPermissionPageFilter.NoPermissionsMessage);
+                ModelState.AddModelError(string.Empty,
+                    $"No permissions assigned to role \"{responsibilityRole}\". Ask your clinic admin to open Responsibilities, select this role, check Dashboard, and click Save.");
                 Input.Password = string.Empty;
                 return Page();
             }
