@@ -29,6 +29,18 @@
                 </select>
             </div>
         </div>
+        @if (!string.IsNullOrWhiteSpace(Model.SelectedUserId))
+        {
+            var selectedUser = Model.ClinicUsers.FirstOrDefault(u => u.Id == Model.SelectedUserId);
+            if (selectedUser is not null)
+            {
+                <div class="alert alert-info py-2 small mb-3">
+                    Editing permissions for login role <strong>@Model.UserRole</strong>
+                    (user <strong>@selectedUser.UserName</strong>).
+                    Checkboxes apply to every user with this role.
+                </div>
+            }
+        }
         <p class="text-primary small">Select role permissions below. When a username is selected, Save also assigns that role to the user for login.</p>
         <div class="clinical-record-grid" style="min-height: 400px;">
             <table>
@@ -66,13 +78,19 @@
 
         const buildUrl = () => {
             const params = new URLSearchParams();
-            if (roleSelect.value) params.set('role', roleSelect.value);
-            if (userSelect.value) params.set('userId', userSelect.value);
+            if (userSelect.value) {
+                params.set('userId', userSelect.value);
+            } else if (roleSelect.value) {
+                params.set('role', roleSelect.value);
+            }
             const query = params.toString();
             return query ? '?' + query : window.location.pathname;
         };
 
-        roleSelect.addEventListener('change', () => { window.location.href = buildUrl(); });
+        roleSelect.addEventListener('change', () => {
+            userSelect.value = '';
+            window.location.href = buildUrl();
+        });
         userSelect.addEventListener('change', () => { window.location.href = buildUrl(); });
     })();
 </script>

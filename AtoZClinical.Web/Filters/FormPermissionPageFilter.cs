@@ -79,7 +79,13 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
     private static IActionResult DenyAccess(string path)
     {
         if (path.StartsWith("/dashboard", StringComparison.OrdinalIgnoreCase))
-            return new ContentResult { StatusCode = 403, Content = "You do not have permission to access any clinic forms." };
+            return new ContentResult
+            {
+                StatusCode = 403,
+                Content = "You do not have permission to access any clinic forms. " +
+                          "Ask your clinic admin to open Responsibilities, select your role (e.g. Doctor), " +
+                          "check the forms this user needs, and click Save."
+            };
 
         return new RedirectToPageResult("/Dashboard/Index");
     }

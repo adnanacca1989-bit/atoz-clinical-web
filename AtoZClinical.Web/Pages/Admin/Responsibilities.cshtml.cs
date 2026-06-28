@@ -90,6 +90,7 @@ public class ResponsibilitiesModel : PageModel
         if (clinicId is null) return Forbid();
 
         await LoadUsersAsync(clinicId.Value);
+
         if (!string.IsNullOrWhiteSpace(userId))
         {
             SelectedUserId = userId;
@@ -97,9 +98,10 @@ public class ResponsibilitiesModel : PageModel
             if (user?.ClinicRole is not null)
                 UserRole = ClinicUserRoleHelper.ToResponsibilityRole(user.ClinicRole.Value);
         }
-
-        if (!string.IsNullOrWhiteSpace(role))
+        else if (!string.IsNullOrWhiteSpace(role))
+        {
             UserRole = role;
+        }
 
         await LoadFormsAsync(clinicId.Value);
         return Page();
@@ -144,7 +146,9 @@ public class ResponsibilitiesModel : PageModel
             }
         }
 
-        return RedirectToPage(new { role = UserRole, userId = SelectedUserId });
+        return !string.IsNullOrWhiteSpace(SelectedUserId)
+            ? RedirectToPage(new { userId = SelectedUserId })
+            : RedirectToPage(new { role = UserRole });
     }
 
     public IActionResult OnPostClearAsync() => RedirectToPage();
