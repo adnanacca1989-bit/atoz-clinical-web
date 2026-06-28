@@ -5,6 +5,7 @@ public class Prescription : IClinicScoped
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ClinicId { get; set; }
     public int PrescriptionNo { get; set; }
+    public Guid? PatientRecordId { get; set; }
     public string? PatientName { get; set; }
     public int? Age { get; set; }
     public string? Gender { get; set; }

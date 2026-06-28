@@ -7,6 +7,7 @@ public class PharmacyRequest : IClinicScoped
     public int RequestNo { get; set; }
     public DateTime RequestDate { get; set; } = DateTime.Today;
     public int? PrescriptionNo { get; set; }
+    public Guid? PatientRecordId { get; set; }
     public string? PatientName { get; set; }
     public string? PatientId { get; set; }
     public int? Age { get; set; }

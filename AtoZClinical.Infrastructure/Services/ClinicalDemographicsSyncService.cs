@@ -176,6 +176,13 @@ public sealed class ClinicalDemographicsSyncService
     public Doctor? ResolveDoctorFromList(IReadOnlyList<Doctor> doctors, Guid? recordId, string? doctorName) =>
         DoctorNameMatcher.ResolveSingleDoctor(doctors, recordId, doctorName);
 
+    public Patient? ResolvePatientFromList(
+        IReadOnlyList<Patient> patients,
+        Guid? recordId,
+        string? patientNo,
+        string? patientName) =>
+        PatientNameMatcher.ResolveSinglePatient(patients, recordId, patientNo, patientName);
+
     public async Task LinkPatientDoctorAsync(Guid clinicId, Patient patient)
     {
         var doctor = await ResolveDoctorAsync(clinicId, patient.DoctorRecordId, patient.DoctorName);

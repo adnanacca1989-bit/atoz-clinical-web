@@ -6,6 +6,7 @@ public class CashPayment : IClinicScoped
     public Guid ClinicId { get; set; }
     public int PaymentNo { get; set; }
     public DateTime PaymentDate { get; set; } = DateTime.Today;
+    public Guid? PatientRecordId { get; set; }
     public string? PayeeName { get; set; }
     public string? PatientId { get; set; }
     public Guid? DoctorRecordId { get; set; }

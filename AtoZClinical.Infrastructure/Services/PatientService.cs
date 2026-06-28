@@ -230,7 +230,11 @@ public sealed class PatientService
             {
                 await _propagation.PropagatePatientAsync(clinicId, previous, patient);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "Patient was saved, but linked transactions could not be updated. Please try saving the patient again.", ex);
+            }
         }
 
         return patient;

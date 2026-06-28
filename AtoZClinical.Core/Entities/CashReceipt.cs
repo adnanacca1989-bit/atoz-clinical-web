@@ -8,6 +8,7 @@ public class CashReceipt : IClinicScoped
     public DateTime ReceiptDate { get; set; } = DateTime.Today;
     public string? PatientSearch { get; set; }
     public string? PatientId { get; set; }
+    public Guid? PatientRecordId { get; set; }
     public string? PatientName { get; set; }
     public int? Age { get; set; }
     public string? Gender { get; set; }

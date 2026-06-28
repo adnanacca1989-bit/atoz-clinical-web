@@ -7,6 +7,7 @@ public class PharmacyBill : IClinicScoped
     public int BillNo { get; set; }
     public DateTime BillDate { get; set; } = DateTime.Today;
     public int? RequestNo { get; set; }
+    public Guid? PatientRecordId { get; set; }
     public string? PatientName { get; set; }
     public string? PatientId { get; set; }
     public Guid? DoctorRecordId { get; set; }

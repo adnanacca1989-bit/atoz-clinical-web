@@ -7,6 +7,7 @@ public class LabResult : IClinicScoped
     public int ResultNo { get; set; }
     public int? RequestNo { get; set; }
     public DateTime ResultDate { get; set; } = DateTime.Today;
+    public Guid? PatientRecordId { get; set; }
     public string? PatientName { get; set; }
     public Guid? DoctorRecordId { get; set; }
     public string? DoctorName { get; set; }

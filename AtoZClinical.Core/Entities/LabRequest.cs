@@ -6,6 +6,7 @@ public class LabRequest : IClinicScoped
     public Guid ClinicId { get; set; }
     public int RequestNo { get; set; }
     public DateTime RequestDate { get; set; } = DateTime.Today;
+    public Guid? PatientRecordId { get; set; }
     public string? PatientName { get; set; }
     public string? PatientBarcode { get; set; }
     public int? Age { get; set; }
