@@ -108,8 +108,7 @@
             </form>
             @if (!string.IsNullOrEmpty(Model.Input.LogoBase64))
             {
-                <form method="post" class="mt-2">
-                    <input type="hidden" asp-for="Input.ClearLogo" value="true" />
+                <form method="post" asp-page-handler="ClearLogo" class="mt-2">
                     <button type="submit" class="btn btn-sm btn-outline-danger">Remove Logo</button>
                 </form>
             }

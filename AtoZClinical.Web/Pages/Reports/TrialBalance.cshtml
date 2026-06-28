@@ -24,10 +24,11 @@
                 </div>
             </div>
         </div>
-        <p class="report-hint">All chart of accounts with debit/credit totals from journal entries (includes revenue, expenses, and cash activity).</p>
+        <p class="report-hint">Journal trial balance as of the selected date. <strong>Cash &amp; equivalents (Cash + Bank + Visa Card)</strong> matches the Cash Report closing balance and Balance Sheet.</p>
         <div class="report-summary-panel">
             <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
             <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
+            <span><strong>Cash &amp; Equivalents (GL):</strong> @Model.TotalLiquidCash.ToString("N2")</span>
         </div>
         <div class="report-results-scroll">
             <table class="line-grid report-grid">

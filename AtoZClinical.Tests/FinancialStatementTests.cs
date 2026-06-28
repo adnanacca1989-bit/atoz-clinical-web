@@ -52,7 +52,7 @@ public class FinancialStatementTests
     }
 
     [Fact]
-    public async Task Balance_sheet_includes_accounts_receivable_and_balances()
+    public async Task Balance_sheet_includes_open_ar_and_balances()
     {
         var clinicId = Guid.NewGuid();
         await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
@@ -64,11 +64,11 @@ public class FinancialStatementTests
         {
             Id = invoiceId,
             ClinicId = clinicId,
-            InvoiceNo = 1,
-            PatientName = "Zaid",
-            DoctorName = "Mohammed",
-            InvoiceDate = new DateTime(2026, 6, 1),
-            TotalAmount = 59_000m,
+            InvoiceNo = 4,
+            PatientName = "asaad",
+            DoctorName = "Zainab",
+            InvoiceDate = new DateTime(2026, 6, 20),
+            TotalAmount = 30_000m,
             UpdatedAt = DateTime.UtcNow,
             Lines =
             [
@@ -77,21 +77,9 @@ public class FinancialStatementTests
                     Id = Guid.NewGuid(),
                     InvoiceId = invoiceId,
                     ServiceName = "Consultation",
-                    LineTotal = 59_000m
+                    LineTotal = 30_000m
                 }
             ]
-        });
-        db.Db.CashReceipts.Add(new CashReceipt
-        {
-            Id = Guid.NewGuid(),
-            ClinicId = clinicId,
-            ReceiptNo = 1,
-            PatientName = "Zaid",
-            DoctorName = "Mohammed",
-            ReceiptDate = new DateTime(2026, 6, 2),
-            Amount = 59_000m,
-            PaymentMethod = "Cash",
-            UpdatedAt = DateTime.UtcNow
         });
         await db.Db.SaveChangesAsync();
 
@@ -102,17 +90,13 @@ public class FinancialStatementTests
         var tb = await journal.GetTrialBalanceAsync(clinicId, new DateTime(2026, 6, 28));
         var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb);
 
-        var ar = snapshot.Assets.SingleOrDefault(a => a.Account == "Accounts Receivable");
-        Assert.NotNull(ar);
-        Assert.Equal(0m, ar!.Amount);
-
-        var cash = snapshot.Assets.Single(a => a.Account == "Cash");
-        Assert.Equal(59_000m, cash.Amount);
-        Assert.Equal(snapshot.TotalLiabilities + snapshot.TotalEquity, snapshot.TotalAssets, 2);
+        var ar = snapshot.Assets.Single(a => a.Account == "Accounts Receivable");
+        Assert.Equal(30_000m, ar.Amount);
+        Assert.True(snapshot.IsBalanced);
     }
 
     [Fact]
-    public async Task Cash_report_closing_matches_trial_balance_liquid_accounts()
+    public async Task Liquid_cash_matches_across_cash_bank_and_visa_card()
     {
         var clinicId = Guid.NewGuid();
         await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
@@ -127,7 +111,7 @@ public class FinancialStatementTests
             PatientName = "AAA",
             DoctorName = "Zainab",
             ReceiptDate = new DateTime(2026, 6, 5),
-            Amount = 25_000m,
+            Amount = 59_000m,
             PaymentMethod = "Cash",
             UpdatedAt = DateTime.UtcNow
         });
@@ -136,11 +120,23 @@ public class FinancialStatementTests
             Id = Guid.NewGuid(),
             ClinicId = clinicId,
             ReceiptNo = 2,
-            PatientName = "Zaid",
+            PatientName = "AAA",
             DoctorName = "Zainab",
             ReceiptDate = new DateTime(2026, 6, 6),
             Amount = 25_000m,
             PaymentMethod = "Bank Transfer",
+            UpdatedAt = DateTime.UtcNow
+        });
+        db.Db.CashReceipts.Add(new CashReceipt
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            ReceiptNo = 3,
+            PatientName = "AAA",
+            DoctorName = "Zainab",
+            ReceiptDate = new DateTime(2026, 6, 7),
+            Amount = 25_000m,
+            PaymentMethod = "Card",
             UpdatedAt = DateTime.UtcNow
         });
         await db.Db.SaveChangesAsync();
@@ -150,12 +146,52 @@ public class FinancialStatementTests
         await sync.EnsureClinicalJournalsAsync(clinicId);
 
         var tb = await journal.GetTrialBalanceAsync(clinicId, new DateTime(2026, 6, 28));
-        var liquid = FinancialStatementBuilder.ResolveLiquidAccounts("All", await db.Db.ChartAccounts.ForClinic(clinicId).ToListAsync());
-        var closing = FinancialStatementBuilder.SumLiquidBalance(tb, liquid);
+        var chart = await db.Db.ChartAccounts.ForClinic(clinicId).ToListAsync();
+        var liquid = FinancialStatementBuilder.ResolveLiquidAccounts("All", chart);
+        var totalLiquid = FinancialStatementBuilder.SumLiquidBalance(tb, liquid);
 
-        Assert.Equal(25_000m, tb.Single(r => r.AccountName == "Cash").Balance);
+        Assert.Equal(59_000m, tb.Single(r => r.AccountName == "Cash").Balance);
         Assert.Equal(25_000m, tb.Single(r => r.AccountName == "Bank").Balance);
-        Assert.Equal(50_000m, closing);
+        Assert.Equal(25_000m, tb.Single(r => r.AccountName == "Visa Card").Balance);
+        Assert.Equal(109_000m, totalLiquid);
+
+        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb);
+        var cashLine = snapshot.Assets.Single(a => a.Account == FinancialStatementBuilder.CashEquivalentsLabel);
+        Assert.Equal(109_000m, cashLine.Amount);
+    }
+
+    [Fact]
+    public async Task Negative_ar_reclassifies_to_patient_deposits_liability()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+        await DatabaseInitializer.EnsureStandardChartAccountsAsync(db.Db, clinicId);
+
+        db.Db.CashReceipts.Add(new CashReceipt
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            ReceiptNo = 1,
+            PatientName = "Walk-in",
+            DoctorName = "Zainab",
+            ReceiptDate = new DateTime(2026, 6, 1),
+            Amount = 10_000m,
+            PaymentMethod = "Cash",
+            UpdatedAt = DateTime.UtcNow
+        });
+        await db.Db.SaveChangesAsync();
+
+        var sync = new ClinicalJournalSyncService(db.Db, NullLogger<ClinicalJournalSyncService>.Instance);
+        await sync.EnsureClinicalJournalsAsync(clinicId);
+
+        var journal = new JournalReportService(db.Db, sync);
+        var tb = await journal.GetTrialBalanceAsync(clinicId, new DateTime(2026, 6, 28));
+        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb);
+
+        Assert.DoesNotContain(snapshot.Assets, a => a.Amount < 0);
+        Assert.Contains(snapshot.Liabilities, l => l.Account == FinancialStatementBuilder.PatientDepositsLabel);
+        Assert.True(snapshot.IsBalanced);
     }
 }
 

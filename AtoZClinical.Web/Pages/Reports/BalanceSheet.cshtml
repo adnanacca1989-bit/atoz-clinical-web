@@ -43,7 +43,7 @@
 
         </div>
 
-        <p class="report-hint">Statement of financial position as of <strong>@Model.ToDate.ToString("d")</strong> (period @Model.FromDate.ToString("d") – @Model.ToDate.ToString("d")). Assets = @Model.TotalAssets.ToString("N2") · Liabilities + Equity = @((Model.TotalLiabilities + Model.TotalEquity).ToString("N2"))</p>
+        <p class="report-hint">Statement of financial position as of <strong>@Model.ToDate.ToString("d")</strong>. <strong>Cash &amp; equivalents (GL):</strong> @Model.TotalLiquidCash.ToString("N2") — matches Cash Report and Trial Balance. Assets = @Model.TotalAssets.ToString("N2") · Liabilities + Equity = @((Model.TotalLiabilities + Model.TotalEquity).ToString("N2"))@(Model.IsBalanced ? "" : " — out of balance")</p>
 
         @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
         {

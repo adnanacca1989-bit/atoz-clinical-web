@@ -10,6 +10,8 @@
         <li class="dropdown-header">System Settings</li>
         @if (!User.IsInRole("Vendor"))
         {
+            <li><a class="dropdown-item" asp-page="/Settings/ClinicProfile">Clinic Profile &amp; Branding</a></li>
+            <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" asp-page="/Settings/Uom">Define UOM</a></li>
             <li><a class="dropdown-item" asp-page="/Settings/Currency">Define Currency</a></li>
             <li><a class="dropdown-item" asp-page="/Settings/Vendor">Define Vendor</a></li>

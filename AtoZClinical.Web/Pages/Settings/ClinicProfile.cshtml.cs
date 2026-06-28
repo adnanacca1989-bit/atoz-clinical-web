@@ -139,4 +139,36 @@ public class ClinicProfileModel : SettingsPageModel
         StatusMessage = "Logo uploaded.";
         return Page();
     }
+
+    public async Task<IActionResult> OnPostClearLogoAsync()
+    {
+        if (!await LoadClinicContextAsync()) return Page();
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return ClinicRequired();
+
+        var profile = await _profile.GetAsync(clinicId.Value);
+        Input = new ClinicProfileInput
+        {
+            Name = profile.Name,
+            ContactPerson = profile.ContactPerson,
+            Email = profile.Email,
+            Phone = profile.Phone,
+            Address = profile.Address,
+            City = profile.City,
+            Country = profile.Country,
+            TimeZoneId = profile.TimeZoneId,
+            LanguageCode = profile.LanguageCode,
+            LanguageName = profile.LanguageName,
+            Tagline = profile.Tagline,
+            Website = profile.Website,
+            PrimaryColor = profile.PrimaryColor,
+            FormStyle = profile.FormStyle,
+            ClearLogo = true
+        };
+
+        await _profile.SaveAsync(clinicId.Value, Input);
+        Input.LogoBase64 = null;
+        StatusMessage = "Logo removed.";
+        return Page();
+    }
 }

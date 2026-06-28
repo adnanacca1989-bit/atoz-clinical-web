@@ -22,6 +22,7 @@ public static class PaymentJournalHelper
         return MapPaymentMethod(paymentMethod) switch
         {
             "Bank" => FindAccount(accounts, "Asset", "Bank") ?? "Bank",
+            "Card" => FindAccount(accounts, "Asset", "Visa Card") ?? "Visa Card",
             "Credit" => FindAccount(accounts, "Liability", "Account Payable") ?? "Account Payable",
             _ => FindAccount(accounts, "Asset", "Cash") ?? "Cash"
         };
@@ -31,8 +32,13 @@ public static class PaymentJournalHelper
     {
         var m = paymentMethod.Trim();
         if (m.Equals("Bank Transfer", StringComparison.OrdinalIgnoreCase) ||
-            m.Equals("Bank", StringComparison.OrdinalIgnoreCase))
+            m.Equals("Bank", StringComparison.OrdinalIgnoreCase) ||
+            m.Equals("Cheque", StringComparison.OrdinalIgnoreCase))
             return "Bank";
+        if (m.Equals("Card", StringComparison.OrdinalIgnoreCase) ||
+            m.Equals("Visa", StringComparison.OrdinalIgnoreCase) ||
+            m.Equals("Visa Card", StringComparison.OrdinalIgnoreCase))
+            return "Card";
         if (m.Equals("Credit", StringComparison.OrdinalIgnoreCase) ||
             m.Equals("On Account", StringComparison.OrdinalIgnoreCase))
             return "Credit";

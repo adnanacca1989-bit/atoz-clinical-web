@@ -49,7 +49,15 @@ public sealed class ClinicProfileService
     {
         var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.Id == clinicId, ct)
             ?? throw new InvalidOperationException("Clinic not found.");
-        var config = await _settings.GetOrCreateAsync(clinicId);
+
+        var config = await _db.ClinicConfigurations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.ClinicId == clinicId, ct);
+        if (config is null)
+        {
+            config = new ClinicConfiguration { ClinicId = clinicId };
+            _db.ClinicConfigurations.Add(config);
+        }
 
         clinic.Name = input.Name.Trim();
         clinic.ContactPerson = input.ContactPerson?.Trim();

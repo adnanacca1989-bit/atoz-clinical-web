@@ -11,20 +11,20 @@ public class BalanceSheetModel : PageModel
 {
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
-    private readonly FinancialReportCalculator _financial;
+    private readonly ArReportService _ar;
     private readonly ClinicalJournalSyncService _journalSync;
     private readonly JournalReportService _journal;
 
     public BalanceSheetModel(
         ClinicalDbContext db,
         ClinicContextService clinicContext,
-        FinancialReportCalculator financial,
+        ArReportService ar,
         ClinicalJournalSyncService journalSync,
         JournalReportService journal)
     {
         _db = db;
         _clinicContext = clinicContext;
-        _financial = financial;
+        _ar = ar;
         _journalSync = journalSync;
         _journal = journal;
     }
@@ -41,6 +41,8 @@ public class BalanceSheetModel : PageModel
     public decimal TotalAssets { get; private set; }
     public decimal TotalLiabilities { get; private set; }
     public decimal TotalEquity { get; private set; }
+    public decimal TotalLiquidCash { get; private set; }
+    public bool IsBalanced { get; private set; }
     public string? ErrorMessage { get; private set; }
 
     public async Task<IActionResult> OnGetAsync() => await RunAsync();
@@ -59,9 +61,13 @@ public class BalanceSheetModel : PageModel
 
             await _journalSync.EnsureClinicalJournalsAsync(id);
 
+            var chartAccounts = await _db.ChartAccounts.ForClinic(id).AsNoTracking().ToListAsync();
             var trialBalance = await _journal.GetTrialBalanceAsync(id, asOf);
-            var patientCredit = await _financial.ComputePatientCreditLiabilityAsync(id, asOf);
-            var snapshot = FinancialStatementBuilder.BuildBalanceSheet(trialBalance, patientCredit);
+            var arReport = await _ar.BuildAsync(id, null, asOf, null, null, null);
+            var openAr = Math.Max(0m, arReport.TotalEndingBalance);
+
+            var snapshot = FinancialStatementBuilder.BuildBalanceSheet(trialBalance, openAr);
+            var liquidAccounts = FinancialStatementBuilder.ResolveLiquidAccounts("All", chartAccounts);
 
             Assets = snapshot.Assets.Select(r => new BsRow(r.Account, r.Amount)).ToList();
             Liabilities = snapshot.Liabilities.Select(r => new BsRow(r.Account, r.Amount)).ToList();
@@ -69,6 +75,8 @@ public class BalanceSheetModel : PageModel
             TotalAssets = snapshot.TotalAssets;
             TotalLiabilities = snapshot.TotalLiabilities;
             TotalEquity = snapshot.TotalEquity;
+            TotalLiquidCash = FinancialStatementBuilder.SumLiquidBalance(trialBalance, liquidAccounts);
+            IsBalanced = snapshot.IsBalanced;
             ErrorMessage = null;
         }
         catch (Exception ex)
@@ -77,7 +85,8 @@ public class BalanceSheetModel : PageModel
             Assets = [];
             Liabilities = [];
             Equity = [];
-            TotalAssets = TotalLiabilities = TotalEquity = 0;
+            TotalAssets = TotalLiabilities = TotalEquity = TotalLiquidCash = 0;
+            IsBalanced = false;
         }
 
         return Page();
