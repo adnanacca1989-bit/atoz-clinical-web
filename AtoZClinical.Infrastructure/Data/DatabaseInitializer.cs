@@ -43,7 +43,6 @@ public static class DatabaseInitializer
         await EnsurePatientRecordLinkSchemaAsync(db, logger);
         await BackfillPatientRecordLinksAsync(db, scope.ServiceProvider, logger);
         await BackfillPatientVisitStatusesAsync(db, scope.ServiceProvider, logger);
-        await BackfillVisitConsultationInvoicesAsync(db, scope.ServiceProvider, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -831,51 +830,6 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Patient visit status backfill skipped.");
-        }
-    }
-
-    private static async Task BackfillVisitConsultationInvoicesAsync(
-        ClinicalDbContext db,
-        IServiceProvider services,
-        ILogger logger)
-    {
-        try
-        {
-            var invoiceService = services.GetRequiredService<InvoiceService>();
-            var clinicIds = await db.Clinics.AsNoTracking().Select(c => c.Id).ToListAsync();
-            var created = 0;
-            foreach (var clinicId in clinicIds)
-            {
-                var invoicedPatientIds = await db.Invoices.ForClinic(clinicId)
-                    .Where(i => i.PatientRecordId != null)
-                    .Select(i => i.PatientRecordId!.Value)
-                    .ToListAsync();
-
-                var patients = await db.Patients.ForClinic(clinicId)
-                    .Where(p => p.DoctorName != null && p.DoctorName != "")
-                    .ToListAsync();
-
-                foreach (var patient in patients.Where(p => !invoicedPatientIds.Contains(p.Id)))
-                {
-                    try
-                    {
-                        var before = await db.Invoices.ForClinic(clinicId).CountAsync();
-                        await invoiceService.EnsureConsultationForNewVisitAsync(clinicId, patient, "system");
-                        if (await db.Invoices.ForClinic(clinicId).CountAsync() > before)
-                            created++;
-                    }
-                    catch
-                    {
-                        // Skip individual rows that fail validation.
-                    }
-                }
-            }
-
-            logger.LogInformation("Visit consultation invoice backfill created {Count} invoices.", created);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Visit consultation invoice backfill skipped.");
         }
     }
 
