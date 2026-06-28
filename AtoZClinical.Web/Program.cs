@@ -336,6 +336,7 @@ builder.Services.AddSingleton<ChatPresenceService>();
 builder.Services.AddScoped<ClinicMessagingService>();
 builder.Services.AddScoped<DoctorScopeContext>();
 builder.Services.AddScoped<DoctorScopeService>();
+builder.Services.AddScoped<DoctorUserLinkService>();
 builder.Services.AddScoped<ClinicalNotificationService>();
 builder.Services.AddScoped<IClinicalNotificationPublisher, SignalRClinicalNotificationPublisher>();
 builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(15));

@@ -1,0 +1,66 @@
+@page
+@model AtoZClinical.Web.Pages.Settings.UnlinkedDoctorUsersModel
+@{
+    ViewData["Title"] = "Users without Doctor Link";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page">
+    <h1 class="page-title">Users without Doctor Link</h1>
+    <partial name="_SettingsMenu" />
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success">@Model.StatusMessage</div>
+    }
+
+    <div class="atz-card p-4 mb-3">
+        <p class="text-muted mb-2">
+            Doctor users must be linked to a doctor record for accurate patient access restriction.
+            Users listed below have Role = Doctor but no <code>DoctorRecordId</code>.
+        </p>
+        <p class="mb-0">
+            <strong>Patients missing doctor link:</strong> @Model.PatientsMissingDoctorLink
+            <span class="text-muted small">(clinical records without DoctorRecordId — run maintenance backfill if needed)</span>
+        </p>
+    </div>
+
+    <form method="post" class="mb-3">
+        <button type="submit" asp-page-handler="AutoLink" class="btn btn-primary">
+            Auto-link by matching Full Name to Doctor Name
+        </button>
+        <a asp-page="/Settings/Users" class="btn btn-outline-secondary ms-2">Open Define User</a>
+    </form>
+
+    <div class="clinical-record-grid">
+        <table>
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Status</th>
+                    <th>Active</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (Model.UnlinkedUsers.Count == 0)
+            {
+                <tr><td colspan="6" class="text-center text-muted py-3">All doctor users are linked.</td></tr>
+            }
+            @foreach (var u in Model.UnlinkedUsers)
+            {
+                <tr>
+                    <td>@u.UserNo</td>
+                    <td>@u.Username</td>
+                    <td>@u.FullName</td>
+                    <td><span class="badge bg-warning text-dark">Unlinked Doctor User</span></td>
+                    <td>@(u.IsActive ? "Yes" : "No")</td>
+                    <td><a asp-page="/Settings/Users" asp-route-UserRecordId="@u.UserId">Edit</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

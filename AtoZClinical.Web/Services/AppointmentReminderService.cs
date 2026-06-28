@@ -8,8 +8,13 @@ namespace AtoZClinical.Web.Services;
 public sealed class AppointmentReminderService
 {
     private readonly ClinicalDbContext _db;
+    private readonly DoctorScopeContext _doctorScope;
 
-    public AppointmentReminderService(ClinicalDbContext db) => _db = db;
+    public AppointmentReminderService(ClinicalDbContext db, DoctorScopeContext doctorScope)
+    {
+        _db = db;
+        _doctorScope = doctorScope;
+    }
 
     public async Task<List<AppointmentReminderRow>> GetRemindersAsync(
         Guid clinicId,
@@ -28,6 +33,7 @@ public sealed class AppointmentReminderService
         var patients = await _db.Patients
             .IgnoreQueryFilters()
             .Where(p => p.ClinicId == clinicId)
+            .Apply(_doctorScope.Filter)
             .ToListAsync();
 
         patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, from, to)).ToList();
@@ -80,6 +86,7 @@ public sealed class AppointmentReminderService
         var patients = await _db.Patients
             .IgnoreQueryFilters()
             .Where(p => p.ClinicId == clinicId)
+            .Apply(_doctorScope.Filter)
             .ToListAsync();
         patients = patients.Where(p => PatientReportDateHelper.IsInDateRange(p, today, today)).ToList();
 

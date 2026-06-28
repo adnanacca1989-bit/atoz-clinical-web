@@ -12,17 +12,20 @@ public class AppointmentRemindersModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
     private readonly AppointmentReminderService _reminders;
+    private readonly DoctorScopeContext _doctorScope;
     private readonly ILogger<AppointmentRemindersModel> _logger;
 
     public AppointmentRemindersModel(
         ClinicalDbContext db,
         ClinicContextService clinicContext,
         AppointmentReminderService reminders,
+        DoctorScopeContext doctorScope,
         ILogger<AppointmentRemindersModel> logger)
     {
         _db = db;
         _clinicContext = clinicContext;
         _reminders = reminders;
+        _doctorScope = doctorScope;
         _logger = logger;
     }
 
@@ -94,6 +97,14 @@ public class AppointmentRemindersModel : PageModel
             return NotFound();
         }
 
+        if (!DoctorScopeQuery.Matches(_doctorScope.Filter, patient.DoctorRecordId, patient.DoctorName))
+        {
+            _logger.LogWarning(
+                "AdjustTime denied by doctor scope patientId={PatientId} clinicId={ClinicId} trace={TraceId}",
+                patientId, clinicId, HttpContext.TraceIdentifier);
+            return Forbid();
+        }
+
         patient.AppointmentDate = appointmentDate.Date;
         if (!string.IsNullOrWhiteSpace(appointmentTime) && TimeSpan.TryParse(appointmentTime, out var time))
             patient.AppointmentTime = time;
@@ -134,7 +145,10 @@ public class AppointmentRemindersModel : PageModel
 
     private async Task LoadFilterOptionsAsync(Guid clinicId)
     {
-        var patients = await _db.Patients.IgnoreQueryFilters().Where(p => p.ClinicId == clinicId).ToListAsync();
+        var patients = await _db.Patients.IgnoreQueryFilters()
+            .Where(p => p.ClinicId == clinicId)
+            .Apply(_doctorScope.Filter)
+            .ToListAsync();
         DoctorOptions = patients.Select(p => p.DoctorName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).Cast<string>().ToList();
         SpecialtyOptions = patients.Select(p => p.Specialty).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).Cast<string>().ToList();
         CityOptions = patients.Select(p => p.City).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).Cast<string>().ToList();

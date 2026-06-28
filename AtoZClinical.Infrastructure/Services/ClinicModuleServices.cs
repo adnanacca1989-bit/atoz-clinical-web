@@ -885,6 +885,9 @@ public sealed class LabResultService
         LabResult? previous = null;
         if (item.Id != Guid.Empty)
         {
+            var existing = await GetAsync(clinicId, item.Id);
+            if (existing is null)
+                throw new UnauthorizedAccessException("You do not have access to this record.");
             previous = await _db.LabResults.ForClinic(clinicId).AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == item.Id);
         }

@@ -328,7 +328,7 @@ public sealed class PatientService
     }
 
     public Task<Patient?> FindByNationalIdOrPhoneAsync(Guid clinicId, string? nationalId, string? phone) =>
-        AllPatients(clinicId)
+        ScopedPatients(clinicId)
             .Where(p =>
                 (!string.IsNullOrWhiteSpace(nationalId) && p.NationalId == nationalId.Trim()) ||
                 (!string.IsNullOrWhiteSpace(phone) && p.Phone == phone.Trim()))

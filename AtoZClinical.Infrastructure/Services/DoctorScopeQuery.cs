@@ -41,6 +41,9 @@ public static class DoctorScopeQuery
     public static IQueryable<CashPayment> Apply(this IQueryable<CashPayment> query, DoctorScopeFilter scope) =>
         ApplyDoctor(query, scope, p => p.DoctorRecordId, p => p.DoctorName);
 
+    public static IQueryable<Appointment> Apply(this IQueryable<Appointment> query, DoctorScopeFilter scope) =>
+        ApplyDoctor(query, scope, a => a.DoctorRecordId, a => a.DoctorName);
+
     public static bool Matches(DoctorScopeFilter scope, Guid? doctorRecordId, string? doctorName)
     {
         if (!scope.IsRestricted) return true;

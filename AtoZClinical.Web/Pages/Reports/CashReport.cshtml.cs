@@ -14,6 +14,7 @@ public class CashReportModel : PageModel
     private readonly ClinicContextService _clinicContext;
     private readonly ClinicalJournalSyncService _journalSync;
     private readonly JournalReportService _journal;
+    private readonly DoctorScopeContext _doctorScope;
     private readonly ILogger<CashReportModel> _logger;
 
     public CashReportModel(
@@ -21,12 +22,14 @@ public class CashReportModel : PageModel
         ClinicContextService clinicContext,
         ClinicalJournalSyncService journalSync,
         JournalReportService journal,
+        DoctorScopeContext doctorScope,
         ILogger<CashReportModel> logger)
     {
         _db = db;
         _clinicContext = clinicContext;
         _journalSync = journalSync;
         _journal = journal;
+        _doctorScope = doctorScope;
         _logger = logger;
     }
 
@@ -87,6 +90,7 @@ public class CashReportModel : PageModel
         {
             var receipts = await _db.CashReceipts
                 .ForClinic(id)
+                .Apply(_doctorScope.Filter)
                 .Where(c => c.ReceiptDate >= from && c.ReceiptDate <= to)
                 .OrderBy(c => c.ReceiptDate).ThenBy(c => c.ReceiptNo)
                 .ToListAsync();
@@ -122,6 +126,7 @@ public class CashReportModel : PageModel
         {
             var payments = await _db.CashPayments
                 .ForClinic(id)
+                .Apply(_doctorScope.Filter)
                 .Where(p => p.PaymentDate >= from && p.PaymentDate <= to)
                 .OrderBy(p => p.PaymentDate).ThenBy(p => p.PaymentNo)
                 .ToListAsync();

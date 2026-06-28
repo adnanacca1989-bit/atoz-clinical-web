@@ -21,6 +21,7 @@
         @if (isAdmin)
         {
             <a class="settings-menu-item @(current.Contains("DoctorAccess") ? "active" : "")" asp-page="/Settings/DoctorAccess">Doctor Access</a>
+            <a class="settings-menu-item @(current.Contains("UnlinkedDoctorUsers") ? "active" : "")" asp-page="/Settings/UnlinkedDoctorUsers">Users without Doctor Link</a>
         }
         <a class="settings-menu-item @(current.Contains("ChangePassword") ? "active" : "")" asp-page="/Settings/ChangePassword">Change Password</a>
         <a class="settings-menu-item @(current.Contains("TwoFactor") ? "active" : "")" asp-page="/Settings/TwoFactor">Two-factor auth</a>

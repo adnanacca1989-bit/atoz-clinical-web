@@ -138,6 +138,17 @@ public sealed class VendorClinicService
             throw new InvalidOperationException($"Username '{request.Username}' already exists.");
         }
 
+        if (request.Role == ClinicUserRole.Doctor && request.DoctorRecordId is null)
+            throw new InvalidOperationException("Doctor users must be linked to a doctor record.");
+
+        if (request.Role == ClinicUserRole.Doctor && request.DoctorRecordId is Guid doctorId)
+        {
+            var taken = await _users.Users.AnyAsync(u =>
+                u.ClinicId == request.ClinicId && u.DoctorRecordId == doctorId);
+            if (taken)
+                throw new InvalidOperationException("That doctor is already linked to another user account.");
+        }
+
         var password = string.IsNullOrWhiteSpace(request.Password) ? GeneratePassword() : request.Password;
         var user = new ApplicationUser
         {

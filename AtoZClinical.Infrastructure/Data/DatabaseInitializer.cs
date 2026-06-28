@@ -750,6 +750,7 @@ public static class DatabaseInitializer
         try
         {
             await DoctorRecordLinkBackfill.BackfillAsync(db);
+            await DoctorUserLinkBackfill.BackfillAsync(db, logger);
 
             var propagation = services.GetRequiredService<MasterDataPropagationService>();
             var clinicIds = await db.Clinics.AsNoTracking().Select(c => c.Id).ToListAsync();

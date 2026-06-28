@@ -123,10 +123,18 @@
             roleSelect.addEventListener('change', () => {
                 if (!isDoctorRole()) {
                     doctorRecordIdInput.value = '';
+                    fullNameInput.value = '';
                 } else if (!doctorRecordIdInput.value) {
                     fullNameInput.value = '';
                 }
                 setDoctorMode();
+            });
+
+            fullNameInput.addEventListener('keydown', (e) => {
+                if (isDoctorRole()) e.preventDefault();
+            });
+            fullNameInput.addEventListener('paste', (e) => {
+                if (isDoctorRole()) e.preventDefault();
             });
 
             setDoctorMode();

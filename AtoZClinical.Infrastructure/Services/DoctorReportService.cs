@@ -60,14 +60,17 @@ public sealed class DoctorReportService
 
         var invoices = await _db.Invoices.ForClinic(clinicId)
             .Include(i => i.Lines)
+            .Apply(_doctorScope.Filter)
             .Where(i => i.InvoiceDate >= from && i.InvoiceDate <= to)
             .ToListAsync();
 
         var receipts = await _db.CashReceipts.ForClinic(clinicId)
+            .Apply(_doctorScope.Filter)
             .Where(r => r.ReceiptDate >= from && r.ReceiptDate <= to)
             .ToListAsync();
 
         var payments = await _db.CashPayments.ForClinic(clinicId)
+            .Apply(_doctorScope.Filter)
             .Where(p => p.PaymentDate >= from && p.PaymentDate <= to)
             .ToListAsync();
 

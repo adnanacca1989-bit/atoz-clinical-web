@@ -8,11 +8,16 @@ public sealed class DashboardService
 {
     private readonly ReportingDataService _reporting;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly DoctorScopeContext _doctorScope;
 
-    public DashboardService(ReportingDataService reporting, PatientVisitStatusService visitStatus)
+    public DashboardService(
+        ReportingDataService reporting,
+        PatientVisitStatusService visitStatus,
+        DoctorScopeContext doctorScope)
     {
         _reporting = reporting;
         _visitStatus = visitStatus;
+        _doctorScope = doctorScope;
     }
 
     public async Task<DashboardSummary> GetSummaryAsync(Guid clinicId, DateTime from, DateTime to, bool isTodayScope)
@@ -20,6 +25,7 @@ public sealed class DashboardService
         await _visitStatus.SyncAllPatientStatusesForClinicAsync(clinicId);
 
         var db = _reporting.ReadDb;
+        var scope = _doctorScope.Filter;
         var today = DateTime.Today;
         var rangeFrom = isTodayScope ? today : from.Date;
         var rangeTo = isTodayScope ? today : to.Date;
@@ -39,38 +45,38 @@ public sealed class DashboardService
             string.IsNullOrWhiteSpace(status) ||
             !status.Equals("inactive", StringComparison.OrdinalIgnoreCase));
 
-        var todayStatusRows = await PatientsInRange(db.Patients.ForClinic(clinicId).AsNoTracking(), today, todayEndExclusive)
+        var scopedPatients = db.Patients.ForClinic(clinicId).AsNoTracking().Apply(scope);
+
+        var todayStatusRows = await PatientsInRange(scopedPatients, today, todayEndExclusive)
             .Select(p => p.Status)
             .ToListAsync();
 
-        var periodStatusRows = await PatientsInRange(db.Patients.ForClinic(clinicId).AsNoTracking(), rangeFrom, rangeEndExclusive)
+        var periodStatusRows = await PatientsInRange(scopedPatients, rangeFrom, rangeEndExclusive)
             .Select(p => p.Status)
             .ToListAsync();
 
-        var newRegistrations = await db.Patients
-            .ForClinic(clinicId)
-            .AsNoTracking()
+        var newRegistrations = await scopedPatients
             .CountAsync(p => p.CreatedAt >= rangeFrom && p.CreatedAt < rangeEndExclusive);
 
-        var invoiceTotal = (await db.Invoices
+        var invoiceTotal = await db.Invoices
             .ForClinic(clinicId)
             .AsNoTracking()
+            .Apply(scope)
             .Where(i => i.InvoiceDate >= rangeFrom && i.InvoiceDate < rangeEndExclusive)
-            .Select(i => i.TotalAmount)
-            .ToListAsync()).Sum();
+            .SumAsync(i => (decimal?)i.TotalAmount) ?? 0m;
 
-        var outstandingAr = (await db.Invoices
+        var outstandingAr = await db.Invoices
             .ForClinic(clinicId)
             .AsNoTracking()
-            .Select(i => i.BalanceDue)
-            .ToListAsync()).Sum();
+            .Apply(scope)
+            .SumAsync(i => (decimal?)i.BalanceDue) ?? 0m;
 
-        var cashReceived = (await db.CashReceipts
+        var cashReceived = await db.CashReceipts
             .ForClinic(clinicId)
             .AsNoTracking()
+            .Apply(scope)
             .Where(r => r.ReceiptDate >= rangeFrom && r.ReceiptDate < rangeEndExclusive)
-            .Select(r => r.Amount)
-            .ToListAsync()).Sum();
+            .SumAsync(r => (decimal?)r.Amount) ?? 0m;
 
         return new DashboardSummary
         {

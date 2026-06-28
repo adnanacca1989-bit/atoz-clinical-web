@@ -186,9 +186,11 @@ public class LoginModel : PageModel
         }
 
         _logger.LogInformation(
-            "Clinic login succeeded for {Username} clinicId={ClinicId} client={ClientIp} authenticated={Authenticated} trace={TraceId}",
+            "Clinic login succeeded for {Username} clinicId={ClinicId} role={Role} doctorRecordId={DoctorRecordId} client={ClientIp} authenticated={Authenticated} trace={TraceId}",
             user.UserName,
             user.ClinicId,
+            user.ClinicRole,
+            user.DoctorRecordId,
             clientIp,
             User.Identity?.IsAuthenticated == true,
             HttpContext.TraceIdentifier);
@@ -197,7 +199,7 @@ public class LoginModel : PageModel
             SecurityAuditEvents.Login,
             user.UserName,
             user.ClinicId,
-            $"Clinic login: {clinic?.Name}",
+            $"Clinic login: {clinic?.Name} role={user.ClinicRole} doctorRecordId={user.DoctorRecordId}",
             clientIp);
 
         return RedirectToPage("/Dashboard/Index");

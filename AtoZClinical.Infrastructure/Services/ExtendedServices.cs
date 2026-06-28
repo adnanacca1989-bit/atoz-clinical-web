@@ -1361,6 +1361,7 @@ public sealed class PharmacyBillService
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
     private readonly ClinicalJournalSyncService _journalSync;
+    private readonly DoctorScopeContext _doctorScope;
 
     public PharmacyBillService(
         ClinicalDbContext db,
@@ -1369,7 +1370,8 @@ public sealed class PharmacyBillService
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
         BillingPropagationService billing,
-        ClinicalJournalSyncService journalSync)
+        ClinicalJournalSyncService journalSync,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _audit = audit;
@@ -1378,13 +1380,20 @@ public sealed class PharmacyBillService
         _visitStatus = visitStatus;
         _billing = billing;
         _journalSync = journalSync;
+        _doctorScope = doctorScope;
     }
 
     public Task<List<PharmacyBill>> ListAsync(Guid clinicId) =>
-        _db.PharmacyBills.ForClinic(clinicId).Include(b => b.Lines).OrderByDescending(b => b.BillNo).ToListAsync();
+        _db.PharmacyBills.ForClinic(clinicId).Include(b => b.Lines).Apply(_doctorScope.Filter)
+            .OrderByDescending(b => b.BillNo).ToListAsync();
 
-    public Task<PharmacyBill?> GetAsync(Guid clinicId, Guid id) =>
-        _db.PharmacyBills.Include(b => b.Lines).ForClinic(clinicId).FirstOrDefaultAsync(b => b.Id == id);
+    public async Task<PharmacyBill?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.PharmacyBills.Include(b => b.Lines).ForClinic(clinicId).FirstOrDefaultAsync(b => b.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<int> NextBillNoAsync(Guid clinicId) =>
         (await _db.PharmacyBills.ForClinic(clinicId).MaxAsync(b => (int?)b.BillNo) ?? 0) + 1;
@@ -1396,12 +1405,10 @@ public sealed class PharmacyBillService
         List<PharmacyBillLine>? previousLines = null;
         if (!isNew)
         {
-            previous = await _db.PharmacyBills.ForClinic(clinicId).AsNoTracking()
-                .Include(b => b.Lines)
-                .FirstOrDefaultAsync(b => b.Id == item.Id);
-            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
+            previous = await GetAsync(clinicId, item.Id);
             if (previous is null)
-                isNew = true;
+                throw new UnauthorizedAccessException("You do not have access to this record.");
+            previousLines = previous.Lines.OrderBy(l => l.LineNo).ToList();
         }
 
         var validLines = lines

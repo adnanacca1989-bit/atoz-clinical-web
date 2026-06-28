@@ -12,7 +12,7 @@ public class DashboardServiceTests
         var config = new ConfigurationBuilder().Build();
         var reporting = new ReportingDataService(db.Db, config, TestClinicProvider.ForClinic(tenantClinicId));
         var visitStatus = new PatientVisitStatusService(db.Db, new AuditService(db.Db));
-        return new DashboardService(reporting, visitStatus);
+        return new DashboardService(reporting, visitStatus, new DoctorScopeContext());
     }
 
     [Fact]

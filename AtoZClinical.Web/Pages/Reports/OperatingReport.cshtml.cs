@@ -12,11 +12,16 @@ public class OperatingReportModel : PageModel
 {
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
+    private readonly DoctorScopeContext _doctorScope;
 
-    public OperatingReportModel(ClinicalDbContext db, ClinicContextService clinicContext)
+    public OperatingReportModel(
+        ClinicalDbContext db,
+        ClinicContextService clinicContext,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _clinicContext = clinicContext;
+        _doctorScope = doctorScope;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -57,6 +62,7 @@ public class OperatingReportModel : PageModel
 
         var invoices = await _db.Invoices
             .Where(i => i.ClinicId == clinicId && i.InvoiceDate >= FromDate.Date && i.InvoiceDate <= ToDate.Date)
+            .Apply(_doctorScope.Filter)
             .ToListAsync();
 
         if (!string.IsNullOrWhiteSpace(PatientName))
@@ -70,10 +76,12 @@ public class OperatingReportModel : PageModel
 
         var receipts = await _db.CashReceipts
             .Where(c => c.ClinicId == clinicId && c.ReceiptDate >= FromDate.Date && c.ReceiptDate <= ToDate.Date)
+            .Apply(_doctorScope.Filter)
             .ToListAsync();
 
         var payments = await _db.CashPayments
             .Where(p => p.ClinicId == clinicId && p.PaymentDate >= FromDate.Date && p.PaymentDate <= ToDate.Date)
+            .Apply(_doctorScope.Filter)
             .ToListAsync();
 
         Results = invoices.Select(i =>

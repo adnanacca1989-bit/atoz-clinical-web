@@ -69,7 +69,7 @@ public sealed class DoctorScopeService
             DoctorRecordId = doctorRecordId,
             DoctorName = doctorName
         };
-        _logger.LogDebug(
+        _logger.LogInformation(
             "Doctor scope restricted for {User}: DoctorRecordId={DoctorRecordId}, DoctorName={DoctorName}",
             user.UserName, doctorRecordId, doctorName);
         return filter;

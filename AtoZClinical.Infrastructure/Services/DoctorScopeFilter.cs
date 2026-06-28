@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace AtoZClinical.Infrastructure.Services;
 
 public sealed class DoctorScopeFilter
@@ -11,10 +13,25 @@ public sealed class DoctorScopeFilter
 
 public static class DoctorScopeGuard
 {
-    public static void EnsureCanAccess(DoctorScopeFilter scope, Guid? doctorRecordId, string? doctorName)
+    public static void EnsureCanAccess(
+        DoctorScopeFilter scope,
+        Guid? doctorRecordId,
+        string? doctorName,
+        ILogger? logger = null,
+        string? context = null)
     {
-        if (!DoctorScopeQuery.Matches(scope, doctorRecordId, doctorName))
-            throw new UnauthorizedAccessException("You do not have access to this record.");
+        if (DoctorScopeQuery.Matches(scope, doctorRecordId, doctorName))
+            return;
+
+        logger?.LogWarning(
+            "Doctor scope access denied{Context}: filterDoctorId={FilterDoctorId} filterName={FilterName} recordDoctorId={RecordDoctorId} recordName={RecordName}",
+            string.IsNullOrWhiteSpace(context) ? "" : $" ({context})",
+            scope.DoctorRecordId,
+            scope.DoctorName,
+            doctorRecordId,
+            doctorName);
+
+        throw new UnauthorizedAccessException("You do not have access to this record.");
     }
 }
 

@@ -10,24 +10,29 @@ public sealed class ServiceIncomeRequestService
     private readonly BillingPropagationService _billing;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly AuditService _audit;
+    private readonly DoctorScopeContext _doctorScope;
 
     public ServiceIncomeRequestService(
         ClinicalDbContext db,
         BillingPropagationService billing,
         PatientVisitStatusService visitStatus,
-        AuditService audit)
+        AuditService audit,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _billing = billing;
         _visitStatus = visitStatus;
         _audit = audit;
+        _doctorScope = doctorScope;
     }
 
     public Task<List<ServiceIncomeRequest>> ListAsync(Guid clinicId)
     {
         try
         {
-            return _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+            return _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId)
+                .Apply(_doctorScope.Filter)
+                .OrderByDescending(r => r.RequestNo).ToListAsync();
         }
         catch
         {
@@ -35,8 +40,14 @@ public sealed class ServiceIncomeRequestService
         }
     }
 
-    public Task<ServiceIncomeRequest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+    public async Task<ServiceIncomeRequest?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<ServiceIncomeRequest> SaveAsync(Guid clinicId, ServiceIncomeRequest item, List<ServiceIncomeRequestLine> lines, string? userName = null)
     {
@@ -45,10 +56,10 @@ public sealed class ServiceIncomeRequestService
         List<ServiceIncomeRequestLine>? previousLines = null;
         if (!isNew)
         {
-            previous = await _db.ServiceIncomeRequests.ForClinic(clinicId).AsNoTracking()
-                .Include(r => r.Lines)
-                .FirstOrDefaultAsync(r => r.Id == item.Id);
-            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
+            previous = await GetAsync(clinicId, item.Id);
+            if (previous is null)
+                throw new UnauthorizedAccessException("You do not have access to this record.");
+            previousLines = previous.Lines.OrderBy(l => l.LineNo).ToList();
         }
 
         var validLines = lines
