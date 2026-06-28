@@ -30,6 +30,10 @@ main:has(.clinical-form-page) {
     flex: 0 0 auto;
 }
 
+.clinical-form-fit-content form .clinical-form-body {
+    flex: 0 0 auto;
+}
+
 .clinical-form-page .clinical-toolbar {
     margin: 0.5rem 0.5rem 0;
     position: relative;
@@ -44,6 +48,60 @@ main:has(.clinical-form-page) {
 
 .clinical-form-page .clinical-form-footer {
     margin: 0 0.5rem 1rem;
+}
+
+/* Hug content height — toolbar sits just below fields (Radiology Request style) */
+.clinical-form-fit-content .clinical-form-body {
+    min-height: auto !important;
+    max-height: none !important;
+    height: auto;
+    align-items: start;
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+.clinical-form-fit-content .clinical-form-left {
+    min-height: auto !important;
+    height: auto;
+    overflow: visible;
+}
+
+.clinical-form-fit-content .clinical-form-right {
+    min-height: auto !important;
+    max-height: none;
+}
+
+.clinical-form-fit-content .clinical-record-grid {
+    max-height: min(300px, calc(100vh - 300px)) !important;
+    min-height: 140px;
+}
+
+.clinical-form-fit-content.clinical-his-compact .clinical-form-body,
+.clinical-form-fit-content.clinical-his-compact .clinical-form-right {
+    min-height: auto !important;
+    max-height: none !important;
+}
+
+.clinical-form-fit-content.clinical-standard-form .clinical-form-body {
+    min-height: auto !important;
+    overflow: visible;
+}
+
+.clinical-form-fit-content.clinical-standard-form .clinical-form-scroll {
+    max-height: none;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+}
+
+.clinical-form-fit-content.clinical-standard-form .clinical-form-grid-area {
+    flex: 0 1 auto;
+}
+
+.clinical-form-fit-content.clinical-standard-form .clinical-line-grid-scroll {
+    min-height: 160px;
+    max-height: min(320px, calc(100vh - 340px));
+    flex: 0 0 auto;
 }
 
 .clinical-form-body {
@@ -1289,6 +1347,20 @@ main:has(.clinical-form-page) {
 
 .clinical-his-compact .clinical-form-right {
     min-height: 320px;
+}
+
+.clinical-form-fit-content.clinical-his-compact .clinical-form-body,
+.clinical-form-fit-content.clinical-his-compact.clinical-standard-form .clinical-form-body {
+    min-height: auto !important;
+    max-height: none !important;
+}
+
+.clinical-form-fit-content.clinical-his-compact .clinical-form-right {
+    min-height: auto !important;
+}
+
+.clinical-form-fit-content.clinical-his-compact.clinical-standard-form .clinical-form-scroll {
+    max-height: none;
 }
 
 .clinical-his-compact .record-transaction-header {
