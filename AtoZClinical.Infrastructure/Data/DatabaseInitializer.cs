@@ -35,6 +35,7 @@ public static class DatabaseInitializer
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
         await EnsurePrescriptionLinesSchemaAsync(db, logger);
         await EnsureExpenseJournalSchemaAsync(db, logger);
+        await EnsureVendorPaymentSchemaAsync(db, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -642,6 +643,36 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Expense voucher and journal schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureVendorPaymentSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE "CashPayments" ADD COLUMN IF NOT EXISTS "VendorId" uuid NULL;
+                ALTER TABLE "CashPayments" ADD COLUMN IF NOT EXISTS "JournalEntryId" uuid NULL;
+                ALTER TABLE "ExpenseVouchers" ADD COLUMN IF NOT EXISTS "PayeeName" text NULL;
+                ALTER TABLE "ExpenseVouchers" ADD COLUMN IF NOT EXISTS "CreditAccountName" text NULL;
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('20260627170000_AddVendorPaymentAndExpenseFields', '8.0.11')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+
+            logger.LogInformation("Vendor payment and expense voucher columns verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Vendor payment schema verification skipped.");
         }
     }
 

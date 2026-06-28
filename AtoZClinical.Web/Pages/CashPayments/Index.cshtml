@@ -23,42 +23,53 @@
                         <span asp-validation-for="Input.PaymentDate" class="text-danger small"></span>
                     </div>
                     <div class="col-md-6">
+                        <label class="clinical-field-label">Vendor</label>
+                        <select asp-for="Input.VendorId" id="cashPaymentVendorSelect" class="clinical-field">
+                            <option value="">-- Patient Payment (no vendor) --</option>
+                            @foreach (var v in Model.RegisteredVendors)
+                            {
+                                <option value="@v.Id" selected="@(Model.Input.VendorId == v.Id ? "selected" : null)">@v.Name</option>
+                            }
+                        </select>
+                        <span class="small text-muted">Linked to Settings → Define Vendor. Vendor payments post to Accounts Payable when Credit is selected.</span>
+                    </div>
+                    <div class="col-md-6 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Patient Name</label>
                         <input asp-for="Input.PayeeName" id="cashPaymentPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Patient Barcode</label>
                         <input asp-for="Input.PatientId" id="cashPaymentPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan or type barcode..." autocomplete="off" />
                     </div>
-                    <div class="col-md-1">
+                    <div class="col-md-1 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Age</label>
                         <input asp-for="Input.Age" class="clinical-field" type="number" readonly />
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Gender</label>
                         <input asp-for="Input.Gender" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Phone</label>
                         <input asp-for="Input.Phone" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">City</label>
                         <input asp-for="Input.City" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-4 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Doctor Name</label>
                         <input asp-for="Input.DoctorName" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-4 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Specialty</label>
                         <input asp-for="Input.Specialty" class="clinical-field" readonly />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Balance Due</label>
                         <input asp-for="Input.BalanceDue" class="clinical-field" type="number" step="0.01" />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Balance Status</label>
                         <input asp-for="Input.BalanceStatus" class="clinical-field" />
                     </div>
@@ -69,28 +80,54 @@
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label field-required">Payment Method</label>
-                        <select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods))" required></select>
+                        <select asp-for="Input.PaymentMethod" id="cashPaymentMethodSelect" class="clinical-field" required>
+                            @if (Model.IsVendorPayment)
+                            {
+                                @foreach (var m in AtoZClinical.Infrastructure.Services.ClinicLookup.VendorPaymentMethods)
+                                {
+                                    <option value="@m" selected="@(Model.Input.PaymentMethod == m ? "selected" : null)">@m</option>
+                                }
+                            }
+                            else
+                            {
+                                @foreach (var m in AtoZClinical.Infrastructure.Services.ClinicLookup.PaymentMethods)
+                                {
+                                    <option value="@m" selected="@(Model.Input.PaymentMethod == m ? "selected" : null)">@m</option>
+                                }
+                            }
+                        </select>
                         <span asp-validation-for="Input.PaymentMethod" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 patient-payment-fields @(Model.IsVendorPayment ? "d-none" : "")">
                         <label class="clinical-field-label">Ending Balance</label>
                         <input asp-for="Input.EndingBalance" class="clinical-field" type="number" step="0.01" readonly />
                     </div>
                     <div class="col-md-6">
-                        <label class="clinical-field-label field-required">Account Name</label>
-                        <select asp-for="Input.ChartAccountName" class="clinical-field" required>
+                        <label class="clinical-field-label field-required">@(Model.IsVendorPayment ? "Expense Account" : "Account Name")</label>
+                        <select asp-for="Input.ChartAccountName" id="cashPaymentAccountSelect" class="clinical-field" required>
                             <option value="">-- Select Account --</option>
-                            @foreach (var group in Model.Accounts.GroupBy(a => a.CategoryType).OrderBy(g => g.Key))
+                            @if (Model.IsVendorPayment)
                             {
-                                <optgroup label="@group.Key">
-                                @foreach (var a in group.OrderBy(a => a.AccountNo))
+                                @foreach (var a in Model.ExpenseAccounts)
                                 {
-                                    <option value="@a.Name">@a.Name (@a.DetailType)</option>
+                                    <option value="@a.Name" selected="@(Model.Input.ChartAccountName == a.Name ? "selected" : null)">@a.AccountNo — @a.Name</option>
                                 }
-                                </optgroup>
+                            }
+                            else
+                            {
+                                @foreach (var group in Model.Accounts.GroupBy(a => a.CategoryType).OrderBy(g => g.Key))
+                                {
+                                    <optgroup label="@group.Key">
+                                    @foreach (var a in group.OrderBy(a => a.AccountNo))
+                                    {
+                                        <option value="@a.Name" selected="@(Model.Input.ChartAccountName == a.Name ? "selected" : null)">@a.AccountNo — @a.Name</option>
+                                    }
+                                    </optgroup>
+                                }
                             }
                             @if (!string.IsNullOrWhiteSpace(Model.Input.ChartAccountName) &&
-                                 !Model.Accounts.Any(a => a.Name == Model.Input.ChartAccountName))
+                                 !Model.Accounts.Any(a => a.Name == Model.Input.ChartAccountName) &&
+                                 !Model.ExpenseAccounts.Any(a => a.Name == Model.Input.ChartAccountName))
                             {
                                 <option value="@Model.Input.ChartAccountName" selected>@Model.Input.ChartAccountName</option>
                             }
@@ -151,8 +188,15 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        window.cashPaymentExpenseAccounts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.ExpenseAccounts.Select(a => new { a.AccountNo, Name = a.Name })));
+        window.cashPaymentAllAccounts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Accounts.Select(a => new { a.AccountNo, Name = a.Name, CategoryType = a.CategoryType })));
+    </script>
     <script src="~/js/amount-words.js" asp-append-version="true"></script>
     <script src="~/js/cash-balance.js" asp-append-version="true"></script>
     <script src="~/js/patient-picker.js" asp-append-version="true"></script>
     <script src="~/js/cash-payment.js" asp-append-version="true"></script>
+    <script src="~/js/cash-payment-vendor.js" asp-append-version="true"></script>
 }

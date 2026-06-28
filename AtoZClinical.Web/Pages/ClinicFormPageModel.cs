@@ -52,7 +52,7 @@ public abstract class ClinicFormPageModel : PageModel
         return access.Clinic?.Id ?? await ClinicContext.GetClinicIdAsync();
     }
 
-    protected void SetFormViewData(string title, string? createdBy, string? updatedBy, DateTime? updatedAt)
+    protected void SetFormViewData(string title, string? createdBy, string? updatedBy, DateTime? updatedAt, string? recordDisplayNo = null)
     {
         ViewData["FormTitle"] = title;
         ViewData["StatusText"] = StatusText;
@@ -60,7 +60,22 @@ public abstract class ClinicFormPageModel : PageModel
         ViewData["CreatedBy"] = createdBy ?? UserName;
         ViewData["UpdatedBy"] = updatedBy ?? UserName;
         ViewData["UpdatedOn"] = updatedAt?.ToString("M/d/yyyy h:mm tt") ?? DateTime.Now.ToString("M/d/yyyy h:mm tt");
+
+        var isEdit = RecordId.HasValue && !NewRecord;
+        ViewData["IsEditMode"] = isEdit;
+        ViewData["FormMode"] = isEdit ? "Edit" : "New";
+        ViewData["FormModeLabel"] = isEdit
+            ? $"Edit Record Mode — #{recordDisplayNo ?? RecordId?.ToString()[..8]}"
+            : "New Record Mode";
     }
+
+    protected IActionResult RedirectAfterSave(Guid savedId, bool wasNew)
+    {
+        TempData["FormSuccessMessage"] = wasNew ? "Saved successfully." : "Updated successfully.";
+        return RedirectToRecord(savedId);
+    }
+
+    protected IActionResult RedirectAfterSave(Guid savedId) => RedirectAfterSave(savedId, IsNewSave);
 
     protected IActionResult RedirectToRecord(Guid? id) =>
         RedirectToPage(new { RecordId = id, Search, RecordPage, PageSize });
@@ -106,9 +121,6 @@ public abstract class ClinicFormPageModel : PageModel
         return candidates.FirstOrDefault(p =>
             string.Equals(p.FullName, normalized, StringComparison.OrdinalIgnoreCase));
     }
-
-    protected IActionResult RedirectAfterSave(Guid savedId) =>
-        RedirectToRecord(savedId);
 
     protected void ConfigureAddSave()
     {

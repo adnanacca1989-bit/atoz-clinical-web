@@ -29,6 +29,20 @@
                             <select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.ExpensePaymentMethods))" required></select>
                             <span asp-validation-for="Input.PaymentMethod" class="text-danger small"></span>
                         </div>
+                        <div class="ctx-field ctx-md">
+                            <label class="clinical-field-label field-required">Account Name</label>
+                            <select asp-for="Input.CreditAccountName" class="clinical-field" required>
+                                <option value="">-- Payment Account --</option>
+                                @foreach (var a in Model.PaymentAccounts)
+                                {
+                                    <option value="@a.Name" selected="@(Model.Input.CreditAccountName == a.Name ? "selected" : null)">@a.AccountNo — @a.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="ctx-field ctx-md">
+                            <label class="clinical-field-label">Payee</label>
+                            <input asp-for="Input.PayeeName" class="clinical-field" placeholder="Vendor, employee, or other payee..." />
+                        </div>
                     </div>
                     <div class="ctx-row ctx-notes-row">
                         <div class="ctx-field ctx-grow">
@@ -61,7 +75,7 @@
                                             <option value="">-- Expense Account --</option>
                                             @foreach (var a in Model.ExpenseAccounts)
                                             {
-                                                <option value="@a.Name" selected="@(acct == a.Name ? "selected" : null)">@a.Name (@a.DetailType)</option>
+                                                <option value="@a.Name" selected="@(acct == a.Name ? "selected" : null)">@a.AccountNo — @a.Name</option>
                                             }
                                         </select>
                                     </td>
@@ -89,13 +103,14 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>No</th><th>Date</th><th>Method</th><th>Total</th></tr></thead>
+                        <thead><tr><th>No</th><th>Date</th><th>Payee</th><th>Method</th><th>Total</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
                             <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
                                 <td>@r.ExpenseNo</td>
                                 <td>@r.ExpenseDate.ToString("d")</td>
+                                <td>@r.PayeeName</td>
                                 <td>@r.PaymentMethod</td>
                                 <td>@r.TotalAmount.ToString("N2")</td>
                             </tr>

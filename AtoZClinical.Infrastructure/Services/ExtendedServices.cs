@@ -648,6 +648,15 @@ public sealed class CashPaymentService
         {
             previous = await _db.CashPayments.ForClinic(clinicId).AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == item.Id);
+            if (previous?.JournalEntryId is Guid journalId)
+                item.JournalEntryId = journalId;
+        }
+
+        if (item.VendorId.HasValue)
+        {
+            item.PayeeType = "Vendor";
+            if (string.IsNullOrWhiteSpace(item.PatientId))
+                item.PatientId = null;
         }
 
         item.ClinicId = clinicId;
@@ -660,6 +669,18 @@ public sealed class CashPaymentService
             _db.CashPayments.Add(item);
         }
         else _db.CashPayments.Update(item);
+
+        if (item.VendorId.HasValue && !string.IsNullOrWhiteSpace(item.ChartAccountName))
+            await SyncVendorPaymentJournalAsync(clinicId, item);
+        else if (item.JournalEntryId is Guid orphanJournalId)
+        {
+            var journalLines = await _db.JournalEntryLines.Where(l => l.JournalEntryId == orphanJournalId).ToListAsync();
+            _db.JournalEntryLines.RemoveRange(journalLines);
+            var journal = await _db.JournalEntries.ForClinic(clinicId).FirstOrDefaultAsync(j => j.Id == orphanJournalId);
+            if (journal is not null)
+                _db.JournalEntries.Remove(journal);
+            item.JournalEntryId = null;
+        }
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Cash Payment", isNew ? "Create" : "Update",
@@ -684,11 +705,87 @@ public sealed class CashPaymentService
         var patientName = item.PayeeName;
         var patientId = item.PatientId;
         var doctorName = item.DoctorName;
+        if (item.JournalEntryId is Guid journalId)
+        {
+            var journalLines = await _db.JournalEntryLines.Where(l => l.JournalEntryId == journalId).ToListAsync();
+            _db.JournalEntryLines.RemoveRange(journalLines);
+            var journal = await _db.JournalEntries.ForClinic(clinicId).FirstOrDefaultAsync(j => j.Id == journalId);
+            if (journal is not null)
+                _db.JournalEntries.Remove(journal);
+        }
         _db.CashPayments.Remove(item);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Cash Payment", "Delete", $"Payment #{item.PaymentNo}");
         if (!string.IsNullOrWhiteSpace(patientName) || !string.IsNullOrWhiteSpace(patientId))
             await _invoices.RecalculateInvoicePaymentsAsync(clinicId, patientName, patientId, doctorName);
+    }
+
+    private async Task SyncVendorPaymentJournalAsync(Guid clinicId, CashPayment payment)
+    {
+        var chartAccounts = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var expenseAccount = chartAccounts.FirstOrDefault(a =>
+            string.Equals(a.Name, payment.ChartAccountName, StringComparison.OrdinalIgnoreCase));
+        if (expenseAccount is null ||
+            !string.Equals(expenseAccount.CategoryType, "Expense", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Vendor payments require a valid expense account.");
+
+        var creditAccountName = PaymentJournalHelper.ResolvePaymentCreditAccount(payment.PaymentMethod, chartAccounts);
+        var creditCategory = chartAccounts.FirstOrDefault(a =>
+            string.Equals(a.Name, creditAccountName, StringComparison.OrdinalIgnoreCase))?.CategoryType ?? "Asset";
+
+        var memo = $"Vendor payment #{payment.PaymentNo} — {payment.PayeeName}";
+
+        JournalEntry entry;
+        if (payment.JournalEntryId is Guid existingId)
+        {
+            entry = await _db.JournalEntries.ForClinic(clinicId).FirstOrDefaultAsync(j => j.Id == existingId)
+                ?? throw new InvalidOperationException("Linked journal entry was not found.");
+            var oldLines = await _db.JournalEntryLines.Where(l => l.JournalEntryId == entry.Id).ToListAsync();
+            _db.JournalEntryLines.RemoveRange(oldLines);
+            entry.EntryDate = payment.PaymentDate;
+            entry.Description = memo;
+            entry.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            entry = new JournalEntry
+            {
+                Id = Guid.NewGuid(),
+                ClinicId = clinicId,
+                EntryNo = (await _db.JournalEntries.ForClinic(clinicId).MaxAsync(j => (int?)j.EntryNo) ?? 0) + 1,
+                EntryDate = payment.PaymentDate,
+                SourceType = PaymentJournalHelper.CashPaymentSource,
+                SourceId = payment.Id,
+                Description = memo,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.JournalEntries.Add(entry);
+            payment.JournalEntryId = entry.Id;
+        }
+
+        _db.JournalEntryLines.Add(new JournalEntryLine
+        {
+            Id = Guid.NewGuid(),
+            JournalEntryId = entry.Id,
+            LineNo = 1,
+            AccountName = expenseAccount.Name,
+            AccountCategory = expenseAccount.CategoryType,
+            Debit = payment.Amount,
+            Credit = 0,
+            Description = payment.Description
+        });
+        _db.JournalEntryLines.Add(new JournalEntryLine
+        {
+            Id = Guid.NewGuid(),
+            JournalEntryId = entry.Id,
+            LineNo = 2,
+            AccountName = creditAccountName,
+            AccountCategory = creditCategory,
+            Debit = 0,
+            Credit = payment.Amount,
+            Description = $"Payment — {payment.PaymentMethod}"
+        });
     }
 }
 

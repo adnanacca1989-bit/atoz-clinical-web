@@ -3,13 +3,29 @@
     var showPatientCard = ViewData["ShowPatientCard"] as bool? ?? false;
     var openPatientSelect = ViewData["OpenPatientSelect"] as bool? ?? false;
     var showAddLines = ViewData["ShowAddLines"] as bool? ?? false;
+    var isEditMode = ViewData["IsEditMode"] as bool? ?? false;
+    var formMode = ViewData["FormMode"] as string ?? "New";
+    var formModeLabel = ViewData["FormModeLabel"] as string ?? "New Record Mode";
 }
 <partial name="_FormMetaBar" />
-<input type="hidden" name="SaveMode" id="saveModeInput" value="Edit" />
+@if (TempData["FormSuccessMessage"] is string successMsg)
+{
+    <div class="clinical-form-success-alert no-print" role="status">@successMsg</div>
+}
+<div class="clinical-form-mode-banner no-print clinical-form-mode-@formMode.ToLowerInvariant()">
+    <span class="clinical-form-mode-label">@formModeLabel</span>
+</div>
+<input type="hidden" name="SaveMode" id="saveModeInput" value="@(isEditMode ? "Edit" : "New")" />
 <div class="clinical-toolbar">
     <button type="submit" asp-page-handler="New" class="btn-form" formnovalidate>+ New</button>
-    <button type="submit" asp-page-handler="Add" class="btn-form btn-form-primary">💾 Add</button>
-    <button type="submit" asp-page-handler="Save" class="btn-form">✏️ Edit</button>
+    @if (isEditMode)
+    {
+        <button type="submit" asp-page-handler="Save" class="btn-form btn-form-primary">💾 Update</button>
+    }
+    else
+    {
+        <button type="submit" asp-page-handler="Add" class="btn-form btn-form-primary">💾 Save</button>
+    }
     <button type="submit" asp-page-handler="Delete" class="btn-form" formnovalidate onclick="return confirm('Delete this record?');">🗑️ Delete</button>
     @if (openPatientSelect)
     {

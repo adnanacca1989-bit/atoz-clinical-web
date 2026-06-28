@@ -8,15 +8,8 @@ public static class ExpenseAccountingHelper
 {
     public const string ExpenseVoucherSource = "ExpenseVoucher";
 
-    public static string ResolveCreditAccountName(string paymentMethod, IReadOnlyList<ChartAccount> accounts)
-    {
-        return paymentMethod.Trim().ToUpperInvariant() switch
-        {
-            "BANK" => FindAccount(accounts, "Asset", "Bank") ?? "Bank",
-            "CREDIT" => FindAccount(accounts, "Liability", "Account Payable") ?? "Account Payable",
-            _ => FindAccount(accounts, "Asset", "Cash") ?? "Cash"
-        };
-    }
+    public static string ResolveCreditAccountName(string paymentMethod, IReadOnlyList<ChartAccount> accounts, string? overrideAccountName = null) =>
+        PaymentJournalHelper.ResolvePaymentCreditAccount(paymentMethod, accounts, overrideAccountName);
 
     public static void ValidateExpenseLines(
         IReadOnlyList<ExpenseVoucherLine> lines,
@@ -162,9 +155,14 @@ public sealed class ExpenseVoucherService
             .Where(a => string.Equals(a.CategoryType, "Expense", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(a => a.Name, a => a, StringComparer.OrdinalIgnoreCase);
 
-        var creditAccountName = ExpenseAccountingHelper.ResolveCreditAccountName(voucher.PaymentMethod, chartAccounts);
+        var creditAccountName = ExpenseAccountingHelper.ResolveCreditAccountName(
+            voucher.PaymentMethod, chartAccounts, voucher.CreditAccountName);
         var creditCategory = chartAccounts.FirstOrDefault(a =>
             string.Equals(a.Name, creditAccountName, StringComparison.OrdinalIgnoreCase))?.CategoryType ?? "Asset";
+
+        var memo = string.IsNullOrWhiteSpace(voucher.PayeeName)
+            ? voucher.Description
+            : $"{voucher.PayeeName} — {voucher.Description}".Trim(' ', '—');
 
         JournalEntry entry;
         if (voucher.JournalEntryId is Guid existingId)
@@ -175,7 +173,7 @@ public sealed class ExpenseVoucherService
             var oldLines = await _db.JournalEntryLines.Where(l => l.JournalEntryId == entry.Id).ToListAsync();
             _db.JournalEntryLines.RemoveRange(oldLines);
             entry.EntryDate = voucher.ExpenseDate;
-            entry.Description = voucher.Description;
+            entry.Description = memo;
             entry.UpdatedAt = DateTime.UtcNow;
         }
         else
@@ -188,7 +186,7 @@ public sealed class ExpenseVoucherService
                 EntryDate = voucher.ExpenseDate,
                 SourceType = ExpenseAccountingHelper.ExpenseVoucherSource,
                 SourceId = voucher.Id,
-                Description = voucher.Description,
+                Description = memo,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -243,6 +241,9 @@ public sealed class JournalReportService
         var fromDate = from.Date;
         var toDate = to.Date;
 
+        var accountLookup = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking()
+            .ToDictionaryAsync(a => a.Name, a => a.AccountNo, StringComparer.OrdinalIgnoreCase);
+
         var entries = await _db.JournalEntries
             .Include(j => j.Lines)
             .ForClinic(clinicId)
@@ -256,17 +257,30 @@ public sealed class JournalReportService
             foreach (var line in entry.Lines.OrderBy(l => l.LineNo))
             {
                 if (!string.IsNullOrWhiteSpace(accountName) &&
-                    !line.AccountName.Contains(accountName, StringComparison.OrdinalIgnoreCase))
+                    !string.Equals(line.AccountName, accountName.Trim(), StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                accountLookup.TryGetValue(line.AccountName, out var accountNo);
                 rows.Add(new GeneralLedgerRow(
                     entry.EntryDate,
                     entry.EntryNo,
                     entry.SourceType,
+                    accountNo,
                     line.AccountName,
                     line.Description ?? entry.Description,
                     line.Debit,
-                    line.Credit));
+                    line.Credit,
+                    0));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            var running = 0m;
+            for (var i = 0; i < rows.Count; i++)
+            {
+                running += rows[i].Debit - rows[i].Credit;
+                rows[i] = rows[i] with { RunningBalance = running };
             }
         }
 
@@ -276,6 +290,10 @@ public sealed class JournalReportService
     public async Task<List<TrialBalanceRow>> GetTrialBalanceAsync(Guid clinicId, DateTime asOf)
     {
         var asOfDate = asOf.Date;
+        var chartAccounts = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking()
+            .OrderBy(a => a.AccountNo)
+            .ToListAsync();
+
         var entries = await _db.JournalEntries
             .Include(j => j.Lines)
             .ForClinic(clinicId)
@@ -283,28 +301,56 @@ public sealed class JournalReportService
             .AsNoTracking()
             .ToListAsync();
 
-        return entries
+        var journalTotals = entries
             .SelectMany(e => e.Lines)
-            .GroupBy(l => new { l.AccountName, l.AccountCategory })
-            .Select(g => new TrialBalanceRow(
-                g.Key.AccountCategory ?? "",
-                g.Key.AccountName,
-                g.Sum(x => x.Debit),
-                g.Sum(x => x.Credit)))
-            .OrderBy(r => r.AccountCategory).ThenBy(r => r.AccountName)
-            .ToList();
+            .GroupBy(l => l.AccountName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    Category = g.First().AccountCategory ?? "",
+                    Debit = g.Sum(x => x.Debit),
+                    Credit = g.Sum(x => x.Credit)
+                },
+                StringComparer.OrdinalIgnoreCase);
+
+        var rows = new List<TrialBalanceRow>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var acct in chartAccounts)
+        {
+            seen.Add(acct.Name);
+            journalTotals.TryGetValue(acct.Name, out var totals);
+            rows.Add(new TrialBalanceRow(
+                acct.AccountNo,
+                acct.CategoryType,
+                acct.Name,
+                totals?.Debit ?? 0,
+                totals?.Credit ?? 0));
+        }
+
+        foreach (var extra in journalTotals.Keys.Where(k => !seen.Contains(k)).OrderBy(k => k))
+        {
+            var totals = journalTotals[extra];
+            rows.Add(new TrialBalanceRow(0, totals.Category, extra, totals.Debit, totals.Credit));
+        }
+
+        return rows;
     }
 
     public sealed record GeneralLedgerRow(
         DateTime EntryDate,
         int EntryNo,
         string SourceType,
+        int AccountNo,
         string AccountName,
         string? Description,
         decimal Debit,
-        decimal Credit);
+        decimal Credit,
+        decimal RunningBalance);
 
     public sealed record TrialBalanceRow(
+        int AccountNo,
         string AccountCategory,
         string AccountName,
         decimal TotalDebit,

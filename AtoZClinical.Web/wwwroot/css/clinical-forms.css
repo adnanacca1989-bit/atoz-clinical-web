@@ -1786,3 +1786,35 @@ main:has(.clinical-form-page) {
 .clinical-form-meta-bar strong {
     color: #37474f;
 }
+
+.clinical-form-mode-banner {
+    margin: 0 0.5rem 0.5rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.clinical-form-mode-new {
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+    color: #2e7d32;
+}
+
+.clinical-form-mode-edit {
+    background: #fff3e0;
+    border-color: #ffcc80;
+    color: #e65100;
+}
+
+.clinical-form-success-alert {
+    margin: 0 0.5rem 0.5rem;
+    padding: 0.45rem 0.75rem;
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    color: #1565c0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 4px;
+}

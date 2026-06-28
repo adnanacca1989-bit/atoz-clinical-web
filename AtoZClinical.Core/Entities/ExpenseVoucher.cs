@@ -7,6 +7,8 @@ public class ExpenseVoucher : IClinicScoped
     public int ExpenseNo { get; set; }
     public DateTime ExpenseDate { get; set; } = DateTime.Today;
     public string PaymentMethod { get; set; } = "Cash";
+    public string? PayeeName { get; set; }
+    public string? CreditAccountName { get; set; }
     public string? Description { get; set; }
     public decimal TotalAmount { get; set; }
     public Guid? JournalEntryId { get; set; }

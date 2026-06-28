@@ -21,12 +21,18 @@
                     <input asp-for="ToDate" class="clinical-field" type="date" />
                 </div>
                 <div class="col-md-4">
-                    <label class="clinical-field-label">Account (optional filter)</label>
-                    <input asp-for="AccountName" class="clinical-field" placeholder="e.g. Rent, Cash..." />
+                    <label class="clinical-field-label">GL Account (optional)</label>
+                    <select asp-for="AccountName" class="clinical-field">
+                        <option value="">— All accounts —</option>
+                        @foreach (var a in Model.ChartAccounts.OrderBy(x => x.AccountNo))
+                        {
+                            <option value="@a.Name" selected="@(Model.AccountName == a.Name ? "selected" : null)">@a.AccountNo — @a.Name</option>
+                        }
+                    </select>
                 </div>
             </div>
         </div>
-        <p class="report-hint">Journal entries posted from expense vouchers and other sources.</p>
+        <p class="report-hint">Journal entries with GL account numbers. Select an account to view running balance.</p>
         <div class="report-summary-panel">
             <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
             <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
@@ -38,10 +44,15 @@
                         <th>Date</th>
                         <th>Entry No</th>
                         <th>Source</th>
+                        <th>GL No</th>
                         <th>Account</th>
                         <th>Description</th>
                         <th class="text-end">Debit</th>
                         <th class="text-end">Credit</th>
+                        @if (Model.ShowRunningBalance)
+                        {
+                            <th class="text-end">Balance</th>
+                        }
                     </tr>
                 </thead>
                 <tbody>
@@ -51,10 +62,15 @@
                         <td>@r.EntryDate.ToString("d")</td>
                         <td>@r.EntryNo</td>
                         <td>@r.SourceType</td>
+                        <td>@(r.AccountNo > 0 ? r.AccountNo.ToString() : "—")</td>
                         <td>@r.AccountName</td>
                         <td>@r.Description</td>
                         <td class="text-end">@(r.Debit > 0 ? r.Debit.ToString("N2") : "")</td>
                         <td class="text-end">@(r.Credit > 0 ? r.Credit.ToString("N2") : "")</td>
+                        @if (Model.ShowRunningBalance)
+                        {
+                            <td class="text-end">@r.RunningBalance.ToString("N2")</td>
+                        }
                     </tr>
                 }
                 </tbody>

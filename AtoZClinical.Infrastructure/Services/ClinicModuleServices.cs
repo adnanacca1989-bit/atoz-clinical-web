@@ -147,6 +147,9 @@ public static class ClinicLookup
     public static readonly string[] ExpensePaymentMethods =
         ["Cash", "Bank", "Credit"];
 
+    public static readonly string[] VendorPaymentMethods =
+        ["Cash", "Bank Transfer", "Credit"];
+
     public static readonly string[] PayeeTypes =
         ["Vendor", "Employee", "Supplier", "Other"];
 }

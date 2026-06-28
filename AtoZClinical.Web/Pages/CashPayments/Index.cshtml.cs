@@ -10,11 +10,17 @@ public class IndexModel : ClinicFormPageModel
 {
     private readonly CashPaymentService _service;
     private readonly ChartAccountService _chartService;
+    private readonly ClinicLookupService _lookup;
 
-    public IndexModel(ClinicContextService clinicContext, CashPaymentService service, ChartAccountService chartService) : base(clinicContext)
+    public IndexModel(
+        ClinicContextService clinicContext,
+        CashPaymentService service,
+        ChartAccountService chartService,
+        ClinicLookupService lookup) : base(clinicContext)
     {
         _service = service;
         _chartService = chartService;
+        _lookup = lookup;
     }
 
     [BindProperty]
@@ -22,6 +28,10 @@ public class IndexModel : ClinicFormPageModel
 
     public List<CashPayment> Records { get; private set; } = [];
     public List<ChartAccount> Accounts { get; private set; } = [];
+    public List<ChartAccount> ExpenseAccounts { get; private set; } = [];
+    public List<ClinicVendor> RegisteredVendors { get; private set; } = [];
+
+    public bool IsVendorPayment => Input.VendorId.HasValue;
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -32,8 +42,8 @@ public class IndexModel : ClinicFormPageModel
             await LoadRecord(clinicId.Value, RecordId!.Value);
         else
             await PrepareNew(clinicId.Value);
-        SetFormViewData("Cash Payment", null, null, Input.UpdatedAt);
-        ViewData["OpenPatientSelect"] = true;
+        SetFormViewData("Cash Payment", null, null, Input.UpdatedAt, Input.PaymentNo.ToString());
+        ViewData["OpenPatientSelect"] = !IsVendorPayment;
         return Page();
     }
 
@@ -47,9 +57,12 @@ public class IndexModel : ClinicFormPageModel
     private async Task LoadAsync(Guid clinicId)
     {
         Records = await _service.ListAsync(clinicId);
-        Accounts = (await _chartService.ListAsync(clinicId))
-            .OrderBy(a => a.CategoryType)
-            .ThenBy(a => a.AccountNo)
+        RegisteredVendors = await _lookup.ListVendorsAsync(clinicId, activeOnly: true);
+        var allAccounts = await _chartService.ListAsync(clinicId);
+        Accounts = allAccounts.OrderBy(a => a.CategoryType).ThenBy(a => a.AccountNo).ToList();
+        ExpenseAccounts = allAccounts
+            .Where(a => string.Equals(a.CategoryType, "Expense", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.AccountNo)
             .ToList();
         if (!string.IsNullOrWhiteSpace(Search))
             Records = Records.Where(r =>
@@ -89,20 +102,47 @@ public class IndexModel : ClinicFormPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
 
+        await LoadAsync(clinicId.Value);
+        ResolveRecordIdForSave();
+
+        if (Input.VendorId.HasValue)
+        {
+            var vendor = RegisteredVendors.FirstOrDefault(v => v.Id == Input.VendorId);
+            if (vendor is null)
+                ModelState.AddModelError(string.Empty, "Select a valid vendor from Settings → Define Vendor.");
+            else
+                Input.PayeeName = vendor.Name;
+
+            var expenseAccount = ExpenseAccounts.FirstOrDefault(a =>
+                string.Equals(a.Name, Input.ChartAccountName, StringComparison.OrdinalIgnoreCase));
+            if (expenseAccount is null)
+                ModelState.AddModelError(nameof(Input.ChartAccountName), "Vendor payments require an expense account.");
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadAsync(clinicId.Value);
-            SetFormViewData("Cash Payment", null, null, Input.UpdatedAt);
-            ViewData["OpenPatientSelect"] = true;
+            SetFormViewData("Cash Payment", null, null, Input.UpdatedAt, Input.PaymentNo.ToString());
+            ViewData["OpenPatientSelect"] = !IsVendorPayment;
             return Page();
         }
 
         if (string.IsNullOrWhiteSpace(Input.WrittenAmount) || Input.WrittenAmount.Equals("Zero", StringComparison.OrdinalIgnoreCase))
             Input.WrittenAmount = AmountWords.Convert(Input.Amount);
-        var isNew = string.Equals(SaveMode, "New", StringComparison.OrdinalIgnoreCase) || !RecordId.HasValue;
-        var entity = Input.ToEntity(isNew ? null : RecordId);
+
+        var wasNew = IsNewSave;
+        var entity = Input.ToEntity(RecordIdForSave);
         var saved = await _service.SaveAsync(clinicId.Value, entity, UserName);
-        return RedirectAfterSave(saved.Id);
+        return RedirectAfterSave(saved.Id, wasNew);
+    }
+
+    protected override async Task ReloadAfterSaveFailureAsync()
+    {
+        var clinicId = await RequireClinicIdAsync();
+        if (clinicId is null) return;
+        await LoadAsync(clinicId.Value);
+        SetFormViewData("Cash Payment", null, null, Input.UpdatedAt, Input.PaymentNo.ToString());
+        ViewData["OpenPatientSelect"] = !IsVendorPayment;
     }
 
     private Task<IActionResult> NewCoreAsync() =>
@@ -141,6 +181,7 @@ public class IndexModel : ClinicFormPageModel
         [Display(Name = "Date")]
         public DateTime PaymentDate { get; set; } = DateTime.Today;
 
+        public Guid? VendorId { get; set; }
         public string? PatientId { get; set; }
         public string? PayeeName { get; set; }
         public int? Age { get; set; }
@@ -173,6 +214,7 @@ public class IndexModel : ClinicFormPageModel
         {
             PaymentNo = c.PaymentNo,
             PaymentDate = c.PaymentDate,
+            VendorId = c.VendorId,
             PatientId = c.PatientId,
             PayeeName = c.PayeeName,
             DoctorName = c.DoctorName,
@@ -191,10 +233,11 @@ public class IndexModel : ClinicFormPageModel
             Id = id ?? Guid.Empty,
             PaymentNo = PaymentNo,
             PaymentDate = PaymentDate,
+            VendorId = VendorId,
             PatientId = PatientId,
             PayeeName = PayeeName,
             DoctorName = DoctorName,
-            PayeeType = BalanceStatus,
+            PayeeType = VendorId.HasValue ? "Vendor" : BalanceStatus,
             ChartAccountName = ChartAccountName,
             Amount = Amount,
             WrittenAmount = WrittenAmount,

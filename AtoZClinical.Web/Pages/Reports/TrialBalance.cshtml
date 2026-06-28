@@ -18,7 +18,7 @@
                 </div>
             </div>
         </div>
-        <p class="report-hint">Debit and credit totals by account from journal entries (includes expense vouchers).</p>
+        <p class="report-hint">All chart of accounts with debit/credit totals from journal entries (zero-balance accounts included).</p>
         <div class="report-summary-panel">
             <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
             <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
@@ -27,6 +27,7 @@
             <table class="line-grid report-grid">
                 <thead>
                     <tr>
+                        <th>GL No</th>
                         <th>Category</th>
                         <th>Account</th>
                         <th class="text-end">Debit</th>
@@ -38,6 +39,7 @@
                 @foreach (var r in Model.Results)
                 {
                     <tr>
+                        <td>@(r.AccountNo > 0 ? r.AccountNo.ToString() : "—")</td>
                         <td>@r.AccountCategory</td>
                         <td>@r.AccountName</td>
                         <td class="text-end">@r.TotalDebit.ToString("N2")</td>

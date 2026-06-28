@@ -12,7 +12,7 @@
             <div class="clinical-form-left">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label class="clinical-field-label">Account ID</label>
+                        <label class="clinical-field-label">GL Account No</label>
                         <input asp-for="Input.AccountNo" class="clinical-field" />
                     </div>
                     <div class="col-md-9">
@@ -51,7 +51,7 @@
                 </div>
                 <div class="clinical-record-grid">
                     <table>
-                        <thead><tr><th>ID</th><th>Cate...</th><th>Detail Type</th><th>Name</th><th>Des...</th></tr></thead>
+                        <thead><tr><th>GL No</th><th>Cate...</th><th>Detail Type</th><th>Name</th><th>Des...</th></tr></thead>
                         <tbody>
                         @foreach (var r in Model.Records)
                         {

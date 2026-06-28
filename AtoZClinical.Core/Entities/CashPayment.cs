@@ -16,6 +16,8 @@ public class CashPayment : IClinicScoped
     public string PaymentMethod { get; set; } = "Cash";
     public string? ReferenceNo { get; set; }
     public string? Description { get; set; }
+    public Guid? VendorId { get; set; }
+    public Guid? JournalEntryId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

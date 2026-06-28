@@ -27,6 +27,7 @@ public class IndexModel : ClinicFormPageModel
 
     public List<ExpenseVoucher> Records { get; private set; } = [];
     public List<ChartAccount> ExpenseAccounts { get; private set; } = [];
+    public List<ChartAccount> PaymentAccounts { get; private set; } = [];
 
     public decimal LineTotal => Lines.Sum(l => l.Amount);
 
@@ -40,7 +41,7 @@ public class IndexModel : ClinicFormPageModel
         else
             await PrepareNew(clinicId.Value);
         ViewData["ShowAddLines"] = true;
-        SetFormViewData("Expenses", null, null, Input.UpdatedAt);
+        SetFormViewData("Expenses", null, null, Input.UpdatedAt, Input.ExpenseNo.ToString());
         return Page();
     }
 
@@ -58,12 +59,33 @@ public class IndexModel : ClinicFormPageModel
             Records = Records.Where(r =>
                 r.ExpenseNo.ToString().Contains(Search) ||
                 (r.Description?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||
+                (r.PayeeName?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||
                 r.PaymentMethod.Contains(Search, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        ExpenseAccounts = (await _chartService.ListAsync(clinicId))
+        var allAccounts = await _chartService.ListAsync(clinicId);
+        ExpenseAccounts = allAccounts
             .Where(a => string.Equals(a.CategoryType, "Expense", StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.AccountNo)
             .ToList();
+        PaymentAccounts = allAccounts
+            .Where(IsPaymentCreditAccount)
+            .OrderBy(a => a.AccountNo)
+            .ToList();
+    }
+
+    private static bool IsPaymentCreditAccount(ChartAccount a)
+    {
+        if (string.Equals(a.CategoryType, "Asset", StringComparison.OrdinalIgnoreCase))
+            return string.Equals(a.Name, "Cash", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(a.DetailType, "Cash", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(a.Name, "Bank", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(a.DetailType, "Bank", StringComparison.OrdinalIgnoreCase);
+
+        if (string.Equals(a.CategoryType, "Liability", StringComparison.OrdinalIgnoreCase))
+            return string.Equals(a.Name, "Account Payable", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(a.DetailType, "Account Payable", StringComparison.OrdinalIgnoreCase);
+
+        return false;
     }
 
     private async Task LoadRecord(Guid clinicId, Guid id)
@@ -79,11 +101,15 @@ public class IndexModel : ClinicFormPageModel
     private async Task PrepareNew(Guid clinicId)
     {
         RecordId = null;
+        var chartAccounts = await _chartService.ListAsync(clinicId);
+        var defaultCredit = chartAccounts.FirstOrDefault(a =>
+            string.Equals(a.Name, "Cash", StringComparison.OrdinalIgnoreCase))?.Name ?? "Cash";
         Input = new ExpenseVoucherInput
         {
             ExpenseNo = await _service.NextExpenseNoAsync(clinicId),
             ExpenseDate = DateTime.Today,
-            PaymentMethod = ClinicLookup.ExpensePaymentMethods[0]
+            PaymentMethod = ClinicLookup.ExpensePaymentMethods[0],
+            CreditAccountName = defaultCredit
         };
         Lines = CreateEmptyLines();
     }
@@ -111,26 +137,27 @@ public class IndexModel : ClinicFormPageModel
         {
             await LoadFormDataAsync(clinicId.Value);
             ViewData["ShowAddLines"] = true;
-            SetFormViewData("Expenses", null, null, Input.UpdatedAt);
+            SetFormViewData("Expenses", null, null, Input.UpdatedAt, Input.ExpenseNo.ToString());
             return Page();
         }
 
         try
         {
+            var wasNew = IsNewSave;
             var entity = Input.ToEntity(RecordIdForSave);
             var lineEntities = Lines
                 .Where(l => l.Amount > 0 && !string.IsNullOrWhiteSpace(l.ChartAccountName))
                 .Select(l => l.ToEntity())
                 .ToList();
             var saved = await _service.SaveAsync(clinicId.Value, entity, lineEntities, UserName);
-            return RedirectAfterSave(saved.Id);
+            return RedirectAfterSave(saved.Id, wasNew);
         }
         catch (InvalidOperationException ex)
         {
             ModelState.AddModelError(string.Empty, ex.Message);
             await LoadFormDataAsync(clinicId.Value);
             ViewData["ShowAddLines"] = true;
-            SetFormViewData("Expenses", null, null, Input.UpdatedAt);
+            SetFormViewData("Expenses", null, null, Input.UpdatedAt, Input.ExpenseNo.ToString());
             return Page();
         }
     }
@@ -156,7 +183,7 @@ public class IndexModel : ClinicFormPageModel
         if (clinicId is null) return;
         await LoadFormDataAsync(clinicId.Value);
         ViewData["ShowAddLines"] = true;
-        SetFormViewData("Expenses", null, null, Input.UpdatedAt);
+        SetFormViewData("Expenses", null, null, Input.UpdatedAt, Input.ExpenseNo.ToString());
     }
 
     private Task<IActionResult> NewCoreAsync() =>
@@ -197,6 +224,12 @@ public class IndexModel : ClinicFormPageModel
         [Required(ErrorMessage = "Payment method is required.")]
         public string PaymentMethod { get; set; } = "Cash";
 
+        [Display(Name = "Account Name")]
+        public string? CreditAccountName { get; set; }
+
+        [Display(Name = "Payee")]
+        public string? PayeeName { get; set; }
+
         public string? Description { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
@@ -205,6 +238,8 @@ public class IndexModel : ClinicFormPageModel
             ExpenseNo = e.ExpenseNo,
             ExpenseDate = e.ExpenseDate,
             PaymentMethod = e.PaymentMethod,
+            CreditAccountName = e.CreditAccountName,
+            PayeeName = e.PayeeName,
             Description = e.Description,
             UpdatedAt = e.UpdatedAt
         };
@@ -215,6 +250,8 @@ public class IndexModel : ClinicFormPageModel
             ExpenseNo = ExpenseNo,
             ExpenseDate = ExpenseDate,
             PaymentMethod = PaymentMethod,
+            CreditAccountName = CreditAccountName,
+            PayeeName = PayeeName,
             Description = Description
         };
     }
