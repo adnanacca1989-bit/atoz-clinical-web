@@ -6,6 +6,7 @@ using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages.Settings;
 
@@ -14,17 +15,23 @@ public class UsersModel : SettingsFormPageModel
     private readonly UserManager<ApplicationUser> _users;
     private readonly VendorClinicService _vendor;
     private readonly DoctorService _doctors;
+    private readonly AuditService _audit;
+    private readonly ILogger<UsersModel> _logger;
 
     public UsersModel(
         ClinicContextService clinicContext,
         UserManager<ApplicationUser> users,
         VendorClinicService vendor,
-        DoctorService doctors)
+        DoctorService doctors,
+        AuditService audit,
+        ILogger<UsersModel> logger)
         : base(clinicContext)
     {
         _users = users;
         _vendor = vendor;
         _doctors = doctors;
+        _audit = audit;
+        _logger = logger;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -75,7 +82,7 @@ public class UsersModel : SettingsFormPageModel
         if (user is null) return;
         UserRecordId = user.Id;
         Input = UserInput.FromEntity(user);
-        await SyncDoctorFullNameAsync(clinicId);
+        await SyncDoctorDisplayAsync(clinicId);
     }
 
     private async Task PrepareNew(Guid clinicId)
@@ -95,6 +102,7 @@ public class UsersModel : SettingsFormPageModel
     {
         var clinicId = await RequireSettingsClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
+        var actor = User.Identity?.Name;
 
         if (IsNewUser)
         {
@@ -105,20 +113,24 @@ public class UsersModel : SettingsFormPageModel
                 return Page();
             }
 
-            var newUserDoctorError = await ValidateDoctorUserAsync(clinicId.Value, Input);
-            if (newUserDoctorError is not null)
+            var (doctorError, resolvedDoctor) = await ValidateDoctorUserAsync(clinicId.Value, Input);
+            if (doctorError is not null)
             {
-                ModelState.AddModelError(string.Empty, newUserDoctorError);
+                ModelState.AddModelError(string.Empty, doctorError);
                 await LoadAsync(clinicId.Value);
                 return Page();
             }
 
-            if (string.IsNullOrWhiteSpace(Input.FullName))
+            if (Input.Role != ClinicUserRole.Doctor && string.IsNullOrWhiteSpace(Input.FullName))
             {
                 ModelState.AddModelError(string.Empty, "Full Name is required.");
                 await LoadAsync(clinicId.Value);
                 return Page();
             }
+
+            var fullName = Input.Role == ClinicUserRole.Doctor
+                ? resolvedDoctor!.Name
+                : Input.FullName.Trim();
 
             try
             {
@@ -127,12 +139,19 @@ public class UsersModel : SettingsFormPageModel
                     ClinicId = clinicId.Value,
                     UserNo = Input.UserNo,
                     Username = Input.Username,
-                    FullName = Input.FullName,
+                    FullName = fullName,
                     Email = Input.Email,
                     Password = Input.Password,
                     Role = Input.Role,
                     DoctorRecordId = Input.Role == ClinicUserRole.Doctor ? Input.DoctorRecordId : null
                 });
+
+                if (Input.Role == ClinicUserRole.Doctor && Input.DoctorRecordId.HasValue)
+                {
+                    await _audit.LogAsync(clinicId.Value, actor, "Define User", "Doctor Link",
+                        $"Linked new user {Input.Username} to doctor {resolvedDoctor!.Name} ({Input.DoctorRecordId})");
+                }
+
                 var created = await _users.FindByNameAsync(Input.Username);
                 if (SaveMode == "New")
                     return RedirectToPage(new { Search, NewRecord = true });
@@ -149,16 +168,19 @@ public class UsersModel : SettingsFormPageModel
         var user = await _users.FindByIdAsync(UserRecordId!);
         if (user is null || user.ClinicId != clinicId) return RedirectToPage();
 
-        var doctorError = await ValidateDoctorUserAsync(clinicId.Value, Input, user.Id);
-        if (doctorError is not null)
+        var previousRole = user.ClinicRole;
+        var previousDoctorId = user.DoctorRecordId;
+
+        var (editDoctorError, editResolvedDoctor) = await ValidateDoctorUserAsync(clinicId.Value, Input, user.Id);
+        if (editDoctorError is not null)
         {
-            ModelState.AddModelError(string.Empty, doctorError);
+            ModelState.AddModelError(string.Empty, editDoctorError);
             await LoadAsync(clinicId.Value);
             await LoadRecord(clinicId.Value, UserRecordId!);
             return Page();
         }
 
-        if (string.IsNullOrWhiteSpace(Input.FullName))
+        if (Input.Role != ClinicUserRole.Doctor && string.IsNullOrWhiteSpace(Input.FullName))
         {
             ModelState.AddModelError(string.Empty, "Full Name is required.");
             await LoadAsync(clinicId.Value);
@@ -166,12 +188,17 @@ public class UsersModel : SettingsFormPageModel
             return Page();
         }
 
-        user.FullName = Input.FullName.Trim();
         user.Email = Input.Email?.Trim();
         user.ClinicRole = Input.Role;
         user.IsActive = Input.IsActive;
         user.DoctorRecordId = Input.Role == ClinicUserRole.Doctor ? Input.DoctorRecordId : null;
+        user.FullName = Input.Role == ClinicUserRole.Doctor
+            ? editResolvedDoctor!.Name
+            : Input.FullName.Trim();
+
         await _users.UpdateAsync(user);
+        await LogUserChangesAsync(clinicId.Value, actor, user.UserName, previousRole, previousDoctorId, user, editResolvedDoctor);
+
         if (!string.IsNullOrWhiteSpace(Input.Password))
         {
             await _users.RemovePasswordAsync(user);
@@ -180,6 +207,37 @@ public class UsersModel : SettingsFormPageModel
         if (SaveMode == "New")
             return RedirectToPage(new { Search, NewRecord = true });
         return RedirectToPage(new { UserRecordId = user.Id, Search });
+    }
+
+    private async Task LogUserChangesAsync(
+        Guid clinicId,
+        string? actor,
+        string? username,
+        ClinicUserRole? previousRole,
+        Guid? previousDoctorId,
+        ApplicationUser user,
+        Doctor? doctor)
+    {
+        if (previousRole != user.ClinicRole)
+        {
+            await _audit.LogAsync(clinicId, actor, "Define User", "Role Change",
+                $"User {username}: {previousRole} → {user.ClinicRole}");
+        }
+
+        if (user.ClinicRole == ClinicUserRole.Doctor)
+        {
+            if (previousDoctorId != user.DoctorRecordId && user.DoctorRecordId.HasValue)
+            {
+                var action = previousDoctorId.HasValue ? "Doctor Change" : "Doctor Link";
+                await _audit.LogAsync(clinicId, actor, "Define User", action,
+                    $"User {username} linked to doctor {doctor?.Name} ({user.DoctorRecordId})");
+            }
+        }
+        else if (previousDoctorId.HasValue)
+        {
+            await _audit.LogAsync(clinicId, actor, "Define User", "Doctor Unlink",
+                $"User {username} doctor link cleared (was {previousDoctorId})");
+        }
     }
 
     private async Task<IActionResult> DeleteCoreAsync()
@@ -211,15 +269,17 @@ public class UsersModel : SettingsFormPageModel
         return RedirectToPage(new { UserRecordId = Records[idx].Id, Search });
     }
 
-    private async Task SyncDoctorFullNameAsync(Guid clinicId)
+    private async Task SyncDoctorDisplayAsync(Guid clinicId)
     {
         if (Input.Role != ClinicUserRole.Doctor || Input.DoctorRecordId is not Guid doctorId)
+        {
+            Input.DoctorDisplayName = string.Empty;
             return;
+        }
 
         var doctor = DoctorOptions.FirstOrDefault(d => d.Id == doctorId)
             ?? await _doctors.GetAsync(clinicId, doctorId);
-        if (doctor is not null)
-            Input.FullName = FormatDoctorDisplayName(doctor);
+        Input.DoctorDisplayName = doctor is not null ? FormatDoctorDisplayName(doctor) : string.Empty;
     }
 
     private static string FormatDoctorDisplayName(Doctor doctor) =>
@@ -227,31 +287,40 @@ public class UsersModel : SettingsFormPageModel
             ? doctor.Name
             : $"{doctor.Name} — {doctor.Specialty}";
 
-    private async Task<string?> ValidateDoctorUserAsync(Guid clinicId, UserInput input, string? excludeUserId = null)
+    private async Task<(string? Error, Doctor? Doctor)> ValidateDoctorUserAsync(
+        Guid clinicId,
+        UserInput input,
+        string? excludeUserId = null)
     {
         if (input.Role != ClinicUserRole.Doctor)
         {
             input.DoctorRecordId = null;
-            return null;
+            input.DoctorDisplayName = string.Empty;
+            return (null, null);
         }
 
         if (input.DoctorRecordId is null)
-            return "Click Full Name and select a doctor for a Doctor user.";
+            return ("Select a doctor using the Select button before saving.", null);
 
         var doctor = DoctorOptions.FirstOrDefault(d => d.Id == input.DoctorRecordId)
             ?? await _doctors.GetAsync(clinicId, input.DoctorRecordId.Value);
         if (doctor is null)
-            return "Selected doctor was not found. Please select again.";
+            return ("Selected doctor was not found. Please select again.", null);
 
-        var alreadyLinked = await _users.Users.AnyAsync(u =>
-            u.ClinicId == clinicId &&
-            u.DoctorRecordId == input.DoctorRecordId &&
-            u.Id != excludeUserId);
-        if (alreadyLinked)
-            return $"Doctor \"{doctor.Name}\" is already linked to another user account.";
+        var linkedUser = await _users.Users
+            .Where(u => u.ClinicId == clinicId && u.DoctorRecordId == input.DoctorRecordId && u.Id != excludeUserId)
+            .Select(u => u.UserName)
+            .FirstOrDefaultAsync();
+        if (linkedUser is not null)
+        {
+            _logger.LogWarning(
+                "Duplicate doctor link blocked: doctor {DoctorId} ({DoctorName}) already linked to user {LinkedUser}",
+                doctor.Id, doctor.Name, linkedUser);
+            return ($"Doctor \"{doctor.Name}\" is already linked to user \"{linkedUser}\".", null);
+        }
 
-        input.FullName = doctor.Name;
-        return null;
+        input.DoctorDisplayName = FormatDoctorDisplayName(doctor);
+        return (null, doctor);
     }
 
     public sealed class UserInput
@@ -259,6 +328,7 @@ public class UsersModel : SettingsFormPageModel
         public int UserNo { get; set; }
         public string Username { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
+        public string DoctorDisplayName { get; set; } = string.Empty;
         public string? Email { get; set; }
         public string? Password { get; set; }
         public ClinicUserRole Role { get; set; } = ClinicUserRole.Receptionist;

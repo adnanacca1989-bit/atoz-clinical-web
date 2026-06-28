@@ -37,30 +37,25 @@ public sealed class DoctorScopeService
         Guid? doctorRecordId = user.DoctorRecordId;
         string? doctorName = null;
 
-        if (doctorRecordId.HasValue)
+        if (!doctorRecordId.HasValue)
         {
-            doctorName = await _db.Doctors.AsNoTracking()
-                .Where(d => d.ClinicId == clinicId && d.Id == doctorRecordId.Value)
-                .Select(d => d.Name)
-                .FirstOrDefaultAsync();
+            _logger.LogWarning(
+                "Doctor user {User} has no DoctorRecordId — access restricted to empty scope until linked in Define User",
+                user.UserName);
+            return new DoctorScopeFilter { IsRestricted = true };
         }
 
-        if (string.IsNullOrWhiteSpace(doctorName) && !string.IsNullOrWhiteSpace(user.FullName))
+        doctorName = await _db.Doctors.AsNoTracking()
+            .Where(d => d.ClinicId == clinicId && d.Id == doctorRecordId.Value)
+            .Select(d => d.Name)
+            .FirstOrDefaultAsync();
+
+        if (string.IsNullOrWhiteSpace(doctorName))
         {
-            var name = user.FullName.Trim();
-            var doctor = await _db.Doctors.AsNoTracking()
-                .ForClinic(clinicId)
-                .Where(d => d.Name != null && EF.Functions.ILike(d.Name, name))
-                .FirstOrDefaultAsync();
-            if (doctor is not null)
-            {
-                doctorRecordId = doctor.Id;
-                doctorName = doctor.Name;
-            }
-            else
-            {
-                doctorName = name;
-            }
+            _logger.LogWarning(
+                "Doctor user {User} DoctorRecordId {DoctorRecordId} not found — access restricted to empty scope",
+                user.UserName, doctorRecordId);
+            return new DoctorScopeFilter { IsRestricted = true, DoctorRecordId = doctorRecordId };
         }
 
         var filter = new DoctorScopeFilter

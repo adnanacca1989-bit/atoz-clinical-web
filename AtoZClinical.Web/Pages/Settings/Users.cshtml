@@ -25,19 +25,32 @@
                     </div>
                     <div class="col-md-4">
                         <label class="clinical-field-label" id="fullNameLabel">@(isDoctorRole ? "Doctor (name & specialty) *" : "Full Name *")</label>
-                        <div class="input-group">
+                        <div id="doctorFieldWrap" class="@(isDoctorRole ? "" : "d-none")">
+                            <div class="input-group">
+                                <input asp-for="Input.DoctorDisplayName"
+                                       id="userDoctorDisplayInput"
+                                       class="clinical-field doctor-picker-field"
+                                       readonly
+                                       placeholder="Click to select doctor"
+                                       autocomplete="off" />
+                                <button type="button"
+                                        class="btn btn-outline-secondary"
+                                        id="openDoctorSelectBtn"
+                                        title="Select or change doctor">Select</button>
+                                <a class="btn btn-outline-secondary @(Model.Input.DoctorRecordId.HasValue ? "" : "d-none")"
+                                   id="viewDoctorProfileBtn"
+                                   href="@(Model.Input.DoctorRecordId.HasValue ? $"/Doctors?RecordId={Model.Input.DoctorRecordId}" : "#")"
+                                   target="_blank"
+                                   title="View doctor profile">👁</a>
+                            </div>
+                            <input type="hidden" asp-for="Input.DoctorRecordId" id="userDoctorRecordId" />
+                        </div>
+                        <div id="plainFullNameWrap" class="@(isDoctorRole ? "d-none" : "")">
                             <input asp-for="Input.FullName"
                                    id="userFullNameInput"
-                                   class="clinical-field @(isDoctorRole ? "doctor-picker-field" : "")"
-                                   readonly="@isDoctorRole"
-                                   placeholder="@(isDoctorRole ? "Click to select doctor" : null)"
-                                   autocomplete="off" />
-                            <button type="button"
-                                    class="btn btn-outline-secondary @(isDoctorRole ? "" : "d-none")"
-                                    id="openDoctorSelectBtn"
-                                    title="Select doctor">Select</button>
+                                   class="clinical-field"
+                                   autocomplete="name" />
                         </div>
-                        <input type="hidden" asp-for="Input.DoctorRecordId" id="userDoctorRecordId" />
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Email</label>
@@ -98,76 +111,10 @@
 
 @section Scripts {
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/users-define-doctor.js" asp-append-version="true"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const roleSelect = document.getElementById('userRoleSelect');
-            const fullNameInput = document.getElementById('userFullNameInput');
-            const fullNameLabel = document.getElementById('fullNameLabel');
-            const doctorRecordIdInput = document.getElementById('userDoctorRecordId');
-            const openDoctorBtn = document.getElementById('openDoctorSelectBtn');
-            if (!roleSelect || !fullNameInput || !doctorRecordIdInput) return;
-
-            const doctorRole = '@((int)ClinicUserRole.Doctor)';
-            let pickerReady = false;
-
-            const isDoctorRole = () => roleSelect.value === doctorRole;
-
-            const formatDoctorLabel = (d) => {
-                if (!d) return '';
-                return d.specialty ? `${d.name} — ${d.specialty}` : (d.name || '');
-            };
-
-            const openDoctorPicker = () => openDoctorBtn?.click();
-
-            const ensurePicker = () => {
-                if (pickerReady) return;
-                initDoctorPicker({
-                    doctorNameSelector: '#userFullNameInput',
-                    openButtonId: 'openDoctorSelectBtn',
-                    fieldMap: { '#userDoctorRecordId': d => d.id },
-                    onApply: (d) => { fullNameInput.value = formatDoctorLabel(d); }
-                });
-                pickerReady = true;
-            };
-
-            const setDoctorMode = (autoOpen) => {
-                const doctor = isDoctorRole();
-                fullNameLabel.textContent = doctor ? 'Doctor (name & specialty) *' : 'Full Name *';
-                fullNameInput.readOnly = doctor;
-                fullNameInput.classList.toggle('doctor-picker-field', doctor);
-                fullNameInput.placeholder = doctor ? 'Click to select doctor' : '';
-                openDoctorBtn?.classList.toggle('d-none', !doctor);
-
-                if (doctor) {
-                    ensurePicker();
-                    if (autoOpen && !doctorRecordIdInput.value) {
-                        setTimeout(openDoctorPicker, 200);
-                    }
-                } else {
-                    doctorRecordIdInput.value = '';
-                }
-            };
-
-            roleSelect.addEventListener('change', () => {
-                if (!isDoctorRole()) {
-                    fullNameInput.value = '';
-                    doctorRecordIdInput.value = '';
-                    setDoctorMode(false);
-                } else {
-                    fullNameInput.value = '';
-                    setDoctorMode(true);
-                }
-            });
-
-            fullNameInput.addEventListener('keydown', (e) => {
-                if (isDoctorRole()) e.preventDefault();
-            });
-            fullNameInput.addEventListener('paste', (e) => {
-                if (isDoctorRole()) e.preventDefault();
-            });
-
-            if (isDoctorRole()) ensurePicker();
-            setDoctorMode(false);
+            initDefineUserDoctorPicker({ doctorRoleValue: '@((int)ClinicUserRole.Doctor)' });
         });
     </script>
 }
