@@ -20,7 +20,7 @@ public static class PatientVisitStatuses
             "Active" => Pending,
             "Confirm" => Confirmed,
             "Check in" or "Check In" or "Checked In" => UnderProcess,
-            "Under" => UnderProcess,
+            "Under" or "UnderProcess" => UnderProcess,
             _ => status.Trim()
         };
     }
@@ -40,9 +40,12 @@ public static class PatientVisitStatuses
         var current = Normalize(currentStatus);
         var target = Normalize(targetStatus);
         if (current == Cancelled) return false;
-        if (current == Completed && target != Completed) return false;
+        if (current == Completed) return false;
         return Rank(target) > Rank(current);
     }
+
+    public static bool IsCancelled(string? status) =>
+        Normalize(status) == Cancelled;
 }
 
 public sealed class PatientVisitStatusService
@@ -65,11 +68,22 @@ public sealed class PatientVisitStatusService
     public Task OnCashReceiptAsync(Guid clinicId, CashReceipt receipt) =>
         TryUpgradeAsync(clinicId, receipt.PatientId, receipt.PatientName, PatientVisitStatuses.Confirmed);
 
-    public Task OnCashPaymentAsync(Guid clinicId, CashPayment payment) =>
-        TryUpgradeAsync(clinicId, payment.PatientId, payment.PayeeName, PatientVisitStatuses.Confirmed);
+    public Task OnCashPaymentAsync(Guid clinicId, CashPayment payment)
+    {
+        if (payment.VendorId.HasValue)
+            return Task.CompletedTask;
+
+        if (string.IsNullOrWhiteSpace(payment.PatientId) && string.IsNullOrWhiteSpace(payment.PayeeName))
+            return Task.CompletedTask;
+
+        return OnClinicalActivityAsync(clinicId, payment.PatientId, payment.PayeeName);
+    }
 
     public Task OnClinicalCheckInAsync(Guid clinicId, string? patientId, string? patientName) =>
-        TryUpgradeAsync(clinicId, patientId, patientName, PatientVisitStatuses.UnderProcess);
+        OnClinicalActivityAsync(clinicId, patientId, patientName);
+
+    public Task OnClinicalActivityAsync(Guid clinicId, string? patientId, string? patientName) =>
+        ApplyStatusAsync(clinicId, patientId, patientName, PatientVisitStatuses.UnderProcess, reopenFromCompleted: true);
 
     public Task OnInvoiceBillingAsync(Guid clinicId, string? patientId, string? patientName) =>
         ForceStatusAsync(clinicId, patientId, patientName, PatientVisitStatuses.Completed);
@@ -80,11 +94,34 @@ public sealed class PatientVisitStatusService
         if (patient is null) return;
         if (!PatientVisitStatuses.CanAutoUpgrade(patient.Status, targetStatus)) return;
 
-        var previous = patient.Status;
-        patient.Status = PatientVisitStatuses.Normalize(targetStatus);
-        patient.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-        await LogStatusChangeAsync(clinicId, patient, previous, patient.Status);
+        await SetPatientStatusAsync(clinicId, patient, PatientVisitStatuses.Normalize(targetStatus));
+    }
+
+    private async Task ApplyStatusAsync(
+        Guid clinicId,
+        string? patientId,
+        string? patientName,
+        string targetStatus,
+        bool reopenFromCompleted)
+    {
+        var patient = await FindPatientAsync(clinicId, patientId, patientName);
+        if (patient is null) return;
+
+        var current = PatientVisitStatuses.Normalize(patient.Status);
+        var target = PatientVisitStatuses.Normalize(targetStatus);
+        if (PatientVisitStatuses.IsCancelled(current)) return;
+        if (string.Equals(current, target, StringComparison.OrdinalIgnoreCase)) return;
+
+        if (current == PatientVisitStatuses.Completed && reopenFromCompleted && target == PatientVisitStatuses.UnderProcess)
+        {
+            await SetPatientStatusAsync(clinicId, patient, target);
+            return;
+        }
+
+        if (!PatientVisitStatuses.CanAutoUpgrade(current, target))
+            return;
+
+        await SetPatientStatusAsync(clinicId, patient, target);
     }
 
     public async Task ForceStatusAsync(Guid clinicId, string? patientId, string? patientName, string status)
@@ -92,15 +129,24 @@ public sealed class PatientVisitStatusService
         var patient = await FindPatientAsync(clinicId, patientId, patientName);
         if (patient is null) return;
 
-        var previous = patient.Status;
         var normalized = PatientVisitStatuses.Normalize(status);
-        if (string.Equals(previous, normalized, StringComparison.OrdinalIgnoreCase))
+        if (PatientVisitStatuses.IsCancelled(PatientVisitStatuses.Normalize(patient.Status)) &&
+            normalized != PatientVisitStatuses.Cancelled)
             return;
 
-        patient.Status = normalized;
+        if (string.Equals(patient.Status, normalized, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        await SetPatientStatusAsync(clinicId, patient, normalized);
+    }
+
+    private async Task SetPatientStatusAsync(Guid clinicId, Patient patient, string newStatus)
+    {
+        var previous = patient.Status;
+        patient.Status = newStatus;
         patient.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        await LogStatusChangeAsync(clinicId, patient, previous, normalized);
+        await LogStatusChangeAsync(clinicId, patient, previous, newStatus);
     }
 
     private async Task LogStatusChangeAsync(Guid clinicId, Patient patient, string? previous, string current)

@@ -428,7 +428,7 @@ public class IndexModel : ClinicFormPageModel
 
 
 
-        public string Status { get; set; } = "Active";
+        public string Status { get; set; } = "Pending";
 
         public string? CreatedBy { get; set; }
 

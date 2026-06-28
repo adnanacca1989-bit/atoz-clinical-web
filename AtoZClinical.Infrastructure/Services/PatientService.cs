@@ -179,6 +179,9 @@ public sealed class PatientService
                 throw new InvalidOperationException($"Barcode/Patient No '{patientNo}' is already assigned to another patient.");
 
             patient.PatientNo = patientNo;
+            if (previous is not null)
+                patient.Status = previous.Status;
+
             _db.Patients.Update(patient);
             await _db.SaveChangesAsync();
         }

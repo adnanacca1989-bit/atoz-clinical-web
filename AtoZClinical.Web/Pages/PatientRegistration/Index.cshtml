@@ -120,13 +120,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Status</label>
-                        <select asp-for="Input.Status" class="clinical-field">
-                            <option>Pending</option>
-                            <option>Confirmed</option>
-                            <option>Under Process</option>
-                            <option>Completed</option>
-                            <option>Cancelled</option>
-                        </select>
+                        <input asp-for="Input.Status" class="clinical-field" readonly />
                     </div>
                 </div>
             </div>
