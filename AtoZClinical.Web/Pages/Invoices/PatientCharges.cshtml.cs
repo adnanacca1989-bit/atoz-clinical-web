@@ -16,12 +16,12 @@ public class PatientChargesModel : PageModel
         _charges = charges;
     }
 
-    public async Task<IActionResult> OnGetAsync(string? patientBarcode, string? patientName, string? doctorName)
+    public async Task<IActionResult> OnGetAsync(string? patientBarcode, string? patientName, string? doctorName, Guid? patientRecordId)
     {
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var summary = await _charges.GetChargesAsync(clinicId.Value, patientBarcode, patientName, doctorName);
+        var summary = await _charges.GetChargesAsync(clinicId.Value, patientBarcode, patientName, doctorName, patientRecordId);
         return new JsonResult(new
         {
             lines = summary.Lines.Select(l => new

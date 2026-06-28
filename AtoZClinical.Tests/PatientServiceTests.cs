@@ -19,15 +19,7 @@ public class PatientServiceTests
             new Patient { Id = Guid.NewGuid(), ClinicId = clinicId, PatientNo = "PAT-00002", FirstName = "B" });
         await db.Db.SaveChangesAsync();
 
-        var audit = new AuditService(db.Db);
-        var service = new PatientService(
-            db.Db,
-            ServiceTestFactory.CreatePropagation(db.Db),
-            new InvoiceDeleteGuardService(db.Db),
-            new PatientVisitStatusService(db.Db, audit),
-            new NoOpWebhookDispatchService(),
-            audit,
-            new ClinicalDemographicsSyncService(db.Db));
+        var service = ServiceTestFactory.CreatePatientService(db.Db);
 
         var saved = await service.SaveAsync(clinicId, new Patient
         {
@@ -55,15 +47,7 @@ public class PatientServiceTests
         // Simulate stray tracked entity from the same HTTP request (duplicate config add).
         db.Db.ClinicConfigurations.Add(new ClinicConfiguration { ClinicId = clinicId });
 
-        var audit = new AuditService(db.Db);
-        var service = new PatientService(
-            db.Db,
-            ServiceTestFactory.CreatePropagation(db.Db),
-            new InvoiceDeleteGuardService(db.Db),
-            new PatientVisitStatusService(db.Db, audit),
-            new NoOpWebhookDispatchService(),
-            audit,
-            new ClinicalDemographicsSyncService(db.Db));
+        var service = ServiceTestFactory.CreatePatientService(db.Db);
 
         var saved = await service.SaveAsync(clinicId, new Patient
         {

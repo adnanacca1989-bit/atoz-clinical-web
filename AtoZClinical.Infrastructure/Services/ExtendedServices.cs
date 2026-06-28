@@ -615,13 +615,45 @@ public sealed class InvoiceService
         try
         {
             await _invoices.RecalculateInvoicePaymentsAsync(
-                clinicId, item.PatientName, item.PatientId, item.DoctorName);
+                clinicId, item.PatientName, item.PatientId, item.DoctorName, item.PatientRecordId);
         }
         catch { }
 
         await _audit.LogAsync(clinicId, userName, "Invoice", isNew ? "Create" : "Update",
             $"Invoice #{item.InvoiceNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
+    }
+
+    /// <summary>Create a consultation invoice for a newly registered visit when none exists yet.</summary>
+    public async Task EnsureConsultationForNewVisitAsync(Guid clinicId, Patient patient, string? userName = null)
+    {
+        if (await _db.Invoices.ForClinic(clinicId).AnyAsync(i => i.PatientRecordId == patient.Id))
+            return;
+
+        var doctor = await _demographics.ResolveDoctorAsync(clinicId, patient.DoctorRecordId, patient.DoctorName);
+        if (doctor is null || doctor.ConsultationFee <= 0)
+            return;
+
+        var invoice = new Invoice
+        {
+            InvoiceDate = patient.AppointmentDate ?? DateTime.Today,
+            PaymentMethod = "Cash",
+            PaymentStatus = "Unpaid",
+            AmountPaid = 0
+        };
+        _demographics.ApplyPatientToInvoice(patient, invoice);
+        await _demographics.ApplyDoctorToInvoiceAsync(clinicId, doctor, invoice);
+
+        var line = new InvoiceLine
+        {
+            LineNo = 1,
+            ServiceName = $"Consultation Fee - {doctor.Name}",
+            Qty = 1,
+            UnitFee = doctor.ConsultationFee,
+            LineTotal = doctor.ConsultationFee
+        };
+
+        await SaveAsync(clinicId, invoice, [line], userName);
     }
 
     private async Task<int> NextInvoiceNoWithSkipAsync(Guid clinicId, int skip = 0)

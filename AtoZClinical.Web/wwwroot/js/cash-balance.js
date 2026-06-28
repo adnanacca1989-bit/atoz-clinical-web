@@ -7,6 +7,9 @@ async function loadPatientCashBalance(patient) {
     const params = new URLSearchParams();
     if (patient.patientNo) params.set('patientBarcode', patient.patientNo);
     if (patient.name) params.set('patientName', patient.name);
+    if (patient.id) params.set('patientRecordId', patient.id);
+    const doctor = patient.doctorName || document.querySelector('[name="Input.DoctorName"]')?.value?.trim();
+    if (doctor) params.set('doctorName', doctor);
 
     try {
         const res = await fetch(`/Invoices/PatientCharges?${params}`);
@@ -46,9 +49,16 @@ function bindCashBalanceUpdates() {
     updateCashEndingBalance();
 }
 
-function refreshCashBalanceIfPatientSelected() {
+async function refreshCashBalanceIfPatientSelected() {
     const patientId = document.querySelector('[name="Input.PatientId"]')?.value?.trim();
     const patientName = document.querySelector('#cashReceiptPatientNameInput, #cashPaymentPatientNameInput')?.value?.trim();
     if (!patientId && !patientName) return;
-    loadPatientCashBalance({ patientNo: patientId, name: patientName });
+
+    let patient = { patientNo: patientId, name: patientName };
+    if (patientId && typeof lookupPatientByBarcode === 'function') {
+        const found = await lookupPatientByBarcode(patientId);
+        if (found) patient = found;
+    }
+
+    await loadPatientCashBalance(patient);
 }

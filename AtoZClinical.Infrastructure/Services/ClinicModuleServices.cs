@@ -408,6 +408,7 @@ public sealed class CashReceiptService
     private readonly BillingPropagationService _billing;
     private readonly AuditService _audit;
     private readonly ClinicalJournalSyncService _journalSync;
+    private readonly ClinicalDemographicsSyncService _demographics;
 
     public CashReceiptService(
         ClinicalDbContext db,
@@ -416,7 +417,8 @@ public sealed class CashReceiptService
         PatientVisitStatusService visitStatus,
         BillingPropagationService billing,
         AuditService audit,
-        ClinicalJournalSyncService journalSync)
+        ClinicalJournalSyncService journalSync,
+        ClinicalDemographicsSyncService demographics)
     {
         _db = db;
         _invoices = invoices;
@@ -425,6 +427,7 @@ public sealed class CashReceiptService
         _billing = billing;
         _audit = audit;
         _journalSync = journalSync;
+        _demographics = demographics;
     }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
@@ -454,6 +457,10 @@ public sealed class CashReceiptService
 
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
+
+        var patient = await _demographics.ResolvePatientAsync(clinicId, item.PatientRecordId, item.PatientId, item.PatientName);
+        if (patient is not null)
+            item.PatientRecordId = patient.Id;
 
         if (isNew)
         {
@@ -491,7 +498,8 @@ public sealed class CashReceiptService
                 catch { }
             }
             else
-                await _invoices.RecalculateInvoicePaymentsAsync(clinicId, item.PatientName, item.PatientId, item.DoctorName);
+                await _invoices.RecalculateInvoicePaymentsAsync(
+                    clinicId, item.PatientName, item.PatientId, item.DoctorName, item.PatientRecordId);
             await _visitStatus.OnCashReceiptAsync(clinicId, item);
         }
         catch
@@ -530,7 +538,8 @@ public sealed class CashReceiptService
         ChartAccountName = source.ChartAccountName,
         ReferenceNo = source.ReferenceNo,
         Description = source.Description,
-        PatientSearch = source.PatientSearch
+        PatientSearch = source.PatientSearch,
+        PatientRecordId = source.PatientRecordId
     };
 
     public async Task DeleteAsync(Guid clinicId, Guid id, string? userName = null)

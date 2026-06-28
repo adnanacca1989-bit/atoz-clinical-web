@@ -44,15 +44,7 @@ public class MasterDataPropagationTests
         });
         await db.Db.SaveChangesAsync();
 
-        var audit = new AuditService(db.Db);
-        var service = new PatientService(
-            db.Db,
-            ServiceTestFactory.CreatePropagation(db.Db),
-            new InvoiceDeleteGuardService(db.Db),
-            new PatientVisitStatusService(db.Db, audit),
-            new NoOpWebhookDispatchService(),
-            audit,
-            new ClinicalDemographicsSyncService(db.Db));
+        var service = ServiceTestFactory.CreatePatientService(db.Db);
 
         patient.FirstName = "New";
         patient.Phone = "222";

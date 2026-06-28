@@ -15,6 +15,7 @@ public sealed class PatientService
     private readonly AuditService _audit;
 
     private readonly ClinicalDemographicsSyncService _demographics;
+    private readonly InvoiceService _invoices;
 
     public PatientService(
         ClinicalDbContext db,
@@ -23,7 +24,8 @@ public sealed class PatientService
         PatientVisitStatusService visitStatus,
         IWebhookDispatchService webhooks,
         AuditService audit,
-        ClinicalDemographicsSyncService demographics)
+        ClinicalDemographicsSyncService demographics,
+        InvoiceService invoices)
     {
         _db = db;
         _propagation = propagation;
@@ -32,6 +34,7 @@ public sealed class PatientService
         _webhooks = webhooks;
         _audit = audit;
         _demographics = demographics;
+        _invoices = invoices;
     }
 
     private IQueryable<Patient> ForClinic(Guid clinicId) => _db.Patients.ForClinic(clinicId);
@@ -173,6 +176,12 @@ public sealed class PatientService
             }
 
             patient = saved;
+
+            try
+            {
+                await _invoices.EnsureConsultationForNewVisitAsync(clinicId, patient, userName);
+            }
+            catch { }
         }
         else
         {

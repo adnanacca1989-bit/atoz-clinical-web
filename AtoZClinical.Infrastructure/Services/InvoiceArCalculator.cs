@@ -261,14 +261,18 @@ public static class InvoiceArCalculator
 
     private static bool MatchesPatient(string? transactionPatientId, string? transactionPatientName, Invoice invoice)
     {
-        if (!string.IsNullOrWhiteSpace(invoice.PatientId) && !string.IsNullOrWhiteSpace(transactionPatientId))
+        var invId = invoice.PatientId?.Trim();
+        var txId = transactionPatientId?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(invId) && !string.IsNullOrWhiteSpace(txId))
         {
-            var invId = invoice.PatientId.Trim();
-            var txId = transactionPatientId.Trim();
             if (string.Equals(txId, invId, StringComparison.OrdinalIgnoreCase)) return true;
             if (txId.Contains(invId, StringComparison.OrdinalIgnoreCase) ||
                 invId.Contains(txId, StringComparison.OrdinalIgnoreCase))
                 return true;
+
+            // Different visit barcodes for the same person — do not match by name alone.
+            return false;
         }
 
         if (!string.IsNullOrWhiteSpace(invoice.PatientName) && !string.IsNullOrWhiteSpace(transactionPatientName))

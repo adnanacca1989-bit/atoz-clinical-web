@@ -7,7 +7,9 @@ public static class PatientChargeMatcher
         string? name,
         string? recordBarcode,
         string? recordPatientId,
-        string? recordName)
+        string? recordName,
+        Guid? patientRecordId = null,
+        Guid? recordPatientRecordId = null)
     {
         barcode = barcode?.Trim();
         name = name?.Trim();
@@ -15,11 +17,19 @@ public static class PatientChargeMatcher
         recordPatientId = recordPatientId?.Trim();
         recordName = recordName?.Trim();
 
-        if (!string.IsNullOrEmpty(barcode))
+        if (patientRecordId.HasValue && patientRecordId.Value != Guid.Empty)
         {
-            if (Equals(recordBarcode, barcode) || Equals(recordPatientId, barcode))
-                return true;
+            if (recordPatientRecordId.HasValue && recordPatientRecordId.Value != Guid.Empty)
+                return recordPatientRecordId == patientRecordId;
+
+            if (!string.IsNullOrEmpty(barcode))
+                return Equals(recordBarcode, barcode) || Equals(recordPatientId, barcode);
+
+            return false;
         }
+
+        if (!string.IsNullOrEmpty(barcode))
+            return Equals(recordBarcode, barcode) || Equals(recordPatientId, barcode);
 
         if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(recordName))
         {
