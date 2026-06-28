@@ -173,5 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const requestNo = document.querySelector('[name="Input.RequestNo"]')?.value?.trim();
-    if (requestNo && !hasServerRenderedLines()) loadPharmacyRequestByNo();
+    const recordId = document.querySelector('[name="RecordId"]')?.value?.trim();
+    if (requestNo && !recordId && !hasServerRenderedLines()) loadPharmacyRequestByNo();
 });

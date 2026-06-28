@@ -1222,7 +1222,7 @@ public sealed class PharmacyBillService
         _db.PharmacyBills.ForClinic(clinicId).Include(b => b.Lines).OrderByDescending(b => b.BillNo).ToListAsync();
 
     public Task<PharmacyBill?> GetAsync(Guid clinicId, Guid id) =>
-        _db.PharmacyBills.Include(b => b.Lines).FirstOrDefaultAsync(b => b.ClinicId == clinicId && b.Id == id);
+        _db.PharmacyBills.Include(b => b.Lines).ForClinic(clinicId).FirstOrDefaultAsync(b => b.Id == id);
 
     public async Task<int> NextBillNoAsync(Guid clinicId) =>
         (await _db.PharmacyBills.ForClinic(clinicId).MaxAsync(b => (int?)b.BillNo) ?? 0) + 1;

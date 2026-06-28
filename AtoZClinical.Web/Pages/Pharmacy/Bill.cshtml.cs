@@ -66,7 +66,7 @@ public class BillModel : ClinicFormPageModel
             }
         }
 
-        SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt);
+        SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt, Input.BillNo > 0 ? Input.BillNo.ToString() : null);
         ViewData["OpenPatientSelect"] = true;
         ViewData["ShowAddLines"] = true;
         return Page();
@@ -140,10 +140,32 @@ public class BillModel : ClinicFormPageModel
     private async Task LoadRecord(Guid clinicId, Guid id)
     {
         var item = await _service.GetAsync(clinicId, id);
-        if (item is null) return;
+        if (item is null)
+        {
+            RecordId = null;
+            await PrepareNew(clinicId);
+            return;
+        }
+
         RecordId = item.Id;
         Input = PharmacyBillInput.FromEntity(item);
         Input.Specialty = await ResolveDoctorSpecialtyAsync(clinicId, Input.DoctorName, Input.Specialty);
+
+        var patient = await FindPatientAsync(clinicId, Input.PatientName, Input.PatientId);
+        if (patient is not null)
+        {
+            Input.PatientName = patient.FullName;
+            Input.PatientId = patient.PatientNo;
+            Input.Age = patient.AgeYears;
+            Input.Gender = patient.Gender;
+            Input.Phone = patient.Phone;
+            Input.City = patient.City;
+            if (string.IsNullOrWhiteSpace(Input.DoctorName))
+                Input.DoctorName = patient.DoctorName;
+            if (string.IsNullOrWhiteSpace(Input.Specialty))
+                Input.Specialty = patient.Specialty;
+        }
+
         Lines = item.Lines.OrderBy(l => l.LineNo).Select(PharmacyBillLineInput.FromEntity).ToList();
         EnsureLineRows();
     }
@@ -197,7 +219,7 @@ public class BillModel : ClinicFormPageModel
         await LoadAsync(clinicId);
         RegisteredItems = await _items.ListActiveAsync(clinicId);
         EnsureLineRows();
-        SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt);
+        SetFormViewData("Pharmacy Bill", null, null, Input.UpdatedAt, Input.BillNo > 0 ? Input.BillNo.ToString() : null);
         ViewData["OpenPatientSelect"] = true;
         ViewData["ShowAddLines"] = true;
     }

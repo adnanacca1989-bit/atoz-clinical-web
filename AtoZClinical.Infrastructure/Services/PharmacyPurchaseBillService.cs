@@ -32,7 +32,7 @@ public sealed class PharmacyPurchaseBillService
         _db.PharmacyPurchaseBills.ForClinic(clinicId).Include(b => b.Lines).OrderByDescending(b => b.PurchaseNo).ToListAsync();
 
     public Task<PharmacyPurchaseBill?> GetAsync(Guid clinicId, Guid id) =>
-        _db.PharmacyPurchaseBills.Include(b => b.Lines).FirstOrDefaultAsync(b => b.ClinicId == clinicId && b.Id == id);
+        _db.PharmacyPurchaseBills.Include(b => b.Lines).ForClinic(clinicId).FirstOrDefaultAsync(b => b.Id == id);
 
     public async Task<int> NextPurchaseNoAsync(Guid clinicId) =>
         (await _db.PharmacyPurchaseBills.ForClinic(clinicId).MaxAsync(b => (int?)b.PurchaseNo) ?? 0) + 1;
