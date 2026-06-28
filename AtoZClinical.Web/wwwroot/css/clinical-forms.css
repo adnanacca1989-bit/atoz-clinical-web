@@ -1523,17 +1523,49 @@ main:has(.clinical-form-page) {
     display: table-cell;
 }
 
-/* Prescription HIS layout */
-.prescription-his-layout .clinical-form-body {
-    grid-template-columns: 1fr 240px;
-}
+/* ——— Expanded form layout (registration & transaction screens) ——— */
 
-.prescription-expanded.clinical-form-page {
+.clinical-form-expanded.clinical-form-page {
     max-width: none;
 }
 
-.prescription-expanded .clinical-form-left {
-    min-height: calc(100vh - 200px);
+.clinical-form-expanded .clinical-form-body {
+    grid-template-columns: 1fr 240px;
+    min-height: calc(100vh - 160px);
+    max-height: none;
+}
+
+.clinical-form-expanded .clinical-form-left {
+    min-height: calc(100vh - 220px);
+}
+
+.clinical-form-expanded .clinical-record-grid {
+    max-height: calc(100vh - 240px) !important;
+}
+
+.clinical-form-expanded .clinical-form-fields-scroll {
+    min-height: 280px;
+    max-height: calc(100vh - 280px);
+}
+
+.clinical-form-expanded.clinical-his-compact .clinical-form-body {
+    grid-template-columns: 1fr 240px;
+    max-height: none;
+    min-height: calc(100vh - 132px);
+}
+
+.clinical-form-expanded.clinical-his-compact .clinical-form-scroll {
+    max-height: calc(100vh - 160px);
+}
+
+.clinical-form-expanded.clinical-his-compact .clinical-line-grid-scroll {
+    max-height: min(420px, calc(100vh - 280px));
+    min-height: 220px;
+}
+
+/* Prescription HIS layout */
+.prescription-his-layout .clinical-form-body {
+    grid-template-columns: 1fr 240px;
 }
 
 .prescription-his-layout .prescription-clinical-block {
