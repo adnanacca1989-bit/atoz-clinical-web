@@ -219,8 +219,13 @@ public class UsersModel : SettingsFormPageModel
         var doctor = DoctorOptions.FirstOrDefault(d => d.Id == doctorId)
             ?? await _doctors.GetAsync(clinicId, doctorId);
         if (doctor is not null)
-            Input.FullName = doctor.Name;
+            Input.FullName = FormatDoctorDisplayName(doctor);
     }
+
+    private static string FormatDoctorDisplayName(Doctor doctor) =>
+        string.IsNullOrWhiteSpace(doctor.Specialty)
+            ? doctor.Name
+            : $"{doctor.Name} — {doctor.Specialty}";
 
     private async Task<string?> ValidateDoctorUserAsync(Guid clinicId, UserInput input, string? excludeUserId = null)
     {
