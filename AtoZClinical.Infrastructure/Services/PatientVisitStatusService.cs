@@ -83,7 +83,7 @@ public sealed class PatientVisitStatusService
         OnClinicalActivityAsync(clinicId, patientId, patientName);
 
     public Task OnClinicalActivityAsync(Guid clinicId, string? patientId, string? patientName) =>
-        ApplyStatusAsync(clinicId, patientId, patientName, PatientVisitStatuses.UnderProcess, reopenFromCompleted: true);
+        TryUpgradeAsync(clinicId, patientId, patientName, PatientVisitStatuses.UnderProcess);
 
     public Task OnInvoiceBillingAsync(Guid clinicId, string? patientId, string? patientName) =>
         ForceStatusAsync(clinicId, patientId, patientName, PatientVisitStatuses.Completed);
@@ -95,33 +95,6 @@ public sealed class PatientVisitStatusService
         if (!PatientVisitStatuses.CanAutoUpgrade(patient.Status, targetStatus)) return;
 
         await SetPatientStatusAsync(clinicId, patient, PatientVisitStatuses.Normalize(targetStatus));
-    }
-
-    private async Task ApplyStatusAsync(
-        Guid clinicId,
-        string? patientId,
-        string? patientName,
-        string targetStatus,
-        bool reopenFromCompleted)
-    {
-        var patient = await FindPatientAsync(clinicId, patientId, patientName);
-        if (patient is null) return;
-
-        var current = PatientVisitStatuses.Normalize(patient.Status);
-        var target = PatientVisitStatuses.Normalize(targetStatus);
-        if (PatientVisitStatuses.IsCancelled(current)) return;
-        if (string.Equals(current, target, StringComparison.OrdinalIgnoreCase)) return;
-
-        if (current == PatientVisitStatuses.Completed && reopenFromCompleted && target == PatientVisitStatuses.UnderProcess)
-        {
-            await SetPatientStatusAsync(clinicId, patient, target);
-            return;
-        }
-
-        if (!PatientVisitStatuses.CanAutoUpgrade(current, target))
-            return;
-
-        await SetPatientStatusAsync(clinicId, patient, target);
     }
 
     public async Task ForceStatusAsync(Guid clinicId, string? patientId, string? patientName, string status)
@@ -182,8 +155,7 @@ public sealed class PatientVisitStatusService
             var name = patientName.Trim();
             var candidates = await query.ToListAsync();
             return candidates
-                .Where(p => string.Equals(p.FirstName, name, StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(p.FullName, name, StringComparison.OrdinalIgnoreCase))
+                .Where(p => PatientChargeMatcher.MatchesPatient(null, name, null, p.PatientNo, p.FullName))
                 .OrderByDescending(p => p.UpdatedAt)
                 .FirstOrDefault();
         }

@@ -80,11 +80,19 @@ public class PatientVisitStatusServiceTests
     }
 
     [Fact]
-    public async Task Clinical_activity_reopens_completed_patient_to_under_process()
+    public async Task Clinical_activity_after_invoice_keeps_completed_status()
     {
         var (db, clinicId, status) = await CreateAsync(PatientVisitStatuses.Completed);
         await status.OnClinicalActivityAsync(clinicId, "PAT-00001", "Ali Patient");
-        Assert.Equal(PatientVisitStatuses.UnderProcess, await GetStatusAsync(db, clinicId));
+        Assert.Equal(PatientVisitStatuses.Completed, await GetStatusAsync(db, clinicId));
+    }
+
+    [Fact]
+    public async Task Lab_request_after_invoice_keeps_completed_status()
+    {
+        var (db, clinicId, status) = await CreateAsync(PatientVisitStatuses.Completed);
+        await status.OnClinicalCheckInAsync(clinicId, "PAT-00001", "Ali Patient");
+        Assert.Equal(PatientVisitStatuses.Completed, await GetStatusAsync(db, clinicId));
     }
 
     [Fact]
