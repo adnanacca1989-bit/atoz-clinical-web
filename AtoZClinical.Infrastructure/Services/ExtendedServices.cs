@@ -40,6 +40,15 @@ public sealed class AuditService
             .OrderByDescending(a => a.DateTime)
             .Take(take)
             .ToListAsync();
+
+    public Task<List<string>> ListUserNamesAsync(Guid clinicId) =>
+        _db.AuditLogEntries
+            .IgnoreQueryFilters()
+            .Where(a => a.ClinicId == clinicId && a.UserName != null && a.UserName != "")
+            .Select(a => a.UserName!)
+            .Distinct()
+            .OrderBy(u => u)
+            .ToListAsync();
 }
 
 public sealed class RadiologyTestService

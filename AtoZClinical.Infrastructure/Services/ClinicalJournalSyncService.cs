@@ -76,7 +76,7 @@ public sealed class ClinicalJournalSyncService
             {
                 try
                 {
-                    await SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList(), chartAccounts, saveChanges: false);
+                    await SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList(), chartAccounts, saveChanges: false, forceResync: true);
                 }
                 catch (Exception ex)
                 {
@@ -89,7 +89,7 @@ public sealed class ClinicalJournalSyncService
             {
                 try
                 {
-                    await SyncCashReceiptAsync(clinicId, receipt, chartAccounts, saveChanges: false);
+                    await SyncCashReceiptAsync(clinicId, receipt, chartAccounts, saveChanges: false, forceResync: true);
                 }
                 catch (Exception ex)
                 {
@@ -102,7 +102,7 @@ public sealed class ClinicalJournalSyncService
             {
                 try
                 {
-                    await SyncPharmacyBillAsync(clinicId, bill, bill.Lines.ToList(), chartAccounts, saveChanges: false);
+                    await SyncPharmacyBillAsync(clinicId, bill, bill.Lines.ToList(), chartAccounts, saveChanges: false, forceResync: true);
                 }
                 catch (Exception ex)
                 {
@@ -137,26 +137,31 @@ public sealed class ClinicalJournalSyncService
         Invoice invoice,
         List<InvoiceLine> lines,
         List<ChartAccount>? chartAccounts,
-        bool saveChanges)
+        bool saveChanges,
+        bool forceResync = false)
     {
         if (invoice.TotalAmount <= 0 && lines.Sum(l => l.LineTotal) <= 0)
             return;
 
         chartAccounts ??= await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
-        if (await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.Invoice, invoice.Id, invoice.UpdatedAt))
+        if (!forceResync && await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.Invoice, invoice.Id, invoice.UpdatedAt))
             return;
 
         var arAccount = RevenueAccountingHelper.ResolveAssetAccount(chartAccounts, "Accounts Receivable", "Accounts Receivable");
+        var grossRevenue = lines.Where(l => l.LineTotal > 0).Sum(l => l.LineTotal);
+        var netAr = invoice.TotalAmount > 0 ? invoice.TotalAmount : grossRevenue;
+        if (netAr <= 0 && grossRevenue <= 0)
+            return;
+
         var incomeCredits = lines
             .Where(l => l.LineTotal > 0)
             .GroupBy(l => RevenueAccountingHelper.ResolveIncomeAccountName(l.ServiceName, chartAccounts), StringComparer.OrdinalIgnoreCase)
-            .Select(g => new { AccountName = g.Key, Amount = g.Sum(x => x.LineTotal) })
-            .Where(x => x.Amount > 0)
+            .Select(g => (AccountName: g.Key, GrossAmount: g.Sum(x => x.LineTotal)))
+            .Where(x => x.GrossAmount > 0)
             .ToList();
 
-        var totalCredit = incomeCredits.Sum(x => x.Amount);
-        if (totalCredit <= 0)
-            return;
+        if (incomeCredits.Count == 0 && netAr > 0)
+            incomeCredits.Add((RevenueAccountingHelper.DefaultIncomeAccountName(RevenueAccountingHelper.RevenueBucket.Consultation), netAr));
 
         var entry = await GetOrResetEntryAsync(
             clinicId,
@@ -169,10 +174,11 @@ public sealed class ClinicalJournalSyncService
 
         var journalLines = new List<JournalEntryLine>();
         var lineNo = 1;
-        journalLines.Add(CreateLine(entry.Id, lineNo++, arAccount, "Asset", totalCredit, 0,
+        journalLines.Add(CreateLine(entry.Id, lineNo++, arAccount, "Asset", netAr, 0,
             $"Invoice #{invoice.InvoiceNo}"));
 
-        foreach (var credit in incomeCredits)
+        var allocatedCredits = AllocateIncomeCredits(incomeCredits, grossRevenue, netAr);
+        foreach (var credit in allocatedCredits)
         {
             var category = chartAccounts.FirstOrDefault(a =>
                 string.Equals(a.Name, credit.AccountName, StringComparison.OrdinalIgnoreCase))?.CategoryType ?? "Income";
@@ -189,13 +195,14 @@ public sealed class ClinicalJournalSyncService
         Guid clinicId,
         CashReceipt receipt,
         List<ChartAccount>? chartAccounts,
-        bool saveChanges)
+        bool saveChanges,
+        bool forceResync = false)
     {
         if (receipt.Amount <= 0)
             return;
 
         chartAccounts ??= await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
-        if (await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.CashReceipt, receipt.Id, receipt.UpdatedAt))
+        if (!forceResync && await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.CashReceipt, receipt.Id, receipt.UpdatedAt))
             return;
 
         var entry = await GetOrResetEntryAsync(
@@ -231,13 +238,14 @@ public sealed class ClinicalJournalSyncService
         PharmacyBill bill,
         List<PharmacyBillLine> lines,
         List<ChartAccount>? chartAccounts,
-        bool saveChanges)
+        bool saveChanges,
+        bool forceResync = false)
     {
         if (bill.TotalAmount <= 0)
             return;
 
         chartAccounts ??= await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
-        if (await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.PharmacyBill, bill.Id, bill.UpdatedAt))
+        if (!forceResync && await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.PharmacyBill, bill.Id, bill.UpdatedAt))
             return;
 
         var entry = await GetOrResetEntryAsync(
@@ -356,4 +364,30 @@ public sealed class ClinicalJournalSyncService
         Credit = credit,
         Description = description
     };
+
+    private static List<(string AccountName, decimal Amount)> AllocateIncomeCredits(
+        IReadOnlyList<(string AccountName, decimal GrossAmount)> incomeCredits,
+        decimal grossRevenue,
+        decimal netAr)
+    {
+        if (incomeCredits.Count == 0)
+            return [];
+
+        if (grossRevenue <= 0 || grossRevenue == netAr)
+            return incomeCredits.Select(c => (c.AccountName, c.GrossAmount)).ToList();
+
+        var result = new List<(string AccountName, decimal Amount)>();
+        decimal allocated = 0;
+        for (var i = 0; i < incomeCredits.Count; i++)
+        {
+            var credit = incomeCredits[i];
+            var amount = i == incomeCredits.Count - 1
+                ? netAr - allocated
+                : Math.Round(credit.GrossAmount * netAr / grossRevenue, 2, MidpointRounding.AwayFromZero);
+            allocated += amount;
+            result.Add((credit.AccountName, amount));
+        }
+
+        return result;
+    }
 }

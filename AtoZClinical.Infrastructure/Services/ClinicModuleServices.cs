@@ -82,8 +82,8 @@ public static class ClinicLookup
         {
             ["Asset"] =
             [
-                "Inventory", "Cash", "Bank", "Visa Card", "Health Insurance", "Pre-Paid Expenses",
-                "Fixed Assets", "Accumulated Depreciation", "Develop Cost"
+                "Inventory", "Cash", "Bank", "Visa Card", "Accounts Receivable", "Health Insurance",
+                "Pre-Paid Expenses", "Fixed Assets", "Accumulated Depreciation", "Develop Cost"
             ],
             ["Liability"] = ["Account Payable", "Accrual Expenses"],
             ["Equity"] =

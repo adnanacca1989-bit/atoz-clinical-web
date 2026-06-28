@@ -19,6 +19,9 @@ public class TrialBalanceModel : PageModel
     [BindProperty(SupportsGet = true)]
     public DateTime AsOfDate { get; set; } = DateTime.Today;
 
+    [BindProperty(SupportsGet = true)]
+    public bool NonZeroOnly { get; set; }
+
     public List<JournalReportService.TrialBalanceRow> Results { get; private set; } = [];
     public decimal TotalDebit { get; private set; }
     public decimal TotalCredit { get; private set; }
@@ -33,6 +36,8 @@ public class TrialBalanceModel : PageModel
         if (clinicId is null) return Forbid();
 
         Results = await _journal.GetTrialBalanceAsync(clinicId.Value, AsOfDate);
+        if (NonZeroOnly)
+            Results = Results.Where(r => r.Balance != 0).ToList();
         TotalDebit = Results.Sum(r => r.TotalDebit);
         TotalCredit = Results.Sum(r => r.TotalCredit);
         return Page();

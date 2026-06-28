@@ -90,15 +90,17 @@
         </div>
         </div>
 
-        <p class="report-hint">Receipts post as <strong>Debit</strong>; payments post as <strong>Credit</strong>. Use Run to refresh after changing filters.</p>
+        <p class="report-hint">Receipts post as <strong>Debit</strong>; payments post as <strong>Credit</strong>. Opening and closing balances match the general ledger (Cash, Bank, and Visa Card). Use Run to refresh after changing filters.</p>
 
         <div class="report-summary-panel">
+
+            <span><strong>Opening Balance:</strong> @Model.OpeningBalance.ToString("N2")</span>
 
             <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
 
             <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
 
-            <span><strong>Closing Balance:</strong> @Model.ClosingBalance.ToString("N2")</span>
+            <span><strong>Closing Balance (GL):</strong> @Model.ClosingBalance.ToString("N2")</span>
 
         </div>
 

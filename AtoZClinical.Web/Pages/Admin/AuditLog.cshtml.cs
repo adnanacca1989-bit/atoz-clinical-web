@@ -23,7 +23,11 @@ public class AuditLogModel : PageModel
     [BindProperty(SupportsGet = true)]
     public DateTime ToDate { get; set; } = ClinicClock.Today;
 
+    [BindProperty(SupportsGet = true)]
+    public string? UserName { get; set; }
+
     public List<AuditLogEntry> Records { get; private set; } = [];
+    public List<string> UserNames { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync() => await SearchAsync();
 
@@ -34,6 +38,8 @@ public class AuditLogModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
+        UserNames = await _audit.ListUserNamesAsync(clinicId.Value);
+
         var all = await _audit.ListAsync(clinicId.Value, 5000);
         var from = ClinicClock.ToClinicDate(FromDate);
         var to = ClinicClock.ToClinicDate(ToDate);
@@ -41,7 +47,11 @@ public class AuditLogModel : PageModel
             .Where(a =>
             {
                 var d = ClinicClock.ToClinicDateTime(a.DateTime).Date;
-                return d >= from && d <= to;
+                if (d < from || d > to) return false;
+                if (!string.IsNullOrWhiteSpace(UserName) &&
+                    !string.Equals(a.UserName, UserName.Trim(), StringComparison.OrdinalIgnoreCase))
+                    return false;
+                return true;
             })
             .ToList();
         return Page();

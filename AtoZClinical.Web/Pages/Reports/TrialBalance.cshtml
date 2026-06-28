@@ -16,6 +16,12 @@
                     <label class="clinical-field-label">As Of Date</label>
                     <input asp-for="AsOfDate" class="clinical-field" type="date" />
                 </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input asp-for="NonZeroOnly" class="form-check-input" type="checkbox" id="nonZeroOnlyCheck" />
+                        <label class="form-check-label" for="nonZeroOnlyCheck">Non-zero only</label>
+                    </div>
+                </div>
             </div>
         </div>
         <p class="report-hint">All chart of accounts with debit/credit totals from journal entries (includes revenue, expenses, and cash activity).</p>

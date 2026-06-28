@@ -2,6 +2,7 @@
 @model AtoZClinical.Web.Pages.Reports.GeneralLedgerModel
 @{
     ViewData["Title"] = "General Ledger";
+    ViewData["UseReportPickers"] = true;
     Layout = "_Layout";
 }
 
@@ -32,11 +33,11 @@
                 </div>
                 <div class="col-md-2">
                     <label class="clinical-field-label">Patient Name</label>
-                    <input asp-for="PatientName" class="clinical-field" placeholder="Filter patient..." />
+                    <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
                 </div>
                 <div class="col-md-2">
                     <label class="clinical-field-label">Doctor Name</label>
-                    <input asp-for="DoctorName" class="clinical-field" placeholder="Filter doctor..." />
+                    <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
                 </div>
                 <div class="col-md-2">
                     <label class="clinical-field-label">Sort By</label>
@@ -99,3 +100,13 @@
         <partial name="_ReportToolbar" />
     </form>
 </div>
+
+<partial name="_PatientSelectModal" />
+<partial name="_DoctorSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers({ autoRunOnPatient: false }));</script>
+}

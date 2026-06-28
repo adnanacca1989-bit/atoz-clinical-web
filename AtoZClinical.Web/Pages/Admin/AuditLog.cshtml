@@ -18,7 +18,17 @@
                 <label class="clinical-field-label">To Date</label>
                 <input asp-for="ToDate" class="clinical-field" type="date" />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <label class="clinical-field-label">User</label>
+                <select asp-for="UserName" class="clinical-field">
+                    <option value="">— All users —</option>
+                    @foreach (var user in Model.UserNames)
+                    {
+                        <option value="@user" selected="@(Model.UserName == user ? "selected" : null)">@user</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
                 <button type="submit" asp-page-handler="Search" class="btn btn-primary">Search</button>
                 <a asp-page="/Dashboard/Index" class="btn btn-outline-secondary ms-2">Close</a>
             </div>
