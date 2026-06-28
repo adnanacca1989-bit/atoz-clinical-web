@@ -20,7 +20,7 @@ public class ClinicConfiguration : IClinicScoped
     public bool MaintenanceMode { get; set; }
     public string? MaintenanceNotes { get; set; }
     public bool PatientPortalEnabled { get; set; } = true;
-    public bool AllowDoctorViewAllPatients { get; set; }
+    public bool AllowDoctorViewAllPatients { get; set; } = true;
     public string FormStyle { get; set; } = "Default";
     public string PrimaryColor { get; set; } = "#0b4f8a";
     public string TimeZoneId { get; set; } = "UTC";

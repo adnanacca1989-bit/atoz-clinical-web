@@ -33,7 +33,7 @@ public sealed class ClinicSettingsService
             .FirstOrDefaultAsync(c => c.ClinicId == clinicId);
         if (config is not null) return config;
 
-        config = new ClinicConfiguration { ClinicId = clinicId };
+        config = new ClinicConfiguration { ClinicId = clinicId, AllowDoctorViewAllPatients = true };
         try
         {
             await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, () =>

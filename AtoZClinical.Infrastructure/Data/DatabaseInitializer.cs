@@ -94,6 +94,45 @@ public static class DatabaseInitializer
             await SeedClinicDefaultsAsync(db, clinicId, logger, audit);
             cache?.InvalidateVisibleForms(clinicId);
         }
+
+        await EnsureDoctorViewAllPatientsEnabledAsync(db, cache, logger);
+    }
+
+    /// <summary>
+    /// Doctors see all clinic patients by default. Updates legacy clinics that still have isolation enabled.
+    /// </summary>
+    private static async Task EnsureDoctorViewAllPatientsEnabledAsync(
+        ClinicalDbContext db,
+        ClinicRuntimeCache? cache,
+        ILogger logger)
+    {
+        try
+        {
+            var clinicIds = await db.ClinicConfigurations
+                .IgnoreQueryFilters()
+                .Where(c => !c.AllowDoctorViewAllPatients)
+                .Select(c => c.ClinicId)
+                .ToListAsync();
+
+            if (clinicIds.Count == 0)
+                return;
+
+            await db.ClinicConfigurations
+                .IgnoreQueryFilters()
+                .Where(c => !c.AllowDoctorViewAllPatients)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.AllowDoctorViewAllPatients, true));
+
+            foreach (var clinicId in clinicIds)
+                cache?.InvalidateConfiguration(clinicId);
+
+            logger.LogInformation(
+                "Doctor patient isolation disabled for {Count} clinic(s) — all doctors can view all patients.",
+                clinicIds.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Doctor view-all patients enable step skipped.");
+        }
     }
 
     public static async Task SeedClinicDefaultsAsync(
@@ -129,7 +168,12 @@ public static class DatabaseInitializer
 
         if (!await db.ClinicConfigurations.AnyAsync(c => c.ClinicId == clinicId))
         {
-            db.ClinicConfigurations.Add(new ClinicConfiguration { ClinicId = clinicId, PatientPortalEnabled = true });
+            db.ClinicConfigurations.Add(new ClinicConfiguration
+            {
+                ClinicId = clinicId,
+                PatientPortalEnabled = true,
+                AllowDoctorViewAllPatients = true
+            });
             logger?.LogInformation("Seeded default clinic configuration for {ClinicId}.", clinicId);
         }
 
