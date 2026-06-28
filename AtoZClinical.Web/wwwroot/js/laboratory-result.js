@@ -99,57 +99,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const renderPatients = () => {
-
-        if (!tableBody) return;
-
-        tableBody.innerHTML = '';
-
-        patients.forEach(p => {
-
-            const tr = document.createElement('tr');
-
-            if (selectedPatient?.id === p.id) tr.classList.add('selected');
-
-            tr.innerHTML = `
-
-                <td>${escapeHtml(p.patientNo)}</td>
-
-                <td>${escapeHtml(p.name)}</td>
-
-                <td>${escapeHtml(p.gender || '')}</td>
-
-                <td>${p.age != null ? p.age + ' Years' : ''}</td>
-
-                <td>${escapeHtml(p.phone || '')}</td>
-
-                <td>${escapeHtml(p.city || '')}</td>
-
-                <td>${escapeHtml(p.doctorName || '')}</td>
-
-                <td>${escapeHtml(p.specialty || '')}</td>
-
-                <td>${escapeHtml(p.appointmentDate || '')}</td>
-
-                <td>${escapeHtml(p.appointmentTime || '')}</td>
-
-                <td>${escapeHtml(p.status || '')}</td>`;
-
-            tr.addEventListener('click', () => {
-
+        renderPatientSelectTable(tableBody, patients, {
+            selectedPatient,
+            onRowClick: (p, tr) => {
                 tableBody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
-
                 tr.classList.add('selected');
-
                 selectedPatient = p;
-
-            });
-
-            tr.addEventListener('dblclick', () => { selectedPatient = p; applyPatient(); });
-
-            tableBody.appendChild(tr);
-
+            },
+            onRowDblClick: (p) => {
+                selectedPatient = p;
+                applyPatient();
+            }
         });
-
     };
 
 
