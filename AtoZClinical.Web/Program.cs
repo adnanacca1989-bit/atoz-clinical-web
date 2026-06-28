@@ -302,6 +302,7 @@ builder.Services.AddScoped<ClinicLookupService>();
 builder.Services.AddScoped<PharmacyPurchaseBillService>();
 builder.Services.AddScoped<ArReportService>();
 builder.Services.AddScoped<PatientInvoiceService>();
+builder.Services.AddScoped<ClinicalDemographicsSyncService>();
 builder.Services.AddScoped<BillingPropagationService>();
 builder.Services.AddScoped<PatientVisitHistoryService>();
 builder.Services.AddScoped<InvoiceDeleteGuardService>();

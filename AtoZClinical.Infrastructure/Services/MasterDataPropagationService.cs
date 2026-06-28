@@ -42,9 +42,11 @@ public sealed class MasterDataPropagationService
 
         await _db.Invoices
             .Where(i => i.ClinicId == clinicId &&
-                        (i.PatientId == patientNo || i.PatientId == oldPatientNo ||
+                        (i.PatientRecordId == current.Id ||
+                         i.PatientId == patientNo || i.PatientId == oldPatientNo ||
                          i.PatientName == oldName || i.PatientName == newName))
             .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.PatientRecordId, current.Id)
                 .SetProperty(i => i.PatientId, patientNo)
                 .SetProperty(i => i.PatientName, newName)
                 .SetProperty(i => i.Phone, phone)
@@ -253,8 +255,11 @@ public sealed class MasterDataPropagationService
                 .SetProperty(p => p.UpdatedAt, now));
 
         await _db.Invoices
-            .Where(i => i.ClinicId == clinicId && i.DoctorName != null && i.DoctorName.Trim().ToLower() == oldNorm)
+            .Where(i => i.ClinicId == clinicId &&
+                        (i.DoctorRecordId == current.Id ||
+                         (i.DoctorName != null && i.DoctorName.Trim().ToLower() == oldNorm)))
             .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.DoctorRecordId, current.Id)
                 .SetProperty(i => i.DoctorName, newName)
                 .SetProperty(i => i.Specialty, specialty)
                 .SetProperty(i => i.UpdatedAt, now));
@@ -374,9 +379,7 @@ public sealed class MasterDataPropagationService
     }
 
     private static bool IsConsultationLine(string? serviceName, string doctorName) =>
-        !string.IsNullOrWhiteSpace(serviceName) &&
-        (serviceName.Contains("Consultation", StringComparison.OrdinalIgnoreCase) ||
-         serviceName.Contains(doctorName, StringComparison.OrdinalIgnoreCase));
+        ClinicalDemographicsSyncService.IsConsultationLine(serviceName, doctorName);
 
     public async Task PropagateLabTestAsync(Guid clinicId, LabTest previous, LabTest current)
     {

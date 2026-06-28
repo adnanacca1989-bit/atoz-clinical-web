@@ -193,9 +193,9 @@ public sealed class PatientService
             previous is null ? "Create" : "Update",
             $"Patient #{patient.PatientNo} — {patient.FullName}");
 
-        try
+        if (previous is null)
         {
-            if (previous is null)
+            try
             {
                 await _webhooks.DispatchAsync(clinicId, WebhookEvents.PatientCreated, new
                 {
@@ -205,7 +205,11 @@ public sealed class PatientService
                     patient.LastName
                 });
             }
-            else
+            catch { }
+        }
+        else
+        {
+            try
             {
                 await _webhooks.DispatchAsync(clinicId, WebhookEvents.PatientUpdated, new
                 {
@@ -214,12 +218,14 @@ public sealed class PatientService
                     patient.FirstName,
                     patient.LastName
                 });
+            }
+            catch { }
+
+            try
+            {
                 await _propagation.PropagatePatientAsync(clinicId, previous, patient);
             }
-        }
-        catch
-        {
-            // Patient row is already saved; do not fail the registration workflow.
+            catch { }
         }
 
         return patient;

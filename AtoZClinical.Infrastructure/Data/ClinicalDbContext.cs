@@ -237,6 +237,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(x => new { x.ClinicId, x.InvoiceDate });
             e.HasIndex(x => new { x.ClinicId, x.PatientId });
             e.HasIndex(x => new { x.ClinicId, x.PatientName });
+            e.HasIndex(x => new { x.ClinicId, x.PatientRecordId });
+            e.HasIndex(x => new { x.ClinicId, x.DoctorRecordId });
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
         });
 

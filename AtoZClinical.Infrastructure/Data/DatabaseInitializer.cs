@@ -37,6 +37,7 @@ public static class DatabaseInitializer
         await EnsureExpenseJournalSchemaAsync(db, logger);
         await EnsureVendorPaymentSchemaAsync(db, logger);
         await EnsureJournalEntryNamesSchemaAsync(db, logger);
+        await EnsureInvoiceRecordLinkSchemaAsync(db, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -695,6 +696,49 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Journal entry name columns verification skipped.");
+        }
+    }
+
+    private static async Task EnsureInvoiceRecordLinkSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "PatientRecordId" uuid NULL;
+                ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE "Invoices" i
+                SET "PatientRecordId" = p."Id"
+                FROM "Patients" p
+                WHERE i."ClinicId" = p."ClinicId"
+                  AND i."PatientRecordId" IS NULL
+                  AND i."PatientId" IS NOT NULL
+                  AND i."PatientId" = p."PatientNo";
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE "Invoices" i
+                SET "DoctorRecordId" = d."Id"
+                FROM "Doctors" d
+                WHERE i."ClinicId" = d."ClinicId"
+                  AND i."DoctorRecordId" IS NULL
+                  AND i."DoctorName" IS NOT NULL
+                  AND LOWER(TRIM(i."DoctorName")) = LOWER(TRIM(d."Name"));
+                """);
+
+            logger.LogInformation("Invoice patient/doctor record link columns verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Invoice record link columns verification skipped.");
         }
     }
 

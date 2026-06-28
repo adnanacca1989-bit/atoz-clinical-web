@@ -8,6 +8,8 @@ public class Invoice : IClinicScoped
     public DateTime InvoiceDate { get; set; } = DateTime.Today;
     public string? PatientName { get; set; }
     public string? PatientId { get; set; }
+    public Guid? PatientRecordId { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public string? Phone { get; set; }
     public int? Age { get; set; }
     public string? Gender { get; set; }

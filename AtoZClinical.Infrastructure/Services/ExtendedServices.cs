@@ -496,26 +496,41 @@ public sealed class InvoiceService
     private readonly PatientVisitStatusService _visitStatus;
     private readonly ClinicalJournalSyncService _journalSync;
     private readonly PatientInvoiceService _invoices;
+    private readonly ClinicalDemographicsSyncService _demographics;
 
     public InvoiceService(
         ClinicalDbContext db,
         AuditService audit,
         PatientVisitStatusService visitStatus,
         ClinicalJournalSyncService journalSync,
-        PatientInvoiceService invoices)
+        PatientInvoiceService invoices,
+        ClinicalDemographicsSyncService demographics)
     {
         _db = db;
         _audit = audit;
         _visitStatus = visitStatus;
         _journalSync = journalSync;
         _invoices = invoices;
+        _demographics = demographics;
     }
 
     public Task<List<Invoice>> ListAsync(Guid clinicId) =>
         _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).OrderByDescending(i => i.InvoiceNo).ToListAsync();
 
-    public Task<Invoice?> GetAsync(Guid clinicId, Guid id) =>
-        _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).FirstOrDefaultAsync(i => i.Id == id);
+    public async Task<Invoice?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).FirstOrDefaultAsync(i => i.Id == id);
+        if (item is null) return null;
+
+        try
+        {
+            await _demographics.RefreshInvoiceFromMastersAsync(clinicId, item, item.Lines.ToList(), persist: true);
+            item = await _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).FirstOrDefaultAsync(i => i.Id == id);
+        }
+        catch { }
+
+        return item;
+    }
 
     public async Task<int> NextInvoiceNoAsync(Guid clinicId) =>
         await NextInvoiceNoWithSkipAsync(clinicId, 0);
@@ -525,6 +540,10 @@ public sealed class InvoiceService
         var isNew = item.Id == Guid.Empty;
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
+
+        try { await _demographics.LinkInvoiceMastersAsync(clinicId, item); }
+        catch { }
+
         item.SubTotal = lines.Sum(l => l.LineTotal);
         item.TotalAmount = item.SubTotal - item.Discount + item.TaxAmount;
         item.BalanceDue = item.TotalAmount - item.AmountPaid;
