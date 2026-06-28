@@ -78,6 +78,9 @@ public abstract class ClinicFormPageModel : PageModel
 
     protected bool ShouldLoadExistingRecord() => RecordId.HasValue && !NewRecord;
 
+    /// <summary>Load a saved row only when RecordId is in the query; otherwise open a blank form.</summary>
+    protected bool ShouldOpenExistingRecordOnGet() => RecordId.HasValue;
+
     protected async Task<string?> ResolveDoctorSpecialtyAsync(Guid clinicId, string? doctorName, string? stored)
     {
         if (string.IsNullOrWhiteSpace(doctorName)) return stored;

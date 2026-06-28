@@ -28,12 +28,8 @@ public class IndexModel : ClinicFormPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
-        if (RecordId.HasValue)
-            await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (NewRecord)
-            await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0)
-            await LoadRecord(clinicId.Value, Records[0].Id);
+        if (ShouldOpenExistingRecordOnGet())
+            await LoadRecord(clinicId.Value, RecordId!.Value);
         else
             await PrepareNew(clinicId.Value);
         SetFormViewData("Cash Payment", null, null, Input.UpdatedAt);

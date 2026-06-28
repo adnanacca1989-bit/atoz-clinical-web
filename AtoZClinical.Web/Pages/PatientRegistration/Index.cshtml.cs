@@ -68,17 +68,9 @@ public class IndexModel : ClinicFormPageModel
 
         await LoadAsync(clinicId.Value);
 
-        if (RecordId.HasValue)
+        if (ShouldOpenExistingRecordOnGet())
 
-            await LoadRecord(clinicId.Value, RecordId.Value);
-
-        else if (NewRecord)
-
-            await PrepareNew(clinicId.Value);
-
-        else if (Records.Count > 0 && string.IsNullOrEmpty(Input.PatientNo))
-
-            await LoadRecord(clinicId.Value, Records[0].Id);
+            await LoadRecord(clinicId.Value, RecordId!.Value);
 
         else
 

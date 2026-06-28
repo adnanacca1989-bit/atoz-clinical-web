@@ -40,12 +40,8 @@ public class IndexModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
         await LoadAsync(clinicId.Value);
         RegisteredItems = await _items.ListActiveAsync(clinicId.Value);
-        if (RecordId.HasValue)
-            await LoadRecord(clinicId.Value, RecordId.Value);
-        else if (NewRecord)
-            await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0 && Input.PrescriptionNo == 0)
-            await LoadRecord(clinicId.Value, Records[0].Id);
+        if (ShouldOpenExistingRecordOnGet())
+            await LoadRecord(clinicId.Value, RecordId!.Value);
         else
             await PrepareNew(clinicId.Value);
         ViewData["OpenPatientSelect"] = true;
