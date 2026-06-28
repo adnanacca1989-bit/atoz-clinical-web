@@ -10,6 +10,7 @@ public static class ClinicalFormKeys
     public const string PatientRegistration = "PatientRegistration";
     public const string CashReceipts = "CashReceipts";
     public const string CashPayments = "CashPayments";
+    public const string Expenses = "Expenses";
     public const string LabRegistration = "Laboratory.Registration";
     public const string LabRequest = "Laboratory.Request";
     public const string LabResult = "Laboratory.Result";
@@ -30,6 +31,8 @@ public static class ClinicalFormKeys
     public const string AppointmentReminders = "Reports.AppointmentReminders";
     public const string PatientStatus = "Reports.PatientStatus";
     public const string PlStatement = "Reports.PlStatement";
+    public const string GeneralLedger = "Reports.GeneralLedger";
+    public const string TrialBalance = "Reports.TrialBalance";
     public const string CostOfGoodsSold = "Reports.CostOfGoodsSold";
     public const string BalanceSheet = "Reports.BalanceSheet";
     public const string AccountsReceivable = "Reports.AccountsReceivable";
@@ -47,9 +50,9 @@ public static class ClinicalFormKeys
         Dashboard, Workflow, Doctors, ServiceIncomes, ServiceIncomeRequest, PatientRegistration, CashReceipts, CashPayments,
         LabRegistration, LabRequest, LabResult,
         RadiologyRegistration, RadiologyRequest, RadiologyResult,
-        Prescriptions, Invoices, ChartAccounts,
+        Prescriptions, Invoices, ChartAccounts, Expenses,
         PharmacyRegistration, PharmacyRequest, PharmacyBill, PharmacyPurchaseBill, PharmacyOpeningBalance,
-        PatientHistory, AppointmentReminders, PatientStatus, PlStatement, CostOfGoodsSold, BalanceSheet,
+        PatientHistory, AppointmentReminders, PatientStatus, PlStatement, GeneralLedger, TrialBalance, CostOfGoodsSold, BalanceSheet,
         AccountsReceivable, AccountsPayable, OperatingReport, CashReport, PharmacyInventory, DoctorReport,
         AuditLog, RolePermissions, Backup, Settings, Messaging
     ];

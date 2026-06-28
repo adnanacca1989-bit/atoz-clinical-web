@@ -1,0 +1,65 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.GeneralLedgerModel
+@{
+    ViewData["Title"] = "General Ledger";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">General Ledger</h1>
+    <partial name="_ReportBranding" />
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-2">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-4">
+                    <label class="clinical-field-label">Account (optional filter)</label>
+                    <input asp-for="AccountName" class="clinical-field" placeholder="e.g. Rent, Cash..." />
+                </div>
+            </div>
+        </div>
+        <p class="report-hint">Journal entries posted from expense vouchers and other sources.</p>
+        <div class="report-summary-panel">
+            <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
+            <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
+        </div>
+        <div class="report-results-scroll">
+            <table class="line-grid report-grid">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Entry No</th>
+                        <th>Source</th>
+                        <th>Account</th>
+                        <th>Description</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.EntryDate.ToString("d")</td>
+                        <td>@r.EntryNo</td>
+                        <td>@r.SourceType</td>
+                        <td>@r.AccountName</td>
+                        <td>@r.Description</td>
+                        <td class="text-end">@(r.Debit > 0 ? r.Debit.ToString("N2") : "")</td>
+                        <td class="text-end">@(r.Credit > 0 ? r.Credit.ToString("N2") : "")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>

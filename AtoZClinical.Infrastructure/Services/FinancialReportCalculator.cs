@@ -61,6 +61,14 @@ public sealed class FinancialReportCalculator
             .Where(p => !string.IsNullOrWhiteSpace(p.ChartAccountName) && expenseAccounts.Contains(p.ChartAccountName))
             .Sum(p => p.Amount);
 
+        var voucherExpenses = await _db.ExpenseVouchers
+            .Include(v => v.Lines)
+            .ForClinic(clinicId)
+            .Where(v => v.ExpenseDate >= from && v.ExpenseDate <= to)
+            .ToListAsync();
+
+        operatingExpenses += voucherExpenses.SelectMany(v => v.Lines).Sum(l => l.Amount);
+
         return revenue - cogs - operatingExpenses;
     }
 

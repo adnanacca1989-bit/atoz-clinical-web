@@ -5,7 +5,7 @@ function initClinicalLineGrid(options = {}) {
     const addBtn = document.getElementById('addClinicalLinesBtn');
     if (!tbody) return;
 
-    const rowSelector = options.rowSelector || 'tr[data-line], tr.pharmacy-line, tr.invoice-line, tr.lab-line, tr.radiology-line, tr.clinical-line, tr.prescription-line';
+    const rowSelector = options.rowSelector || 'tr[data-line], tr.pharmacy-line, tr.invoice-line, tr.lab-line, tr.radiology-line, tr.clinical-line, tr.prescription-line, tr.expense-line';
     const namePrefix = options.namePrefix || 'Lines';
 
     const reindexRows = () => {
@@ -68,7 +68,7 @@ function initClinicalLineGrid(options = {}) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (document.querySelector('.prescription-medication-scroll')) return;
+    if (document.querySelector('.prescription-medication-scroll, .expense-line-grid-scroll')) return;
     if (document.querySelector('.line-grid-scroll, .clinical-line-grid, .pharmacy-line-grid, .invoice-line-grid'))
         initClinicalLineGrid();
 });

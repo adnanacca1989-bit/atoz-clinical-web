@@ -1,0 +1,53 @@
+@page
+@model AtoZClinical.Web.Pages.Reports.TrialBalanceModel
+@{
+    ViewData["Title"] = "Trial Balance";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">Trial Balance</h1>
+    <partial name="_ReportBranding" />
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-3">
+                    <label class="clinical-field-label">As Of Date</label>
+                    <input asp-for="AsOfDate" class="clinical-field" type="date" />
+                </div>
+            </div>
+        </div>
+        <p class="report-hint">Debit and credit totals by account from journal entries (includes expense vouchers).</p>
+        <div class="report-summary-panel">
+            <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
+            <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
+        </div>
+        <div class="report-results-scroll">
+            <table class="line-grid report-grid">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Account</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                        <th class="text-end">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td>@r.AccountCategory</td>
+                        <td>@r.AccountName</td>
+                        <td class="text-end">@r.TotalDebit.ToString("N2")</td>
+                        <td class="text-end">@r.TotalCredit.ToString("N2")</td>
+                        <td class="text-end">@r.Balance.ToString("N2")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>

@@ -127,6 +127,25 @@ public class PlStatementModel : PageModel
                 pay.Amount));
         }
 
+        var expenseVouchers = await _db.ExpenseVouchers
+            .Include(v => v.Lines)
+            .ForClinic(clinicId.Value)
+            .Where(v => v.ExpenseDate >= FromDate.Date && v.ExpenseDate <= ToDate.Date)
+            .ToListAsync();
+
+        foreach (var voucher in expenseVouchers)
+        {
+            foreach (var line in voucher.Lines.OrderBy(l => l.LineNo))
+            {
+                if (line.Amount <= 0) continue;
+                Results.Add(new PlRow(
+                    "Expense",
+                    line.ChartAccountName,
+                    line.Description ?? voucher.Description ?? $"Expense #{voucher.ExpenseNo}",
+                    line.Amount));
+            }
+        }
+
         if (NonZero)
             Results = Results.Where(r => r.Amount != 0).ToList();
 

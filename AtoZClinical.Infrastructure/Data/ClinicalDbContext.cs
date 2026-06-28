@@ -45,6 +45,10 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
     public DbSet<CashPayment> CashPayments => Set<CashPayment>();
+    public DbSet<ExpenseVoucher> ExpenseVouchers => Set<ExpenseVoucher>();
+    public DbSet<ExpenseVoucherLine> ExpenseVoucherLines => Set<ExpenseVoucherLine>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
     public DbSet<ChartAccount> ChartAccounts => Set<ChartAccount>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
@@ -253,6 +257,29 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<ExpenseVoucher>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.ExpenseNo }).IsUnique();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.JournalEntry).WithMany().HasForeignKey(x => x.JournalEntryId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ExpenseVoucherLine>(e =>
+        {
+            e.HasOne(x => x.ExpenseVoucher).WithMany(v => v.Lines).HasForeignKey(x => x.ExpenseVoucherId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<JournalEntry>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.EntryNo }).IsUnique();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<JournalEntryLine>(e =>
+        {
+            e.HasOne(x => x.JournalEntry).WithMany(j => j.Lines).HasForeignKey(x => x.JournalEntryId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<AuditLogEntry>(e =>
         {
             e.HasIndex(x => new { x.ClinicId, x.DateTime });
@@ -424,6 +451,8 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         ConfigureClinicFilter<ServiceIncomeRequest>(builder);
         ConfigureClinicFilter<CashReceipt>(builder);
         ConfigureClinicFilter<CashPayment>(builder);
+        ConfigureClinicFilter<ExpenseVoucher>(builder);
+        ConfigureClinicFilter<JournalEntry>(builder);
         ConfigureClinicFilter<LabTest>(builder);
         ConfigureClinicFilter<LabRequest>(builder);
         ConfigureClinicFilter<LabResult>(builder);

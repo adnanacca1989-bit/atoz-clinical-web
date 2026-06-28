@@ -25,11 +25,11 @@ public static class ClinicalModuleCatalog
         ]),
         new("Billing", "Billing", [
             ClinicalFormKeys.ServiceIncomes, ClinicalFormKeys.ServiceIncomeRequest, ClinicalFormKeys.Invoices,
-            ClinicalFormKeys.CashReceipts, ClinicalFormKeys.CashPayments, ClinicalFormKeys.ChartAccounts
+            ClinicalFormKeys.CashReceipts, ClinicalFormKeys.CashPayments, ClinicalFormKeys.ChartAccounts, ClinicalFormKeys.Expenses
         ]),
         new("Reports", "Reports", [
             ClinicalFormKeys.PatientHistory, ClinicalFormKeys.AppointmentReminders, ClinicalFormKeys.PatientStatus,
-            ClinicalFormKeys.PlStatement, ClinicalFormKeys.CostOfGoodsSold, ClinicalFormKeys.BalanceSheet,
+            ClinicalFormKeys.PlStatement, ClinicalFormKeys.GeneralLedger, ClinicalFormKeys.TrialBalance, ClinicalFormKeys.CostOfGoodsSold, ClinicalFormKeys.BalanceSheet,
             ClinicalFormKeys.AccountsReceivable, ClinicalFormKeys.AccountsPayable, ClinicalFormKeys.OperatingReport,
             ClinicalFormKeys.CashReport, ClinicalFormKeys.PharmacyInventory, ClinicalFormKeys.DoctorReport
         ]),

@@ -56,7 +56,10 @@ public class BalanceSheetModel : PageModel
 
             var cashReceipts = await SumCashReceiptsAsync(id, asOf);
             var cashPayments = await SumCashPaymentsAsync(id, asOf);
-            var cashOnHand = cashReceipts - cashPayments;
+            var cashExpenses = await SumExpenseVouchersAsync(id, asOf, "Cash");
+            var bankExpenses = await SumExpenseVouchersAsync(id, asOf, "Bank");
+            var creditExpenses = await SumExpenseVouchersAsync(id, asOf, "Credit");
+            var cashOnHand = cashReceipts - cashPayments - cashExpenses - bankExpenses;
 
             var invoiceReceivable = await SumInvoiceReceivableAsync(id, asOf);
             var pharmacyReceivable = await SumPharmacyBillReceivableAsync(id, asOf);
@@ -64,6 +67,7 @@ public class BalanceSheetModel : PageModel
 
             var inventoryValue = await SumInventoryValueAsync(id);
             var accountsPayable = await SumAccountsPayableAsync(id, asOf);
+            accountsPayable += creditExpenses;
             var patientCredit = await _financial.ComputePatientCreditLiabilityAsync(id, asOf);
 
             var assetRows = new List<BsRow>
@@ -111,6 +115,11 @@ public class BalanceSheetModel : PageModel
         await _db.CashPayments.ForClinic(clinicId)
             .Where(c => c.PaymentDate.Date <= asOf)
             .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+
+    private async Task<decimal> SumExpenseVouchersAsync(Guid clinicId, DateTime asOf, string paymentMethod) =>
+        await _db.ExpenseVouchers.ForClinic(clinicId)
+            .Where(e => e.ExpenseDate.Date <= asOf && e.PaymentMethod == paymentMethod)
+            .SumAsync(e => (decimal?)e.TotalAmount) ?? 0m;
 
     private async Task<decimal> SumInvoiceReceivableAsync(Guid clinicId, DateTime asOf) =>
         await _db.Invoices.ForClinic(clinicId)

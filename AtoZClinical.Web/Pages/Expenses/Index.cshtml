@@ -1,0 +1,121 @@
+@page
+@model AtoZClinical.Web.Pages.Expenses.IndexModel
+@{
+    ViewData["Title"] = "Expenses";
+    Layout = "_Layout";
+    ViewData["FormHint"] = "Record operating expenses with multiple lines. Saving posts a balanced journal entry (debit expense accounts, credit Cash, Bank, or Accounts Payable).";
+}
+
+<div class="clinical-form-page clinical-standard-form clinical-his-compact clinical-form-expanded">
+    <h1 class="page-title">Expenses</h1>
+    <div asp-validation-summary="All" class="validation-summary-errors"></div>
+    <partial name="_ClinicalFormHint" />
+    <form method="post">
+        <div class="clinical-form-body">
+            <div class="clinical-form-left clinical-form-scroll">
+                <div class="clinical-context-strip">
+                    <div class="ctx-row">
+                        <div class="ctx-field ctx-doc">
+                            <label class="clinical-field-label">Document No</label>
+                            <input asp-for="Input.ExpenseNo" class="clinical-field" readonly />
+                        </div>
+                        <div class="ctx-field ctx-date">
+                            <label class="clinical-field-label field-required">Date</label>
+                            <input asp-for="Input.ExpenseDate" class="clinical-field" type="date" required />
+                            <span asp-validation-for="Input.ExpenseDate" class="text-danger small"></span>
+                        </div>
+                        <div class="ctx-field ctx-md">
+                            <label class="clinical-field-label field-required">Payment Method</label>
+                            <select asp-for="Input.PaymentMethod" class="clinical-field" asp-items="@(new SelectList(AtoZClinical.Infrastructure.Services.ClinicLookup.ExpensePaymentMethods))" required></select>
+                            <span asp-validation-for="Input.PaymentMethod" class="text-danger small"></span>
+                        </div>
+                    </div>
+                    <div class="ctx-row ctx-notes-row">
+                        <div class="ctx-field ctx-grow">
+                            <label class="clinical-field-label">Description</label>
+                            <input asp-for="Input.Description" class="clinical-field" placeholder="Expense memo / reference..." />
+                        </div>
+                    </div>
+                </div>
+                <div class="clinical-form-grid-area">
+                    <div class="section-caption">Expense Lines</div>
+                    <div class="line-grid-scroll clinical-line-grid-scroll expense-line-grid-scroll">
+                        <table class="line-grid clinical-line-grid expense-line-grid">
+                            <thead>
+                                <tr>
+                                    <th class="col-no">#</th>
+                                    <th class="col-account">Expense Account</th>
+                                    <th class="col-amount">Amount</th>
+                                    <th class="col-desc">Description</th>
+                                    <th class="col-del">Del</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.Lines.Count; i++)
+                            {
+                                var acct = Model.Lines[i].ChartAccountName ?? "";
+                                <tr class="expense-line" data-line="@i">
+                                    <td><input asp-for="Lines[i].LineNo" readonly /></td>
+                                    <td class="col-account">
+                                        <select asp-for="Lines[i].ChartAccountName" class="clinical-field expense-account-select">
+                                            <option value="">-- Expense Account --</option>
+                                            @foreach (var a in Model.ExpenseAccounts)
+                                            {
+                                                <option value="@a.Name" selected="@(acct == a.Name ? "selected" : null)">@a.Name (@a.DetailType)</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td class="col-amount"><input asp-for="Lines[i].Amount" class="expense-amount" type="number" step="0.01" min="0" /></td>
+                                    <td class="col-desc"><input asp-for="Lines[i].Description" placeholder="Line detail" /></td>
+                                    <td class="col-del text-center"><button type="button" class="btn-form delete-line-btn" title="Delete line">🗑</button></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="clinical-form-totals-section clinical-grand-total-row">
+                    <div class="clinical-grand-total-box">
+                        <label class="clinical-field-label">Total Expense</label>
+                        <input id="expenseVoucherTotal" value="@Model.LineTotal.ToString("N2")" class="clinical-field clinical-grand-total-field" readonly />
+                    </div>
+                </div>
+            </div>
+            <div class="clinical-form-right">
+                <div class="record-transaction-header">Record Transaction</div>
+                <div class="record-transaction-status">@Model.StatusText</div>
+                <div class="p-2">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                </div>
+                <div class="clinical-record-grid">
+                    <table>
+                        <thead><tr><th>No</th><th>Date</th><th>Method</th><th>Total</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+                                <td>@r.ExpenseNo</td>
+                                <td>@r.ExpenseDate.ToString("d")</td>
+                                <td>@r.PaymentMethod</td>
+                                <td>@r.TotalAmount.ToString("N2")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" asp-for="RecordId" />
+        <partial name="_FormToolbar" />
+        <div class="clinical-form-footer">
+            <span>Created By: @Model.UserName</span>
+            <span>Last Updated By: @Model.UserName</span>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/clinical-line-grid.js" asp-append-version="true"></script>
+    <script src="~/js/expense-lines.js" asp-append-version="true"></script>
+}

@@ -314,6 +314,8 @@ builder.Services.AddScoped<FormPermissionPageFilter>();
 builder.Services.AddScoped<ReportBrandingPageFilter>();
 builder.Services.AddScoped<ClinicBrandingPageFilter>();
 builder.Services.AddScoped<PharmacyCogsService>();
+builder.Services.AddScoped<ExpenseVoucherService>();
+builder.Services.AddScoped<JournalReportService>();
 builder.Services.AddScoped<FinancialReportCalculator>();
 builder.Services.AddScoped<AppointmentReminderService>();
 builder.Services.AddScoped<PatientPrintBundleService>();

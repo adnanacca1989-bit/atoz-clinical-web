@@ -34,6 +34,7 @@ public static class DatabaseInitializer
         await EnsureSaasPlatformSchemaAsync(db, logger);
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
         await EnsurePrescriptionLinesSchemaAsync(db, logger);
+        await EnsureExpenseJournalSchemaAsync(db, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -550,6 +551,97 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Prescription lines schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureExpenseJournalSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "JournalEntries" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "EntryNo" integer NOT NULL,
+                    "EntryDate" timestamp without time zone NOT NULL,
+                    "SourceType" text NOT NULL,
+                    "SourceId" uuid NULL,
+                    "Description" text NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "UpdatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_JournalEntries" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_JournalEntries_Clinics_ClinicId" FOREIGN KEY ("ClinicId") REFERENCES "Clinics" ("Id") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_JournalEntries_ClinicId_EntryNo"
+                    ON "JournalEntries" ("ClinicId", "EntryNo");
+
+                CREATE TABLE IF NOT EXISTS "JournalEntryLines" (
+                    "Id" uuid NOT NULL,
+                    "JournalEntryId" uuid NOT NULL,
+                    "LineNo" integer NOT NULL,
+                    "AccountName" text NOT NULL,
+                    "AccountCategory" text NULL,
+                    "Debit" numeric NOT NULL,
+                    "Credit" numeric NOT NULL,
+                    "Description" text NULL,
+                    CONSTRAINT "PK_JournalEntryLines" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_JournalEntryLines_JournalEntries_JournalEntryId"
+                        FOREIGN KEY ("JournalEntryId") REFERENCES "JournalEntries" ("Id") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS "IX_JournalEntryLines_JournalEntryId"
+                    ON "JournalEntryLines" ("JournalEntryId");
+
+                CREATE TABLE IF NOT EXISTS "ExpenseVouchers" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "ExpenseNo" integer NOT NULL,
+                    "ExpenseDate" timestamp without time zone NOT NULL,
+                    "PaymentMethod" text NOT NULL,
+                    "Description" text NULL,
+                    "TotalAmount" numeric NOT NULL,
+                    "JournalEntryId" uuid NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "UpdatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_ExpenseVouchers" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ExpenseVouchers_Clinics_ClinicId" FOREIGN KEY ("ClinicId") REFERENCES "Clinics" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_ExpenseVouchers_JournalEntries_JournalEntryId" FOREIGN KEY ("JournalEntryId") REFERENCES "JournalEntries" ("Id") ON DELETE SET NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_ExpenseVouchers_ClinicId_ExpenseNo"
+                    ON "ExpenseVouchers" ("ClinicId", "ExpenseNo");
+                CREATE INDEX IF NOT EXISTS "IX_ExpenseVouchers_JournalEntryId"
+                    ON "ExpenseVouchers" ("JournalEntryId");
+
+                CREATE TABLE IF NOT EXISTS "ExpenseVoucherLines" (
+                    "Id" uuid NOT NULL,
+                    "ExpenseVoucherId" uuid NOT NULL,
+                    "LineNo" integer NOT NULL,
+                    "ChartAccountName" text NOT NULL,
+                    "Amount" numeric NOT NULL,
+                    "Description" text NULL,
+                    CONSTRAINT "PK_ExpenseVoucherLines" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ExpenseVoucherLines_ExpenseVouchers_ExpenseVoucherId"
+                        FOREIGN KEY ("ExpenseVoucherId") REFERENCES "ExpenseVouchers" ("Id") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS "IX_ExpenseVoucherLines_ExpenseVoucherId"
+                    ON "ExpenseVoucherLines" ("ExpenseVoucherId");
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('20260627160000_AddExpenseVoucherAndJournal', '8.0.11')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+
+            logger.LogInformation("Expense voucher and journal schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Expense voucher and journal schema verification skipped.");
         }
     }
 
