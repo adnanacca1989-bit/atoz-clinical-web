@@ -104,6 +104,31 @@ main:has(.clinical-form-page) {
     flex: 0 0 auto;
 }
 
+.clinical-form-fit-content .clinical-form-fields-scroll {
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible;
+}
+
+.clinical-form-fit-content.prescription-his-layout .clinical-form-left.prescription-clinical-block {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    min-height: auto !important;
+}
+
+.clinical-form-fit-content .prescription-medication-area {
+    flex: 0 1 auto;
+    min-height: auto;
+}
+
+.clinical-form-fit-content .prescription-medication-scroll {
+    flex: 0 0 auto;
+    min-height: 160px;
+    max-height: min(320px, calc(100vh - 340px));
+    overflow-y: auto;
+}
+
 .clinical-form-body {
     display: grid;
     grid-template-columns: 1fr 340px;
