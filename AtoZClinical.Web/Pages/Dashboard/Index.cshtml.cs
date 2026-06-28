@@ -30,6 +30,7 @@ public class IndexModel : PageModel
     public string Scope { get; set; } = "period";
 
     public string ClinicName { get; private set; } = string.Empty;
+    public string? LoadError { get; private set; }
     public bool IsTodayScope => Scope.Equals("today", StringComparison.OrdinalIgnoreCase);
 
     public int ActiveDoctorCount { get; private set; }
@@ -89,7 +90,7 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Dashboard failed for request {TraceId}", HttpContext.TraceIdentifier);
-            throw;
+            LoadError = "Dashboard data could not be loaded. Please refresh or contact your clinic admin.";
         }
 
         return Page();

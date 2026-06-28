@@ -25,6 +25,10 @@
 
 
 <div class="clinical-dashboard-page">
+    @if (!string.IsNullOrWhiteSpace(Model.LoadError))
+    {
+        <div class="alert alert-warning mb-3">@Model.LoadError</div>
+    }
 
     <div class="dashboard-clinic-header">
 

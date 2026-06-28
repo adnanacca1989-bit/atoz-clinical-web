@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Core.Entities;
+using AtoZClinical.Core.Enums;
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Filters;
 using AtoZClinical.Web.Middleware;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Identity;
@@ -22,6 +24,7 @@ public class LoginModel : PageModel
     private readonly ClinicAccessService _access;
     private readonly ClinicalDbContext _db;
     private readonly SecurityAuditService _securityAudit;
+    private readonly FormPermissionService _permissions;
     private readonly IClinicalEmailSender _email;
     private readonly ILogger<LoginModel> _logger;
 
@@ -31,6 +34,7 @@ public class LoginModel : PageModel
         ClinicAccessService access,
         ClinicalDbContext db,
         SecurityAuditService securityAudit,
+        FormPermissionService permissions,
         IClinicalEmailSender email,
         ILogger<LoginModel> logger)
     {
@@ -39,6 +43,7 @@ public class LoginModel : PageModel
         _access = access;
         _db = db;
         _securityAudit = securityAudit;
+        _permissions = permissions;
         _email = email;
         _logger = logger;
     }
@@ -72,6 +77,29 @@ public class LoginModel : PageModel
     {
         var clientIp = ClientIpHelper.GetClientIp(HttpContext);
 
+        try
+        {
+            return await OnPostCoreAsync(clientIp, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Unhandled login error for user {Username} client={ClientIp} trace={TraceId}",
+                Input.Username,
+                clientIp,
+                HttpContext.TraceIdentifier);
+
+            try { await _signIn.SignOutAsync(); } catch { /* ignore */ }
+
+            ModelState.AddModelError(string.Empty,
+                "Sign-in could not be completed due to a system error. Please try again. If the problem continues, contact your clinic admin.");
+            Input.Password = string.Empty;
+            return Page();
+        }
+    }
+
+    private async Task<IActionResult> OnPostCoreAsync(string clientIp, CancellationToken cancellationToken)
+    {
         _logger.LogInformation(
             "Login POST received for user {Username} client={ClientIp} trace={TraceId}",
             Input.Username,
@@ -183,6 +211,55 @@ public class LoginModel : PageModel
         {
             await _signIn.SignOutAsync();
             return RedirectToPage("/Account/LicenseBlocked", new { reason = (int)access.Reason });
+        }
+
+        if (user.ClinicRole == ClinicUserRole.Doctor && user.DoctorRecordId is null)
+        {
+            await _signIn.SignOutAsync();
+            _logger.LogWarning(
+                "Doctor login blocked for {Username}: no DoctorRecordId linked clinicId={ClinicId}",
+                user.UserName, user.ClinicId);
+            await _securityAudit.LogAsync(
+                SecurityAuditEvents.LoginFailed,
+                user.UserName,
+                user.ClinicId,
+                "Doctor user not linked to a doctor record.",
+                clientIp);
+            ModelState.AddModelError(string.Empty,
+                "Your doctor account is not linked to a doctor record. Ask your clinic admin to link you in Settings → Define User.");
+            Input.Password = string.Empty;
+            return Page();
+        }
+
+        if (user.ClinicId is Guid clinicId)
+        {
+            var responsibilityRole = _permissions.ResolveResponsibilityRole(user);
+            var visibleForms = await _permissions.GetVisibleFormsAsync(clinicId, responsibilityRole);
+            if (visibleForms.Count == 0)
+            {
+                await _signIn.SignOutAsync();
+                _logger.LogWarning(
+                    "Login blocked for {Username}: role {Role} has no visible permissions clinicId={ClinicId}",
+                    user.UserName, responsibilityRole, clinicId);
+                await _securityAudit.LogAsync(
+                    SecurityAuditEvents.LoginFailed,
+                    user.UserName,
+                    clinicId,
+                    $"No permissions for role {responsibilityRole}.",
+                    clientIp);
+                ModelState.AddModelError(string.Empty, FormPermissionPageFilter.NoPermissionsMessage);
+                Input.Password = string.Empty;
+                return Page();
+            }
+        }
+        else
+        {
+            await _signIn.SignOutAsync();
+            _logger.LogWarning("Login blocked for {Username}: clinic not assigned.", user.UserName);
+            ModelState.AddModelError(string.Empty,
+                "Your account is not assigned to a clinic. Contact your clinic admin.");
+            Input.Password = string.Empty;
+            return Page();
         }
 
         _logger.LogInformation(

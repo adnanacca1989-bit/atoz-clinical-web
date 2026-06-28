@@ -36,6 +36,30 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
 
     public async Task OnPageHandlerExecutionAsync(PageHandlerExecutingContext context, PageHandlerExecutionDelegate next)
     {
+        try
+        {
+            await ExecuteAsync(context, next);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Form permission filter failed for {Path} trace={TraceId}.",
+                context.HttpContext.Request.Path,
+                context.HttpContext.TraceIdentifier);
+
+            if (IsAuthenticatedClinicUser(context.HttpContext))
+            {
+                context.Result = SafeDenyResult(
+                    "Unable to verify your access permissions. Please try again or contact your clinic admin.");
+                return;
+            }
+
+            await next();
+        }
+    }
+
+    private async Task ExecuteAsync(PageHandlerExecutingContext context, PageHandlerExecutionDelegate next)
+    {
         var path = context.HttpContext.Request.Path.Value ?? "";
         if (SkipPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
         {
@@ -56,8 +80,7 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
             return;
         }
 
-        var isClinicUser = context.HttpContext.User.Identity?.IsAuthenticated == true
-            && !context.HttpContext.User.IsInRole("Vendor");
+        var isClinicUser = IsAuthenticatedClinicUser(context.HttpContext);
 
         if (context.HttpContext.Items[FormPermissionService.VisibleFormsItemKey] is not HashSet<string> visible)
         {
@@ -98,6 +121,10 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
         await next();
     }
 
+    private static bool IsAuthenticatedClinicUser(HttpContext httpContext) =>
+        httpContext.User.Identity?.IsAuthenticated == true
+        && !httpContext.User.IsInRole("Vendor");
+
     private async Task<IActionResult> DenyAccessAsync(HttpContext httpContext, string path, bool hasNoPermissions)
     {
         if (path.StartsWith("/dashboard", StringComparison.OrdinalIgnoreCase) || hasNoPermissions)
@@ -105,7 +132,7 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
             var user = await _clinicContext.GetCurrentUserAsync();
             var role = user is not null ? _permissions.ResolveResponsibilityRole(user) : null;
             _logger.LogWarning(
-                "Login access blocked for {User} role={Role} path={Path} visibleFormCount=0",
+                "Login access blocked for {User} role={Role} path={Path}",
                 user?.UserName ?? httpContext.User.Identity?.Name,
                 role,
                 path);
@@ -120,11 +147,14 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
                     $"User {user.UserName} blocked at {path} — role {role} has no assigned permissions.");
             }
 
-            return new ContentResult { StatusCode = 403, Content = NoPermissionsMessage };
+            return SafeDenyResult(NoPermissionsMessage);
         }
 
         return new RedirectToPageResult("/Dashboard/Index");
     }
+
+    private static ContentResult SafeDenyResult(string message) =>
+        new() { StatusCode = 403, Content = message };
 
     public Task OnPageHandlerSelectionAsync(PageHandlerSelectedContext context) => Task.CompletedTask;
 }

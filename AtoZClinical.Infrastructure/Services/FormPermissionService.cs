@@ -3,6 +3,7 @@ using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
@@ -12,31 +13,64 @@ public sealed class FormPermissionService
 
     private readonly ClinicalDbContext _db;
     private readonly ClinicRuntimeCache _cache;
+    private readonly ILogger<FormPermissionService> _logger;
 
-    public FormPermissionService(ClinicalDbContext db, ClinicRuntimeCache cache)
+    public FormPermissionService(
+        ClinicalDbContext db,
+        ClinicRuntimeCache cache,
+        ILogger<FormPermissionService> logger)
     {
         _db = db;
         _cache = cache;
+        _logger = logger;
     }
 
     public string ResolveResponsibilityRole(ApplicationUser user)
     {
-        if (user.IsVendorAdmin) return "Admin";
+        if (user is null)
+            return "Admin";
+
+        if (user.IsVendorAdmin)
+            return "Admin";
+
         return ClinicUserRoleHelper.ToResponsibilityRole(user.ClinicRole ?? ClinicUserRole.ClinicAdmin);
     }
 
-    public Task<HashSet<string>> GetVisibleFormsAsync(Guid clinicId, string roleName) =>
-        _cache.GetOrCreateAsync(ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName), () =>
-            LoadVisibleFormsAsync(clinicId, roleName));
+    public async Task<HashSet<string>> GetVisibleFormsAsync(Guid clinicId, string roleName)
+    {
+        if (clinicId == Guid.Empty || string.IsNullOrWhiteSpace(roleName))
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            return await _cache.GetOrCreateAsync(
+                ClinicRuntimeCache.VisibleFormsKey(clinicId, roleName),
+                () => LoadVisibleFormsAsync(clinicId, roleName));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to resolve visible forms for clinic {ClinicId} role {Role}. Returning empty set.",
+                clinicId, roleName);
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
 
     private async Task<HashSet<string>> LoadVisibleFormsAsync(Guid clinicId, string roleName)
     {
         var visible = await BuildVisibleSetAsync(clinicId, roleName);
+        if (visible.Count > 0)
+            return visible;
+
+        var repaired = await RolePermissionBootstrap.TryRepairAsync(_db, _cache, clinicId, roleName, logger: _logger);
+        if (repaired)
+            visible = await BuildVisibleSetAsync(clinicId, roleName);
+
         if (visible.Count == 0)
         {
-            var repaired = await RolePermissionBootstrap.TryRepairAsync(_db, _cache, clinicId, roleName);
-            if (repaired)
-                visible = await BuildVisibleSetAsync(clinicId, roleName);
+            _logger.LogWarning(
+                "No visible permissions for clinic {ClinicId} role {Role} after repair attempt.",
+                clinicId, roleName);
         }
 
         return visible;
@@ -44,20 +78,30 @@ public sealed class FormPermissionService
 
     private async Task<HashSet<string>> BuildVisibleSetAsync(Guid clinicId, string roleName)
     {
-        var configured = await LoadConfiguredPermissionsAsync(clinicId, roleName);
-
-        if (configured.Count == 0)
+        try
         {
-            if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-                return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
+            var configured = await LoadConfiguredPermissionsAsync(clinicId, roleName);
 
+            if (configured.Count == 0)
+            {
+                if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                    return new HashSet<string>(ClinicalFormKeys.All, StringComparer.OrdinalIgnoreCase);
+
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            return configured
+                .Where(r => r.IsVisible)
+                .Select(r => r.FormKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to build visible permission set for clinic {ClinicId} role {Role}.",
+                clinicId, roleName);
             return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
-
-        return configured
-            .Where(r => r.IsVisible)
-            .Select(r => r.FormKey)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task<List<Core.Entities.RolePermission>> LoadConfiguredPermissionsAsync(Guid clinicId, string roleName)
@@ -128,7 +172,7 @@ public sealed class FormPermissionService
             "/settings" or "/settings/index" or "/settings/users" or "/settings/uom"
                 or "/settings/currency" or "/settings/language" or "/settings/owner"
                 or "/settings/vendor" or "/settings/maintenance" or "/settings/changepassword"
-                or             "/settings/formstyle" => ClinicalFormKeys.Settings,
+                or "/settings/formstyle" => ClinicalFormKeys.Settings,
             "/messages" or "/messages/index" => ClinicalFormKeys.Messaging,
             "/search/query" => null,
             _ => null

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Services;
@@ -8,6 +9,8 @@ namespace AtoZClinical.Infrastructure;
 
 public static class RolePermissionBootstrap
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> RepairLocks = new(StringComparer.OrdinalIgnoreCase);
+
     public static async Task EnsureClinicRolesAsync(
         ClinicalDbContext db,
         Guid clinicId,
@@ -15,12 +18,12 @@ public static class RolePermissionBootstrap
         AuditService? audit = null)
     {
         foreach (var roleName in RolePermissionDefaults.ByRole.Keys)
-            await EnsureRoleAsync(db, clinicId, roleName, cache: null, logger, audit);
+            await TryRepairAsync(db, cache: null, clinicId, roleName, audit, logger);
 
-        await EnsureRoleAsync(db, clinicId, "Admin", cache: null, logger, audit, adminAllVisible: true);
+        await TryRepairAsync(db, cache: null, clinicId, "Admin", audit, logger);
     }
 
-    public static Task<bool> TryRepairAsync(
+    public static async Task<bool> TryRepairAsync(
         ClinicalDbContext db,
         ClinicRuntimeCache? cache,
         Guid clinicId,
@@ -28,13 +31,38 @@ public static class RolePermissionBootstrap
         AuditService? audit = null,
         ILogger? logger = null)
     {
-        if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-            return EnsureRoleAsync(db, clinicId, roleName, cache, logger, audit, adminAllVisible: true);
+        if (string.IsNullOrWhiteSpace(roleName))
+            return false;
 
-        if (!RolePermissionDefaults.ByRole.ContainsKey(roleName))
-            return Task.FromResult(false);
+        var lockKey = $"{clinicId:N}:{roleName}";
+        var gate = RepairLocks.GetOrAdd(lockKey, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        try
+        {
+            if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                return await EnsureRoleAsync(db, clinicId, roleName, cache, logger, audit, adminAllVisible: true);
 
-        return EnsureRoleAsync(db, clinicId, roleName, cache, logger, audit);
+            if (!RolePermissionDefaults.ByRole.ContainsKey(roleName))
+                return false;
+
+            return await EnsureRoleAsync(db, clinicId, roleName, cache, logger, audit);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger?.LogWarning(ex,
+                "Permission repair conflict for role {Role} clinic {ClinicId} — another process may have seeded first.",
+                roleName, clinicId);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Permission repair failed for role {Role} clinic {ClinicId}.", roleName, clinicId);
+            return false;
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     private static async Task<bool> EnsureRoleAsync(
