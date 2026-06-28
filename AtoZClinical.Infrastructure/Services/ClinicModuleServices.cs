@@ -409,6 +409,7 @@ public sealed class CashReceiptService
     private readonly AuditService _audit;
     private readonly ClinicalJournalSyncService _journalSync;
     private readonly ClinicalDemographicsSyncService _demographics;
+    private readonly DoctorScopeContext _doctorScope;
 
     public CashReceiptService(
         ClinicalDbContext db,
@@ -418,7 +419,8 @@ public sealed class CashReceiptService
         BillingPropagationService billing,
         AuditService audit,
         ClinicalJournalSyncService journalSync,
-        ClinicalDemographicsSyncService demographics)
+        ClinicalDemographicsSyncService demographics,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _invoices = invoices;
@@ -428,13 +430,20 @@ public sealed class CashReceiptService
         _audit = audit;
         _journalSync = journalSync;
         _demographics = demographics;
+        _doctorScope = doctorScope;
     }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
-        _db.CashReceipts.ForClinic(clinicId).OrderByDescending(c => c.ReceiptNo).ToListAsync();
+        _db.CashReceipts.ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(c => c.ReceiptNo).ToListAsync();
 
-    public Task<CashReceipt?> GetAsync(Guid clinicId, Guid id) =>
-        _db.CashReceipts.ForClinic(clinicId).FirstOrDefaultAsync(c => c.Id == id);
+    public async Task<CashReceipt?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.CashReceipts.ForClinic(clinicId).FirstOrDefaultAsync(c => c.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<int> NextReceiptNoAsync(Guid clinicId) =>
         await NextReceiptNoWithSkipAsync(clinicId, 0);
@@ -451,8 +460,9 @@ public sealed class CashReceiptService
         CashReceipt? previous = null;
         if (!isNew)
         {
-            previous = await _db.CashReceipts.ForClinic(clinicId).AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == item.Id);
+            previous = await GetAsync(clinicId, item.Id);
+            if (previous is null)
+                throw new UnauthorizedAccessException("You do not have access to this receipt.");
         }
 
         item.ClinicId = clinicId;
@@ -696,6 +706,9 @@ public sealed class LabRequestService
         List<LabRequestLine>? previousLines = null;
         if (!isNew)
         {
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
+                throw new UnauthorizedAccessException("You do not have access to this laboratory request.");
             previous = await _db.LabRequests.ForClinic(clinicId).AsNoTracking()
                 .Include(r => r.Lines)
                 .FirstOrDefaultAsync(r => r.Id == item.Id);
@@ -823,6 +836,7 @@ public sealed class LabRequestService
         _db.LabRequests
             .Include(r => r.Lines)
             .ForClinic(clinicId)
+            .Apply(_doctorScope.Filter)
             .Where(r =>
                 (!string.IsNullOrWhiteSpace(patientBarcode) && r.PatientBarcode != null &&
                  EF.Functions.ILike(r.PatientBarcode, patientBarcode.Trim())) ||

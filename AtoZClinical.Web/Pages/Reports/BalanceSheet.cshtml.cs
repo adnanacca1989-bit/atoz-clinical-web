@@ -4,6 +4,7 @@ using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages.Reports;
 
@@ -14,19 +15,22 @@ public class BalanceSheetModel : PageModel
     private readonly ArReportService _ar;
     private readonly ClinicalJournalSyncService _journalSync;
     private readonly JournalReportService _journal;
+    private readonly ILogger<BalanceSheetModel> _logger;
 
     public BalanceSheetModel(
         ClinicalDbContext db,
         ClinicContextService clinicContext,
         ArReportService ar,
         ClinicalJournalSyncService journalSync,
-        JournalReportService journal)
+        JournalReportService journal,
+        ILogger<BalanceSheetModel> logger)
     {
         _db = db;
         _clinicContext = clinicContext;
         _ar = ar;
         _journalSync = journalSync;
         _journal = journal;
+        _logger = logger;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -42,6 +46,8 @@ public class BalanceSheetModel : PageModel
     public decimal TotalLiabilities { get; private set; }
     public decimal TotalEquity { get; private set; }
     public decimal TotalLiquidCash { get; private set; }
+    public decimal JournalArBalance { get; private set; }
+    public decimal OperationalArBalance { get; private set; }
     public bool IsBalanced { get; private set; }
     public string? ErrorMessage { get; private set; }
 
@@ -66,6 +72,11 @@ public class BalanceSheetModel : PageModel
             var arReport = await _ar.BuildAsync(id, null, asOf, null, null, null);
             var openAr = Math.Max(0m, arReport.TotalEndingBalance);
 
+            JournalArBalance = trialBalance
+                .Where(r => FinancialStatementBuilder.IsAccountsReceivable(r.AccountName))
+                .Sum(r => r.Balance);
+            OperationalArBalance = openAr;
+
             var snapshot = FinancialStatementBuilder.BuildBalanceSheet(trialBalance, openAr);
             var liquidAccounts = FinancialStatementBuilder.ResolveLiquidAccounts("All", chartAccounts);
 
@@ -78,9 +89,31 @@ public class BalanceSheetModel : PageModel
             TotalLiquidCash = FinancialStatementBuilder.SumLiquidBalance(trialBalance, liquidAccounts);
             IsBalanced = snapshot.IsBalanced;
             ErrorMessage = null;
+
+            var tbDebit = trialBalance.Sum(r => r.TotalDebit);
+            var tbCredit = trialBalance.Sum(r => r.TotalCredit);
+            _logger.LogDebug(
+                "Balance sheet clinic {ClinicId} as of {AsOf}: assets={Assets}, liabilities={Liabilities}, equity={Equity}, journal AR={JournalAr}, operational AR={OperationalAr}, TB debit={TbDebit}, TB credit={TbCredit}",
+                id, asOf, TotalAssets, TotalLiabilities, TotalEquity, JournalArBalance, OperationalArBalance, tbDebit, tbCredit);
+
+            if (!IsBalanced)
+            {
+                var gap = TotalAssets - (TotalLiabilities + TotalEquity);
+                _logger.LogWarning(
+                    "Balance sheet out of balance for clinic {ClinicId} as of {AsOf}: gap={Gap}. Journal TB debit={TbDebit} credit={TbCredit}",
+                    id, asOf, gap, tbDebit, tbCredit);
+            }
+
+            if (Math.Abs(tbDebit - tbCredit) > 0.01m)
+            {
+                _logger.LogWarning(
+                    "Trial balance debits/credits mismatch for clinic {ClinicId}: debit={Debit} credit={Credit}",
+                    id, tbDebit, tbCredit);
+            }
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Balance sheet load failed");
             ErrorMessage = $"Could not load balance sheet data: {ex.Message}";
             Assets = [];
             Liabilities = [];

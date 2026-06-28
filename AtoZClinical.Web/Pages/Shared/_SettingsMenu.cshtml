@@ -1,5 +1,10 @@
+@using AtoZClinical.Core.Enums
+@using AtoZClinical.Web.Services
+@inject ClinicContextService ClinicContext
 @{
     var current = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    var currentUser = await ClinicContext.GetCurrentUserAsync();
+    var isAdmin = currentUser is { IsVendorAdmin: true } or { ClinicRole: ClinicUserRole.ClinicAdmin };
 }
 <div class="atz-card p-3 mb-4">
     <div class="atz-section-title mb-3">System Settings</div>
@@ -13,7 +18,10 @@
         <a class="settings-menu-item @(current.Contains("Maintenance") ? "active" : "")" asp-page="/Settings/Maintenance">Maintenance</a>
         <a class="settings-menu-item @(current.Contains("FormStyle") ? "active" : "")" asp-page="/Settings/FormStyle">Style Forms</a>
         <a class="settings-menu-item @(current.Contains("Users") ? "active" : "")" asp-page="/Settings/Users">Define User</a>
-        <a class="settings-menu-item @(current.Contains("DoctorAccess") ? "active" : "")" asp-page="/Settings/DoctorAccess">Doctor Access</a>
+        @if (isAdmin)
+        {
+            <a class="settings-menu-item @(current.Contains("DoctorAccess") ? "active" : "")" asp-page="/Settings/DoctorAccess">Doctor Access</a>
+        }
         <a class="settings-menu-item @(current.Contains("ChangePassword") ? "active" : "")" asp-page="/Settings/ChangePassword">Change Password</a>
         <a class="settings-menu-item @(current.Contains("TwoFactor") ? "active" : "")" asp-page="/Settings/TwoFactor">Two-factor auth</a>
     </div>

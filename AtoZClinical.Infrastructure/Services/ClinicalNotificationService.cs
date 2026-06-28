@@ -1,14 +1,21 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
 public sealed class ClinicalNotificationService
 {
     private readonly ClinicalDbContext _db;
+    private readonly ILogger<ClinicalNotificationService> _logger;
 
-    public ClinicalNotificationService(ClinicalDbContext db) => _db = db;
+    public ClinicalNotificationService(ClinicalDbContext db, ILogger<ClinicalNotificationService> logger)
+    {
+        _db = db;
+        _logger = logger;
+    }
 
     public async Task<ClinicalNotification> NotifyDepartmentAsync(
         Guid clinicId,
@@ -29,6 +36,7 @@ public sealed class ClinicalNotificationService
         };
         _db.ClinicalNotifications.Add(row);
         await _db.SaveChangesAsync(ct);
+        _logger.LogDebug("Stored department notification {Id} for role {Role} clinic {ClinicId}", row.Id, targetRole, clinicId);
         return row;
     }
 

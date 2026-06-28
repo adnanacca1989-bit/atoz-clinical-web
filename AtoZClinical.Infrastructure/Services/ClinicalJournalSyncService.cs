@@ -9,6 +9,7 @@ public static class ClinicalJournalSources
 {
     public const string Invoice = "Invoice";
     public const string CashReceipt = "CashReceipt";
+    public const string CashPayment = "CashPayment";
     public const string PharmacyBill = "PharmacyBill";
 }
 
@@ -110,6 +111,22 @@ public sealed class ClinicalJournalSyncService
                 }
             }
 
+            var patientPayments = await _db.CashPayments
+                .ForClinic(clinicId)
+                .Where(p => !p.VendorId.HasValue && (p.PatientId != null || p.PayeeName != null))
+                .ToListAsync();
+            foreach (var payment in patientPayments)
+            {
+                try
+                {
+                    await SyncPatientCashPaymentAsync(clinicId, payment, chartAccounts, saveChanges: false, forceResync: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped patient cash payment journal sync #{PaymentNo}", payment.PaymentNo);
+                }
+            }
+
             await _db.SaveChangesAsync();
         }
         catch (Exception ex)
@@ -131,6 +148,9 @@ public sealed class ClinicalJournalSyncService
 
     public Task SyncPharmacyBillAsync(Guid clinicId, PharmacyBill bill, List<PharmacyBillLine> lines) =>
         SyncPharmacyBillAsync(clinicId, bill, lines, null, saveChanges: true);
+
+    public Task SyncPatientCashPaymentAsync(Guid clinicId, CashPayment payment) =>
+        SyncPatientCashPaymentAsync(clinicId, payment, null, saveChanges: true);
 
     private async Task SyncInvoiceAsync(
         Guid clinicId,
@@ -187,6 +207,49 @@ public sealed class ClinicalJournalSyncService
         }
 
         AddLines(journalLines);
+        if (saveChanges)
+            await _db.SaveChangesAsync();
+    }
+
+    private async Task SyncPatientCashPaymentAsync(
+        Guid clinicId,
+        CashPayment payment,
+        List<ChartAccount>? chartAccounts,
+        bool saveChanges,
+        bool forceResync = false)
+    {
+        if (payment.Amount <= 0 || payment.VendorId.HasValue)
+            return;
+
+        chartAccounts ??= await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        if (!forceResync && await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.CashPayment, payment.Id, payment.UpdatedAt))
+            return;
+
+        var entry = await GetOrResetEntryAsync(
+            clinicId,
+            ClinicalJournalSources.CashPayment,
+            payment.Id,
+            payment.PaymentDate,
+            $"Cash payment #{payment.PaymentNo} — {payment.PayeeName}",
+            payment.PayeeName,
+            payment.DoctorName);
+
+        var cashAccount = PaymentJournalHelper.ResolvePaymentCreditAccount(
+            payment.PaymentMethod, chartAccounts, payment.ChartAccountName);
+        var cashCategory = chartAccounts.FirstOrDefault(a =>
+            string.Equals(a.Name, cashAccount, StringComparison.OrdinalIgnoreCase))?.CategoryType ?? "Asset";
+        var arAccount = RevenueAccountingHelper.ResolveAssetAccount(chartAccounts, "Accounts Receivable", "Accounts Receivable");
+
+        var journalLines = new List<JournalEntryLine>
+        {
+            CreateLine(entry.Id, 1, arAccount, "Asset", payment.Amount, 0,
+                $"Payment #{payment.PaymentNo}"),
+            CreateLine(entry.Id, 2, cashAccount, cashCategory, 0, payment.Amount,
+                $"Payment #{payment.PaymentNo}")
+        };
+
+        AddLines(journalLines);
+        payment.JournalEntryId = entry.Id;
         if (saveChanges)
             await _db.SaveChangesAsync();
     }

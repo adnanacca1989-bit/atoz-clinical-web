@@ -1,6 +1,7 @@
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Hubs;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Services;
 
@@ -8,13 +9,16 @@ public sealed class SignalRClinicalNotificationPublisher : IClinicalNotification
 {
     private readonly ClinicalNotificationService _notifications;
     private readonly IHubContext<NotificationHub> _hub;
+    private readonly ILogger<SignalRClinicalNotificationPublisher> _logger;
 
     public SignalRClinicalNotificationPublisher(
         ClinicalNotificationService notifications,
-        IHubContext<NotificationHub> hub)
+        IHubContext<NotificationHub> hub,
+        ILogger<SignalRClinicalNotificationPublisher> logger)
     {
         _notifications = notifications;
         _hub = hub;
+        _logger = logger;
     }
 
     public async Task PublishDepartmentAsync(
@@ -31,18 +35,11 @@ public sealed class SignalRClinicalNotificationPublisher : IClinicalNotification
         await _hub.Clients.Group(ClinicalNotificationRoles.RoleGroup(clinicId, targetRole))
             .SendAsync("ReceiveNotification", payload, ct);
 
-        if (targetRole.Equals(ClinicalNotificationRoles.Laboratory, StringComparison.OrdinalIgnoreCase))
-        {
-            await _hub.Clients.Group(ClinicalNotificationRoles.RoleGroup(clinicId, ClinicalNotificationRoles.Lab))
-                .SendAsync("ReceiveNotification", payload, ct);
-        }
-        else if (targetRole.Equals(ClinicalNotificationRoles.Pharmacy, StringComparison.OrdinalIgnoreCase))
-        {
-            await _hub.Clients.Group(ClinicalNotificationRoles.RoleGroup(clinicId, ClinicalNotificationRoles.Cashier))
-                .SendAsync("ReceiveNotification", payload, ct);
-        }
-
         await _hub.Clients.Group(ClinicalNotificationRoles.ClinicGroup(clinicId))
             .SendAsync("ReceiveNotification", payload, ct);
+
+        _logger.LogDebug(
+            "Published department notification {Role} to clinic {ClinicId}: {Title}",
+            targetRole, clinicId, title);
     }
 }

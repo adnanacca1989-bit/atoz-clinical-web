@@ -26,6 +26,9 @@ public static class DoctorScopeQuery
     public static IQueryable<PharmacyBill> Apply(this IQueryable<PharmacyBill> query, DoctorScopeFilter scope) =>
         ApplyDoctor(query, scope, b => b.DoctorRecordId, b => b.DoctorName);
 
+    public static IQueryable<ServiceIncomeRequest> Apply(this IQueryable<ServiceIncomeRequest> query, DoctorScopeFilter scope) =>
+        ApplyDoctor(query, scope, r => r.DoctorRecordId, r => r.DoctorName);
+
     public static IQueryable<Prescription> Apply(this IQueryable<Prescription> query, DoctorScopeFilter scope) =>
         ApplyDoctor(query, scope, p => p.DoctorRecordId, p => p.DoctorName);
 

@@ -26,9 +26,6 @@ public sealed class NotificationHub : Hub
         if (roleGroup is not null)
             await Groups.AddToGroupAsync(Context.ConnectionId, roleGroup);
 
-        if (user.ClinicRole is Core.Enums.ClinicUserRole.LabTechnician)
-            await Groups.AddToGroupAsync(Context.ConnectionId, ClinicalNotificationRoles.RoleGroup(user.ClinicId.Value, ClinicalNotificationRoles.Lab));
-
         await base.OnConnectedAsync();
     }
 }

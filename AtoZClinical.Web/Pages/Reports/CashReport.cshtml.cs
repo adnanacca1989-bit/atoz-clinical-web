@@ -4,6 +4,7 @@ using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages.Reports;
 
@@ -13,17 +14,20 @@ public class CashReportModel : PageModel
     private readonly ClinicContextService _clinicContext;
     private readonly ClinicalJournalSyncService _journalSync;
     private readonly JournalReportService _journal;
+    private readonly ILogger<CashReportModel> _logger;
 
     public CashReportModel(
         ClinicalDbContext db,
         ClinicContextService clinicContext,
         ClinicalJournalSyncService journalSync,
-        JournalReportService journal)
+        JournalReportService journal,
+        ILogger<CashReportModel> logger)
     {
         _db = db;
         _clinicContext = clinicContext;
         _journalSync = journalSync;
         _journal = journal;
+        _logger = logger;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -124,6 +128,8 @@ public class CashReportModel : PageModel
 
             if (!string.IsNullOrWhiteSpace(PatientName))
                 payments = payments.Where(p => p.PayeeName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
+            if (!string.IsNullOrWhiteSpace(DoctorName))
+                payments = payments.Where(p => p.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
             if (!string.IsNullOrWhiteSpace(PaymentMethod) && !string.Equals(PaymentMethod, "All", StringComparison.OrdinalIgnoreCase))
                 payments = payments.Where(p => string.Equals(p.PaymentMethod, PaymentMethod, StringComparison.OrdinalIgnoreCase)).ToList();
 
@@ -204,6 +210,10 @@ public class CashReportModel : PageModel
 
         var closingTb = await _journal.GetTrialBalanceAsync(id, to);
         ClosingBalance = FinancialStatementBuilder.SumLiquidBalance(closingTb, liquidAccounts.ToList());
+
+        _logger.LogDebug(
+            "Cash report clinic {ClinicId} {From:d}-{To:d}: opening GL={Opening}, closing GL={Closing}, row debit={Debit}, row credit={Credit}",
+            id, from, to, OpeningBalance, ClosingBalance, TotalDebit, TotalCredit);
 
         return Page();
     }

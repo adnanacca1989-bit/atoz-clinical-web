@@ -2,6 +2,7 @@ using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
@@ -193,6 +194,9 @@ public sealed class RadiologyRequestService
         List<RadiologyRequestLine>? previousLines = null;
         if (!isNew)
         {
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
+                throw new UnauthorizedAccessException("You do not have access to this radiology request.");
             previous = await _db.RadiologyRequests.ForClinic(clinicId).AsNoTracking()
                 .Include(r => r.Lines)
                 .FirstOrDefaultAsync(r => r.Id == item.Id);
@@ -330,6 +334,7 @@ public sealed class RadiologyRequestService
         var recent = await _db.RadiologyRequests
             .Include(r => r.Lines)
             .ForClinic(clinicId)
+            .Apply(_doctorScope.Filter)
             .OrderByDescending(r => r.RequestNo)
             .Take(200)
             .ToListAsync();
@@ -481,6 +486,9 @@ public sealed class PrescriptionService
         Prescription? previous = null;
         if (!isNew)
         {
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
+                throw new UnauthorizedAccessException("You do not have access to this prescription.");
             previous = await _db.Prescriptions.ForClinic(clinicId).AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == item.Id);
         }
@@ -635,6 +643,9 @@ public sealed class InvoiceService
         }
         else
         {
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
+                throw new UnauthorizedAccessException("You do not have access to this invoice.");
             await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, async () =>
             {
                 var existing = await _db.InvoiceLines.Where(l => l.InvoiceId == item.Id).ToListAsync();
@@ -749,6 +760,9 @@ public sealed class CashPaymentService
     private readonly PatientInvoiceService _invoices;
     private readonly BillingPropagationService _billing;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly ClinicalJournalSyncService _journalSync;
+    private readonly DoctorScopeContext _doctorScope;
+    private readonly ILogger<CashPaymentService> _logger;
 
     public CashPaymentService(
         ClinicalDbContext db,
@@ -756,7 +770,10 @@ public sealed class CashPaymentService
         InvoiceDeleteGuardService invoiceGuard,
         PatientInvoiceService invoices,
         BillingPropagationService billing,
-        PatientVisitStatusService visitStatus)
+        PatientVisitStatusService visitStatus,
+        ClinicalJournalSyncService journalSync,
+        DoctorScopeContext doctorScope,
+        ILogger<CashPaymentService> logger)
     {
         _db = db;
         _audit = audit;
@@ -764,13 +781,22 @@ public sealed class CashPaymentService
         _invoices = invoices;
         _billing = billing;
         _visitStatus = visitStatus;
+        _journalSync = journalSync;
+        _doctorScope = doctorScope;
+        _logger = logger;
     }
 
     public Task<List<CashPayment>> ListAsync(Guid clinicId) =>
-        _db.CashPayments.ForClinic(clinicId).OrderByDescending(c => c.PaymentNo).ToListAsync();
+        _db.CashPayments.ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(c => c.PaymentNo).ToListAsync();
 
-    public Task<CashPayment?> GetAsync(Guid clinicId, Guid id) =>
-        _db.CashPayments.ForClinic(clinicId).FirstOrDefaultAsync(c => c.Id == id);
+    public async Task<CashPayment?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.CashPayments.ForClinic(clinicId).FirstOrDefaultAsync(c => c.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<int> NextPaymentNoAsync(Guid clinicId) =>
         (await _db.CashPayments.ForClinic(clinicId).MaxAsync(c => (int?)c.PaymentNo) ?? 0) + 1;
@@ -781,9 +807,10 @@ public sealed class CashPaymentService
         CashPayment? previous = null;
         if (!isNew)
         {
-            previous = await _db.CashPayments.ForClinic(clinicId).AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == item.Id);
-            if (previous?.JournalEntryId is Guid journalId)
+            previous = await GetAsync(clinicId, item.Id);
+            if (previous is null)
+                throw new UnauthorizedAccessException("You do not have access to this payment.");
+            if (previous.JournalEntryId is Guid journalId)
                 item.JournalEntryId = journalId;
         }
 
@@ -807,6 +834,11 @@ public sealed class CashPaymentService
 
         if (item.VendorId.HasValue && !string.IsNullOrWhiteSpace(item.ChartAccountName))
             await SyncVendorPaymentJournalAsync(clinicId, item);
+        else if (!item.VendorId.HasValue && (!string.IsNullOrWhiteSpace(item.PayeeName) || !string.IsNullOrWhiteSpace(item.PatientId)))
+        {
+            try { await _journalSync.SyncPatientCashPaymentAsync(clinicId, item); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Patient cash payment journal sync failed for #{PaymentNo}", item.PaymentNo); }
+        }
         else if (item.JournalEntryId is Guid orphanJournalId)
         {
             var journalLines = await _db.JournalEntryLines.Where(l => l.JournalEntryId == orphanJournalId).ToListAsync();
@@ -1128,17 +1160,23 @@ public sealed class PharmacyRequestService
         return item;
     }
 
-    public Task<PharmacyRequest?> GetByRequestNoAsync(Guid clinicId, int requestNo) =>
-        _db.PharmacyRequests
+    public async Task<PharmacyRequest?> GetByRequestNoAsync(Guid clinicId, int requestNo)
+    {
+        var item = await _db.PharmacyRequests
             .Include(r => r.Lines)
             .ForClinic(clinicId)
             .FirstOrDefaultAsync(r => r.RequestNo == requestNo);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<PharmacyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientId)
     {
         var query = _db.PharmacyRequests
             .Include(r => r.Lines)
-            .ForClinic(clinicId);
+            .ForClinic(clinicId)
+            .Apply(_doctorScope.Filter);
 
         if (!string.IsNullOrWhiteSpace(patientId))
         {
@@ -1175,6 +1213,9 @@ public sealed class PharmacyRequestService
         List<PharmacyRequestLine>? previousLines = null;
         if (!isNew)
         {
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
+                throw new UnauthorizedAccessException("You do not have access to this pharmacy request.");
             previous = await _db.PharmacyRequests.ForClinic(clinicId).AsNoTracking()
                 .Include(r => r.Lines)
                 .FirstOrDefaultAsync(r => r.Id == item.Id);

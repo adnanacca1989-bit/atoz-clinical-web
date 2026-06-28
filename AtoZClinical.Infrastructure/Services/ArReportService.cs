@@ -1,14 +1,22 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
 public sealed class ArReportService
 {
     private readonly ClinicalDbContext _db;
+    private readonly DoctorScopeContext _doctorScope;
+    private readonly ILogger<ArReportService> _logger;
 
-    public ArReportService(ClinicalDbContext db) => _db = db;
+    public ArReportService(ClinicalDbContext db, DoctorScopeContext doctorScope, ILogger<ArReportService> logger)
+    {
+        _db = db;
+        _doctorScope = doctorScope;
+        _logger = logger;
+    }
 
     public async Task<ArReportResult> BuildAsync(
         Guid clinicId,
@@ -20,6 +28,7 @@ public sealed class ArReportService
     {
         var invoices = await _db.Invoices
             .ForClinic(clinicId)
+            .Apply(_doctorScope.Filter)
             .AsNoTracking()
             .OrderByDescending(i => i.InvoiceDate)
             .ThenByDescending(i => i.InvoiceNo)
@@ -36,15 +45,27 @@ public sealed class ArReportService
         if (!string.IsNullOrWhiteSpace(doctorName))
             invoices = invoices.Where(i => i.DoctorName?.Contains(doctorName.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
 
-        var allInvoices = await _db.Invoices.ForClinic(clinicId).AsNoTracking().ToListAsync();
-        var patients = await _db.Patients.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var allInvoices = await _db.Invoices.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync();
+        var patients = await _db.Patients.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync();
         var specialtyLookup = await DoctorSpecialtyResolver.BuildMapAsync(_db, clinicId);
-        var receipts = await _db.CashReceipts.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var receipts = await _db.CashReceipts.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync();
         var payments = await _db.CashPayments
             .ForClinic(clinicId)
+            .Apply(_doctorScope.Filter)
             .AsNoTracking()
             .Where(p => p.PayeeName != null || p.PatientId != null)
             .ToListAsync();
+
+        if (toDate.HasValue)
+        {
+            var asOf = toDate.Value.Date;
+            receipts = receipts.Where(r => r.ReceiptDate.Date <= asOf).ToList();
+            payments = payments.Where(p => p.PaymentDate.Date <= asOf).ToList();
+        }
+
+        _logger.LogDebug(
+            "AR report clinic {ClinicId}: {InvoiceCount} invoices, {ReceiptCount} receipts, {PaymentCount} payments as of {AsOf}",
+            clinicId, invoices.Count, receipts.Count, payments.Count, toDate?.ToString("d") ?? "all");
 
         var rows = invoices.Select(i =>
         {

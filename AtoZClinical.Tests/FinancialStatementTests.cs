@@ -193,6 +193,63 @@ public class FinancialStatementTests
         Assert.Contains(snapshot.Liabilities, l => l.Account == FinancialStatementBuilder.PatientDepositsLabel);
         Assert.True(snapshot.IsBalanced);
     }
+
+    [Fact]
+    public async Task Patient_cash_payment_posts_to_accounts_receivable_journal()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+        await DatabaseInitializer.EnsureStandardChartAccountsAsync(db.Db, clinicId);
+
+        var invoiceId = Guid.NewGuid();
+        db.Db.Invoices.Add(new Invoice
+        {
+            Id = invoiceId,
+            ClinicId = clinicId,
+            InvoiceNo = 1,
+            PatientName = "AAA",
+            DoctorName = "Zainab",
+            InvoiceDate = new DateTime(2026, 6, 10),
+            TotalAmount = 20_000m,
+            UpdatedAt = DateTime.UtcNow,
+            Lines =
+            [
+                new InvoiceLine
+                {
+                    Id = Guid.NewGuid(),
+                    InvoiceId = invoiceId,
+                    ServiceName = "Consultation",
+                    LineTotal = 20_000m
+                }
+            ]
+        });
+        db.Db.CashPayments.Add(new CashPayment
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            PaymentNo = 1,
+            PayeeName = "AAA",
+            PatientId = "PAT-00001",
+            DoctorName = "Zainab",
+            PaymentDate = new DateTime(2026, 6, 12),
+            Amount = 5_000m,
+            PaymentMethod = "Cash",
+            UpdatedAt = DateTime.UtcNow
+        });
+        await db.Db.SaveChangesAsync();
+
+        var sync = new ClinicalJournalSyncService(db.Db, NullLogger<ClinicalJournalSyncService>.Instance);
+        await sync.EnsureClinicalJournalsAsync(clinicId);
+
+        var journal = new JournalReportService(db.Db, sync);
+        var tb = await journal.GetTrialBalanceAsync(clinicId, new DateTime(2026, 6, 28));
+        var ar = tb.Single(r => r.AccountName == "Accounts Receivable");
+        var cash = tb.Single(r => r.AccountName == "Cash");
+
+        Assert.Equal(15_000m, ar.Balance);
+        Assert.Equal(-5_000m, cash.Balance);
+    }
 }
 
 internal static class JournalTestExtensions
