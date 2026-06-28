@@ -24,6 +24,7 @@ public sealed class PatientInvoiceService
         await AddServiceIncomeRequestLinesAsync(clinicId, barcode, name, doctor, lines);
         await AddLabRequestLinesAsync(clinicId, barcode, name, doctor, lines);
         await AddRadiologyRequestLinesAsync(clinicId, barcode, name, doctor, lines);
+        await AddPharmacyRequestLinesAsync(clinicId, barcode, name, doctor, lines);
         await AddPharmacyBillLinesAsync(clinicId, barcode, name, doctor, lines);
 
         var receipts = await LoadCashReceiptsAsync(clinicId, barcode, name, doctor);
@@ -128,6 +129,43 @@ public sealed class PatientInvoiceService
                 return new PatientChargeLine(
                     $"Radiology #{req.RequestNo}: {line.TestName ?? line.TestCode ?? "Test"}",
                     line.Qty, line.Fee, "Radiology");
+            },
+            lines);
+    }
+
+    private async Task AddPharmacyRequestLinesAsync(
+        Guid clinicId, string? barcode, string? name, string? doctor, List<PatientChargeLine> lines)
+    {
+        var billedRequestNos = await _db.PharmacyBills
+            .ForClinic(clinicId)
+            .Where(b => b.RequestNo != null)
+            .Select(b => b.RequestNo!.Value)
+            .ToListAsync();
+
+        var pharmacyRequests = await _db.PharmacyRequests
+            .Include(r => r.Lines)
+            .ForClinic(clinicId)
+            .Where(r =>
+                (barcode != null && r.PatientId != null &&
+                 (EF.Functions.ILike(r.PatientId, barcode) || EF.Functions.ILike(r.PatientId, $"%{barcode}%"))) ||
+                (name != null && r.PatientName != null &&
+                 (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
+            .OrderByDescending(r => r.RequestDate)
+            .ToListAsync();
+
+        pharmacyRequests = pharmacyRequests
+            .Where(r => !billedRequestNos.Contains(r.RequestNo))
+            .ToList();
+
+        AppendMatchedRequestLines(pharmacyRequests, barcode, name, doctor,
+            _ => null, r => r.PatientId, r => r.PatientName, r => r.DoctorName,
+            req => req.Lines.OrderBy(l => l.LineNo),
+            (req, line) =>
+            {
+                if (string.IsNullOrWhiteSpace(line.MedicineName) && line.UnitPrice <= 0) return null;
+                return new PatientChargeLine(
+                    $"Pharmacy Req #{req.RequestNo}: {line.MedicineName ?? line.MedicineCode ?? "Medicine"}",
+                    line.Qty, line.UnitPrice, "Pharmacy");
             },
             lines);
     }

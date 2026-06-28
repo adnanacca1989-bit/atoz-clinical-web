@@ -27,6 +27,7 @@ public sealed class MasterDataPropagationService
     public async Task PropagatePatientAsync(Guid clinicId, Patient previous, Patient current)
     {
         var patientNo = current.PatientNo.Trim();
+        var oldPatientNo = previous.PatientNo.Trim();
         var oldName = previous.FullName.Trim();
         var newName = current.FullName.Trim();
         var age = current.AgeYears;
@@ -35,10 +36,14 @@ public sealed class MasterDataPropagationService
         var city = current.City;
         var doctorName = current.DoctorName;
         var specialty = current.Specialty;
+        var appointmentDate = current.AppointmentDate;
+        var appointmentTime = current.AppointmentTime;
         var now = DateTime.UtcNow;
 
         await _db.Invoices
-            .Where(i => i.ClinicId == clinicId && (i.PatientId == patientNo || i.PatientName == oldName))
+            .Where(i => i.ClinicId == clinicId &&
+                        (i.PatientId == patientNo || i.PatientId == oldPatientNo ||
+                         i.PatientName == oldName || i.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(i => i.PatientId, patientNo)
                 .SetProperty(i => i.PatientName, newName)
@@ -51,7 +56,9 @@ public sealed class MasterDataPropagationService
                 .SetProperty(i => i.UpdatedAt, now));
 
         await _db.LabRequests
-            .Where(r => r.ClinicId == clinicId && (r.PatientBarcode == patientNo || r.PatientName == oldName))
+            .Where(r => r.ClinicId == clinicId &&
+                        (r.PatientBarcode == patientNo || r.PatientBarcode == oldPatientNo ||
+                         r.PatientName == oldName || r.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientBarcode, patientNo)
                 .SetProperty(r => r.PatientName, newName)
@@ -64,7 +71,8 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.LabResults
-            .Where(r => r.ClinicId == clinicId && r.PatientName == oldName)
+            .Where(r => r.ClinicId == clinicId &&
+                        (r.PatientName == oldName || r.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientName, newName)
                 .SetProperty(r => r.DoctorName, doctorName)
@@ -73,7 +81,8 @@ public sealed class MasterDataPropagationService
 
         var labRequestNos = await _db.LabRequests
             .ForClinic(clinicId)
-            .Where(r => r.PatientBarcode == patientNo || r.PatientName == oldName || r.PatientName == newName)
+            .Where(r => r.PatientBarcode == patientNo || r.PatientBarcode == oldPatientNo ||
+                        r.PatientName == oldName || r.PatientName == newName)
             .Select(r => r.RequestNo)
             .ToListAsync();
         if (labRequestNos.Count > 0)
@@ -89,7 +98,9 @@ public sealed class MasterDataPropagationService
         }
 
         await _db.RadiologyRequests
-            .Where(r => r.ClinicId == clinicId && (r.PatientBarcode == patientNo || r.PatientName == oldName))
+            .Where(r => r.ClinicId == clinicId &&
+                        (r.PatientBarcode == patientNo || r.PatientBarcode == oldPatientNo ||
+                         r.PatientName == oldName || r.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientBarcode, patientNo)
                 .SetProperty(r => r.PatientName, newName)
@@ -102,7 +113,8 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.RadiologyResults
-            .Where(r => r.ClinicId == clinicId && r.PatientName == oldName)
+            .Where(r => r.ClinicId == clinicId &&
+                        (r.PatientName == oldName || r.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientName, newName)
                 .SetProperty(r => r.DoctorName, doctorName)
@@ -111,7 +123,8 @@ public sealed class MasterDataPropagationService
 
         var radiologyRequestNos = await _db.RadiologyRequests
             .ForClinic(clinicId)
-            .Where(r => r.PatientBarcode == patientNo || r.PatientName == oldName || r.PatientName == newName)
+            .Where(r => r.PatientBarcode == patientNo || r.PatientBarcode == oldPatientNo ||
+                        r.PatientName == oldName || r.PatientName == newName)
             .Select(r => r.RequestNo)
             .ToListAsync();
         if (radiologyRequestNos.Count > 0)
@@ -127,7 +140,9 @@ public sealed class MasterDataPropagationService
         }
 
         await _db.ServiceIncomeRequests
-            .Where(r => r.ClinicId == clinicId && (r.PatientBarcode == patientNo || r.PatientName == oldName))
+            .Where(r => r.ClinicId == clinicId &&
+                        (r.PatientBarcode == patientNo || r.PatientBarcode == oldPatientNo ||
+                         r.PatientName == oldName || r.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientBarcode, patientNo)
                 .SetProperty(r => r.PatientName, newName)
@@ -140,7 +155,9 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.PharmacyRequests
-            .Where(r => r.ClinicId == clinicId && (r.PatientId == patientNo || r.PatientName == oldName))
+            .Where(r => r.ClinicId == clinicId &&
+                        (r.PatientId == patientNo || r.PatientId == oldPatientNo ||
+                         r.PatientName == oldName || r.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientId, patientNo)
                 .SetProperty(r => r.PatientName, newName)
@@ -153,7 +170,9 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.PharmacyBills
-            .Where(b => b.ClinicId == clinicId && (b.PatientId == patientNo || b.PatientName == oldName))
+            .Where(b => b.ClinicId == clinicId &&
+                        (b.PatientId == patientNo || b.PatientId == oldPatientNo ||
+                         b.PatientName == oldName || b.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(b => b.PatientId, patientNo)
                 .SetProperty(b => b.PatientName, newName)
@@ -162,7 +181,9 @@ public sealed class MasterDataPropagationService
                 .SetProperty(b => b.UpdatedAt, now));
 
         await _db.CashReceipts
-            .Where(r => r.ClinicId == clinicId && (r.PatientId == patientNo || r.PatientName == oldName))
+            .Where(r => r.ClinicId == clinicId &&
+                        (r.PatientId == patientNo || r.PatientId == oldPatientNo ||
+                         r.PatientName == oldName || r.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientId, patientNo)
                 .SetProperty(r => r.PatientName, newName)
@@ -173,10 +194,14 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.City, city)
                 .SetProperty(r => r.DoctorName, doctorName)
                 .SetProperty(r => r.Specialty, specialty)
+                .SetProperty(r => r.AppointmentDate, appointmentDate)
+                .SetProperty(r => r.AppointmentTime, appointmentTime)
                 .SetProperty(r => r.UpdatedAt, now));
 
         await _db.CashPayments
-            .Where(p => p.ClinicId == clinicId && (p.PatientId == patientNo || p.PayeeName == oldName))
+            .Where(p => p.ClinicId == clinicId &&
+                        (p.PatientId == patientNo || p.PatientId == oldPatientNo ||
+                         p.PayeeName == oldName || p.PayeeName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.PatientId, patientNo)
                 .SetProperty(p => p.PayeeName, newName)
@@ -184,7 +209,8 @@ public sealed class MasterDataPropagationService
                 .SetProperty(p => p.UpdatedAt, now));
 
         await _db.Prescriptions
-            .Where(p => p.ClinicId == clinicId && p.PatientName == oldName)
+            .Where(p => p.ClinicId == clinicId &&
+                        (p.PatientName == oldName || p.PatientName == newName))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.PatientName, newName)
                 .SetProperty(p => p.Age, age)
@@ -305,7 +331,8 @@ public sealed class MasterDataPropagationService
         await _db.Appointments
             .Where(a => a.ClinicId == clinicId && a.DoctorName != null && a.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
-                .SetProperty(a => a.DoctorName, newName));
+                .SetProperty(a => a.DoctorName, newName)
+                .SetProperty(a => a.Department, specialty));
 
         if (previous.ConsultationFee != current.ConsultationFee)
             await PropagateConsultationFeeAsync(clinicId, current);

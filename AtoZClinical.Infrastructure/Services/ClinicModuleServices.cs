@@ -746,6 +746,11 @@ public sealed class LabRequestService
 
         try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
         catch { }
+
+        var savedLines = await _db.LabRequestLines.Where(l => l.LabRequestId == item.Id).OrderBy(l => l.LineNo).ToListAsync();
+        try { await _billing.SyncLabRequestAsync(clinicId, item, savedLines, null, null); }
+        catch { }
+
         await _audit.LogAsync(clinicId, userName, "Laboratory Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}");
         return item;

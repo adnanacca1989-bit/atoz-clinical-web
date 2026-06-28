@@ -243,6 +243,11 @@ public sealed class RadiologyRequestService
 
         try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
         catch { }
+
+        var savedLines = await _db.RadiologyRequestLines.Where(l => l.RadiologyRequestId == item.Id).OrderBy(l => l.LineNo).ToListAsync();
+        try { await _billing.SyncRadiologyRequestAsync(clinicId, item, savedLines, null, null); }
+        catch { }
+
         await _audit.LogAsync(clinicId, userName, "Radiology Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
@@ -490,17 +495,20 @@ public sealed class InvoiceService
     private readonly AuditService _audit;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly ClinicalJournalSyncService _journalSync;
+    private readonly PatientInvoiceService _invoices;
 
     public InvoiceService(
         ClinicalDbContext db,
         AuditService audit,
         PatientVisitStatusService visitStatus,
-        ClinicalJournalSyncService journalSync)
+        ClinicalJournalSyncService journalSync,
+        PatientInvoiceService invoices)
     {
         _db = db;
         _audit = audit;
         _visitStatus = visitStatus;
         _journalSync = journalSync;
+        _invoices = invoices;
     }
 
     public Task<List<Invoice>> ListAsync(Guid clinicId) =>
@@ -573,6 +581,13 @@ public sealed class InvoiceService
         {
             var savedLines = await _db.InvoiceLines.Where(l => l.InvoiceId == item.Id).ToListAsync();
             await _journalSync.SyncInvoiceAsync(clinicId, item, savedLines);
+        }
+        catch { }
+
+        try
+        {
+            await _invoices.RecalculateInvoicePaymentsAsync(
+                clinicId, item.PatientName, item.PatientId, item.DoctorName);
         }
         catch { }
 
@@ -1114,6 +1129,11 @@ public sealed class PharmacyRequestService
 
         try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName); }
         catch { }
+
+        var savedRequestLines = await _db.PharmacyRequestLines.Where(l => l.PharmacyRequestId == item.Id).OrderBy(l => l.LineNo).ToListAsync();
+        try { await _billing.SyncPharmacyRequestAsync(clinicId, item, savedRequestLines, null, null); }
+        catch { }
+
         await _audit.LogAsync(clinicId, userName, "Pharmacy Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
         return item;
@@ -1266,11 +1286,8 @@ public sealed class PharmacyBillService
             }
         }
 
-        if (previous is not null)
-        {
-            try { await _billing.SyncPharmacyBillAsync(clinicId, item, validLines, previous, previousLines); }
-            catch { }
-        }
+        try { await _billing.SyncPharmacyBillAsync(clinicId, item, validLines, previous, previousLines); }
+        catch { }
 
         await _inventory.SyncBillOutAsync(clinicId, item, validLines);
         await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName);

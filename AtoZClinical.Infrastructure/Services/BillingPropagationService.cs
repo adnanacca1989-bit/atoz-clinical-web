@@ -12,11 +12,16 @@ public sealed class BillingPropagationService
 {
     private readonly ClinicalDbContext _db;
     private readonly PatientInvoiceService _invoices;
+    private readonly ClinicalJournalSyncService _journalSync;
 
-    public BillingPropagationService(ClinicalDbContext db, PatientInvoiceService invoices)
+    public BillingPropagationService(
+        ClinicalDbContext db,
+        PatientInvoiceService invoices,
+        ClinicalJournalSyncService journalSync)
     {
         _db = db;
         _invoices = invoices;
+        _journalSync = journalSync;
     }
 
     public sealed record PatientDoctorContext(
@@ -49,6 +54,8 @@ public sealed class BillingPropagationService
         await SyncPrefixLinesToInvoicesAsync(
             clinicId,
             $"Lab #{current.RequestNo}:",
+            current.PatientBarcode,
+            current.PatientName,
             lines.Select(l => new BillingLine(l.TestName ?? l.TestCode ?? "Test", l.Qty, l.Fee)).ToList(),
             previousLines?.Select(l => l.TestName ?? l.TestCode ?? "Test").ToList());
 
@@ -92,6 +99,8 @@ public sealed class BillingPropagationService
         await SyncPrefixLinesToInvoicesAsync(
             clinicId,
             $"Radiology #{current.RequestNo}:",
+            current.PatientBarcode,
+            current.PatientName,
             lines.Select(l => new BillingLine(l.TestName ?? l.TestCode ?? "Test", l.Qty, l.Fee)).ToList(),
             previousLines?.Select(l => l.TestName ?? l.TestCode ?? "Test").ToList());
 
@@ -133,11 +142,15 @@ public sealed class BillingPropagationService
                 ToContext(current),
                 recalcPayments: false);
 
+        var billingLines = lines.Select(l => new BillingLine(l.MedicineName ?? l.MedicineCode ?? "Medicine", l.Qty, l.UnitPrice)).ToList();
+        var previousNames = previousLines?.Select(l => l.MedicineName ?? l.MedicineCode ?? "Medicine").ToList();
         await SyncPrefixLinesToInvoicesAsync(
             clinicId,
             $"Pharmacy Req #{current.RequestNo}:",
-            lines.Select(l => new BillingLine(l.MedicineName ?? l.MedicineCode ?? "Medicine", l.Qty, l.UnitPrice)).ToList(),
-            previousLines?.Select(l => l.MedicineName ?? l.MedicineCode ?? "Medicine").ToList());
+            current.PatientId,
+            current.PatientName,
+            billingLines,
+            previousNames);
     }
 
     public async Task SyncPharmacyBillAsync(
@@ -154,11 +167,26 @@ public sealed class BillingPropagationService
                 ToContext(current),
                 recalcPayments: false);
 
+        var billingLines = lines.Select(l => new BillingLine(l.MedicineName ?? l.MedicineCode ?? "Medicine", l.Qty, l.UnitPrice)).ToList();
+        var previousNames = previousLines?.Select(l => l.MedicineName ?? l.MedicineCode ?? "Medicine").ToList();
         await SyncPrefixLinesToInvoicesAsync(
             clinicId,
             $"Pharmacy Bill #{current.BillNo}:",
-            lines.Select(l => new BillingLine(l.MedicineName ?? l.MedicineCode ?? "Medicine", l.Qty, l.UnitPrice)).ToList(),
-            previousLines?.Select(l => l.MedicineName ?? l.MedicineCode ?? "Medicine").ToList());
+            current.PatientId,
+            current.PatientName,
+            billingLines,
+            previousNames);
+
+        if (current.RequestNo is > 0)
+        {
+            await SyncPrefixLinesToInvoicesAsync(
+                clinicId,
+                $"Pharmacy Req #{current.RequestNo}:",
+                current.PatientId,
+                current.PatientName,
+                [],
+                null);
+        }
     }
 
     public async Task SyncCashReceiptAsync(Guid clinicId, CashReceipt current, CashReceipt? previous)
@@ -168,10 +196,10 @@ public sealed class BillingPropagationService
                 clinicId,
                 ToContext(previous),
                 ToContext(current),
-                recalcPayments: true);
-        else
-            await _invoices.RecalculateInvoicePaymentsAsync(
-                clinicId, current.PatientName, current.PatientId, current.DoctorName);
+                recalcPayments: false);
+
+        await _invoices.RecalculateInvoicePaymentsAsync(
+            clinicId, current.PatientName, current.PatientId, current.DoctorName);
     }
 
     public async Task SyncCashPaymentAsync(Guid clinicId, CashPayment current, CashPayment? previous)
@@ -181,10 +209,10 @@ public sealed class BillingPropagationService
                 clinicId,
                 ToContext(previous),
                 ToContext(current),
-                recalcPayments: true);
-        else
-            await _invoices.RecalculateInvoicePaymentsAsync(
-                clinicId, current.PayeeName, current.PatientId, current.DoctorName);
+                recalcPayments: false);
+
+        await _invoices.RecalculateInvoicePaymentsAsync(
+            clinicId, current.PayeeName, current.PatientId, current.DoctorName);
     }
 
     public Task SyncPrescriptionAsync(Guid clinicId, Prescription current, Prescription? previous)
@@ -214,6 +242,8 @@ public sealed class BillingPropagationService
         await SyncPrefixLinesToInvoicesAsync(
             clinicId,
             $"Service #{current.RequestNo}:",
+            current.PatientBarcode,
+            current.PatientName,
             lines.Select(l => new BillingLine(l.ServiceName ?? "Service", l.Qty, l.Fee)).ToList(),
             previousLines?.Select(l => l.ServiceName ?? "Service").ToList());
     }
@@ -376,68 +406,91 @@ public sealed class BillingPropagationService
     private async Task SyncPrefixLinesToInvoicesAsync(
         Guid clinicId,
         string prefix,
+        string? patientId,
+        string? patientName,
         IReadOnlyList<BillingLine> lines,
         IReadOnlyList<string>? previousItemNames)
     {
-        if (lines.Count == 0) return;
-
-        var clinicInvoiceIds = await _db.Invoices.ForClinic(clinicId).Select(i => i.Id).ToListAsync();
-        if (clinicInvoiceIds.Count == 0) return;
-
-        var invoiceLines = await _db.InvoiceLines
-            .Include(l => l.Invoice)
-            .ThenInclude(i => i.Lines)
-            .Where(l => clinicInvoiceIds.Contains(l.InvoiceId) &&
-                        l.ServiceName != null &&
-                        l.ServiceName.Contains(prefix))
+        var invoices = await _db.Invoices
+            .Include(i => i.Lines)
+            .ForClinic(clinicId)
             .ToListAsync();
 
-        if (invoiceLines.Count == 0) return;
-
-        var invoiceIds = new HashSet<Guid>();
-        foreach (var group in invoiceLines.GroupBy(l => l.InvoiceId))
+        if (!string.IsNullOrWhiteSpace(patientId) || !string.IsNullOrWhiteSpace(patientName))
         {
-            var invoice = group.First().Invoice;
-            var existing = group.OrderBy(l => l.LineNo).ToList();
+            invoices = invoices
+                .Where(i => PatientChargeMatcher.MatchesPatient(patientId, patientName, null, i.PatientId, i.PatientName))
+                .ToList();
+        }
 
-            for (var i = 0; i < lines.Count; i++)
+        if (invoices.Count == 0) return;
+
+        var changedInvoices = new List<Invoice>();
+        foreach (var invoice in invoices)
+        {
+            var existing = invoice.Lines
+                .Where(l => l.ServiceName != null &&
+                            l.ServiceName.Contains(prefix, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(l => l.LineNo)
+                .ToList();
+
+            if (lines.Count == 0)
             {
-                var current = lines[i];
-                var serviceName = $"{prefix} {current.ItemName}";
-                InvoiceLine? target = null;
-
-                if (previousItemNames is not null && i < previousItemNames.Count)
+                if (existing.Count == 0) continue;
+                foreach (var orphan in existing)
                 {
-                    var oldItem = previousItemNames[i];
-                    target = existing.FirstOrDefault(l =>
-                        l.ServiceName != null &&
-                        l.ServiceName.Contains($"{prefix} {oldItem}", StringComparison.OrdinalIgnoreCase));
+                    invoice.Lines.Remove(orphan);
+                    _db.InvoiceLines.Remove(orphan);
                 }
-
-                target ??= i < existing.Count ? existing[i] : null;
-
-                if (target is not null)
+            }
+            else
+            {
+                for (var i = 0; i < lines.Count; i++)
                 {
-                    target.ServiceName = serviceName;
-                    target.Qty = current.Qty;
-                    target.UnitFee = current.UnitFee;
-                    target.LineTotal = current.Qty * current.UnitFee;
-                }
-                else
-                {
-                    var nextLineNo = invoice.Lines.Count == 0 ? 1 : invoice.Lines.Max(l => l.LineNo) + 1;
-                    var added = new InvoiceLine
+                    var current = lines[i];
+                    var serviceName = $"{prefix} {current.ItemName}";
+                    InvoiceLine? target = null;
+
+                    if (previousItemNames is not null && i < previousItemNames.Count)
                     {
-                        Id = Guid.NewGuid(),
-                        InvoiceId = invoice.Id,
-                        LineNo = nextLineNo,
-                        ServiceName = serviceName,
-                        Qty = current.Qty,
-                        UnitFee = current.UnitFee,
-                        LineTotal = current.Qty * current.UnitFee
-                    };
-                    _db.InvoiceLines.Add(added);
-                    invoice.Lines.Add(added);
+                        var oldItem = previousItemNames[i];
+                        target = existing.FirstOrDefault(l =>
+                            l.ServiceName != null &&
+                            l.ServiceName.Contains($"{prefix} {oldItem}", StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    target ??= i < existing.Count ? existing[i] : null;
+
+                    if (target is not null)
+                    {
+                        target.ServiceName = serviceName;
+                        target.Qty = current.Qty;
+                        target.UnitFee = current.UnitFee;
+                        target.LineTotal = current.Qty * current.UnitFee;
+                    }
+                    else
+                    {
+                        var nextLineNo = invoice.Lines.Count == 0 ? 1 : invoice.Lines.Max(l => l.LineNo) + 1;
+                        var added = new InvoiceLine
+                        {
+                            Id = Guid.NewGuid(),
+                            InvoiceId = invoice.Id,
+                            LineNo = nextLineNo,
+                            ServiceName = serviceName,
+                            Qty = current.Qty,
+                            UnitFee = current.UnitFee,
+                            LineTotal = current.Qty * current.UnitFee
+                        };
+                        _db.InvoiceLines.Add(added);
+                        invoice.Lines.Add(added);
+                    }
+                }
+
+                for (var i = lines.Count; i < existing.Count; i++)
+                {
+                    var orphan = existing[i];
+                    invoice.Lines.Remove(orphan);
+                    _db.InvoiceLines.Remove(orphan);
                 }
             }
 
@@ -445,10 +498,28 @@ public sealed class BillingPropagationService
             invoice.TotalAmount = invoice.SubTotal - invoice.Discount + invoice.TaxAmount;
             invoice.BalanceDue = invoice.TotalAmount - invoice.AmountPaid;
             invoice.UpdatedAt = DateTime.UtcNow;
-            invoiceIds.Add(invoice.Id);
+            changedInvoices.Add(invoice);
         }
 
+        if (changedInvoices.Count == 0) return;
+
         await _db.SaveChangesAsync();
+
+        foreach (var invoice in changedInvoices)
+        {
+            try
+            {
+                await _journalSync.SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList());
+            }
+            catch { }
+
+            try
+            {
+                await _invoices.RecalculateInvoicePaymentsAsync(
+                    clinicId, invoice.PatientName, invoice.PatientId, invoice.DoctorName);
+            }
+            catch { }
+        }
     }
 
     private static PatientDoctorContext ToContext(LabRequest r) =>

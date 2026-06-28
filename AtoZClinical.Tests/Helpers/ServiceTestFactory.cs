@@ -9,8 +9,8 @@ internal static class ServiceTestFactory
     public static MasterDataPropagationService CreatePropagation(ClinicalDbContext db)
     {
         var invoices = new PatientInvoiceService(db);
-        var billing = new BillingPropagationService(db, invoices);
         var journalSync = new ClinicalJournalSyncService(db, NullLogger<ClinicalJournalSyncService>.Instance);
+        var billing = new BillingPropagationService(db, invoices, journalSync);
         return new MasterDataPropagationService(db, billing, journalSync);
     }
 }
