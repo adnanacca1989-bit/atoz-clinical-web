@@ -656,26 +656,38 @@ public sealed class LabRequestService
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
     private readonly AuditService _audit;
+    private readonly DoctorScopeContext _doctorScope;
+    private readonly IClinicalNotificationPublisher _notifications;
 
     public LabRequestService(
         ClinicalDbContext db,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
         BillingPropagationService billing,
-        AuditService audit)
+        AuditService audit,
+        DoctorScopeContext doctorScope,
+        IClinicalNotificationPublisher notifications)
     {
         _db = db;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
         _audit = audit;
+        _doctorScope = doctorScope;
+        _notifications = notifications;
     }
 
     public Task<List<LabRequest>> ListAsync(Guid clinicId) =>
-        _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+        _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(r => r.RequestNo).ToListAsync();
 
-    public Task<LabRequest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+    public async Task<LabRequest?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<LabRequest> SaveAsync(Guid clinicId, LabRequest item, List<LabRequestLine> lines, string? userName = null)
     {
@@ -762,6 +774,16 @@ public sealed class LabRequestService
 
         await _audit.LogAsync(clinicId, userName, "Laboratory Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}");
+        try
+        {
+            await _notifications.PublishDepartmentAsync(
+                clinicId,
+                ClinicalNotificationRoles.ForLab(),
+                "New Laboratory Request",
+                $"Request #{item.RequestNo} — {item.PatientName}",
+                "/Laboratory/Request");
+        }
+        catch { }
         return item;
     }
 
@@ -774,12 +796,14 @@ public sealed class LabRequestService
     private static LabRequest CloneLabRequestShell(LabRequest source) => new()
     {
         RequestDate = source.RequestDate,
+        PatientRecordId = source.PatientRecordId,
         PatientName = source.PatientName,
         PatientBarcode = source.PatientBarcode,
         Age = source.Age,
         Gender = source.Gender,
         Phone = source.Phone,
         City = source.City,
+        DoctorRecordId = source.DoctorRecordId,
         DoctorName = source.DoctorName,
         Specialty = source.Specialty
     };
@@ -814,24 +838,33 @@ public sealed class LabResultService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly DoctorScopeContext _doctorScope;
 
     public LabResultService(
         ClinicalDbContext db,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _doctorScope = doctorScope;
     }
 
     public Task<List<LabResult>> ListAsync(Guid clinicId) =>
-        _db.LabResults.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
+        _db.LabResults.Include(r => r.Lines).ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(r => r.ResultNo).ToListAsync();
 
-    public Task<LabResult?> GetAsync(Guid clinicId, Guid id) =>
-        _db.LabResults.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+    public async Task<LabResult?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.LabResults.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<LabResult> SaveAsync(Guid clinicId, LabResult item, List<LabResultLine> lines)
     {

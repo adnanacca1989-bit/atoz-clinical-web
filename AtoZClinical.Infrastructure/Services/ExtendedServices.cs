@@ -153,26 +153,38 @@ public sealed class RadiologyRequestService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly DoctorScopeContext _doctorScope;
+    private readonly IClinicalNotificationPublisher _notifications;
 
     public RadiologyRequestService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        DoctorScopeContext doctorScope,
+        IClinicalNotificationPublisher notifications)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _doctorScope = doctorScope;
+        _notifications = notifications;
     }
 
     public Task<List<RadiologyRequest>> ListAsync(Guid clinicId) =>
-        _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+        _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(r => r.RequestNo).ToListAsync();
 
-    public Task<RadiologyRequest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+    public async Task<RadiologyRequest?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<RadiologyRequest> SaveAsync(Guid clinicId, RadiologyRequest item, List<RadiologyRequestLine> lines, string? userName = null)
     {
@@ -259,6 +271,16 @@ public sealed class RadiologyRequestService
 
         await _audit.LogAsync(clinicId, userName, "Radiology Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
+        try
+        {
+            await _notifications.PublishDepartmentAsync(
+                clinicId,
+                ClinicalNotificationRoles.ForRadiology(),
+                "New Radiology Request",
+                $"Request #{item.RequestNo} — {item.PatientName}",
+                "/Radiology/Request");
+        }
+        catch { }
         return item;
     }
 
@@ -271,12 +293,14 @@ public sealed class RadiologyRequestService
     private static RadiologyRequest CloneRadiologyRequestShell(RadiologyRequest source) => new()
     {
         RequestDate = source.RequestDate,
+        PatientRecordId = source.PatientRecordId,
         PatientName = source.PatientName,
         PatientBarcode = source.PatientBarcode,
         Age = source.Age,
         Gender = source.Gender,
         Phone = source.Phone,
         City = source.City,
+        DoctorRecordId = source.DoctorRecordId,
         DoctorName = source.DoctorName,
         Specialty = source.Specialty
     };
@@ -327,26 +351,35 @@ public sealed class RadiologyResultService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly DoctorScopeContext _doctorScope;
 
     public RadiologyResultService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _doctorScope = doctorScope;
     }
 
     public Task<List<RadiologyResult>> ListAsync(Guid clinicId) =>
-        _db.RadiologyResults.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.ResultNo).ToListAsync();
+        _db.RadiologyResults.Include(r => r.Lines).ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(r => r.ResultNo).ToListAsync();
 
-    public Task<RadiologyResult?> GetAsync(Guid clinicId, Guid id) =>
-        _db.RadiologyResults.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+    public async Task<RadiologyResult?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.RadiologyResults.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<RadiologyResult> SaveAsync(Guid clinicId, RadiologyResult item, List<RadiologyResultLine> lines, string? userName = null)
     {
@@ -412,26 +445,35 @@ public sealed class PrescriptionService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly DoctorScopeContext _doctorScope;
 
     public PrescriptionService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _doctorScope = doctorScope;
     }
 
     public Task<List<Prescription>> ListAsync(Guid clinicId) =>
-        _db.Prescriptions.Include(p => p.Lines).ForClinic(clinicId).OrderByDescending(p => p.PrescriptionNo).ToListAsync();
+        _db.Prescriptions.Include(p => p.Lines).ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(p => p.PrescriptionNo).ToListAsync();
 
-    public Task<Prescription?> GetAsync(Guid clinicId, Guid id) =>
-        _db.Prescriptions.Include(p => p.Lines).ForClinic(clinicId).FirstOrDefaultAsync(p => p.Id == id);
+    public async Task<Prescription?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.Prescriptions.Include(p => p.Lines).ForClinic(clinicId).FirstOrDefaultAsync(p => p.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public async Task<Prescription> SaveAsync(Guid clinicId, Prescription item, List<PrescriptionLine> lines, string? userName = null)
     {
@@ -506,6 +548,7 @@ public sealed class InvoiceService
     private readonly ClinicalJournalSyncService _journalSync;
     private readonly PatientInvoiceService _invoices;
     private readonly ClinicalDemographicsSyncService _demographics;
+    private readonly DoctorScopeContext _doctorScope;
 
     public InvoiceService(
         ClinicalDbContext db,
@@ -513,7 +556,8 @@ public sealed class InvoiceService
         PatientVisitStatusService visitStatus,
         ClinicalJournalSyncService journalSync,
         PatientInvoiceService invoices,
-        ClinicalDemographicsSyncService demographics)
+        ClinicalDemographicsSyncService demographics,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _audit = audit;
@@ -521,15 +565,18 @@ public sealed class InvoiceService
         _journalSync = journalSync;
         _invoices = invoices;
         _demographics = demographics;
+        _doctorScope = doctorScope;
     }
 
     public Task<List<Invoice>> ListAsync(Guid clinicId) =>
-        _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).OrderByDescending(i => i.InvoiceNo).ToListAsync();
+        _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(i => i.InvoiceNo).ToListAsync();
 
     public async Task<Invoice?> GetAsync(Guid clinicId, Guid id)
     {
         var item = await _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).FirstOrDefaultAsync(i => i.Id == id);
-        if (item is null) return null;
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
 
         try
         {
@@ -1048,26 +1095,38 @@ public sealed class PharmacyRequestService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly DoctorScopeContext _doctorScope;
+    private readonly IClinicalNotificationPublisher _notifications;
 
     public PharmacyRequestService(
         ClinicalDbContext db,
         AuditService audit,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        DoctorScopeContext doctorScope,
+        IClinicalNotificationPublisher notifications)
     {
         _db = db;
         _audit = audit;
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _doctorScope = doctorScope;
+        _notifications = notifications;
     }
 
     public Task<List<PharmacyRequest>> ListAsync(Guid clinicId) =>
-        _db.PharmacyRequests.Include(r => r.Lines).ForClinic(clinicId).OrderByDescending(r => r.RequestNo).ToListAsync();
+        _db.PharmacyRequests.Include(r => r.Lines).ForClinic(clinicId).Apply(_doctorScope.Filter)
+            .OrderByDescending(r => r.RequestNo).ToListAsync();
 
-    public Task<PharmacyRequest?> GetAsync(Guid clinicId, Guid id) =>
-        _db.PharmacyRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+    public async Task<PharmacyRequest?> GetAsync(Guid clinicId, Guid id)
+    {
+        var item = await _db.PharmacyRequests.Include(r => r.Lines).ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == id);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
 
     public Task<PharmacyRequest?> GetByRequestNoAsync(Guid clinicId, int requestNo) =>
         _db.PharmacyRequests
@@ -1196,6 +1255,16 @@ public sealed class PharmacyRequestService
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Request", "Create",
             $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
+        try
+        {
+            await _notifications.PublishDepartmentAsync(
+                clinicId,
+                ClinicalNotificationRoles.ForPharmacy(),
+                "New Pharmacy Request",
+                $"Request #{item.RequestNo} — {item.PatientName}",
+                "/Pharmacy/Request");
+        }
+        catch { }
         return item;
     }
 
@@ -1209,12 +1278,14 @@ public sealed class PharmacyRequestService
     {
         RequestDate = source.RequestDate,
         PrescriptionNo = source.PrescriptionNo,
+        PatientRecordId = source.PatientRecordId,
         PatientName = source.PatientName,
         PatientId = source.PatientId,
         Age = source.Age,
         Gender = source.Gender,
         Phone = source.Phone,
         City = source.City,
+        DoctorRecordId = source.DoctorRecordId,
         DoctorName = source.DoctorName,
         Specialty = source.Specialty,
         Notes = source.Notes

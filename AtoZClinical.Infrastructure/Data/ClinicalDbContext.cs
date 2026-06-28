@@ -74,6 +74,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ClinicBackupHistory> ClinicBackupHistories => Set<ClinicBackupHistory>();
     public DbSet<ClinicMessage> ClinicMessages => Set<ClinicMessage>();
     public DbSet<ClinicMessageAttachment> ClinicMessageAttachments => Set<ClinicMessageAttachment>();
+    public DbSet<ClinicalNotification> ClinicalNotifications => Set<ClinicalNotification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -156,6 +157,17 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.Property(x => x.UploadedByUserId).HasMaxLength(450).IsRequired();
             e.Property(x => x.FileName).HasMaxLength(260).IsRequired();
             e.Property(x => x.ContentType).HasMaxLength(128).IsRequired();
+        });
+
+        builder.Entity<ClinicalNotification>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.CreatedAt });
+            e.HasIndex(x => new { x.ClinicId, x.TargetRole });
+            e.Property(x => x.TargetRole).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Detail).HasMaxLength(500);
+            e.Property(x => x.Link).HasMaxLength(256);
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<CashReceipt>(e =>

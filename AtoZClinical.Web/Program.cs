@@ -334,6 +334,10 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, SignalRUserIdProvider>();
 builder.Services.AddSingleton<ChatPresenceService>();
 builder.Services.AddScoped<ClinicMessagingService>();
+builder.Services.AddScoped<DoctorScopeContext>();
+builder.Services.AddScoped<DoctorScopeService>();
+builder.Services.AddScoped<ClinicalNotificationService>();
+builder.Services.AddScoped<IClinicalNotificationPublisher, SignalRClinicalNotificationPublisher>();
 builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHostedService<ClinicLicenseMaintenanceService>();
 builder.Services.AddRazorPages(options =>
@@ -436,6 +440,7 @@ app.UseMiddleware<ClinicSubdomainMiddleware>();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseMiddleware<TenantContextMiddleware>();
 app.UseMiddleware<ClinicTenantMiddleware>();
+app.UseMiddleware<DoctorScopeMiddleware>();
 app.UseMiddleware<FormPermissionMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<MfaEnforcementMiddleware>();
@@ -504,6 +509,7 @@ app.MapPost("/api/stripe/webhook", async (HttpContext ctx, IStripeBillingService
 }).AllowAnonymous();
 app.MapClinicalApi();
 app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapRazorPages();
 app.Run();
 

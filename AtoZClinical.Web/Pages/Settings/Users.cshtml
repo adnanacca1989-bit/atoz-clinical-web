@@ -42,10 +42,20 @@
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Role</label>
-                        <select asp-for="Input.Role" class="clinical-field">
+                        <select asp-for="Input.Role" class="clinical-field" id="userRoleSelect">
                             @foreach (var role in AtoZClinical.Infrastructure.Services.ClinicUserRoleHelper.DefineUserRoles)
                             {
                                 <option value="@role.Value" selected="@(Model.Input.Role == role.Value)">@role.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4" id="doctorLinkField" style="@(Model.Input.Role == ClinicUserRole.Doctor ? "" : "display:none")">
+                        <label class="clinical-field-label">Linked Doctor</label>
+                        <select asp-for="Input.DoctorRecordId" class="clinical-field">
+                            <option value="">— Select doctor —</option>
+                            @foreach (var d in Model.DoctorOptions)
+                            {
+                                <option value="@d.Id" selected="@(Model.Input.DoctorRecordId == d.Id)">@d.Name</option>
                             }
                         </select>
                     </div>
@@ -80,3 +90,16 @@
         <partial name="_FormToolbar" />
     </form>
 </div>
+<script>
+    (function () {
+        const roleSelect = document.getElementById('userRoleSelect');
+        const doctorField = document.getElementById('doctorLinkField');
+        if (!roleSelect || !doctorField) return;
+        const doctorRole = '@((int)ClinicUserRole.Doctor)';
+        const toggle = () => {
+            doctorField.style.display = roleSelect.value === doctorRole ? '' : 'none';
+        };
+        roleSelect.addEventListener('change', toggle);
+        toggle();
+    })();
+</script>

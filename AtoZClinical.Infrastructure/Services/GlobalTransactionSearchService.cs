@@ -6,11 +6,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class GlobalTransactionSearchService
 {
     private readonly ClinicalDbContext _db;
+    private readonly DoctorScopeContext _doctorScope;
     private readonly bool _useILike;
 
-    public GlobalTransactionSearchService(ClinicalDbContext db)
+    public GlobalTransactionSearchService(ClinicalDbContext db, DoctorScopeContext doctorScope)
     {
         _db = db;
+        _doctorScope = doctorScope;
         _useILike = db.Database.IsNpgsql();
     }
 
@@ -43,7 +45,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchInvoicesAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.Invoices.AsNoTracking().Where(i => i.ClinicId == clinicId);
+        var query = _db.Invoices.AsNoTracking().Where(i => i.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var invoiceNo))
         {
@@ -94,7 +96,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchCashReceiptsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.CashReceipts.AsNoTracking().Where(r => r.ClinicId == clinicId);
+        var query = _db.CashReceipts.AsNoTracking().Where(r => r.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var receiptNo))
             query = query.Where(r => r.ReceiptNo == receiptNo);
@@ -130,7 +132,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchCashPaymentsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.CashPayments.AsNoTracking().Where(p => p.ClinicId == clinicId);
+        var query = _db.CashPayments.AsNoTracking().Where(p => p.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var paymentNo))
             query = query.Where(p => p.PaymentNo == paymentNo);
@@ -164,7 +166,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchPrescriptionsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.Prescriptions.AsNoTracking().Where(p => p.ClinicId == clinicId);
+        var query = _db.Prescriptions.AsNoTracking().Where(p => p.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var prescriptionNo))
             query = query.Where(p => p.PrescriptionNo == prescriptionNo);
@@ -198,7 +200,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchLabRequestsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.LabRequests.AsNoTracking().Where(r => r.ClinicId == clinicId);
+        var query = _db.LabRequests.AsNoTracking().Where(r => r.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var requestNo))
             query = query.Where(r => r.RequestNo == requestNo);
@@ -236,7 +238,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchLabResultsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.LabResults.AsNoTracking().Where(r => r.ClinicId == clinicId);
+        var query = _db.LabResults.AsNoTracking().Where(r => r.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var resultNo))
             query = query.Where(r => r.ResultNo == resultNo);
@@ -272,7 +274,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchPharmacyRequestsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.PharmacyRequests.AsNoTracking().Where(r => r.ClinicId == clinicId);
+        var query = _db.PharmacyRequests.AsNoTracking().Where(r => r.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var requestNo))
             query = query.Where(r => r.RequestNo == requestNo);
@@ -306,7 +308,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchPharmacyBillsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.PharmacyBills.AsNoTracking().Where(r => r.ClinicId == clinicId);
+        var query = _db.PharmacyBills.AsNoTracking().Where(r => r.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var billNo))
             query = query.Where(r => r.BillNo == billNo);
@@ -408,7 +410,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchRadiologyRequestsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.RadiologyRequests.AsNoTracking().Where(r => r.ClinicId == clinicId);
+        var query = _db.RadiologyRequests.AsNoTracking().Where(r => r.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var requestNo))
             query = query.Where(r => r.RequestNo == requestNo);
@@ -442,7 +444,7 @@ public sealed class GlobalTransactionSearchService
     private async Task<List<GlobalSearchHit>> SearchRadiologyResultsAsync(Guid clinicId, string term, int take)
     {
         var pattern = LikePattern(term);
-        var query = _db.RadiologyResults.AsNoTracking().Where(r => r.ClinicId == clinicId);
+        var query = _db.RadiologyResults.AsNoTracking().Where(r => r.ClinicId == clinicId).Apply(_doctorScope.Filter);
 
         if (int.TryParse(term, out var resultNo))
             query = query.Where(r => r.ResultNo == resultNo);

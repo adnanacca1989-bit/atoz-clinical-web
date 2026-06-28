@@ -12,12 +12,18 @@ public class PatientStatusModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
     private readonly ArReportService _ar;
+    private readonly DoctorScopeContext _doctorScope;
 
-    public PatientStatusModel(ClinicalDbContext db, ClinicContextService clinicContext, ArReportService ar)
+    public PatientStatusModel(
+        ClinicalDbContext db,
+        ClinicContextService clinicContext,
+        ArReportService ar,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _clinicContext = clinicContext;
         _ar = ar;
+        _doctorScope = doctorScope;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -55,6 +61,7 @@ public class PatientStatusModel : PageModel
             .AsNoTracking()
             .IgnoreQueryFilters()
             .Where(p => p.ClinicId == clinicId)
+            .Apply(_doctorScope.Filter)
             .ToListAsync();
 
         var doctors = await _db.Doctors

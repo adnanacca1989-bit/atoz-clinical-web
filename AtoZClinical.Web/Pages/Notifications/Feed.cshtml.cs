@@ -1,4 +1,5 @@
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -11,6 +12,8 @@ public class FeedModel : PageModel
     private readonly ClinicContextService _clinicContext;
     private readonly ClinicalDbContext _db;
     private readonly AppointmentReminderService _reminders;
+    private readonly ClinicalNotificationService _clinicalNotifications;
+    private readonly DoctorScopeContext _doctorScope;
 
     private static readonly Dictionary<string, (string Title, string Link)> FormMeta = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -21,14 +24,22 @@ public class FeedModel : PageModel
         ["Laboratory Request"] = ("Laboratory Request", "/Laboratory/Request"),
         ["Laboratory Result"] = ("Laboratory Result", "/Laboratory/Result"),
         ["Pharmacy Bill"] = ("Pharmacy Bill", "/Pharmacy/Bill"),
+        ["Pharmacy Request"] = ("Pharmacy Request", "/Pharmacy/Request"),
         ["Patient Status"] = ("Patient Status", "/Reports/PatientStatus")
     };
 
-    public FeedModel(ClinicContextService clinicContext, ClinicalDbContext db, AppointmentReminderService reminders)
+    public FeedModel(
+        ClinicContextService clinicContext,
+        ClinicalDbContext db,
+        AppointmentReminderService reminders,
+        ClinicalNotificationService clinicalNotifications,
+        DoctorScopeContext doctorScope)
     {
         _clinicContext = clinicContext;
         _db = db;
         _reminders = reminders;
+        _clinicalNotifications = clinicalNotifications;
+        _doctorScope = doctorScope;
     }
 
     public async Task<IActionResult> OnGetAsync(long? sinceTicks)
@@ -36,6 +47,7 @@ public class FeedModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
+        var user = await _clinicContext.GetCurrentUserAsync();
         var since = sinceTicks.HasValue
             ? new DateTime(sinceTicks.Value, DateTimeKind.Utc)
             : DateTime.UtcNow.AddDays(-30);
@@ -46,6 +58,20 @@ public class FeedModel : PageModel
         {
             if (appt.AtUtc < since) continue;
             items.Add(new NotificationPayload(appt.Id, appt.Kind, appt.Title, appt.Detail, appt.Link, appt.AtUtc));
+        }
+
+        if (user is not null)
+        {
+            foreach (var n in await _clinicalNotifications.ListForUserSinceAsync(clinicId.Value, user, since))
+            {
+                items.Add(new NotificationPayload(
+                    $"notify-{n.Id:N}",
+                    "department",
+                    n.Title,
+                    n.Detail,
+                    n.Link,
+                    n.CreatedAt));
+            }
         }
 
         var auditEntries = await _db.AuditLogEntries
@@ -88,8 +114,11 @@ public class FeedModel : PageModel
         });
     }
 
-    private static async Task AddLabNotificationsAsync(ClinicalDbContext db, Guid clinicId, DateTime since, List<NotificationPayload> items)
+    private async Task AddLabNotificationsAsync(ClinicalDbContext db, Guid clinicId, DateTime since, List<NotificationPayload> items)
     {
+        if (_doctorScope.Filter.IsRestricted)
+            return;
+
         var requests = await db.LabRequests
             .AsNoTracking()
             .Where(r => r.ClinicId == clinicId && r.CreatedAt >= since)

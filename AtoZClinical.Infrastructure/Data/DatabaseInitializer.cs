@@ -43,6 +43,7 @@ public static class DatabaseInitializer
         await EnsurePatientRecordLinkSchemaAsync(db, logger);
         await BackfillPatientRecordLinksAsync(db, scope.ServiceProvider, logger);
         await BackfillPatientVisitStatusesAsync(db, scope.ServiceProvider, logger);
+        await EnsureRoleAccessSchemaAsync(db, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -383,6 +384,8 @@ public static class DatabaseInitializer
                 ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "FormStyle" text NOT NULL DEFAULT 'Default';
                 ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "LanguageCode" text NOT NULL DEFAULT 'en';
                 ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "LanguageName" text NOT NULL DEFAULT 'English';
+                ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "AllowDoctorViewAllPatients" boolean NOT NULL DEFAULT false;
+                ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "DoctorRecordId" uuid NULL;
                 """);
 
             await db.Database.ExecuteSqlRawAsync(
@@ -830,6 +833,40 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Patient visit status backfill skipped.");
+        }
+    }
+
+    private static async Task EnsureRoleAccessSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "ClinicalNotifications" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "TargetRole" character varying(64) NOT NULL,
+                    "Title" character varying(200) NOT NULL,
+                    "Detail" character varying(500) NOT NULL,
+                    "Link" character varying(256) NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_ClinicalNotifications" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ClinicalNotifications_Clinics_ClinicId" FOREIGN KEY ("ClinicId")
+                        REFERENCES "Clinics" ("Id") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS "IX_ClinicalNotifications_ClinicId_CreatedAt"
+                    ON "ClinicalNotifications" ("ClinicId", "CreatedAt");
+                CREATE INDEX IF NOT EXISTS "IX_ClinicalNotifications_ClinicId_TargetRole"
+                    ON "ClinicalNotifications" ("ClinicId", "TargetRole");
+                """);
+            logger.LogInformation("Role access and notification schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Role access schema verification skipped.");
         }
     }
 

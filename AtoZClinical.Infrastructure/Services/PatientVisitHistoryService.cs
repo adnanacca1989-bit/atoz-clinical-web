@@ -6,8 +6,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class PatientVisitHistoryService
 {
     private readonly ClinicalDbContext _db;
+    private readonly DoctorScopeContext _doctorScope;
 
-    public PatientVisitHistoryService(ClinicalDbContext db) => _db = db;
+    public PatientVisitHistoryService(ClinicalDbContext db, DoctorScopeContext doctorScope)
+    {
+        _db = db;
+        _doctorScope = doctorScope;
+    }
 
     public async Task<PatientVisitHistorySummary> GetHistoryAsync(
         Guid clinicId,
@@ -53,6 +58,7 @@ public sealed class PatientVisitHistoryService
         var patients = await _db.Patients
             .AsNoTracking()
             .Where(p => p.ClinicId == clinicId)
+            .Apply(_doctorScope.Filter)
             .Select(p => new
             {
                 p.PatientNo,
@@ -75,6 +81,7 @@ public sealed class PatientVisitHistoryService
         var invoices = await _db.Invoices
             .AsNoTracking()
             .Where(i => i.ClinicId == clinicId)
+            .Apply(_doctorScope.Filter)
             .Select(i => new { i.PatientId, i.PatientName, i.DoctorName, i.InvoiceDate, i.TotalAmount })
             .ToListAsync();
 
@@ -84,6 +91,7 @@ public sealed class PatientVisitHistoryService
         var receipts = await _db.CashReceipts
             .AsNoTracking()
             .Where(r => r.ClinicId == clinicId)
+            .Apply(_doctorScope.Filter)
             .Select(r => new { r.PatientId, r.PatientName, r.DoctorName, r.ReceiptDate, r.Amount })
             .ToListAsync();
 

@@ -7,8 +7,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class DoctorReportService
 {
     private readonly ReportingDataService _reporting;
+    private readonly DoctorScopeContext _doctorScope;
 
-    public DoctorReportService(ReportingDataService reporting) => _reporting = reporting;
+    public DoctorReportService(ReportingDataService reporting, DoctorScopeContext doctorScope)
+    {
+        _reporting = reporting;
+        _doctorScope = doctorScope;
+    }
 
     public async Task<List<DoctorReportRow>> GetRowsAsync(
         Guid clinicId,
@@ -23,7 +28,7 @@ public sealed class DoctorReportService
         if (from > to)
             (from, to) = (to, from);
 
-        var patients = await _db.Patients.ForClinic(clinicId)
+        var patients = await _db.Patients.ForClinic(clinicId).Apply(_doctorScope.Filter)
             .Where(p =>
                 (p.AppointmentDate.HasValue &&
                  p.AppointmentDate.Value.Date >= from &&

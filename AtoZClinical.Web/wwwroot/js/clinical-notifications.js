@@ -10,6 +10,7 @@
     const CLEARED_KEY = 'clinicalNotifyClearedAt';
     const LAST_POLL_KEY = 'clinicalNotifyLastPoll';
     const POLL_MS = 30000;
+    const HUB_URL = '/hubs/notifications';
 
     const loadStored = () => {
         try {
@@ -102,6 +103,22 @@
         }
     };
 
+    const applyIncoming = (incoming, playSound) => {
+        const lastPoll = getLastPoll();
+        const clearedAt = getClearedAt();
+        let shouldPlay = false;
+        for (const item of incoming || []) {
+            if ((item.atUtc || 0) > lastPoll && (item.atUtc || 0) > clearedAt) {
+                shouldPlay = true;
+                break;
+            }
+        }
+        const merged = mergeItems(incoming || []);
+        if (playSound && shouldPlay && lastPoll > 0) playNotifySound();
+        render(merged);
+        return merged;
+    };
+
     const poll = async () => {
         try {
             const stored = loadStored();
@@ -113,19 +130,8 @@
             });
             if (!res.ok) return;
             const data = await res.json();
-            const lastPoll = getLastPoll();
-            const clearedAt = getClearedAt();
-            let shouldPlay = false;
-            for (const item of data.items || []) {
-                if ((item.atUtc || 0) > lastPoll && (item.atUtc || 0) > clearedAt) {
-                    shouldPlay = true;
-                    break;
-                }
-            }
-            const merged = mergeItems(data.items || []);
-            if (shouldPlay && lastPoll > 0) playNotifySound();
+            applyIncoming(data.items || [], true);
             if (data.serverTime) setLastPoll(data.serverTime);
-            render(merged);
         } catch { /* ignore */ }
     };
 
@@ -134,6 +140,26 @@
         saveStored([]);
         setLastPoll(Date.now());
         render([]);
+    };
+
+    const connectRealtime = () => {
+        if (!window.signalR) return;
+        try {
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(HUB_URL)
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on('ReceiveNotification', (item) => {
+                if (!item || !item.id) return;
+                const clearedAt = getClearedAt();
+                if ((item.atUtc || 0) <= clearedAt) return;
+                applyIncoming([item], true);
+                setLastPoll(Math.max(getLastPoll(), item.atUtc || Date.now()));
+            });
+
+            connection.start().catch(() => { /* fallback to polling */ });
+        } catch { /* ignore */ }
     };
 
     clearBtn?.addEventListener('click', (e) => {
@@ -145,4 +171,5 @@
     render(loadStored().filter(i => (i.atUtc || 0) > getClearedAt()));
     poll();
     setInterval(poll, POLL_MS);
+    connectRealtime();
 })();

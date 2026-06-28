@@ -9,6 +9,7 @@ public class ApplicationUser : IdentityUser
     public bool IsVendorAdmin { get; set; }
     public Guid? ClinicId { get; set; }
     public ClinicUserRole? ClinicRole { get; set; }
+    public Guid? DoctorRecordId { get; set; }
     public bool IsActive { get; set; } = true;
     public int UserNo { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

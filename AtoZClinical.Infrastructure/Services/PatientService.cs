@@ -16,6 +16,7 @@ public sealed class PatientService
 
     private readonly ClinicalDemographicsSyncService _demographics;
     private readonly InvoiceService _invoices;
+    private readonly DoctorScopeContext _doctorScope;
 
     public PatientService(
         ClinicalDbContext db,
@@ -25,7 +26,8 @@ public sealed class PatientService
         IWebhookDispatchService webhooks,
         AuditService audit,
         ClinicalDemographicsSyncService demographics,
-        InvoiceService invoices)
+        InvoiceService invoices,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _propagation = propagation;
@@ -35,12 +37,16 @@ public sealed class PatientService
         _audit = audit;
         _demographics = demographics;
         _invoices = invoices;
+        _doctorScope = doctorScope;
     }
 
-    private IQueryable<Patient> ForClinic(Guid clinicId) => _db.Patients.ForClinic(clinicId);
+    private IQueryable<Patient> ScopedPatients(Guid clinicId) =>
+        _db.Patients.ForClinic(clinicId).Apply(_doctorScope.Filter);
+
+    private IQueryable<Patient> AllPatients(Guid clinicId) => _db.Patients.ForClinic(clinicId);
 
     public Task<List<Patient>> ListAsync(Guid clinicId, string? search = null, int maxRows = PaginationDefaults.ListCap) =>
-        ApplyListOrder(ApplySearch(ForClinic(clinicId), search))
+        ApplyListOrder(ApplySearch(ScopedPatients(clinicId), search))
             .Take(maxRows)
             .ToListAsync();
 
@@ -49,12 +55,12 @@ public sealed class PatientService
         int page = 1,
         int pageSize = PaginationDefaults.DefaultPageSize,
         string? search = null) =>
-        ApplyListOrder(ApplySearch(ForClinic(clinicId), search))
+        ApplyListOrder(ApplySearch(ScopedPatients(clinicId), search))
             .ToPagedResultAsync(page, pageSize);
 
     public async Task<Guid?> GetAdjacentIdAsync(Guid clinicId, Guid currentId, int direction, string? search = null)
     {
-        var ids = await ApplyListOrder(ApplySearch(ForClinic(clinicId), search))
+        var ids = await ApplyListOrder(ApplySearch(ScopedPatients(clinicId), search))
             .Select(p => p.Id)
             .ToListAsync();
 
@@ -77,7 +83,7 @@ public sealed class PatientService
         string? status,
         string? sortBy)
     {
-        var query = ForClinic(clinicId);
+        var query = ScopedPatients(clinicId);
 
         if (fromDate.HasValue)
             query = query.Where(p => p.AppointmentDate == null || p.AppointmentDate.Value.Date >= fromDate.Value.Date);
@@ -100,7 +106,7 @@ public sealed class PatientService
     }
 
     public Task<Patient?> GetAsync(Guid clinicId, Guid id) =>
-        ForClinic(clinicId).FirstOrDefaultAsync(p => p.Id == id);
+        ScopedPatients(clinicId).FirstOrDefaultAsync(p => p.Id == id);
 
     public static bool IsDuplicatePatientKey(DbUpdateException ex)
     {
@@ -116,7 +122,7 @@ public sealed class PatientService
         var isNew = patient.Id == Guid.Empty;
         if (!isNew)
         {
-            previous = await ForClinic(clinicId).AsNoTracking()
+            previous = await ScopedPatients(clinicId).AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == patient.Id);
             isNew = previous is null;
         }
@@ -189,7 +195,7 @@ public sealed class PatientService
                 ? await GeneratePatientNoAsync(clinicId)
                 : patient.PatientNo.Trim();
 
-            if (await ForClinic(clinicId).AnyAsync(p => p.PatientNo == patientNo && p.Id != patient.Id))
+            if (await AllPatients(clinicId).AnyAsync(p => p.PatientNo == patientNo && p.Id != patient.Id))
                 throw new InvalidOperationException($"Barcode/Patient No '{patientNo}' is already assigned to another patient.");
 
             patient.PatientNo = patientNo;
@@ -254,21 +260,21 @@ public sealed class PatientService
     public Task<string> NextAppointmentIdAsync(Guid clinicId) => GenerateAppointmentIdAsync(clinicId);
 
     public Task<int> CountTotalAsync(Guid clinicId) =>
-        ForClinic(clinicId).CountAsync();
+        ScopedPatients(clinicId).CountAsync();
 
     public Task<int> CountTodayAsync(Guid clinicId)
     {
         var today = DateTime.UtcNow.Date;
-        return ForClinic(clinicId).CountAsync(p => p.CreatedAt.Date >= today);
+        return ScopedPatients(clinicId).CountAsync(p => p.CreatedAt.Date >= today);
     }
 
     public Task<int> CountActiveAsync(Guid clinicId) =>
-        ForClinic(clinicId).CountAsync(p =>
+        ScopedPatients(clinicId).CountAsync(p =>
             p.Status != PatientVisitStatuses.Cancelled &&
             p.Status != "Inactive");
 
     public Task<int> CountInactiveAsync(Guid clinicId) =>
-        ForClinic(clinicId).CountAsync(p =>
+        ScopedPatients(clinicId).CountAsync(p =>
             p.Status == PatientVisitStatuses.Cancelled || p.Status == "Inactive");
 
     public async Task DeleteAsync(Guid clinicId, Guid id)
@@ -287,7 +293,7 @@ public sealed class PatientService
         Guid? excludePatientId = null,
         string? patientName = null)
     {
-        var query = ForClinic(clinicId);
+        var query = AllPatients(clinicId);
         if (excludePatientId.HasValue)
             query = query.Where(p => p.Id != excludePatientId.Value);
 
@@ -322,7 +328,7 @@ public sealed class PatientService
     }
 
     public Task<Patient?> FindByNationalIdOrPhoneAsync(Guid clinicId, string? nationalId, string? phone) =>
-        ForClinic(clinicId)
+        AllPatients(clinicId)
             .Where(p =>
                 (!string.IsNullOrWhiteSpace(nationalId) && p.NationalId == nationalId.Trim()) ||
                 (!string.IsNullOrWhiteSpace(phone) && p.Phone == phone.Trim()))
@@ -364,7 +370,7 @@ public sealed class PatientService
         {
             candidate++;
             no = $"PAT-{candidate:D5}";
-        } while (await ForClinic(clinicId).AnyAsync(p => p.PatientNo == no));
+        } while (await AllPatients(clinicId).AnyAsync(p => p.PatientNo == no));
 
         return no;
     }
@@ -378,14 +384,14 @@ public sealed class PatientService
         {
             candidate++;
             aptId = $"APT-{candidate:D6}";
-        } while (await ForClinic(clinicId).AnyAsync(p => p.AppointmentId == aptId));
+        } while (await AllPatients(clinicId).AnyAsync(p => p.AppointmentId == aptId));
 
         return aptId;
     }
 
     private async Task<int> GetHighestPatientNoAsync(Guid clinicId)
     {
-        var numbers = await ForClinic(clinicId).Select(p => p.PatientNo).ToListAsync();
+        var numbers = await AllPatients(clinicId).Select(p => p.PatientNo).ToListAsync();
         return numbers
             .Select(no =>
             {
@@ -400,7 +406,7 @@ public sealed class PatientService
 
     private async Task<int> GetHighestAppointmentIdAsync(Guid clinicId)
     {
-        var numbers = await ForClinic(clinicId).Select(p => p.AppointmentId).ToListAsync();
+        var numbers = await AllPatients(clinicId).Select(p => p.AppointmentId).ToListAsync();
         return numbers
             .Select(id =>
             {

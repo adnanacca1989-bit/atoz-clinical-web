@@ -13,12 +13,18 @@ public class PatientHistoryModel : PageModel
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
     private readonly ArReportService _ar;
+    private readonly DoctorScopeContext _doctorScope;
 
-    public PatientHistoryModel(ClinicalDbContext db, ClinicContextService clinicContext, ArReportService ar)
+    public PatientHistoryModel(
+        ClinicalDbContext db,
+        ClinicContextService clinicContext,
+        ArReportService ar,
+        DoctorScopeContext doctorScope)
     {
         _db = db;
         _clinicContext = clinicContext;
         _ar = ar;
+        _doctorScope = doctorScope;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -77,7 +83,8 @@ public class PatientHistoryModel : PageModel
         bool MatchDoctor(string? doc) =>
             string.IsNullOrWhiteSpace(DoctorName) || (doc?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true);
 
-        var allPatients = await _db.Patients.Where(p => p.ClinicId == clinicId).AsNoTracking().ToListAsync();
+        var allPatients = await _db.Patients.Where(p => p.ClinicId == clinicId).Apply(_doctorScope.Filter)
+            .AsNoTracking().ToListAsync();
         var patients = allPatients;
         if (!string.IsNullOrWhiteSpace(PatientName))
             patients = patients.Where(p => p.FullName.Contains(PatientName, StringComparison.OrdinalIgnoreCase)).ToList();

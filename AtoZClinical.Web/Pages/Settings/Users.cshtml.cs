@@ -1,4 +1,5 @@
 using AtoZClinical.Core.Enums;
+using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
@@ -12,12 +13,18 @@ public class UsersModel : SettingsFormPageModel
 {
     private readonly UserManager<ApplicationUser> _users;
     private readonly VendorClinicService _vendor;
+    private readonly DoctorService _doctors;
 
-    public UsersModel(ClinicContextService clinicContext, UserManager<ApplicationUser> users, VendorClinicService vendor)
+    public UsersModel(
+        ClinicContextService clinicContext,
+        UserManager<ApplicationUser> users,
+        VendorClinicService vendor,
+        DoctorService doctors)
         : base(clinicContext)
     {
         _users = users;
         _vendor = vendor;
+        _doctors = doctors;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -25,6 +32,7 @@ public class UsersModel : SettingsFormPageModel
 
     [BindProperty] public UserInput Input { get; set; } = new();
     public List<ApplicationUser> Records { get; private set; } = [];
+    public List<Doctor> DoctorOptions { get; private set; } = [];
     public bool IsNewUser => string.IsNullOrEmpty(UserRecordId);
 
     public async Task<IActionResult> OnGetAsync()
@@ -54,6 +62,7 @@ public class UsersModel : SettingsFormPageModel
     private async Task LoadAsync(Guid clinicId)
     {
         Records = await _users.Users.Where(u => u.ClinicId == clinicId).OrderBy(u => u.UserName).ToListAsync();
+        DoctorOptions = await _doctors.ListAsync(clinicId);
         if (!string.IsNullOrWhiteSpace(Search))
             Records = Records.Where(u =>
                 (u.UserName?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true) ||
@@ -125,6 +134,7 @@ public class UsersModel : SettingsFormPageModel
         user.Email = Input.Email?.Trim();
         user.ClinicRole = Input.Role;
         user.IsActive = Input.IsActive;
+        user.DoctorRecordId = Input.Role == ClinicUserRole.Doctor ? Input.DoctorRecordId : null;
         await _users.UpdateAsync(user);
         if (!string.IsNullOrWhiteSpace(Input.Password))
         {
@@ -173,6 +183,7 @@ public class UsersModel : SettingsFormPageModel
         public string? Email { get; set; }
         public string? Password { get; set; }
         public ClinicUserRole Role { get; set; } = ClinicUserRole.Receptionist;
+        public Guid? DoctorRecordId { get; set; }
         public bool IsActive { get; set; } = true;
 
         public static UserInput FromEntity(ApplicationUser u) => new()
@@ -182,6 +193,7 @@ public class UsersModel : SettingsFormPageModel
             FullName = u.FullName ?? "",
             Email = u.Email,
             Role = u.ClinicRole ?? ClinicUserRole.Receptionist,
+            DoctorRecordId = u.DoctorRecordId,
             IsActive = u.IsActive
         };
     }

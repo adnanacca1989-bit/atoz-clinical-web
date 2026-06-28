@@ -14,7 +14,7 @@ internal static class ServiceTestFactory
         return new MasterDataPropagationService(db, billing, journalSync);
     }
 
-    public static InvoiceService CreateInvoiceService(ClinicalDbContext db)
+    public static InvoiceService CreateInvoiceService(ClinicalDbContext db, DoctorScopeContext? doctorScope = null)
     {
         var audit = new AuditService(db);
         var invoices = new PatientInvoiceService(db);
@@ -27,10 +27,11 @@ internal static class ServiceTestFactory
             visitStatus,
             journalSync,
             invoices,
-            demographics);
+            demographics,
+            doctorScope ?? new DoctorScopeContext());
     }
 
-    public static PatientService CreatePatientService(ClinicalDbContext db)
+    public static PatientService CreatePatientService(ClinicalDbContext db, DoctorScopeContext? doctorScope = null)
     {
         var audit = new AuditService(db);
         return new PatientService(
@@ -41,6 +42,7 @@ internal static class ServiceTestFactory
             new NoOpWebhookDispatchService(),
             audit,
             new ClinicalDemographicsSyncService(db),
-            CreateInvoiceService(db));
+            CreateInvoiceService(db),
+            doctorScope ?? new DoctorScopeContext());
     }
 }
