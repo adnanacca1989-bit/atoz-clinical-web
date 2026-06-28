@@ -134,6 +134,11 @@ public class PatientHistoryModel : PageModel
             if (MatchPatient(pb.PatientName, pb.PatientId) && MatchDoctor(pb.DoctorName))
                 Results.Add(new HistoryRow(pb.PatientName ?? "", "Pharmacy Bill", pb.BillDate, pb.DoctorName ?? "", $"Bill #{pb.BillNo}, Total {pb.TotalAmount:N2}"));
 
+        foreach (var sir in await _db.ServiceIncomeRequests.Where(x => x.ClinicId == clinicId).ToListAsync())
+            if (MatchPatient(sir.PatientName, sir.PatientBarcode) && MatchDoctor(sir.DoctorName))
+                Results.Add(new HistoryRow(sir.PatientName ?? "", "Service Income Request", sir.RequestDate, sir.DoctorName ?? "",
+                    $"Request #{sir.RequestNo}, Total {sir.TotalAmount:N2}"));
+
         foreach (var cr in await _db.CashReceipts.Where(x => x.ClinicId == clinicId).ToListAsync())
             if (MatchPatient(cr.PatientName, cr.PatientId) && MatchDoctor(cr.DoctorName))
                 Results.Add(new HistoryRow(cr.PatientName ?? "", "Cash Receipt", cr.ReceiptDate, cr.DoctorName ?? "", $"Amount {cr.Amount:N2}"));

@@ -1,5 +1,6 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -77,8 +78,12 @@ public class OperatingReportModel : PageModel
 
         Results = invoices.Select(i =>
         {
-            var received = receipts.Where(r => r.PatientName == i.PatientName).Sum(r => r.Amount);
-            var paid = payments.Where(p => p.PayeeName == i.PatientName).Sum(p => p.Amount);
+            var received = receipts
+                .Where(r => PatientChargeMatcher.MatchesPatient(i.PatientId, i.PatientName, null, r.PatientId, r.PatientName))
+                .Sum(r => r.Amount);
+            var paid = payments
+                .Where(p => PatientChargeMatcher.MatchesPatient(i.PatientId, i.PatientName, null, p.PatientId, p.PayeeName))
+                .Sum(p => p.Amount);
             return new OpRow(
                 i.PatientName ?? "",
                 i.DoctorName ?? "",

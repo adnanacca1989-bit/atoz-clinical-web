@@ -1,6 +1,6 @@
 namespace AtoZClinical.Infrastructure.Services;
 
-internal static class PatientChargeMatcher
+public static class PatientChargeMatcher
 {
     public static bool MatchesPatient(
         string? barcode,

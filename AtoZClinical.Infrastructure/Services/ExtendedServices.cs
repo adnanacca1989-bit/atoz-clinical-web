@@ -806,11 +806,13 @@ public sealed class ChartAccountService
 {
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
+    private readonly MasterDataPropagationService _propagation;
 
-    public ChartAccountService(ClinicalDbContext db, AuditService audit)
+    public ChartAccountService(ClinicalDbContext db, AuditService audit, MasterDataPropagationService propagation)
     {
         _db = db;
         _audit = audit;
+        _propagation = propagation;
     }
 
     public Task<List<ChartAccount>> ListAsync(Guid clinicId) =>
@@ -824,7 +826,15 @@ public sealed class ChartAccountService
 
     public async Task<ChartAccount> SaveAsync(Guid clinicId, ChartAccount item, string? userName = null)
     {
+        ChartAccount? previous = null;
         var isNew = item.Id == Guid.Empty;
+        if (!isNew)
+        {
+            previous = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == item.Id);
+            isNew = previous is null;
+        }
+
         item.ClinicId = clinicId;
         item.UpdatedAt = DateTime.UtcNow;
         if (isNew)
@@ -861,6 +871,8 @@ public sealed class ChartAccountService
                 _db.ChartAccounts.Update(item);
                 return Task.CompletedTask;
             });
+            if (previous is not null)
+                await _propagation.PropagateChartAccountAsync(clinicId, previous, item);
         }
 
         await _audit.LogAsync(clinicId, userName, "Chart of Accounts", isNew ? "Create" : "Update",

@@ -15,11 +15,9 @@ public class DoctorServiceTests
         db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
         await db.Db.SaveChangesAsync();
 
-        var invoices = new PatientInvoiceService(db.Db);
-        var billing = new BillingPropagationService(db.Db, invoices);
         var service = new DoctorService(
             db.Db,
-            new MasterDataPropagationService(db.Db, billing),
+            ServiceTestFactory.CreatePropagation(db.Db),
             new InvoiceDeleteGuardService(db.Db),
             new AuditService(db.Db));
 
@@ -45,11 +43,9 @@ public class DoctorServiceTests
         db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
         await db.Db.SaveChangesAsync();
 
-        var invoices = new PatientInvoiceService(db.Db);
-        var billing = new BillingPropagationService(db.Db, invoices);
         var service = new DoctorService(
             db.Db,
-            new MasterDataPropagationService(db.Db, billing),
+            ServiceTestFactory.CreatePropagation(db.Db),
             new InvoiceDeleteGuardService(db.Db),
             new AuditService(db.Db));
 
@@ -80,11 +76,9 @@ public class DoctorServiceTests
         db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
         await db.Db.SaveChangesAsync();
 
-        var invoices = new PatientInvoiceService(db.Db);
-        var billing = new BillingPropagationService(db.Db, invoices);
         var service = new DoctorService(
             db.Db,
-            new MasterDataPropagationService(db.Db, billing),
+            ServiceTestFactory.CreatePropagation(db.Db),
             new InvoiceDeleteGuardService(db.Db),
             new AuditService(db.Db));
 

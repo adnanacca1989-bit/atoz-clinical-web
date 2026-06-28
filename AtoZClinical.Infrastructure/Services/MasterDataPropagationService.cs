@@ -12,11 +12,16 @@ public sealed class MasterDataPropagationService
 {
     private readonly ClinicalDbContext _db;
     private readonly BillingPropagationService _billing;
+    private readonly ClinicalJournalSyncService _journalSync;
 
-    public MasterDataPropagationService(ClinicalDbContext db, BillingPropagationService billing)
+    public MasterDataPropagationService(
+        ClinicalDbContext db,
+        BillingPropagationService billing,
+        ClinicalJournalSyncService journalSync)
     {
         _db = db;
         _billing = billing;
+        _journalSync = journalSync;
     }
 
     public async Task PropagatePatientAsync(Guid clinicId, Patient previous, Patient current)
@@ -66,6 +71,23 @@ public sealed class MasterDataPropagationService
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
 
+        var labRequestNos = await _db.LabRequests
+            .ForClinic(clinicId)
+            .Where(r => r.PatientBarcode == patientNo || r.PatientName == oldName || r.PatientName == newName)
+            .Select(r => r.RequestNo)
+            .ToListAsync();
+        if (labRequestNos.Count > 0)
+        {
+            await _db.LabResults
+                .ForClinic(clinicId)
+                .Where(r => r.RequestNo != null && labRequestNos.Contains(r.RequestNo.Value))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.PatientName, newName)
+                    .SetProperty(r => r.DoctorName, doctorName)
+                    .SetProperty(r => r.Specialty, specialty)
+                    .SetProperty(r => r.UpdatedAt, now));
+        }
+
         await _db.RadiologyRequests
             .Where(r => r.ClinicId == clinicId && (r.PatientBarcode == patientNo || r.PatientName == oldName))
             .ExecuteUpdateAsync(s => s
@@ -83,6 +105,36 @@ public sealed class MasterDataPropagationService
             .Where(r => r.ClinicId == clinicId && r.PatientName == oldName)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.PatientName, newName)
+                .SetProperty(r => r.DoctorName, doctorName)
+                .SetProperty(r => r.Specialty, specialty)
+                .SetProperty(r => r.UpdatedAt, now));
+
+        var radiologyRequestNos = await _db.RadiologyRequests
+            .ForClinic(clinicId)
+            .Where(r => r.PatientBarcode == patientNo || r.PatientName == oldName || r.PatientName == newName)
+            .Select(r => r.RequestNo)
+            .ToListAsync();
+        if (radiologyRequestNos.Count > 0)
+        {
+            await _db.RadiologyResults
+                .ForClinic(clinicId)
+                .Where(r => r.RequestNo != null && radiologyRequestNos.Contains(r.RequestNo.Value))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.PatientName, newName)
+                    .SetProperty(r => r.DoctorName, doctorName)
+                    .SetProperty(r => r.Specialty, specialty)
+                    .SetProperty(r => r.UpdatedAt, now));
+        }
+
+        await _db.ServiceIncomeRequests
+            .Where(r => r.ClinicId == clinicId && (r.PatientBarcode == patientNo || r.PatientName == oldName))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.PatientBarcode, patientNo)
+                .SetProperty(r => r.PatientName, newName)
+                .SetProperty(r => r.Phone, phone)
+                .SetProperty(r => r.Age, age)
+                .SetProperty(r => r.Gender, gender)
+                .SetProperty(r => r.City, city)
                 .SetProperty(r => r.DoctorName, doctorName)
                 .SetProperty(r => r.Specialty, specialty)
                 .SetProperty(r => r.UpdatedAt, now));
@@ -146,6 +198,14 @@ public sealed class MasterDataPropagationService
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.DoctorName, doctorName)
                 .SetProperty(a => a.Department, specialty));
+
+        await _db.ExpenseVouchers
+            .Where(e => e.ClinicId == clinicId && e.PayeeName == oldName)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(e => e.PayeeName, newName)
+                .SetProperty(e => e.UpdatedAt, now));
+
+        await PropagateJournalPatientDoctorNamesAsync(clinicId, oldName, newName, null, null);
     }
 
     public async Task PropagateDoctorAsync(Guid clinicId, Doctor previous, Doctor current)
@@ -235,6 +295,13 @@ public sealed class MasterDataPropagationService
                 .SetProperty(p => p.Specialty, specialty)
                 .SetProperty(p => p.UpdatedAt, now));
 
+        await _db.ServiceIncomeRequests
+            .Where(r => r.ClinicId == clinicId && r.DoctorName != null && r.DoctorName.Trim().ToLower() == oldNorm)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.DoctorName, newName)
+                .SetProperty(r => r.Specialty, specialty)
+                .SetProperty(r => r.UpdatedAt, now));
+
         await _db.Appointments
             .Where(a => a.ClinicId == clinicId && a.DoctorName != null && a.DoctorName.Trim().ToLower() == oldNorm)
             .ExecuteUpdateAsync(s => s
@@ -242,6 +309,8 @@ public sealed class MasterDataPropagationService
 
         if (previous.ConsultationFee != current.ConsultationFee)
             await PropagateConsultationFeeAsync(clinicId, current);
+
+        await PropagateJournalPatientDoctorNamesAsync(clinicId, null, null, oldName, newName);
     }
 
     private async Task PropagateConsultationFeeAsync(Guid clinicId, Doctor doctor)
@@ -267,6 +336,13 @@ public sealed class MasterDataPropagationService
             invoice.TotalAmount = invoice.SubTotal - invoice.Discount + invoice.TaxAmount;
             invoice.BalanceDue = invoice.TotalAmount - invoice.AmountPaid;
             invoice.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
+        foreach (var invoice in invoices)
+        {
+            try { await _journalSync.SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList()); }
+            catch { }
         }
     }
 
@@ -423,6 +499,20 @@ public sealed class MasterDataPropagationService
             billIds.Add(line.PharmacyBillId);
         }
 
+        var prescriptionLines = await _db.PrescriptionLines
+            .Include(l => l.Prescription)
+            .Where(l => l.Prescription.ClinicId == clinicId &&
+                        (l.PharmacyItemId == current.Id ||
+                         l.MedicineName == previous.MedicineName ||
+                         l.MedicineName == current.MedicineName))
+            .ToListAsync();
+
+        foreach (var line in prescriptionLines.Where(l =>
+                     l.PharmacyItemId == current.Id || l.MedicineName == previous.MedicineName))
+            line.MedicineName = current.MedicineName;
+
+        await _db.SaveChangesAsync();
+
         await RecalcPharmacyRequestTotalsAsync(clinicId, requestIds);
         await RecalcPharmacyBillTotalsAsync(clinicId, billIds);
 
@@ -473,7 +563,203 @@ public sealed class MasterDataPropagationService
             invoiceIds.Add(line.InvoiceId);
         }
 
+        var requestIds = new HashSet<Guid>();
+        var requestLines = await _db.ServiceIncomeRequestLines
+            .Include(l => l.ServiceIncomeRequest)
+            .Where(l => l.ServiceIncomeRequest.ClinicId == clinicId &&
+                        (l.ServiceNo == previous.ServiceNo || l.ServiceNo == current.ServiceNo ||
+                         l.ServiceName == previous.Name))
+            .ToListAsync();
+
+        foreach (var line in requestLines)
+        {
+            line.ServiceNo = current.ServiceNo;
+            line.ServiceName = current.Name;
+            line.AccountName = current.AccountName;
+            line.Fee = current.Fee;
+            line.Total = line.Qty * line.Fee;
+            requestIds.Add(line.ServiceIncomeRequestId);
+        }
+
+        await RecalcServiceIncomeRequestTotalsAsync(clinicId, requestIds);
         await RecalcInvoiceTotalsAsync(clinicId, invoiceIds);
+
+        foreach (var requestId in requestIds)
+        {
+            var request = await _db.ServiceIncomeRequests.ForClinic(clinicId).Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+            if (request is null) continue;
+            var orderedLines = request.Lines.OrderBy(l => l.LineNo).ToList();
+            try
+            {
+                await _billing.SyncServiceIncomeRequestAsync(clinicId, request, orderedLines, request, orderedLines);
+            }
+            catch { }
+        }
+    }
+
+    public async Task PropagateChartAccountAsync(Guid clinicId, ChartAccount previous, ChartAccount current)
+    {
+        if (string.Equals(previous.Name, current.Name, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(previous.CategoryType, current.CategoryType, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var journalIds = await _db.JournalEntries.ForClinic(clinicId).Select(j => j.Id).ToListAsync();
+        if (journalIds.Count > 0)
+        {
+            var journalLines = await _db.JournalEntryLines
+                .Where(l => journalIds.Contains(l.JournalEntryId) && l.AccountName == previous.Name)
+                .ToListAsync();
+            foreach (var line in journalLines)
+            {
+                line.AccountName = current.Name;
+                line.AccountCategory = current.CategoryType;
+            }
+        }
+
+        var expenseLines = await _db.ExpenseVoucherLines
+            .Include(l => l.ExpenseVoucher)
+            .Where(l => l.ExpenseVoucher.ClinicId == clinicId && l.ChartAccountName == previous.Name)
+            .ToListAsync();
+        foreach (var line in expenseLines)
+            line.ChartAccountName = current.Name;
+
+        var clinicInvoiceIds = await _db.Invoices.ForClinic(clinicId).Select(i => i.Id).ToListAsync();
+        if (clinicInvoiceIds.Count > 0)
+        {
+            await _db.InvoiceLines
+                .Where(l => clinicInvoiceIds.Contains(l.InvoiceId) && l.AccountName == previous.Name)
+                .ExecuteUpdateAsync(s => s.SetProperty(l => l.AccountName, current.Name));
+        }
+
+        var clinicRequestIds = await _db.ServiceIncomeRequests.ForClinic(clinicId).Select(r => r.Id).ToListAsync();
+        if (clinicRequestIds.Count > 0)
+        {
+            await _db.ServiceIncomeRequestLines
+                .Where(l => clinicRequestIds.Contains(l.ServiceIncomeRequestId) && l.AccountName == previous.Name)
+                .ExecuteUpdateAsync(s => s.SetProperty(l => l.AccountName, current.Name));
+        }
+
+        await _db.ServiceIncomes
+            .ForClinic(clinicId)
+            .Where(s => s.AccountName == previous.Name)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.AccountName, current.Name));
+
+        var pharmacyItems = await _db.PharmacyItems
+            .ForClinic(clinicId)
+            .Where(p => p.IncomeAccountName == previous.Name || p.CostAccountName == previous.Name || p.InventoryAccountName == previous.Name)
+            .ToListAsync();
+        foreach (var item in pharmacyItems)
+        {
+            if (string.Equals(item.IncomeAccountName, previous.Name, StringComparison.OrdinalIgnoreCase))
+                item.IncomeAccountName = current.Name;
+            if (string.Equals(item.CostAccountName, previous.Name, StringComparison.OrdinalIgnoreCase))
+                item.CostAccountName = current.Name;
+            if (string.Equals(item.InventoryAccountName, previous.Name, StringComparison.OrdinalIgnoreCase))
+                item.InventoryAccountName = current.Name;
+        }
+
+        await _db.CashReceipts
+            .ForClinic(clinicId)
+            .Where(r => r.ChartAccountName == previous.Name)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.ChartAccountName, current.Name));
+
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task PropagateJournalPatientDoctorNamesAsync(
+        Guid clinicId,
+        string? oldPatientName,
+        string? newPatientName,
+        string? oldDoctorName,
+        string? newDoctorName)
+    {
+        var now = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(oldPatientName) && !string.IsNullOrWhiteSpace(newPatientName) &&
+            !string.Equals(oldPatientName, newPatientName, StringComparison.OrdinalIgnoreCase))
+        {
+            await _db.JournalEntries
+                .ForClinic(clinicId)
+                .Where(j => j.PatientName == oldPatientName)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(j => j.PatientName, newPatientName)
+                    .SetProperty(j => j.UpdatedAt, now));
+        }
+
+        if (!string.IsNullOrWhiteSpace(oldDoctorName) && !string.IsNullOrWhiteSpace(newDoctorName) &&
+            !string.Equals(oldDoctorName, newDoctorName, StringComparison.OrdinalIgnoreCase))
+        {
+            await _db.JournalEntries
+                .ForClinic(clinicId)
+                .Where(j => j.DoctorName == oldDoctorName)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(j => j.DoctorName, newDoctorName)
+                    .SetProperty(j => j.UpdatedAt, now));
+        }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(newPatientName) || !string.IsNullOrWhiteSpace(oldPatientName))
+            {
+                var patientFilter = newPatientName ?? oldPatientName!;
+                var invoices = await _db.Invoices
+                    .ForClinic(clinicId)
+                    .Include(i => i.Lines)
+                    .Where(i => i.PatientName == patientFilter || i.PatientName == oldPatientName)
+                    .ToListAsync();
+                foreach (var invoice in invoices)
+                {
+                    try { await _journalSync.SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList()); }
+                    catch { }
+                }
+
+                var receipts = await _db.CashReceipts
+                    .ForClinic(clinicId)
+                    .Where(r => r.PatientName == patientFilter || r.PatientName == oldPatientName)
+                    .ToListAsync();
+                foreach (var receipt in receipts)
+                {
+                    try { await _journalSync.SyncCashReceiptAsync(clinicId, receipt); }
+                    catch { }
+                }
+
+                var bills = await _db.PharmacyBills
+                    .ForClinic(clinicId)
+                    .Include(b => b.Lines)
+                    .Where(b => b.PatientName == patientFilter || b.PatientName == oldPatientName)
+                    .ToListAsync();
+                foreach (var bill in bills)
+                {
+                    try { await _journalSync.SyncPharmacyBillAsync(clinicId, bill, bill.Lines.ToList()); }
+                    catch { }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(newDoctorName) || !string.IsNullOrWhiteSpace(oldDoctorName))
+            {
+                var doctorFilter = newDoctorName ?? oldDoctorName!;
+                var invoices = await _db.Invoices
+                    .ForClinic(clinicId)
+                    .Include(i => i.Lines)
+                    .Where(i => i.DoctorName == doctorFilter || i.DoctorName == oldDoctorName)
+                    .ToListAsync();
+                foreach (var invoice in invoices)
+                {
+                    try { await _journalSync.SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList()); }
+                    catch { }
+                }
+
+                var receipts = await _db.CashReceipts
+                    .ForClinic(clinicId)
+                    .Where(r => r.DoctorName == doctorFilter || r.DoctorName == oldDoctorName)
+                    .ToListAsync();
+                foreach (var receipt in receipts)
+                {
+                    try { await _journalSync.SyncCashReceiptAsync(clinicId, receipt); }
+                    catch { }
+                }
+            }
+        }
+        catch { }
     }
 
     private async Task RecalcLabRequestTotalsAsync(Guid clinicId, HashSet<Guid> requestIds)
@@ -534,6 +820,20 @@ public sealed class MasterDataPropagationService
         await _db.SaveChangesAsync();
     }
 
+    private async Task RecalcServiceIncomeRequestTotalsAsync(Guid clinicId, HashSet<Guid> requestIds)
+    {
+        if (requestIds.Count == 0) return;
+        var requests = await _db.ServiceIncomeRequests.Include(r => r.Lines)
+            .Where(r => r.ClinicId == clinicId && requestIds.Contains(r.Id))
+            .ToListAsync();
+        foreach (var r in requests)
+        {
+            r.TotalAmount = r.Lines.Sum(l => l.Total);
+            r.UpdatedAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync();
+    }
+
     private async Task RecalcInvoiceTotalsAsync(Guid clinicId, HashSet<Guid> invoiceIds)
     {
         if (invoiceIds.Count == 0) return;
@@ -548,5 +848,11 @@ public sealed class MasterDataPropagationService
             i.UpdatedAt = DateTime.UtcNow;
         }
         await _db.SaveChangesAsync();
+
+        foreach (var invoice in invoices)
+        {
+            try { await _journalSync.SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList()); }
+            catch { }
+        }
     }
 }
