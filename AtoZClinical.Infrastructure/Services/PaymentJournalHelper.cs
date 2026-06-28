@@ -42,6 +42,10 @@ public static class PaymentJournalHelper
     public static bool IsVendorCreditPayment(string paymentMethod) =>
         MapPaymentMethod(paymentMethod) == "Credit";
 
+    /// <summary>Translatable in EF LINQ — use instead of IsVendorCreditPayment inside IQueryable.</summary>
+    public static bool IsCreditPaymentMethodForQuery(string paymentMethod) =>
+        paymentMethod == "Credit" || paymentMethod == "On Account";
+
     private static string? FindAccount(IReadOnlyList<ChartAccount> accounts, string category, string detailOrName)
     {
         var match = accounts.FirstOrDefault(a =>

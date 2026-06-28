@@ -489,12 +489,18 @@ public sealed class InvoiceService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly PatientVisitStatusService _visitStatus;
+    private readonly ClinicalJournalSyncService _journalSync;
 
-    public InvoiceService(ClinicalDbContext db, AuditService audit, PatientVisitStatusService visitStatus)
+    public InvoiceService(
+        ClinicalDbContext db,
+        AuditService audit,
+        PatientVisitStatusService visitStatus,
+        ClinicalJournalSyncService journalSync)
     {
         _db = db;
         _audit = audit;
         _visitStatus = visitStatus;
+        _journalSync = journalSync;
     }
 
     public Task<List<Invoice>> ListAsync(Guid clinicId) =>
@@ -561,6 +567,13 @@ public sealed class InvoiceService
         }
 
         try { await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName); }
+        catch { }
+
+        try
+        {
+            var savedLines = await _db.InvoiceLines.Where(l => l.InvoiceId == item.Id).ToListAsync();
+            await _journalSync.SyncInvoiceAsync(clinicId, item, savedLines);
+        }
         catch { }
 
         await _audit.LogAsync(clinicId, userName, "Invoice", isNew ? "Create" : "Update",
@@ -1134,6 +1147,7 @@ public sealed class PharmacyBillService
     private readonly InvoiceDeleteGuardService _invoiceGuard;
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
+    private readonly ClinicalJournalSyncService _journalSync;
 
     public PharmacyBillService(
         ClinicalDbContext db,
@@ -1141,7 +1155,8 @@ public sealed class PharmacyBillService
         PharmacyInventoryService inventory,
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
-        BillingPropagationService billing)
+        BillingPropagationService billing,
+        ClinicalJournalSyncService journalSync)
     {
         _db = db;
         _audit = audit;
@@ -1149,6 +1164,7 @@ public sealed class PharmacyBillService
         _invoiceGuard = invoiceGuard;
         _visitStatus = visitStatus;
         _billing = billing;
+        _journalSync = journalSync;
     }
 
     public Task<List<PharmacyBill>> ListAsync(Guid clinicId) =>
@@ -1246,6 +1262,9 @@ public sealed class PharmacyBillService
 
         await _inventory.SyncBillOutAsync(clinicId, item, validLines);
         await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName);
+
+        try { await _journalSync.SyncPharmacyBillAsync(clinicId, item, validLines); }
+        catch { }
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Bill", isNew ? "Create" : "Update",
             $"Bill #{item.BillNo} — {item.PatientName}, total {item.TotalAmount:N2}");

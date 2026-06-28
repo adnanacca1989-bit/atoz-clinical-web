@@ -407,6 +407,7 @@ public sealed class CashReceiptService
     private readonly PatientVisitStatusService _visitStatus;
     private readonly BillingPropagationService _billing;
     private readonly AuditService _audit;
+    private readonly ClinicalJournalSyncService _journalSync;
 
     public CashReceiptService(
         ClinicalDbContext db,
@@ -414,7 +415,8 @@ public sealed class CashReceiptService
         InvoiceDeleteGuardService invoiceGuard,
         PatientVisitStatusService visitStatus,
         BillingPropagationService billing,
-        AuditService audit)
+        AuditService audit,
+        ClinicalJournalSyncService journalSync)
     {
         _db = db;
         _invoices = invoices;
@@ -422,6 +424,7 @@ public sealed class CashReceiptService
         _visitStatus = visitStatus;
         _billing = billing;
         _audit = audit;
+        _journalSync = journalSync;
     }
 
     public Task<List<CashReceipt>> ListAsync(Guid clinicId) =>
@@ -495,6 +498,9 @@ public sealed class CashReceiptService
         {
             // Receipt row is already saved.
         }
+
+        try { await _journalSync.SyncCashReceiptAsync(clinicId, item); }
+        catch { }
 
         await _audit.LogAsync(clinicId, userName, "Cash Receipt", isNew ? "Create" : "Update",
             $"Receipt #{item.ReceiptNo} — {item.PatientName}");

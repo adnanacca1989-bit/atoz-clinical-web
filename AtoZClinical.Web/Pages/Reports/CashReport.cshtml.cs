@@ -1,4 +1,5 @@
 using AtoZClinical.Infrastructure.Data;
+using AtoZClinical.Infrastructure.Services;
 
 using AtoZClinical.Web.Services;
 
@@ -195,6 +196,46 @@ public class CashReportModel : PageModel
                 p.PaymentNo,
                 p.PaymentMethod)));
 
+        }
+
+        if (TransactionType is "All" or "Payment" or "Expense")
+        {
+            var chartAccounts = await _db.ChartAccounts.ForClinic(clinicId.Value).AsNoTracking().ToListAsync();
+            var expenses = await _db.ExpenseVouchers
+                .ForClinic(clinicId.Value)
+                .Where(v => v.ExpenseDate >= from && v.ExpenseDate <= to)
+                .OrderBy(v => v.ExpenseDate).ThenBy(v => v.ExpenseNo)
+                .ToListAsync();
+
+            foreach (var expense in expenses)
+            {
+                var creditAccount = ExpenseAccountingHelper.ResolveCreditAccountName(
+                    expense.PaymentMethod, chartAccounts, expense.CreditAccountName);
+                if (!string.Equals(creditAccount, "Cash", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(PatientName) &&
+                    expense.PayeeName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) != true)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(PaymentMethod) &&
+                    !string.Equals(PaymentMethod, "All", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(expense.PaymentMethod, PaymentMethod, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                rows.Add(new CashReportRow(
+                    "Expense",
+                    expense.ExpenseDate,
+                    expense.PayeeName ?? "",
+                    "",
+                    null,
+                    expense.ExpenseDate,
+                    0m,
+                    expense.TotalAmount,
+                    0m,
+                    expense.ExpenseNo,
+                    expense.PaymentMethod));
+            }
         }
 
 

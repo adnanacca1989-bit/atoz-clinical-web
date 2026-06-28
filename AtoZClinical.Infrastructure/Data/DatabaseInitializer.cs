@@ -36,6 +36,7 @@ public static class DatabaseInitializer
         await EnsurePrescriptionLinesSchemaAsync(db, logger);
         await EnsureExpenseJournalSchemaAsync(db, logger);
         await EnsureVendorPaymentSchemaAsync(db, logger);
+        await EnsureJournalEntryNamesSchemaAsync(db, logger);
         await EnsureMessagingSchemaAsync(db, logger);
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
@@ -673,6 +674,27 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Vendor payment schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureJournalEntryNamesSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE "JournalEntries" ADD COLUMN IF NOT EXISTS "PatientName" text NULL;
+                ALTER TABLE "JournalEntries" ADD COLUMN IF NOT EXISTS "DoctorName" text NULL;
+                """);
+
+            logger.LogInformation("Journal entry patient/doctor columns verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Journal entry name columns verification skipped.");
         }
     }
 

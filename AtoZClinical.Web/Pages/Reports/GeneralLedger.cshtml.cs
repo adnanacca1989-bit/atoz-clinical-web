@@ -31,6 +31,15 @@ public class GeneralLedgerModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string? AccountName { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string? PatientName { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? DoctorName { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string SortBy { get; set; } = "Date";
+
     public List<JournalReportService.GeneralLedgerRow> Results { get; private set; } = [];
     public List<ChartAccount> ChartAccounts { get; private set; } = [];
     public decimal TotalDebit { get; private set; }
@@ -47,7 +56,8 @@ public class GeneralLedgerModel : PageModel
         if (clinicId is null) return Forbid();
 
         ChartAccounts = await _chartService.ListAsync(clinicId.Value);
-        Results = await _journal.GetGeneralLedgerAsync(clinicId.Value, FromDate, ToDate, AccountName);
+        Results = await _journal.GetGeneralLedgerAsync(
+            clinicId.Value, FromDate, ToDate, AccountName, PatientName, DoctorName, SortBy);
         TotalDebit = Results.Sum(r => r.Debit);
         TotalCredit = Results.Sum(r => r.Credit);
         return Page();

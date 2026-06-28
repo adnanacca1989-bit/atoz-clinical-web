@@ -13,17 +13,23 @@ public class BalanceSheetModel : PageModel
     private readonly ClinicContextService _clinicContext;
     private readonly FinancialReportCalculator _financial;
     private readonly PharmacyInventoryService _inventory;
+    private readonly ClinicalJournalSyncService _journalSync;
+    private readonly JournalReportService _journal;
 
     public BalanceSheetModel(
         ClinicalDbContext db,
         ClinicContextService clinicContext,
         FinancialReportCalculator financial,
-        PharmacyInventoryService inventory)
+        PharmacyInventoryService inventory,
+        ClinicalJournalSyncService journalSync,
+        JournalReportService journal)
     {
         _db = db;
         _clinicContext = clinicContext;
         _financial = financial;
         _inventory = inventory;
+        _journalSync = journalSync;
+        _journal = journal;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -54,45 +60,85 @@ public class BalanceSheetModel : PageModel
             var id = clinicId.Value;
             var asOf = ToDate.Date;
 
-            var cashReceipts = await SumCashReceiptsAsync(id, asOf);
-            var cashPayments = await SumCashPaymentsAsync(id, asOf);
-            var vendorCreditPayments = await SumVendorCreditPaymentsAsync(id, asOf);
-            var cashExpenses = await SumExpenseVouchersAsync(id, asOf, "Cash");
-            var bankExpenses = await SumExpenseVouchersAsync(id, asOf, "Bank");
-            var creditExpenses = await SumExpenseVouchersAsync(id, asOf, "Credit");
-            var cashOnHand = cashReceipts - cashPayments - cashExpenses - bankExpenses;
+            await _journalSync.EnsureClinicalJournalsAsync(id);
 
-            var invoiceReceivable = await SumInvoiceReceivableAsync(id, asOf);
-            var pharmacyReceivable = await SumPharmacyBillReceivableAsync(id, asOf);
-            var accountsReceivable = invoiceReceivable + pharmacyReceivable;
+            var chartAccounts = await _db.ChartAccounts.ForClinic(id).AsNoTracking()
+                .OrderBy(a => a.AccountNo)
+                .ToListAsync();
+            var trialBalance = await _journal.GetTrialBalanceAsync(id, asOf);
+
+            var assetRows = new List<BsRow>();
+            var liabilityRows = new List<BsRow>();
+            var equityRows = new List<BsRow>();
+
+            foreach (var acct in chartAccounts)
+            {
+                var tbRow = trialBalance.FirstOrDefault(r =>
+                    string.Equals(r.AccountName, acct.Name, StringComparison.OrdinalIgnoreCase));
+                if (tbRow is null)
+                    continue;
+
+                var balance = tbRow.Balance;
+                switch (acct.CategoryType.ToLowerInvariant())
+                {
+                    case "asset":
+                        if (balance != 0)
+                            assetRows.Add(new BsRow(acct.Name, balance));
+                        break;
+                    case "liability":
+                        var liabilityAmount = -balance;
+                        if (liabilityAmount != 0)
+                            liabilityRows.Add(new BsRow(acct.Name, liabilityAmount));
+                        break;
+                    case "equity":
+                        var equityAmount = -balance;
+                        if (equityAmount != 0)
+                            equityRows.Add(new BsRow(acct.Name, equityAmount));
+                        break;
+                }
+            }
 
             var inventoryValue = await SumInventoryValueAsync(id);
-            var accountsPayable = await SumAccountsPayableAsync(id, asOf);
-            accountsPayable += creditExpenses + vendorCreditPayments;
+            if (inventoryValue != 0)
+            {
+                var inventoryName = chartAccounts.FirstOrDefault(a =>
+                    a.Name.Contains("Inventory", StringComparison.OrdinalIgnoreCase))?.Name ?? "Pharmacy Inventory";
+                var existing = assetRows.FindIndex(r =>
+                    r.Account.Contains("Inventory", StringComparison.OrdinalIgnoreCase));
+                if (existing >= 0)
+                    assetRows[existing] = assetRows[existing] with { Amount = assetRows[existing].Amount + inventoryValue };
+                else
+                    assetRows.Add(new BsRow(inventoryName, inventoryValue));
+            }
+
+            var purchaseAp = await SumAccountsPayableAsync(id, asOf);
+            if (purchaseAp > 0)
+            {
+                var apName = chartAccounts.FirstOrDefault(a =>
+                    string.Equals(a.Name, "Account Payable", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(a.Name, "Accounts Payable", StringComparison.OrdinalIgnoreCase))?.Name
+                    ?? "Accounts Payable";
+                var existing = liabilityRows.FindIndex(r =>
+                    string.Equals(r.Account, apName, StringComparison.OrdinalIgnoreCase));
+                if (existing >= 0)
+                    liabilityRows[existing] = liabilityRows[existing] with { Amount = liabilityRows[existing].Amount + purchaseAp };
+                else
+                    liabilityRows.Add(new BsRow(apName, purchaseAp));
+            }
+
             var patientCredit = await _financial.ComputePatientCreditLiabilityAsync(id, asOf);
-
-            var assetRows = new List<BsRow>
-            {
-                new("Cash", cashOnHand),
-                new("Accounts Receivable — Invoices", invoiceReceivable),
-                new("Accounts Receivable — Pharmacy Bills", pharmacyReceivable),
-                new("Pharmacy Inventory", inventoryValue)
-            };
-            Assets = assetRows.Where(r => r.Amount != 0).ToList();
-
-            var liabilityRows = new List<BsRow>
-            {
-                new("Accounts Payable", accountsPayable),
-                new("Patient Credit (overpayments)", patientCredit)
-            };
-            Liabilities = liabilityRows.Where(r => r.Amount != 0).ToList();
-
-            TotalAssets = cashOnHand + accountsReceivable + inventoryValue;
-            TotalLiabilities = Liabilities.Sum(r => r.Amount);
+            if (patientCredit > 0)
+                liabilityRows.Add(new BsRow("Patient Credit (overpayments)", patientCredit));
 
             var retainedEarnings = await _financial.ComputeNetIncomeAsync(id, FromDate, ToDate);
-            Equity = [new BsRow("Retained Earnings", retainedEarnings)];
-            TotalEquity = retainedEarnings;
+            equityRows.Add(new BsRow("Retained Earnings (period)", retainedEarnings));
+
+            Assets = assetRows;
+            Liabilities = liabilityRows;
+            Equity = equityRows;
+            TotalAssets = Assets.Sum(r => r.Amount);
+            TotalLiabilities = Liabilities.Sum(r => r.Amount);
+            TotalEquity = Equity.Sum(r => r.Amount);
             ErrorMessage = null;
         }
         catch (Exception ex)
@@ -105,48 +151,6 @@ public class BalanceSheetModel : PageModel
         }
 
         return Page();
-    }
-
-    private async Task<decimal> SumCashReceiptsAsync(Guid clinicId, DateTime asOf) =>
-        await _db.CashReceipts.ForClinic(clinicId)
-            .Where(c => c.ReceiptDate.Date <= asOf)
-            .SumAsync(c => (decimal?)c.Amount) ?? 0m;
-
-    private async Task<decimal> SumCashPaymentsAsync(Guid clinicId, DateTime asOf) =>
-        await _db.CashPayments.ForClinic(clinicId)
-            .Where(c => c.PaymentDate.Date <= asOf &&
-                        (c.VendorId == null || !PaymentJournalHelper.IsVendorCreditPayment(c.PaymentMethod)))
-            .SumAsync(c => (decimal?)c.Amount) ?? 0m;
-
-    private async Task<decimal> SumVendorCreditPaymentsAsync(Guid clinicId, DateTime asOf) =>
-        await _db.CashPayments.ForClinic(clinicId)
-            .Where(c => c.VendorId != null &&
-                        c.PaymentDate.Date <= asOf &&
-                        PaymentJournalHelper.IsVendorCreditPayment(c.PaymentMethod))
-            .SumAsync(c => (decimal?)c.Amount) ?? 0m;
-
-    private async Task<decimal> SumExpenseVouchersAsync(Guid clinicId, DateTime asOf, string paymentMethod) =>
-        await _db.ExpenseVouchers.ForClinic(clinicId)
-            .Where(e => e.ExpenseDate.Date <= asOf && e.PaymentMethod == paymentMethod)
-            .SumAsync(e => (decimal?)e.TotalAmount) ?? 0m;
-
-    private async Task<decimal> SumInvoiceReceivableAsync(Guid clinicId, DateTime asOf) =>
-        await _db.Invoices.ForClinic(clinicId)
-            .Where(i => i.InvoiceDate.Date <= asOf && i.BalanceDue > 0)
-            .SumAsync(i => (decimal?)i.BalanceDue) ?? 0m;
-
-    private async Task<decimal> SumPharmacyBillReceivableAsync(Guid clinicId, DateTime asOf)
-    {
-        try
-        {
-            return await _db.PharmacyBills.ForClinic(clinicId)
-                .Where(b => b.BillDate.Date <= asOf && b.BalanceDue > 0)
-                .SumAsync(b => (decimal?)b.BalanceDue) ?? 0m;
-        }
-        catch
-        {
-            return 0m;
-        }
     }
 
     private async Task<decimal> SumInventoryValueAsync(Guid clinicId)

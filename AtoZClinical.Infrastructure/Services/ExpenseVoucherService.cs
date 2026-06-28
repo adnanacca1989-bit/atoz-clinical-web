@@ -174,6 +174,7 @@ public sealed class ExpenseVoucherService
             _db.JournalEntryLines.RemoveRange(oldLines);
             entry.EntryDate = voucher.ExpenseDate;
             entry.Description = memo;
+            entry.PatientName = voucher.PayeeName;
             entry.UpdatedAt = DateTime.UtcNow;
         }
         else
@@ -187,6 +188,7 @@ public sealed class ExpenseVoucherService
                 SourceType = ExpenseAccountingHelper.ExpenseVoucherSource,
                 SourceId = voucher.Id,
                 Description = memo,
+                PatientName = voucher.PayeeName,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -233,11 +235,25 @@ public sealed class ExpenseVoucherService
 public sealed class JournalReportService
 {
     private readonly ClinicalDbContext _db;
+    private readonly ClinicalJournalSyncService _journalSync;
 
-    public JournalReportService(ClinicalDbContext db) => _db = db;
-
-    public async Task<List<GeneralLedgerRow>> GetGeneralLedgerAsync(Guid clinicId, DateTime from, DateTime to, string? accountName = null)
+    public JournalReportService(ClinicalDbContext db, ClinicalJournalSyncService journalSync)
     {
+        _db = db;
+        _journalSync = journalSync;
+    }
+
+    public async Task<List<GeneralLedgerRow>> GetGeneralLedgerAsync(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? accountName = null,
+        string? patientName = null,
+        string? doctorName = null,
+        string sortBy = "Date")
+    {
+        await _journalSync.EnsureClinicalJournalsAsync(clinicId);
+
         var fromDate = from.Date;
         var toDate = to.Date;
 
@@ -270,9 +286,30 @@ public sealed class JournalReportService
                     line.Description ?? entry.Description,
                     line.Debit,
                     line.Credit,
-                    0));
+                    0,
+                    entry.PatientName,
+                    entry.DoctorName));
             }
         }
+
+        if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var filter = patientName.Trim();
+            rows = rows.Where(r => r.PatientName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(doctorName))
+        {
+            var filter = doctorName.Trim();
+            rows = rows.Where(r => r.DoctorName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true).ToList();
+        }
+
+        rows = sortBy.Trim().ToLowerInvariant() switch
+        {
+            "doctor" => rows.OrderBy(r => r.DoctorName).ThenBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList(),
+            "patient" => rows.OrderBy(r => r.PatientName).ThenBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList(),
+            _ => rows.OrderBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList()
+        };
 
         if (!string.IsNullOrWhiteSpace(accountName))
         {
@@ -289,6 +326,8 @@ public sealed class JournalReportService
 
     public async Task<List<TrialBalanceRow>> GetTrialBalanceAsync(Guid clinicId, DateTime asOf)
     {
+        await _journalSync.EnsureClinicalJournalsAsync(clinicId);
+
         var asOfDate = asOf.Date;
         var chartAccounts = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking()
             .OrderBy(a => a.AccountNo)
@@ -347,7 +386,9 @@ public sealed class JournalReportService
         string? Description,
         decimal Debit,
         decimal Credit,
-        decimal RunningBalance);
+        decimal RunningBalance,
+        string? PatientName,
+        string? DoctorName);
 
     public sealed record TrialBalanceRow(
         int AccountNo,
