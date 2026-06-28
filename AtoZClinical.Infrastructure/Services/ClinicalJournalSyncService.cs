@@ -1,6 +1,7 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
@@ -53,26 +54,73 @@ public static class RevenueAccountingHelper
 public sealed class ClinicalJournalSyncService
 {
     private readonly ClinicalDbContext _db;
+    private readonly ILogger<ClinicalJournalSyncService> _logger;
+    private int? _batchNextEntryNo;
 
-    public ClinicalJournalSyncService(ClinicalDbContext db) => _db = db;
+    public ClinicalJournalSyncService(ClinicalDbContext db, ILogger<ClinicalJournalSyncService> logger)
+    {
+        _db = db;
+        _logger = logger;
+    }
 
     public async Task EnsureClinicalJournalsAsync(Guid clinicId)
     {
-        var chartAccounts = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        try
+        {
+            _batchNextEntryNo = (await _db.JournalEntries.ForClinic(clinicId).MaxAsync(j => (int?)j.EntryNo) ?? 0) + 1;
 
-        var invoices = await _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).ToListAsync();
-        foreach (var invoice in invoices)
-            await SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList(), chartAccounts, saveChanges: false);
+            var chartAccounts = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
 
-        var receipts = await _db.CashReceipts.ForClinic(clinicId).ToListAsync();
-        foreach (var receipt in receipts)
-            await SyncCashReceiptAsync(clinicId, receipt, chartAccounts, saveChanges: false);
+            var invoices = await _db.Invoices.Include(i => i.Lines).ForClinic(clinicId).ToListAsync();
+            foreach (var invoice in invoices)
+            {
+                try
+                {
+                    await SyncInvoiceAsync(clinicId, invoice, invoice.Lines.ToList(), chartAccounts, saveChanges: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped invoice journal sync #{InvoiceNo}", invoice.InvoiceNo);
+                }
+            }
 
-        var bills = await _db.PharmacyBills.Include(b => b.Lines).ForClinic(clinicId).ToListAsync();
-        foreach (var bill in bills)
-            await SyncPharmacyBillAsync(clinicId, bill, bill.Lines.ToList(), chartAccounts, saveChanges: false);
+            var receipts = await _db.CashReceipts.ForClinic(clinicId).ToListAsync();
+            foreach (var receipt in receipts)
+            {
+                try
+                {
+                    await SyncCashReceiptAsync(clinicId, receipt, chartAccounts, saveChanges: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped cash receipt journal sync #{ReceiptNo}", receipt.ReceiptNo);
+                }
+            }
 
-        await _db.SaveChangesAsync();
+            var bills = await _db.PharmacyBills.Include(b => b.Lines).ForClinic(clinicId).ToListAsync();
+            foreach (var bill in bills)
+            {
+                try
+                {
+                    await SyncPharmacyBillAsync(clinicId, bill, bill.Lines.ToList(), chartAccounts, saveChanges: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped pharmacy bill journal sync #{BillNo}", bill.BillNo);
+                }
+            }
+
+            await _db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Clinical journal batch sync failed for clinic {ClinicId}", clinicId);
+            _db.ChangeTracker.Clear();
+        }
+        finally
+        {
+            _batchNextEntryNo = null;
+        }
     }
 
     public Task SyncInvoiceAsync(Guid clinicId, Invoice invoice, List<InvoiceLine> lines) =>
@@ -98,15 +146,6 @@ public sealed class ClinicalJournalSyncService
         if (await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.Invoice, invoice.Id, invoice.UpdatedAt))
             return;
 
-        var entry = await GetOrResetEntryAsync(
-            clinicId,
-            ClinicalJournalSources.Invoice,
-            invoice.Id,
-            invoice.InvoiceDate,
-            $"Invoice #{invoice.InvoiceNo} — {invoice.PatientName}",
-            invoice.PatientName,
-            invoice.DoctorName);
-
         var arAccount = RevenueAccountingHelper.ResolveAssetAccount(chartAccounts, "Accounts Receivable", "Accounts Receivable");
         var incomeCredits = lines
             .Where(l => l.LineTotal > 0)
@@ -118,6 +157,15 @@ public sealed class ClinicalJournalSyncService
         var totalCredit = incomeCredits.Sum(x => x.Amount);
         if (totalCredit <= 0)
             return;
+
+        var entry = await GetOrResetEntryAsync(
+            clinicId,
+            ClinicalJournalSources.Invoice,
+            invoice.Id,
+            invoice.InvoiceDate,
+            $"Invoice #{invoice.InvoiceNo} — {invoice.PatientName}",
+            invoice.PatientName,
+            invoice.DoctorName);
 
         var journalLines = new List<JournalEntryLine>();
         var lineNo = 1;
@@ -246,7 +294,7 @@ public sealed class ClinicalJournalSyncService
             {
                 Id = Guid.NewGuid(),
                 ClinicId = clinicId,
-                EntryNo = (await _db.JournalEntries.ForClinic(clinicId).MaxAsync(j => (int?)j.EntryNo) ?? 0) + 1,
+                EntryNo = await AllocateEntryNoAsync(clinicId),
                 EntryDate = entryDate,
                 SourceType = sourceType,
                 SourceId = sourceId,
@@ -270,6 +318,17 @@ public sealed class ClinicalJournalSyncService
         }
 
         return entry;
+    }
+
+    private async Task<int> AllocateEntryNoAsync(Guid clinicId)
+    {
+        if (_batchNextEntryNo is int next)
+        {
+            _batchNextEntryNo = next + 1;
+            return next;
+        }
+
+        return (await _db.JournalEntries.ForClinic(clinicId).MaxAsync(j => (int?)j.EntryNo) ?? 0) + 1;
     }
 
     private void AddLines(IReadOnlyList<JournalEntryLine> lines)
