@@ -75,6 +75,7 @@ public class UsersModel : SettingsFormPageModel
         if (user is null) return;
         UserRecordId = user.Id;
         Input = UserInput.FromEntity(user);
+        await SyncDoctorFullNameAsync(clinicId);
     }
 
     private async Task PrepareNew(Guid clinicId)
@@ -97,18 +98,28 @@ public class UsersModel : SettingsFormPageModel
 
         if (IsNewUser)
         {
-            if (string.IsNullOrWhiteSpace(Input.Username) || string.IsNullOrWhiteSpace(Input.FullName))
+            if (string.IsNullOrWhiteSpace(Input.Username))
             {
-                ModelState.AddModelError(string.Empty, "Username and Full Name are required.");
+                ModelState.AddModelError(string.Empty, "Username is required.");
                 await LoadAsync(clinicId.Value);
                 return Page();
             }
-            if (Input.Role == ClinicUserRole.Doctor && Input.DoctorRecordId is null)
+
+            var newUserDoctorError = await ValidateDoctorUserAsync(clinicId.Value, Input);
+            if (newUserDoctorError is not null)
             {
-                ModelState.AddModelError(string.Empty, "Select the doctor name and specialty for a Doctor user.");
+                ModelState.AddModelError(string.Empty, newUserDoctorError);
                 await LoadAsync(clinicId.Value);
                 return Page();
             }
+
+            if (string.IsNullOrWhiteSpace(Input.FullName))
+            {
+                ModelState.AddModelError(string.Empty, "Full Name is required.");
+                await LoadAsync(clinicId.Value);
+                return Page();
+            }
+
             try
             {
                 var (_, _) = await _vendor.CreateClinicUserAsync(new CreateClinicUserRequest
@@ -137,13 +148,24 @@ public class UsersModel : SettingsFormPageModel
 
         var user = await _users.FindByIdAsync(UserRecordId!);
         if (user is null || user.ClinicId != clinicId) return RedirectToPage();
-        if (Input.Role == ClinicUserRole.Doctor && Input.DoctorRecordId is null)
+
+        var doctorError = await ValidateDoctorUserAsync(clinicId.Value, Input, user.Id);
+        if (doctorError is not null)
         {
-            ModelState.AddModelError(string.Empty, "Select the doctor name and specialty for a Doctor user.");
+            ModelState.AddModelError(string.Empty, doctorError);
             await LoadAsync(clinicId.Value);
             await LoadRecord(clinicId.Value, UserRecordId!);
             return Page();
         }
+
+        if (string.IsNullOrWhiteSpace(Input.FullName))
+        {
+            ModelState.AddModelError(string.Empty, "Full Name is required.");
+            await LoadAsync(clinicId.Value);
+            await LoadRecord(clinicId.Value, UserRecordId!);
+            return Page();
+        }
+
         user.FullName = Input.FullName.Trim();
         user.Email = Input.Email?.Trim();
         user.ClinicRole = Input.Role;
@@ -187,6 +209,44 @@ public class UsersModel : SettingsFormPageModel
         if (idx < 0) idx = 0;
         idx = Math.Clamp(idx + delta, 0, Records.Count - 1);
         return RedirectToPage(new { UserRecordId = Records[idx].Id, Search });
+    }
+
+    private async Task SyncDoctorFullNameAsync(Guid clinicId)
+    {
+        if (Input.Role != ClinicUserRole.Doctor || Input.DoctorRecordId is not Guid doctorId)
+            return;
+
+        var doctor = DoctorOptions.FirstOrDefault(d => d.Id == doctorId)
+            ?? await _doctors.GetAsync(clinicId, doctorId);
+        if (doctor is not null)
+            Input.FullName = doctor.Name;
+    }
+
+    private async Task<string?> ValidateDoctorUserAsync(Guid clinicId, UserInput input, string? excludeUserId = null)
+    {
+        if (input.Role != ClinicUserRole.Doctor)
+        {
+            input.DoctorRecordId = null;
+            return null;
+        }
+
+        if (input.DoctorRecordId is null)
+            return "Click Full Name and select a doctor for a Doctor user.";
+
+        var doctor = DoctorOptions.FirstOrDefault(d => d.Id == input.DoctorRecordId)
+            ?? await _doctors.GetAsync(clinicId, input.DoctorRecordId.Value);
+        if (doctor is null)
+            return "Selected doctor was not found. Please select again.";
+
+        var alreadyLinked = await _users.Users.AnyAsync(u =>
+            u.ClinicId == clinicId &&
+            u.DoctorRecordId == input.DoctorRecordId &&
+            u.Id != excludeUserId);
+        if (alreadyLinked)
+            return $"Doctor \"{doctor.Name}\" is already linked to another user account.";
+
+        input.FullName = doctor.Name;
+        return null;
     }
 
     public sealed class UserInput
