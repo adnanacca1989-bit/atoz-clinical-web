@@ -7,21 +7,26 @@ public static class SmtpConfigurationBootstrap
 {
     public static void Apply(ConfigurationManager configuration)
     {
-        static void SetIfPresent(ConfigurationManager config, string envName, string configKey)
+        static void SetIfPresent(ConfigurationManager config, string configKey, params string[] envNames)
         {
-            var value = Environment.GetEnvironmentVariable(envName);
-            if (!string.IsNullOrWhiteSpace(value))
-                config[configKey] = value.Trim();
+            foreach (var envName in envNames)
+            {
+                var value = Environment.GetEnvironmentVariable(envName);
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    config[configKey] = value.Trim();
+                    return;
+                }
+            }
         }
 
-        SetIfPresent(configuration, "SMTP_HOST", "Email:SmtpHost");
-        SetIfPresent(configuration, "SMTP_PORT", "Email:SmtpPort");
-        SetIfPresent(configuration, "SMTP_USER", "Email:SmtpUser");
-        SetIfPresent(configuration, "SMTP_PASS", "Email:SmtpPassword");
-        SetIfPresent(configuration, "SMTP_PASSWORD", "Email:SmtpPassword");
-        SetIfPresent(configuration, "FROM_EMAIL", "Email:FromAddress");
-        SetIfPresent(configuration, "FROM_NAME", "Email:FromName");
-        SetIfPresent(configuration, "SMTP_USE_SSL", "Email:UseSsl");
+        SetIfPresent(configuration, "Email:SmtpHost", "SMTP_HOST", "Email__SmtpHost");
+        SetIfPresent(configuration, "Email:SmtpPort", "SMTP_PORT", "Email__SmtpPort");
+        SetIfPresent(configuration, "Email:SmtpUser", "SMTP_USER", "Email__SmtpUser");
+        SetIfPresent(configuration, "Email:SmtpPassword", "SMTP_PASS", "SMTP_PASSWORD", "Email__SmtpPassword");
+        SetIfPresent(configuration, "Email:FromAddress", "FROM_EMAIL", "Email__FromAddress");
+        SetIfPresent(configuration, "Email:FromName", "FROM_NAME", "Email__FromName");
+        SetIfPresent(configuration, "Email:UseSsl", "SMTP_USE_SSL", "Email__UseSsl");
 
         var host = configuration["Email:SmtpHost"];
         var user = configuration["Email:SmtpUser"];

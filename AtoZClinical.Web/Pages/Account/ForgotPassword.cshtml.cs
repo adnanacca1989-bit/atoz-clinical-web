@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AtoZClinical.Web.Pages.Account;
@@ -11,17 +12,20 @@ public class ForgotPasswordModel : PageModel
     private readonly PasswordResetService _reset;
     private readonly IClinicalEmailSender _email;
     private readonly ClinicalAppUrls _urls;
+    private readonly IConfiguration _config;
     private readonly ILogger<ForgotPasswordModel> _logger;
 
     public ForgotPasswordModel(
         PasswordResetService reset,
         IClinicalEmailSender email,
         ClinicalAppUrls urls,
+        IConfiguration config,
         ILogger<ForgotPasswordModel> logger)
     {
         _reset = reset;
         _email = email;
         _urls = urls;
+        _config = config;
         _logger = logger;
     }
 
@@ -40,9 +44,9 @@ public class ForgotPasswordModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
-        if (!SmtpEmailConfiguration.IsEmailConfigured())
+        if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
         {
-            var missing = SmtpEmailConfiguration.GetMissingVariables();
+            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
             _logger.LogError(
                 "Password reset requested but SMTP not configured. Missing: {Missing}",
                 string.Join(", ", missing));

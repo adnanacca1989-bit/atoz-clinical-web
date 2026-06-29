@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
 
 namespace AtoZClinical.Web.Pages.Account;
 
@@ -14,15 +15,18 @@ public class ResendConfirmationModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _users;
     private readonly RegistrationEmailService _registrationEmail;
+    private readonly IConfiguration _config;
     private readonly ILogger<ResendConfirmationModel> _logger;
 
     public ResendConfirmationModel(
         UserManager<ApplicationUser> users,
         RegistrationEmailService registrationEmail,
+        IConfiguration config,
         ILogger<ResendConfirmationModel> logger)
     {
         _users = users;
         _registrationEmail = registrationEmail;
+        _config = config;
         _logger = logger;
     }
 
@@ -45,9 +49,9 @@ public class ResendConfirmationModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
-        if (!SmtpEmailConfiguration.IsEmailConfigured())
+        if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
         {
-            var missing = SmtpEmailConfiguration.GetMissingVariables();
+            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
             _logger.LogError(
                 "Resend confirmation requested but SMTP not configured. Missing: {Missing}",
                 string.Join(", ", missing));

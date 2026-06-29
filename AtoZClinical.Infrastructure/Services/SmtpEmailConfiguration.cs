@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
-/// <summary>SMTP detection from Render environment variables (primary) and appsettings (fallback).</summary>
+/// <summary>SMTP detection: Render environment variables first, then IConfiguration fallback.</summary>
 public static class SmtpEmailConfiguration
 {
     public const string NotConfiguredUserMessage = "Email is not configured on the server.";
@@ -20,24 +20,47 @@ public static class SmtpEmailConfiguration
     public static bool IsEmailConfigured(IConfiguration? config = null) =>
         GetMissingVariables(config).Count == 0;
 
+    public static IReadOnlyDictionary<string, bool> GetVariablePresence(IConfiguration? config = null)
+    {
+        return new Dictionary<string, bool>
+        {
+            ["SMTP_HOST"] = HasValue(ReadHost(config)),
+            ["SMTP_PORT"] = HasValidPort(config),
+            ["SMTP_USER"] = HasValue(ReadUser(config)),
+            ["SMTP_PASS"] = HasValue(ReadPassword(config)),
+            ["FROM_EMAIL"] = HasValue(ReadFromEmail(config))
+        };
+    }
+
     public static IReadOnlyList<string> GetMissingVariables(IConfiguration? config = null)
     {
         var missing = new List<string>();
-        if (string.IsNullOrWhiteSpace(ReadHost(config))) missing.Add("SMTP_HOST");
-        if (string.IsNullOrWhiteSpace(ReadPortRaw(config))) missing.Add("SMTP_PORT");
-        if (string.IsNullOrWhiteSpace(ReadUser(config))) missing.Add("SMTP_USER");
-        if (string.IsNullOrWhiteSpace(ReadPassword(config))) missing.Add("SMTP_PASS");
-        if (string.IsNullOrWhiteSpace(ReadFromEmail(config))) missing.Add("FROM_EMAIL");
+        if (!HasValue(ReadHost(config))) missing.Add("SMTP_HOST");
+        if (!HasValidPort(config)) missing.Add("SMTP_PORT");
+        if (!HasValue(ReadUser(config))) missing.Add("SMTP_USER");
+        if (!HasValue(ReadPassword(config))) missing.Add("SMTP_PASS");
+        if (!HasValue(ReadFromEmail(config))) missing.Add("FROM_EMAIL");
         return missing;
     }
 
-    public static void LogDiagnostics(ILogger logger, IConfiguration config)
+    /// <summary>Logs raw process environment variable presence (values are never logged).</summary>
+    public static void LogEnvironmentPresence(ILogger logger)
     {
-        LogVariable(logger, "SMTP_HOST", ReadHost(config));
-        LogVariable(logger, "SMTP_PORT", ReadPortRaw(config));
-        LogVariable(logger, "SMTP_USER", ReadUser(config));
-        LogVariable(logger, "SMTP_PASS", ReadPassword(config));
-        LogVariable(logger, "FROM_EMAIL", ReadFromEmail(config));
+        LogRawEnv(logger, "SMTP_HOST");
+        LogRawEnv(logger, "SMTP_PORT");
+        LogRawEnv(logger, "SMTP_USER");
+        LogRawEnv(logger, "SMTP_PASS");
+        LogRawEnv(logger, "FROM_EMAIL");
+    }
+
+    public static void LogDiagnostics(ILogger logger, IConfiguration? config = null)
+    {
+        var presence = GetVariablePresence(config);
+        logger.LogInformation("SMTP_HOST exists: {Exists}", presence["SMTP_HOST"]);
+        logger.LogInformation("SMTP_PORT exists: {Exists}", presence["SMTP_PORT"]);
+        logger.LogInformation("SMTP_USER exists: {Exists}", presence["SMTP_USER"]);
+        logger.LogInformation("SMTP_PASS exists: {Exists}", presence["SMTP_PASS"]);
+        logger.LogInformation("FROM_EMAIL exists: {Exists}", presence["FROM_EMAIL"]);
 
         if (IsEmailConfigured(config))
         {
@@ -55,75 +78,99 @@ public static class SmtpEmailConfiguration
         }
     }
 
-    private static void LogVariable(ILogger logger, string name, string? resolvedValue)
+    private static void LogRawEnv(ILogger logger, string name)
     {
-        var fromEnv = Environment.GetEnvironmentVariable(name);
-        var status = !string.IsNullOrWhiteSpace(fromEnv) ? "loaded (env)"
-            : !string.IsNullOrWhiteSpace(resolvedValue) ? "loaded (config)"
-            : "missing";
-        logger.LogInformation("SMTP variable {Name}: {Status}", name, status);
+        var exists = HasValue(Environment.GetEnvironmentVariable(name));
+        logger.LogInformation("{Name} exists: {Exists}", name, exists);
+    }
+
+    private static bool HasValue(string? value) => !string.IsNullOrWhiteSpace(value);
+
+    private static bool HasValidPort(IConfiguration? config)
+    {
+        var raw = ReadPortRaw(config);
+        return HasValue(raw)
+            && int.TryParse(raw!.Trim(), out var port)
+            && port is > 0 and <= 65535;
     }
 
     internal static string? ReadHost(IConfiguration? config) =>
-        Read("SMTP_HOST", config, "Email:SmtpHost", "SMTP_HOST");
+        ReadEnvFirst("SMTP_HOST", "Email__SmtpHost")
+        ?? ReadConfig(config, "Email:SmtpHost");
 
     internal static string? ReadPortRaw(IConfiguration? config) =>
-        Read("SMTP_PORT", config, "Email:SmtpPort", "SMTP_PORT");
+        ReadEnvFirst("SMTP_PORT", "Email__SmtpPort")
+        ?? ReadConfig(config, "Email:SmtpPort");
 
-    internal static int ReadPort(IConfiguration? config) =>
-        int.TryParse(ReadPortRaw(config), out var port) ? port : 587;
+    internal static int ReadPort(IConfiguration? config)
+    {
+        var raw = ReadPortRaw(config);
+        return HasValue(raw) && int.TryParse(raw!.Trim(), out var port) ? port : 587;
+    }
 
     internal static string? ReadUser(IConfiguration? config) =>
-        Read("SMTP_USER", config, "Email:SmtpUser", "SMTP_USER");
+        ReadEnvFirst("SMTP_USER", "Email__SmtpUser")
+        ?? ReadConfig(config, "Email:SmtpUser");
 
     internal static string? ReadPassword(IConfiguration? config) =>
-        Read("SMTP_PASS", config, "Email:SmtpPassword", "SMTP_PASS", "SMTP_PASSWORD");
+        ReadEnvFirst("SMTP_PASS", "SMTP_PASSWORD", "Email__SmtpPassword")
+        ?? ReadConfig(config, "Email:SmtpPassword");
+
+    internal static string? ReadExplicitFromEmail(IConfiguration? config) =>
+        ReadEnvFirst("FROM_EMAIL", "Email__FromAddress")
+        ?? ReadConfig(config, "Email:FromAddress");
 
     internal static string? ReadFromEmail(IConfiguration? config)
     {
-        var from = Read("FROM_EMAIL", config, "Email:FromAddress", "FROM_EMAIL");
-        if (!string.IsNullOrWhiteSpace(from))
+        var from = ReadEnvFirst("FROM_EMAIL", "Email__FromAddress")
+            ?? ReadConfig(config, "Email:FromAddress");
+        if (HasValue(from))
             return from;
 
         var user = ReadUser(config);
         var host = ReadHost(config);
-        if (!string.IsNullOrWhiteSpace(user) && SmtpEmailDiagnostics.IsGmailHost(host))
+        if (HasValue(user) && SmtpEmailDiagnostics.IsGmailHost(host))
             return user;
 
         return from;
     }
 
     internal static string? ReadFromName(IConfiguration? config) =>
-        Read("FROM_NAME", config, "Email:FromName", "FROM_NAME") ?? "A to Z Clinical";
+        ReadEnvFirst("FROM_NAME", "Email__FromName")
+        ?? ReadConfig(config, "Email:FromName")
+        ?? "A to Z Clinical";
 
     internal static bool ReadUseSsl(IConfiguration? config)
     {
-        var raw = Read("SMTP_USE_SSL", config, "Email:UseSsl", "SMTP_USE_SSL");
-        if (!string.IsNullOrWhiteSpace(raw) && bool.TryParse(raw, out var ssl))
+        var raw = ReadEnvFirst("SMTP_USE_SSL", "Email__UseSsl")
+            ?? ReadConfig(config, "Email:UseSsl");
+        if (HasValue(raw) && bool.TryParse(raw!.Trim(), out var ssl))
             return ssl;
         return ReadPort(config) is 465 or 587;
     }
 
-    internal static string? Read(string envName, IConfiguration? config, params string[] configKeys)
+    private static string? ReadEnvFirst(params string[] envNames)
     {
-        var env = Environment.GetEnvironmentVariable(envName);
-        if (!string.IsNullOrWhiteSpace(env))
-            return env.Trim();
+        foreach (var name in envNames)
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            if (HasValue(value))
+                return value!.Trim();
+        }
 
-        return ReadConfigFallback(envName, config, configKeys);
+        return null;
     }
 
-    private static string? ReadConfigFallback(string envName, IConfiguration? config, params string[] configKeys)
+    private static string? ReadConfig(IConfiguration? config, params string[] keys)
     {
         if (config is null)
             return null;
 
-        var keys = configKeys.Length > 0 ? configKeys : [envName];
         foreach (var key in keys)
         {
             var value = config[key];
-            if (!string.IsNullOrWhiteSpace(value))
-                return value.Trim();
+            if (HasValue(value))
+                return value!.Trim();
         }
 
         return null;

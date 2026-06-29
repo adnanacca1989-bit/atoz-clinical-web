@@ -52,7 +52,7 @@ public sealed class SmtpEmailSettings
         var fromAddress = SmtpEmailConfiguration.ReadFromEmail(config);
 
         string? warning = null;
-        var configuredFrom = SmtpEmailConfiguration.Read("FROM_EMAIL", config, "Email:FromAddress", "FROM_EMAIL");
+        var configuredFrom = SmtpEmailConfiguration.ReadExplicitFromEmail(config);
         if (SmtpEmailDiagnostics.IsGmailHost(host)
             && !string.IsNullOrWhiteSpace(user)
             && !string.IsNullOrWhiteSpace(configuredFrom)

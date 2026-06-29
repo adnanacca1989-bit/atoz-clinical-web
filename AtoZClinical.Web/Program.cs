@@ -28,6 +28,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 SmtpConfigurationBootstrap.Apply(builder.Configuration);
 
+{
+    using var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
+    SmtpEmailConfiguration.LogEnvironmentPresence(loggerFactory.CreateLogger("Startup"));
+}
+
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
@@ -503,6 +508,11 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         return Results.Problem("Health check failed", statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 }).AllowAnonymous().DisableRateLimiting();
+
+app.MapGet("/debug-email-config", (IConfiguration config) =>
+    Results.Json(SmtpEmailConfiguration.GetVariablePresence(config)))
+    .AllowAnonymous()
+    .DisableRateLimiting();
 
 app.MapGet("/test-email", async (HttpContext ctx, IClinicalEmailSender email, IConfiguration config, ILogger<Program> logger) =>
 {
