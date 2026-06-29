@@ -39,8 +39,9 @@ public class ResendConfirmationModel : PageModel
 
     public bool Submitted { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
+    public string? UserFacingMessage { get; private set; }
     public string? EmailConfigurationWarningHtml { get; private set; }
-    public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
+    public string UserErrorMessage { get; private set; } = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
 
     public void OnGet(string? username)
     {
@@ -53,35 +54,43 @@ public class ResendConfirmationModel : PageModel
         if (!ModelState.IsValid) return Page();
 
         var username = Input.Username.Trim();
-        var user = await _users.FindByNameAsync(username)
-            ?? await _users.FindByEmailAsync(username);
-
-        if (user is not null
-            && !string.IsNullOrWhiteSpace(user.Email)
-            && !user.EmailConfirmed)
+        try
         {
-            var result = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
-            if (result == EmailConfirmationSendResult.NotConfigured)
-            {
-                var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-                EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(missing);
-                _logger.LogWarning(
-                    "Resend confirmation skipped (not configured). Missing: {Missing}",
-                    string.Join(", ", missing));
-            }
-            else if (result == EmailConfirmationSendResult.Failed)
-            {
-                EmailDeliveryFailed = true;
-                return Page();
-            }
-            else if (result == EmailConfirmationSendResult.Sent && _env.IsDevelopment())
-            {
-                _logger.LogInformation("Development mode: confirmation email sent to {Email}", user.Email);
-            }
-        }
+            var user = await _users.FindByNameAsync(username)
+                ?? await _users.FindByEmailAsync(username);
 
-        Submitted = true;
-        return Page();
+            if (user is not null
+                && !string.IsNullOrWhiteSpace(user.Email)
+                && !user.EmailConfirmed)
+            {
+                var result = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
+                if (result == EmailConfirmationSendResult.NotConfigured)
+                {
+                    UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                    if (_env.IsDevelopment())
+                    {
+                        var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
+                        EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(missing);
+                    }
+                }
+                else if (result == EmailConfirmationSendResult.Failed)
+                {
+                    EmailDeliveryFailed = true;
+                    UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                    return Page();
+                }
+            }
+
+            Submitted = true;
+            return Page();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Resend confirmation failed for username {Username}", username);
+            EmailDeliveryFailed = true;
+            UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+            return Page();
+        }
     }
 
     public sealed class ResendInput

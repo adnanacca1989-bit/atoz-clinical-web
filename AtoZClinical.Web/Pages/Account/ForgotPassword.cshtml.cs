@@ -38,8 +38,9 @@ public class ForgotPasswordModel : PageModel
 
     public bool Submitted { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
+    public string? UserFacingMessage { get; private set; }
     public string? EmailConfigurationWarningHtml { get; private set; }
-    public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
+    public string UserErrorMessage { get; private set; } = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
 
     public void OnGet() { }
 
@@ -47,48 +48,61 @@ public class ForgotPasswordModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
-        var payload = await _reset.CreateTokenForEmailAsync(Input.Email);
-        if (payload is not null)
+        try
         {
-            var link = _urls.BuildPageUrl("reset-password", new Dictionary<string, string?>
+            var payload = await _reset.CreateTokenForEmailAsync(Input.Email);
+            if (payload is not null)
             {
-                ["token"] = payload.PlainToken
-            });
+                var link = _urls.BuildPageUrl("reset-password", new Dictionary<string, string?>
+                {
+                    ["token"] = payload.PlainToken
+                });
 
-            var body = $"""
-                <p>Hello {payload.FullName},</p>
-                <p>We received a request to reset your password for A to Z Clinical.</p>
-                <p><a href="{link}">Reset your password</a></p>
-                <p>If you did not request this, you can ignore this email.</p>
-                <p>This link expires in {PasswordResetService.DefaultExpiryMinutes} minutes for security.</p>
-                """;
+                var body = $"""
+                    <p>Hello {payload.FullName},</p>
+                    <p>We received a request to reset your password for A to Z Clinical.</p>
+                    <p><a href="{link}">Reset your password</a></p>
+                    <p>If you did not request this, you can ignore this email.</p>
+                    <p>This link expires in {PasswordResetService.DefaultExpiryMinutes} minutes for security.</p>
+                    """;
 
-            var result = await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
-            if (result.Skipped)
-            {
-                var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-                EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(missing);
-                _logger.LogWarning(
-                    "Password reset email skipped (not configured). Missing: {Missing}",
-                    string.Join(", ", missing));
+                var result = await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
+                if (result.Skipped)
+                {
+                    UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                    _logger.LogWarning(
+                        "Email skipped (not configured) for password reset. Missing: {Missing}",
+                        string.Join(", ", SmtpEmailConfiguration.GetMissingVariables(_config)));
 
-                if (_env.IsDevelopment())
-                    _logger.LogWarning("Development mode reset link for {Email}: {Link}", payload.Email, link);
+                    if (_env.IsDevelopment())
+                    {
+                        EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(
+                            SmtpEmailConfiguration.GetMissingVariables(_config));
+                        _logger.LogWarning("Development mode reset link for {Email}: {Link}", payload.Email, link);
+                    }
+                }
+                else if (!result.Success)
+                {
+                    _logger.LogError("Password reset email failed for {Email}: {Reason}", payload.Email, result.Message);
+                    EmailDeliveryFailed = true;
+                    return Page();
+                }
+                else
+                {
+                    _logger.LogInformation("Password reset email delivered to {Email}", payload.Email);
+                }
             }
-            else if (!result.Success)
-            {
-                _logger.LogError("Password reset email failed for {Email}: {Reason}", payload.Email, result.Message);
-                EmailDeliveryFailed = true;
-                return Page();
-            }
-            else
-            {
-                _logger.LogInformation("Password reset email delivered to {Email}", payload.Email);
-            }
+
+            Submitted = true;
+            return Page();
         }
-
-        Submitted = true;
-        return Page();
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Password reset failed for email {Email}", Input.Email);
+            EmailDeliveryFailed = true;
+            UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+            return Page();
+        }
     }
 
     public sealed class ForgotInput

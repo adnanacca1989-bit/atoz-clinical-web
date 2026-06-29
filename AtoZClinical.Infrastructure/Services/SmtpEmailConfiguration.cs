@@ -7,6 +7,7 @@ namespace AtoZClinical.Infrastructure.Services;
 public static class SmtpEmailConfiguration
 {
     public const string NotConfiguredUserMessage = "Email is not configured on the server.";
+    public const string EmailServiceUnavailableUserMessage = "Email service is not available. Please contact admin.";
     public const string NotConfiguredServiceMessage = ClinicalEmailSendResult.NotConfiguredMessage;
 
     public static string FormatMissingVariablesText(IReadOnlyList<string> missing)
