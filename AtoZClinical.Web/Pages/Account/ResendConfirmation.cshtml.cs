@@ -75,9 +75,16 @@ public class ResendConfirmationModel : PageModel
                 }
                 else if (result == EmailConfirmationSendResult.Failed)
                 {
-                    EmailDeliveryFailed = true;
-                    UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
-                    return Page();
+                    if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
+                    {
+                        UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                    }
+                    else
+                    {
+                        EmailDeliveryFailed = true;
+                        UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                        return Page();
+                    }
                 }
             }
 
@@ -87,6 +94,12 @@ public class ResendConfirmationModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Resend confirmation failed for username {Username}", username);
+            if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
+            {
+                UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                Submitted = true;
+                return Page();
+            }
             EmailDeliveryFailed = true;
             UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
             return Page();

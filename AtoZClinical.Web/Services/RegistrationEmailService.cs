@@ -102,6 +102,8 @@ public sealed class RegistrationEmailService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Email confirmation failed for user {UserId} email {Email}", user.Id, email);
+            if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
+                return EmailConfirmationSendResult.NotConfigured;
             return EmailConfirmationSendResult.Failed;
         }
     }
