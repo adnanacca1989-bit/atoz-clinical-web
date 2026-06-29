@@ -123,6 +123,10 @@ builder.Services.AddAntiforgery(options =>
 });
 
 var smtpConfiguredAtStartup = SmtpEmailConfiguration.IsEmailConfigured(builder.Configuration);
+var smsConfiguredAtStartup = SmsConfiguration.IsSmsConfigured(builder.Configuration);
+var accountVerificationRequiredAtStartup = smtpConfiguredAtStartup || smsConfiguredAtStartup;
+
+builder.Services.AddHttpClient("TwilioSms");
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
@@ -135,7 +139,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = false;
-        options.SignIn.RequireConfirmedEmail = smtpConfiguredAtStartup;
+        options.SignIn.RequireConfirmedEmail = accountVerificationRequiredAtStartup;
     })
     .AddEntityFrameworkStores<ClinicalDbContext>()
     .AddDefaultTokenProviders();
@@ -259,6 +263,8 @@ builder.Services.AddScoped<ICurrentClinicProvider, HttpContextClinicProvider>();
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<ApplicationUserLookup>();
 builder.Services.AddScoped<IClinicalEmailSender, SmtpClinicalEmailSender>();
+builder.Services.AddScoped<IClinicalSmsSender, TwilioClinicalSmsSender>();
+builder.Services.AddScoped<TrialRegistrationVerificationService>();
 builder.Services.AddScoped<RegistrationEmailService>();
 builder.Services.AddScoped<SubscriptionEmailService>();
 builder.Services.AddScoped<VendorAnalyticsService>();
@@ -400,6 +406,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
     options.Conventions.AllowAnonymousToPage("/Account/ConfirmEmail");
     options.Conventions.AllowAnonymousToPage("/Account/ResendConfirmation");
+    options.Conventions.AllowAnonymousToPage("/Account/VerifyAccount");
     options.Conventions.AllowAnonymousToPage("/Register/Clinic");
     options.Conventions.AllowAnonymousToPage("/Register/Trial");
     options.Conventions.AllowAnonymousToPage("/Legal/Terms");
@@ -423,8 +430,17 @@ SmtpEmailConfiguration.LogDiagnostics(app.Logger, app.Configuration);
 if (smtpConfiguredAtStartup)
     app.Logger.LogInformation("Email confirmation is enabled (SMTP configured).");
 else
+    app.Logger.LogWarning("SMTP is not configured — email verification codes cannot be sent.");
+
+SmsConfiguration.LogDiagnostics(app.Logger, app.Configuration);
+if (smsConfiguredAtStartup)
+    app.Logger.LogInformation("SMS verification is enabled (Twilio configured).");
+else if (accountVerificationRequiredAtStartup)
+    app.Logger.LogWarning("Twilio SMS is not configured — mobile verification codes cannot be sent.");
+
+if (!accountVerificationRequiredAtStartup)
     app.Logger.LogWarning(
-        "Email confirmation is disabled because SMTP is not configured. Users can sign in without confirming email.");
+        "Account verification is disabled because neither SMTP nor SMS is configured. Users can sign in without a verification code.");
 if (!string.IsNullOrWhiteSpace(emailSettings.ConfigurationWarning))
     app.Logger.LogWarning(emailSettings.ConfigurationWarning);
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
@@ -487,7 +503,8 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["timestamp"] = DateTime.UtcNow,
             ["isHttps"] = ctx.Request.IsHttps,
             ["emailConfigured"] = SmtpEmailConfiguration.IsEmailConfigured(config),
-            ["emailConfirmationRequired"] = SmtpEmailConfiguration.IsEmailConfigured(config),
+            ["smsConfigured"] = SmsConfiguration.IsSmsConfigured(config),
+            ["emailConfirmationRequired"] = AccountVerificationPolicy.IsVerificationConfigured(config),
             ["emailStatus"] = SmtpEmailConfiguration.IsEmailConfigured(config) ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
             ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config)
         };

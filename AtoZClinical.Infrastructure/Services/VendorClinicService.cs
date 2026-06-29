@@ -104,26 +104,48 @@ public sealed class VendorClinicService
             : request.AdminPassword;
 
         var smtpReady = SmtpEmailConfiguration.IsEmailConfigured(_config);
-        var requireEmailConfirmation = request.RequireEmailConfirmation
-            && smtpReady
-            && !string.IsNullOrWhiteSpace(request.Email?.Trim());
+        var smsReady = SmsConfiguration.IsSmsConfigured(_config);
+        var hasEmail = !string.IsNullOrWhiteSpace(request.Email?.Trim());
+        var hasPhone = !string.IsNullOrWhiteSpace(request.AdminPhone?.Trim());
+        var requireVerification = request.RequireAccountVerification
+            && ((hasEmail && smtpReady) || (hasPhone && smsReady));
 
-        if (request.RequireEmailConfirmation && !string.IsNullOrWhiteSpace(request.Email?.Trim()) && !smtpReady)
+        if (request.RequireAccountVerification && hasEmail && !smtpReady)
         {
             _logger.LogWarning(
-                "SMTP not configured — admin user {Username} for clinic {ClinicName} will be auto-confirmed so sign-in is not blocked.",
+                "SMTP not configured — admin user {Username} for clinic {ClinicName} will be auto-confirmed when SMS is also unavailable.",
                 username, clinic.Name);
         }
+
+        if (request.RequireAccountVerification && hasPhone && !smsReady)
+        {
+            _logger.LogWarning(
+                "SMS not configured — admin user {Username} for clinic {ClinicName} cannot verify by mobile until Twilio is configured.",
+                username, clinic.Name);
+        }
+
+        if (request.RequireAccountVerification && (hasEmail || hasPhone) && !requireVerification)
+        {
+            _logger.LogWarning(
+                "No verification channel configured — admin user {Username} for clinic {ClinicName} will be auto-confirmed.",
+                username, clinic.Name);
+        }
+
+        string? normalizedPhone = null;
+        if (hasPhone && PhoneNumberNormalizer.TryNormalize(request.AdminPhone!.Trim(), out var phone))
+            normalizedPhone = phone;
 
         var admin = new ApplicationUser
         {
             UserName = username,
             Email = request.Email?.Trim(),
+            PhoneNumber = normalizedPhone,
             FullName = request.ContactPerson?.Trim() ?? $"{clinic.Name} Admin",
             ClinicId = clinic.Id,
             ClinicRole = ClinicUserRole.ClinicAdmin,
             IsVendorAdmin = false,
-            EmailConfirmed = !requireEmailConfirmation
+            EmailConfirmed = !requireVerification,
+            PhoneNumberConfirmed = !requireVerification && hasPhone
         };
 
         var result = await _users.CreateAsync(admin, password);
@@ -245,10 +267,13 @@ public sealed class VendorClinicService
         {
             Name = request.ClinicName.Trim(),
             Email = request.Email?.Trim(),
+            Phone = request.Phone?.Trim(),
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
-            RequireEmailConfirmation = !string.IsNullOrWhiteSpace(request.Email?.Trim()),
+            AdminPhone = request.Phone?.Trim(),
+            RequireAccountVerification = !string.IsNullOrWhiteSpace(request.Email?.Trim())
+                || !string.IsNullOrWhiteSpace(request.Phone?.Trim()),
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
@@ -270,7 +295,7 @@ public sealed class VendorClinicService
             Country = request.Country,
             AdminUsername = request.AdminUsername,
             AdminPassword = request.AdminPassword,
-            RequireEmailConfirmation = !string.IsNullOrWhiteSpace(request.Email),
+            RequireAccountVerification = !string.IsNullOrWhiteSpace(request.Email),
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
@@ -361,9 +386,10 @@ public sealed class CreateClinicRequest
     public bool ActivateImmediately { get; set; }
     public string? Notes { get; set; }
     public string? EnabledFormKeys { get; set; }
-    public bool RequireEmailConfirmation { get; set; }
+    public bool RequireAccountVerification { get; set; }
     public string AdminUsername { get; set; } = string.Empty;
     public string? AdminPassword { get; set; }
+    public string? AdminPhone { get; set; }
 }
 
 public sealed class CreateClinicUserRequest
@@ -396,5 +422,6 @@ public sealed class TrialClinicRegistrationRequest
     public string ClinicName { get; set; } = string.Empty;
     public string AdminUsername { get; set; } = string.Empty;
     public string AdminPassword { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
 }

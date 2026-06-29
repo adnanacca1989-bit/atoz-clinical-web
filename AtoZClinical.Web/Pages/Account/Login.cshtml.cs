@@ -146,8 +146,9 @@ public class LoginModel : PageModel
 
         if (result.IsNotAllowed)
         {
-            ShowResendConfirmation = !string.IsNullOrWhiteSpace(user.Email);
-            ModelState.AddModelError(string.Empty, "Please confirm your email before logging in.");
+            ShowResendConfirmation = !string.IsNullOrWhiteSpace(user.Email) || !string.IsNullOrWhiteSpace(user.PhoneNumber);
+            ModelState.AddModelError(string.Empty,
+                "Please verify your account with the 4-digit code sent to your email or mobile before logging in.");
             Input.Password = string.Empty;
             return Page();
         }

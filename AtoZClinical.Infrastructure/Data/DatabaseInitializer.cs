@@ -33,6 +33,7 @@ public static class DatabaseInitializer
         await EnsureEnterpriseSchemaAsync(db, logger);
         await EnsureSaasPlatformSchemaAsync(db, logger);
         await EnsurePasswordResetTokenSchemaAsync(db, logger);
+        await EnsureRegistrationVerificationCodeSchemaAsync(db, logger);
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
         await EnsurePrescriptionLinesSchemaAsync(db, logger);
         await EnsureExpenseJournalSchemaAsync(db, logger);
@@ -508,6 +509,39 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Password reset token schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureRegistrationVerificationCodeSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "RegistrationVerificationCodes" (
+                    "Id" uuid NOT NULL,
+                    "UserId" character varying(450) NOT NULL,
+                    "Channel" integer NOT NULL,
+                    "Destination" character varying(256) NOT NULL,
+                    "CodeHash" character varying(128) NOT NULL,
+                    "ExpiryDate" timestamp without time zone NOT NULL,
+                    "Used" boolean NOT NULL DEFAULT false,
+                    "FailedAttempts" integer NOT NULL DEFAULT 0,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_RegistrationVerificationCodes" PRIMARY KEY ("Id")
+                );
+                CREATE INDEX IF NOT EXISTS "IX_RegistrationVerificationCodes_UserId" ON "RegistrationVerificationCodes" ("UserId");
+                CREATE INDEX IF NOT EXISTS "IX_RegistrationVerificationCodes_CodeHash" ON "RegistrationVerificationCodes" ("CodeHash");
+                """);
+
+            logger.LogInformation("Registration verification code schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Registration verification code schema verification skipped.");
         }
     }
 

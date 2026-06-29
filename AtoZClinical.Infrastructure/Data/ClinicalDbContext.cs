@@ -76,6 +76,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ClinicMessageAttachment> ClinicMessageAttachments => Set<ClinicMessageAttachment>();
     public DbSet<ClinicalNotification> ClinicalNotifications => Set<ClinicalNotification>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<RegistrationVerificationCode> RegistrationVerificationCodes => Set<RegistrationVerificationCode>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -383,6 +384,16 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(x => x.UserId);
             e.Property(x => x.UserId).HasMaxLength(450).IsRequired();
             e.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+        });
+
+        builder.Entity<RegistrationVerificationCode>(e =>
+        {
+            e.ToTable("RegistrationVerificationCodes");
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.CodeHash);
+            e.Property(x => x.UserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.Destination).HasMaxLength(256).IsRequired();
+            e.Property(x => x.CodeHash).HasMaxLength(128).IsRequired();
         });
 
         builder.Entity<ClinicBackupHistory>(e =>

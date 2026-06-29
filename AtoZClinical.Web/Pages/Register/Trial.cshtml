@@ -1,5 +1,4 @@
 @page
-@using AtoZClinical.Infrastructure.Services
 @model AtoZClinical.Web.Pages.Register.TrialModel
 @{
     ViewData["Title"] = "30-Day Trial Registration";
@@ -14,18 +13,73 @@
     <title>30-Day Trial - A to Z Clinical</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+    <style>
+        .contact-method-toggle .btn-check:checked + .btn { background:#0b4f8a; border-color:#0b4f8a; color:#fff; }
+        .verification-code-input { font-size:1.75rem; letter-spacing:.5rem; text-align:center; max-width:200px; margin:0 auto; }
+    </style>
 </head>
 <body>
     <div class="container py-5 trial-register-page">
         <div class="text-center mb-4">
             <h1 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h1>
             <p class="lead mb-1">Clinical Management System — Web Edition</p>
-            <p class="text-muted">30-day trial · Confirm your email to sign in</p>
+            <p class="text-muted">30-day trial · Verify with a 4-digit code sent to your email or mobile</p>
         </div>
 
         <div class="row justify-content-center g-4">
             <div class="col-lg-5 order-lg-2">
-                @if (Model.Registered)
+                @if (Model.AwaitingVerification)
+                {
+                    <div class="atz-card p-4">
+                        <h4 class="fw-bold mb-2" style="color:#0b4f8a">Enter verification code</h4>
+                        <p class="text-muted small">
+                            We sent a 4-digit code to your @Model.VerificationChannelLabel
+                            @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
+                            {
+                                <strong>@Model.MaskedDestination</strong>
+                            }.
+                        </p>
+                        @if (Model.CodeResent)
+                        {
+                            <div class="alert alert-success small">A new code has been sent.</div>
+                        }
+                        @if (Model.VerificationFailed)
+                        {
+                            <div class="alert alert-danger small">@Model.VerificationErrorMessage</div>
+                        }
+                        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                        <form method="post" asp-page-handler="Verify">
+                            <input type="hidden" asp-for="PendingUserId" />
+                            <input type="hidden" asp-for="Input.ClinicName" />
+                            <input type="hidden" asp-for="Input.AdminUsername" />
+                            <input type="hidden" asp-for="Input.AdminPassword" />
+                            <input type="hidden" asp-for="Input.ContactMethod" />
+                            <input type="hidden" asp-for="Input.Email" />
+                            <input type="hidden" asp-for="Input.Mobile" />
+                            <input type="hidden" asp-for="Input.AcceptTerms" value="true" />
+                            <div class="mb-4">
+                                <label class="form-label text-center d-block">4-digit code</label>
+                                <input asp-for="VerificationCode" class="form-control verification-code-input"
+                                       maxlength="4" pattern="\d{4}" inputmode="numeric" autocomplete="one-time-code"
+                                       placeholder="0000" required />
+                            </div>
+                            <button type="submit" class="btn btn-atz-primary w-100 mb-2">Verify and activate</button>
+                        </form>
+                        <form method="post" asp-page-handler="ResendCode" class="mb-2">
+                            <input type="hidden" asp-for="PendingUserId" />
+                            <input type="hidden" asp-for="Input.ClinicName" />
+                            <input type="hidden" asp-for="Input.AdminUsername" />
+                            <input type="hidden" asp-for="Input.AdminPassword" />
+                            <input type="hidden" asp-for="Input.ContactMethod" />
+                            <input type="hidden" asp-for="Input.Email" />
+                            <input type="hidden" asp-for="Input.Mobile" />
+                            <input type="hidden" asp-for="Input.AcceptTerms" value="true" />
+                            <button type="submit" class="btn btn-outline-secondary w-100">Resend code</button>
+                        </form>
+                        <a class="btn btn-link w-100" asp-page="/Account/Login">Back to Login</a>
+                    </div>
+                }
+                else if (Model.Registered)
                 {
                     <div class="atz-card p-4">
                         <div class="alert alert-success">Your 30-day trial clinic is ready.</div>
@@ -35,9 +89,9 @@
                             <p>Clinic code (for patient portal): <strong>@Model.ClinicCode</strong></p>
                         }
                         <p>Username: <strong>@Model.AdminUsername</strong></p>
-                        @if (Model.EmailConfirmationSent)
+                        @if (Model.Verified)
                         {
-                            <div class="alert alert-success small mb-0">@SmtpEmailConfiguration.ConfirmationEmailSentMessage</div>
+                            <div class="alert alert-success small mb-0">Account verified. You can sign in now.</div>
                         }
                         else if (Model.ReadyToSignIn)
                         {
@@ -45,13 +99,13 @@
                                 Your account is ready. You can sign in now with your username and password.
                             </div>
                         }
-                        else if (Model.EmailConfirmationFailed)
+                        else if (Model.CodeSendFailed)
                         {
                             <div class="alert alert-danger small mb-0">
-                                @Model.EmailConfirmationErrorMessage
+                                @Model.CodeSendErrorMessage
                                 <p class="mb-0 mt-2">Use
-                                <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>
-                                or contact support.</p>
+                                <a asp-page="/Account/VerifyAccount" asp-route-username="@Model.AdminUsername">Verify account</a>
+                                after email/SMS is configured, or contact support.</p>
                             </div>
                         }
                         else
@@ -68,7 +122,7 @@
                 {
                     <div class="atz-card p-4">
                         <div asp-validation-summary="All" class="text-danger mb-3"></div>
-                        <form method="post" asp-page-handler="Register">
+                        <form method="post" asp-page-handler="Register" id="trialRegisterForm">
                             <div class="mb-3">
                                 <label asp-for="Input.ClinicName" class="form-label"></label>
                                 <input asp-for="Input.ClinicName" class="form-control" />
@@ -84,11 +138,39 @@
                                 <input asp-for="Input.AdminPassword" class="form-control" type="password" autocomplete="new-password" />
                                 <span asp-validation-for="Input.AdminPassword" class="text-danger"></span>
                             </div>
+
                             <div class="mb-3">
+                                <label class="form-label">Verify with</label>
+                                <div class="btn-group w-100 contact-method-toggle" role="group">
+                                    @if (Model.EmailVerificationAvailable)
+                                    {
+                                        <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactEmail" value="email" />
+                                        <label class="btn btn-outline-primary" for="contactEmail">Email</label>
+                                    }
+                                    @if (Model.SmsVerificationAvailable)
+                                    {
+                                        <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactMobile" value="mobile" />
+                                        <label class="btn btn-outline-primary" for="contactMobile">Mobile</label>
+                                    }
+                                </div>
+                                @if (!Model.EmailVerificationAvailable && !Model.SmsVerificationAvailable)
+                                {
+                                    <p class="text-warning small mt-2 mb-0">Verification is not configured — you can register and sign in immediately.</p>
+                                }
+                            </div>
+
+                            <div class="mb-3" id="emailField">
                                 <label asp-for="Input.Email" class="form-label"></label>
                                 <input asp-for="Input.Email" class="form-control" type="email" autocomplete="email" />
                                 <span asp-validation-for="Input.Email" class="text-danger"></span>
                             </div>
+                            <div class="mb-3" id="mobileField" style="display:none">
+                                <label asp-for="Input.Mobile" class="form-label"></label>
+                                <input asp-for="Input.Mobile" class="form-control" type="tel" autocomplete="tel" placeholder="07xx xxx xxxx" />
+                                <span asp-validation-for="Input.Mobile" class="text-danger"></span>
+                                <div class="form-text">Iraq numbers: 07xx… or +964…</div>
+                            </div>
+
                             <partial name="_CaptchaWidget" />
                             <div class="form-check mb-3">
                                 <input asp-for="Input.AcceptTerms" class="form-check-input" />
@@ -102,7 +184,6 @@
                                 <button type="submit" class="btn btn-atz-primary">Register Trial</button>
                                 <a class="btn btn-outline-primary" asp-page="/Account/Login">Login</a>
                                 <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
-                                <a class="btn btn-link" asp-page="/Account/ForgotPassword">Forgot Password</a>
                             </div>
                         </form>
                     </div>
@@ -142,5 +223,20 @@
         </div>
     </div>
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const emailField = document.getElementById('emailField');
+            const mobileField = document.getElementById('mobileField');
+            const radios = document.querySelectorAll('input[name="Input.ContactMethod"]');
+            function syncContactFields() {
+                const selected = document.querySelector('input[name="Input.ContactMethod"]:checked');
+                const useEmail = !selected || selected.value === 'email';
+                if (emailField) emailField.style.display = useEmail ? '' : 'none';
+                if (mobileField) mobileField.style.display = useEmail ? 'none' : '';
+            }
+            radios.forEach(r => r.addEventListener('change', syncContactFields));
+            syncContactFields();
+        })();
+    </script>
 </body>
 </html>

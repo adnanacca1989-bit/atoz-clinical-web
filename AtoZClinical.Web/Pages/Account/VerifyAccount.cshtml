@@ -1,0 +1,85 @@
+@page
+@model AtoZClinical.Web.Pages.Account.VerifyAccountModel
+@{
+    ViewData["Title"] = "Verify Account";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Account - A to Z Clinical</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
+    <style>
+        .verification-code-input { font-size:1.75rem; letter-spacing:.5rem; text-align:center; max-width:200px; margin:0 auto; }
+    </style>
+</head>
+<body>
+    <div class="login-panel atz-card p-4">
+        <div class="text-center mb-4">
+            <h3 class="fw-bold" style="color:#0b4f8a">Verify your account</h3>
+            <p class="text-muted mb-0">Enter the 4-digit code sent to your email or mobile</p>
+        </div>
+
+        @if (Model.Verified)
+        {
+            <div class="alert alert-success">Account verified. You can sign in now.</div>
+            <a class="btn btn-atz-primary w-100" asp-page="/Account/Login">Back to Login</a>
+        }
+        else if (Model.ShowCodeForm)
+        {
+            @if (Model.CodeSent)
+            {
+                <div class="alert alert-success small">
+                    If an unconfirmed account exists, a code was sent to your @Model.VerificationChannelLabel
+                    @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
+                    {
+                        <strong>@Model.MaskedDestination</strong>
+                    }.
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger small">@Model.ErrorMessage</div>
+            }
+            <form method="post" asp-page-handler="Verify">
+                <input type="hidden" asp-for="PendingUserId" />
+                <input type="hidden" asp-for="Input.Username" />
+                <div class="mb-4">
+                    <label class="form-label text-center d-block">4-digit code</label>
+                    <input asp-for="VerificationCode" class="form-control verification-code-input"
+                           maxlength="4" pattern="\d{4}" inputmode="numeric" autocomplete="one-time-code"
+                           placeholder="0000" required />
+                </div>
+                <button type="submit" class="btn btn-atz-primary w-100 mb-2">Verify</button>
+            </form>
+            <form method="post" asp-page-handler="SendCode">
+                <input type="hidden" asp-for="Input.Username" />
+                <button type="submit" class="btn btn-outline-secondary w-100 mb-2">Resend code</button>
+            </form>
+            <a class="btn btn-link w-100" asp-page="/Account/Login">Back to Login</a>
+        }
+        else
+        {
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger">@Model.ErrorMessage</div>
+            }
+            <form method="post" asp-page-handler="SendCode">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <div class="mb-3">
+                    <label asp-for="Input.Username" class="form-label"></label>
+                    <input asp-for="Input.Username" class="form-control" autocomplete="username" />
+                    <span asp-validation-for="Input.Username" class="text-danger"></span>
+                </div>
+                <button type="submit" class="btn btn-atz-primary w-100 mb-2">Send verification code</button>
+                <a class="btn btn-outline-secondary w-100" asp-page="/Account/Login">Cancel</a>
+            </form>
+        }
+    </div>
+    <partial name="_ValidationScriptsPartial" />
+</body>
+</html>
