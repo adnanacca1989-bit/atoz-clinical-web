@@ -34,11 +34,18 @@
             @if (Model.CodeSent)
             {
                 <div class="alert alert-success small">
-                    If an unconfirmed account exists, a code was sent to your @Model.VerificationChannelLabel
-                    @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
+                    @if (Model.OtpDeliveredViaLog)
                     {
-                        <strong>@Model.MaskedDestination</strong>
-                    }.
+                        <span>A code was generated. Check server logs for <code>OTP LOG DELIVERY</code> (email/SMS not configured).</span>
+                    }
+                    else
+                    {
+                        <span>If an unconfirmed account exists, a code was sent to your @Model.VerificationChannelLabel
+                        @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
+                        {
+                            <strong>@Model.MaskedDestination</strong>
+                        }.</span>
+                    }
                 </div>
             }
             @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))

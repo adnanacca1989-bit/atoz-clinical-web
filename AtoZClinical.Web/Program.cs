@@ -124,7 +124,7 @@ builder.Services.AddAntiforgery(options =>
 
 var smtpConfiguredAtStartup = SmtpEmailConfiguration.IsEmailConfigured(builder.Configuration);
 var smsConfiguredAtStartup = SmsConfiguration.IsSmsConfigured(builder.Configuration);
-var accountVerificationRequiredAtStartup = smtpConfiguredAtStartup || smsConfiguredAtStartup;
+var accountVerificationRequiredAtStartup = true;
 
 builder.Services.AddHttpClient("TwilioSms");
 
@@ -440,7 +440,10 @@ else if (accountVerificationRequiredAtStartup)
 
 if (!accountVerificationRequiredAtStartup)
     app.Logger.LogWarning(
-        "Account verification is disabled because neither SMTP nor SMS is configured. Users can sign in without a verification code.");
+        "Account verification is disabled. Users can sign in without a verification code.");
+else if (AccountVerificationPolicy.UsesLogOnlyDelivery(app.Configuration))
+    app.Logger.LogWarning(
+        "OTP verification uses server log delivery (configure SMTP or Twilio for real email/SMS).");
 if (!string.IsNullOrWhiteSpace(emailSettings.ConfigurationWarning))
     app.Logger.LogWarning(emailSettings.ConfigurationWarning);
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
@@ -504,7 +507,8 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["isHttps"] = ctx.Request.IsHttps,
             ["emailConfigured"] = SmtpEmailConfiguration.IsEmailConfigured(config),
             ["smsConfigured"] = SmsConfiguration.IsSmsConfigured(config),
-            ["emailConfirmationRequired"] = AccountVerificationPolicy.IsVerificationConfigured(config),
+            ["otpLogDelivery"] = AccountVerificationPolicy.UsesLogOnlyDelivery(config),
+            ["emailConfirmationRequired"] = true,
             ["emailStatus"] = SmtpEmailConfiguration.IsEmailConfigured(config) ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
             ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config)
         };
@@ -637,6 +641,7 @@ app.MapPost("/api/stripe/webhook", async (HttpContext ctx, IStripeBillingService
     }
 }).AllowAnonymous();
 app.MapClinicalApi();
+app.MapAuthOtpApi();
 app.MapHub<ChatHub>("/hubs/chat");
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapRazorPages();

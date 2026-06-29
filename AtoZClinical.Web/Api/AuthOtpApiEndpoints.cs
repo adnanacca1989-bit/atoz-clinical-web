@@ -1,0 +1,161 @@
+using AtoZClinical.Core.Entities;
+using AtoZClinical.Infrastructure.Identity;
+using AtoZClinical.Infrastructure.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace AtoZClinical.Web.Api;
+
+public static class AuthOtpApiEndpoints
+{
+    public static void MapAuthOtpApi(this WebApplication app)
+    {
+        var auth = app.MapGroup("/api/auth").DisableRateLimiting();
+
+        auth.MapPost("/send-otp", async (
+            SendOtpApiRequest body,
+            ApplicationUserLookup userLookup,
+            TrialRegistrationVerificationService verification,
+            ILogger<Program> logger) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Username))
+                return Results.Json(new { success = false, error = "username is required" }, statusCode: StatusCodes.Status400BadRequest);
+
+            var user = await userLookup.FindByUsernameOrEmailAsync(body.Username.Trim());
+            if (user is null)
+            {
+                return Results.Json(new
+                {
+                    success = true,
+                    message = "If an unconfirmed account exists, a verification code was generated."
+                });
+            }
+
+            if (user.EmailConfirmed)
+            {
+                return Results.Json(new
+                {
+                    success = true,
+                    alreadyVerified = true,
+                    userId = user.Id
+                });
+            }
+
+            var (channel, destination) = ResolveChannel(user);
+            if (string.IsNullOrWhiteSpace(destination))
+            {
+                return Results.Json(new
+                {
+                    success = false,
+                    error = "Account has no email or mobile on file."
+                }, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            try
+            {
+                var outcome = await verification.SendCodeAsync(user, channel, destination);
+                if (outcome.Result != VerificationCodeSendResult.Sent)
+                {
+                    return Results.Json(new
+                    {
+                        success = false,
+                        error = outcome.ErrorMessage ?? "Could not generate verification code."
+                    }, statusCode: StatusCodes.Status502BadGateway);
+                }
+
+                logger.LogInformation(
+                    "OTP send API: userId={UserId} deliveredViaLog={LogDelivery}",
+                    user.Id, outcome.DeliveredViaLog);
+
+                return Results.Json(new
+                {
+                    success = true,
+                    userId = user.Id,
+                    deliveredViaLog = outcome.DeliveredViaLog,
+                    maskedDestination = outcome.MaskedDestination,
+                    expiresInMinutes = TrialRegistrationVerificationService.CodeExpiryMinutes,
+                    message = outcome.DeliveredViaLog
+                        ? "OTP written to server logs (email/SMS not configured)."
+                        : "Verification code sent."
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "send-otp failed for {Username}", body.Username);
+                return Results.Json(new { success = false, error = "Could not generate verification code." },
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
+        }).AllowAnonymous();
+
+        auth.MapPost("/verify-otp", async (
+            VerifyOtpApiRequest body,
+            TrialRegistrationVerificationService verification,
+            ILogger<Program> logger) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Code))
+                return Results.Json(new { success = false, error = "code is required" }, statusCode: StatusCodes.Status400BadRequest);
+
+            VerificationCodeVerifyOutcome outcome;
+            if (!string.IsNullOrWhiteSpace(body.UserId))
+                outcome = await verification.VerifyCodeAsync(body.UserId.Trim(), body.Code);
+            else if (!string.IsNullOrWhiteSpace(body.Username))
+                outcome = await verification.VerifyCodeByUsernameAsync(body.Username.Trim(), body.Code);
+            else
+                return Results.Json(new { success = false, error = "userId or username is required" },
+                    statusCode: StatusCodes.Status400BadRequest);
+
+            return outcome.Result switch
+            {
+                VerificationCodeVerifyResult.Verified => Results.Json(new
+                {
+                    success = true,
+                    verified = true,
+                    userId = outcome.UserId,
+                    message = "Account activated. You can sign in now."
+                }),
+                VerificationCodeVerifyResult.AlreadyVerified => Results.Json(new
+                {
+                    success = true,
+                    verified = true,
+                    alreadyVerified = true,
+                    userId = outcome.UserId,
+                    message = "Account is already verified."
+                }),
+                VerificationCodeVerifyResult.InvalidCode => Results.Json(new
+                {
+                    success = false,
+                    error = outcome.ErrorMessage
+                }, statusCode: StatusCodes.Status400BadRequest),
+                VerificationCodeVerifyResult.Expired => Results.Json(new
+                {
+                    success = false,
+                    error = outcome.ErrorMessage
+                }, statusCode: StatusCodes.Status410Gone),
+                VerificationCodeVerifyResult.UserNotFound => Results.Json(new
+                {
+                    success = false,
+                    error = outcome.ErrorMessage
+                }, statusCode: StatusCodes.Status404NotFound),
+                _ => Results.Json(new
+                {
+                    success = false,
+                    error = outcome.ErrorMessage ?? "Verification failed."
+                }, statusCode: StatusCodes.Status500InternalServerError)
+            };
+        }).AllowAnonymous();
+    }
+
+    private static (RegistrationVerificationChannel Channel, string Destination) ResolveChannel(ApplicationUser user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.Email))
+            return (RegistrationVerificationChannel.Email, user.Email.Trim());
+
+        if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+            return (RegistrationVerificationChannel.Sms, user.PhoneNumber.Trim());
+
+        return (RegistrationVerificationChannel.Email, string.Empty);
+    }
+}
+
+public sealed record SendOtpApiRequest(string Username);
+
+public sealed record VerifyOtpApiRequest(string? UserId, string? Username, string Code);

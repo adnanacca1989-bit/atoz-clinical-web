@@ -107,27 +107,12 @@ public sealed class VendorClinicService
         var smsReady = SmsConfiguration.IsSmsConfigured(_config);
         var hasEmail = !string.IsNullOrWhiteSpace(request.Email?.Trim());
         var hasPhone = !string.IsNullOrWhiteSpace(request.AdminPhone?.Trim());
-        var requireVerification = request.RequireAccountVerification
-            && ((hasEmail && smtpReady) || (hasPhone && smsReady));
+        var requireVerification = request.RequireAccountVerification && (hasEmail || hasPhone);
 
-        if (request.RequireAccountVerification && hasEmail && !smtpReady)
+        if (requireVerification && !smtpReady && !smsReady)
         {
             _logger.LogWarning(
-                "SMTP not configured — admin user {Username} for clinic {ClinicName} will be auto-confirmed when SMS is also unavailable.",
-                username, clinic.Name);
-        }
-
-        if (request.RequireAccountVerification && hasPhone && !smsReady)
-        {
-            _logger.LogWarning(
-                "SMS not configured — admin user {Username} for clinic {ClinicName} cannot verify by mobile until Twilio is configured.",
-                username, clinic.Name);
-        }
-
-        if (request.RequireAccountVerification && (hasEmail || hasPhone) && !requireVerification)
-        {
-            _logger.LogWarning(
-                "No verification channel configured — admin user {Username} for clinic {ClinicName} will be auto-confirmed.",
+                "Email/SMS not configured — OTP for admin {Username} clinic {ClinicName} will be written to server logs.",
                 username, clinic.Name);
         }
 

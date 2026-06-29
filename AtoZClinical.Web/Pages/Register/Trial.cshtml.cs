@@ -60,8 +60,8 @@ public class TrialModel : CaptchaPageModel
     public string? ClinicCode { get; private set; }
     public string? AdminUsername { get; private set; }
     public string TrialShareUrl { get; private set; } = "";
-    public bool EmailVerificationAvailable { get; private set; }
-    public bool SmsVerificationAvailable { get; private set; }
+    public bool OtpDeliveredViaLog { get; private set; }
+    public bool UsesLogOnlyOtp { get; private set; }
 
     public void OnGet(string? verify)
     {
@@ -116,6 +116,7 @@ public class TrialModel : CaptchaPageModel
             {
                 AwaitingVerification = true;
                 MaskedDestination = sendOutcome.MaskedDestination;
+                OtpDeliveredViaLog = sendOutcome.DeliveredViaLog;
                 VerificationChannelLabel = channel == RegistrationVerificationChannel.Email ? "email" : "mobile";
                 return Page();
             }
@@ -124,16 +125,6 @@ public class TrialModel : CaptchaPageModel
             CodeSendFailed = true;
             CodeSendErrorMessage = sendOutcome.ErrorMessage
                 ?? "Verification code could not be sent.";
-            return Page();
-        }
-        catch (ClinicalEmailNotConfiguredException ex)
-        {
-            ModelState.AddModelError(string.Empty, ex.Message);
-            return Page();
-        }
-        catch (ClinicalSmsNotConfiguredException ex)
-        {
-            ModelState.AddModelError(string.Empty, ex.Message);
             return Page();
         }
         catch (Exception ex)
@@ -209,23 +200,12 @@ public class TrialModel : CaptchaPageModel
             {
                 CodeResent = true;
                 MaskedDestination = sendOutcome.MaskedDestination;
+                OtpDeliveredViaLog = sendOutcome.DeliveredViaLog;
                 return Page();
             }
 
             VerificationFailed = true;
             VerificationErrorMessage = sendOutcome.ErrorMessage ?? "Could not resend code.";
-            return Page();
-        }
-        catch (ClinicalEmailNotConfiguredException ex)
-        {
-            AwaitingVerification = true;
-            ModelState.AddModelError(string.Empty, ex.Message);
-            return Page();
-        }
-        catch (ClinicalSmsNotConfiguredException ex)
-        {
-            AwaitingVerification = true;
-            ModelState.AddModelError(string.Empty, ex.Message);
             return Page();
         }
         catch (Exception ex)
@@ -239,27 +219,17 @@ public class TrialModel : CaptchaPageModel
 
     private void LoadChannelAvailability()
     {
-        EmailVerificationAvailable = AccountVerificationPolicy.CanVerifyViaEmail(_config);
-        SmsVerificationAvailable = AccountVerificationPolicy.CanVerifyViaSms(_config);
-        if (!EmailVerificationAvailable && SmsVerificationAvailable)
-            Input.ContactMethod = "mobile";
-        else if (EmailVerificationAvailable && !SmsVerificationAvailable)
-            Input.ContactMethod = "email";
+        UsesLogOnlyOtp = AccountVerificationPolicy.UsesLogOnlyDelivery(_config);
     }
 
     private void ValidateContactMethod()
     {
-        if (!AccountVerificationPolicy.IsVerificationConfigured(_config))
-            return;
-
         if (Input.UseEmail)
         {
             if (string.IsNullOrWhiteSpace(Input.Email))
                 ModelState.AddModelError(nameof(Input.Email), "Email is required.");
             else if (!new EmailAddressAttribute().IsValid(Input.Email))
                 ModelState.AddModelError(nameof(Input.Email), "Enter a valid email address.");
-            else if (!AccountVerificationPolicy.CanVerifyViaEmail(_config))
-                ModelState.AddModelError(string.Empty, "Email verification is not configured on the server.");
         }
         else
         {
@@ -267,8 +237,6 @@ public class TrialModel : CaptchaPageModel
                 ModelState.AddModelError(nameof(Input.Mobile), "Mobile number is required.");
             else if (!PhoneNumberNormalizer.TryNormalize(Input.Mobile, out _))
                 ModelState.AddModelError(nameof(Input.Mobile), "Enter a valid mobile number (e.g. 07xx xxx xxxx).");
-            else if (!AccountVerificationPolicy.CanVerifyViaSms(_config))
-                ModelState.AddModelError(string.Empty, "SMS verification is not configured on the server.");
         }
     }
 

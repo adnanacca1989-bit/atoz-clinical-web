@@ -47,23 +47,6 @@ public sealed class TrialRegistrationVerificationService
     {
         destination = NormalizeDestination(channel, destination);
 
-        if (channel == RegistrationVerificationChannel.Email)
-        {
-            if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-            {
-                var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-                throw new ClinicalEmailNotConfiguredException(missing);
-            }
-        }
-        else
-        {
-            if (!SmsConfiguration.IsSmsConfigured(_config))
-            {
-                var missing = SmsConfiguration.GetMissingVariables(_config);
-                throw new ClinicalSmsNotConfiguredException(missing);
-            }
-        }
-
         var hourAgo = DateTime.UtcNow.AddHours(-1);
         var recentCount = await _db.RegistrationVerificationCodes
             .CountAsync(c => c.UserId == user.Id && c.CreatedAt >= hourAgo, ct);
@@ -89,7 +72,8 @@ public sealed class TrialRegistrationVerificationService
         });
         await _db.SaveChangesAsync(ct);
 
-        if (channel == RegistrationVerificationChannel.Email)
+        if (channel == RegistrationVerificationChannel.Email
+            && SmtpEmailConfiguration.IsEmailConfigured(_config))
         {
             var body = $"""
                 <p>Hello {user.FullName},</p>
@@ -110,37 +94,71 @@ public sealed class TrialRegistrationVerificationService
             return VerificationCodeSendOutcome.Sent(channel, MaskEmail(destination));
         }
 
-        var smsText = $"Your A to Z Clinical verification code is {plainCode}. It expires in {CodeExpiryMinutes} minutes.";
-        var smsResult = await _sms.SendAsync(destination, smsText, ct);
-        if (!smsResult.Success)
+        if (channel == RegistrationVerificationChannel.Sms
+            && SmsConfiguration.IsSmsConfigured(_config))
         {
-            _logger.LogError("Verification SMS failed for user {UserId}: {Reason}", user.Id, smsResult.Message);
-            return VerificationCodeSendOutcome.Failed(smsResult.Message);
+            var smsText = $"Your A to Z Clinical verification code is {plainCode}. It expires in {CodeExpiryMinutes} minutes.";
+            var smsResult = await _sms.SendAsync(destination, smsText, ct);
+            if (!smsResult.Success)
+            {
+                _logger.LogError("Verification SMS failed for user {UserId}: {Reason}", user.Id, smsResult.Message);
+                return VerificationCodeSendOutcome.Failed(smsResult.Message);
+            }
+
+            _logger.LogInformation("Verification code SMS sent to {Destination} for user {UserId}", destination, user.Id);
+            return VerificationCodeSendOutcome.Sent(channel, MaskPhone(destination));
         }
 
-        _logger.LogInformation("Verification code SMS sent to {Destination} for user {UserId}", destination, user.Id);
-        return VerificationCodeSendOutcome.Sent(channel, MaskPhone(destination));
+        LogOtpForServerDelivery(user, plainCode, channel, destination);
+        var masked = channel == RegistrationVerificationChannel.Email
+            ? MaskEmail(destination)
+            : MaskPhone(destination);
+        return VerificationCodeSendOutcome.SentViaLog(channel, masked);
     }
 
-    public async Task<VerificationCodeVerifyOutcome> VerifyCodeAsync(
+    public Task<VerificationCodeVerifyOutcome> VerifyCodeAsync(
         string userId,
         string code,
+        CancellationToken ct = default) =>
+        VerifyCodeCoreAsync(userId, null, code, ct);
+
+    public async Task<VerificationCodeVerifyOutcome> VerifyCodeByUsernameAsync(
+        string username,
+        string code,
         CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return VerificationCodeVerifyOutcome.UserNotFound();
+
+        var normalized = username.Trim();
+        var user = await _users.Users
+            .FirstOrDefaultAsync(u => u.UserName == normalized || u.Email == normalized, ct);
+
+        return user is null
+            ? VerificationCodeVerifyOutcome.UserNotFound()
+            : await VerifyCodeCoreAsync(user.Id, user, code, ct);
+    }
+
+    private async Task<VerificationCodeVerifyOutcome> VerifyCodeCoreAsync(
+        string userId,
+        ApplicationUser? user,
+        string code,
+        CancellationToken ct)
     {
         var digits = new string((code ?? "").Where(char.IsDigit).ToArray());
         if (digits.Length != 4)
             return VerificationCodeVerifyOutcome.InvalidCode();
 
-        var user = await _users.FindByIdAsync(userId);
+        user ??= await _users.FindByIdAsync(userId);
         if (user is null)
             return VerificationCodeVerifyOutcome.UserNotFound();
 
         if (user.EmailConfirmed)
-            return VerificationCodeVerifyOutcome.AlreadyVerified();
+            return VerificationCodeVerifyOutcome.AlreadyVerified(user.Id);
 
         var hash = HashCode(digits);
         var row = await _db.RegistrationVerificationCodes
-            .Where(c => c.UserId == userId && !c.Used && c.ExpiryDate > DateTime.UtcNow)
+            .Where(c => c.UserId == user.Id && !c.Used && c.ExpiryDate > DateTime.UtcNow)
             .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefaultAsync(ct);
 
@@ -153,7 +171,7 @@ public sealed class TrialRegistrationVerificationService
             if (row.FailedAttempts >= MaxFailedAttempts)
                 row.Used = true;
             await _db.SaveChangesAsync(ct);
-            _logger.LogWarning("Invalid verification code for user {UserId} (attempt {Attempts})", userId, row.FailedAttempts);
+            _logger.LogWarning("Invalid verification code for user {UserId} (attempt {Attempts})", user.Id, row.FailedAttempts);
             return VerificationCodeVerifyOutcome.InvalidCode();
         }
 
@@ -169,12 +187,28 @@ public sealed class TrialRegistrationVerificationService
         {
             _logger.LogError(
                 "Failed to confirm user {UserId} after valid code: {Errors}",
-                userId, string.Join("; ", update.Errors.Select(e => e.Description)));
+                user.Id, string.Join("; ", update.Errors.Select(e => e.Description)));
             return VerificationCodeVerifyOutcome.Failed("Account could not be confirmed. Please contact support.");
         }
 
-        _logger.LogInformation("User {UserId} verified via {Channel}", userId, row.Channel);
-        return VerificationCodeVerifyOutcome.Verified();
+        _logger.LogInformation("User {UserId} verified via {Channel}", user.Id, row.Channel);
+        return VerificationCodeVerifyOutcome.Verified(user.Id);
+    }
+
+    private void LogOtpForServerDelivery(
+        ApplicationUser user,
+        string plainCode,
+        RegistrationVerificationChannel channel,
+        string destination)
+    {
+        _logger.LogWarning(
+            "OTP LOG DELIVERY (email/SMS not configured): OTP={Otp} UserId={UserId} Username={Username} Channel={Channel} Destination={Destination} ExpiresInMinutes={Expiry}",
+            plainCode,
+            user.Id,
+            user.UserName,
+            channel,
+            destination,
+            CodeExpiryMinutes);
     }
 
     public static string HashCode(string plainCode)
@@ -217,6 +251,7 @@ public sealed class VerificationCodeSendOutcome
     public string? MaskedDestination { get; init; }
     public RegistrationVerificationChannel? Channel { get; init; }
     public string? ErrorMessage { get; init; }
+    public bool DeliveredViaLog { get; init; }
 
     public static VerificationCodeSendOutcome Sent(RegistrationVerificationChannel channel, string masked) =>
         new()
@@ -224,6 +259,15 @@ public sealed class VerificationCodeSendOutcome
             Result = VerificationCodeSendResult.Sent,
             Channel = channel,
             MaskedDestination = masked
+        };
+
+    public static VerificationCodeSendOutcome SentViaLog(RegistrationVerificationChannel channel, string masked) =>
+        new()
+        {
+            Result = VerificationCodeSendResult.Sent,
+            Channel = channel,
+            MaskedDestination = masked,
+            DeliveredViaLog = true
         };
 
     public static VerificationCodeSendOutcome Failed(string? message) =>
@@ -248,9 +292,10 @@ public sealed class VerificationCodeVerifyOutcome
 {
     public VerificationCodeVerifyResult Result { get; init; }
     public string? ErrorMessage { get; init; }
+    public string? UserId { get; init; }
 
-    public static VerificationCodeVerifyOutcome Verified() =>
-        new() { Result = VerificationCodeVerifyResult.Verified };
+    public static VerificationCodeVerifyOutcome Verified(string? userId = null) =>
+        new() { Result = VerificationCodeVerifyResult.Verified, UserId = userId };
 
     public static VerificationCodeVerifyOutcome InvalidCode() =>
         new() { Result = VerificationCodeVerifyResult.InvalidCode, ErrorMessage = "Invalid verification code." };
@@ -258,8 +303,8 @@ public sealed class VerificationCodeVerifyOutcome
     public static VerificationCodeVerifyOutcome Expired() =>
         new() { Result = VerificationCodeVerifyResult.Expired, ErrorMessage = "Code expired. Request a new one." };
 
-    public static VerificationCodeVerifyOutcome AlreadyVerified() =>
-        new() { Result = VerificationCodeVerifyResult.AlreadyVerified };
+    public static VerificationCodeVerifyOutcome AlreadyVerified(string? userId = null) =>
+        new() { Result = VerificationCodeVerifyResult.AlreadyVerified, UserId = userId };
 
     public static VerificationCodeVerifyOutcome UserNotFound() =>
         new() { Result = VerificationCodeVerifyResult.UserNotFound, ErrorMessage = "Account not found." };
@@ -280,12 +325,12 @@ public enum VerificationCodeVerifyResult
 
 public static class AccountVerificationPolicy
 {
-    public static bool IsVerificationConfigured(IConfiguration config) =>
-        SmtpEmailConfiguration.IsEmailConfigured(config) || SmsConfiguration.IsSmsConfigured(config);
+    public static bool IsVerificationConfigured(IConfiguration config) => true;
 
-    public static bool CanVerifyViaEmail(IConfiguration config) =>
-        SmtpEmailConfiguration.IsEmailConfigured(config);
+    public static bool CanVerifyViaEmail(IConfiguration config) => true;
 
-    public static bool CanVerifyViaSms(IConfiguration config) =>
-        SmsConfiguration.IsSmsConfigured(config);
+    public static bool CanVerifyViaSms(IConfiguration config) => true;
+
+    public static bool UsesLogOnlyDelivery(IConfiguration config) =>
+        !SmtpEmailConfiguration.IsEmailConfigured(config) && !SmsConfiguration.IsSmsConfigured(config);
 }

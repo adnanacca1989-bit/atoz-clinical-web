@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
@@ -14,20 +13,17 @@ public class VerifyAccountModel : PageModel
 {
     private readonly ApplicationUserLookup _userLookup;
     private readonly TrialRegistrationVerificationService _verification;
-    private readonly UserManager<ApplicationUser> _users;
     private readonly IConfiguration _config;
     private readonly ILogger<VerifyAccountModel> _logger;
 
     public VerifyAccountModel(
         ApplicationUserLookup userLookup,
         TrialRegistrationVerificationService verification,
-        UserManager<ApplicationUser> users,
         IConfiguration config,
         ILogger<VerifyAccountModel> logger)
     {
         _userLookup = userLookup;
         _verification = verification;
-        _users = users;
         _config = config;
         _logger = logger;
     }
@@ -44,6 +40,7 @@ public class VerifyAccountModel : PageModel
     public bool CodeSent { get; private set; }
     public bool Verified { get; private set; }
     public bool ShowCodeForm { get; private set; }
+    public bool OtpDeliveredViaLog { get; private set; }
     public string? MaskedDestination { get; private set; }
     public string VerificationChannelLabel { get; private set; } = "email";
     public string? ErrorMessage { get; private set; }
@@ -77,13 +74,7 @@ public class VerifyAccountModel : PageModel
         }
 
         PendingUserId = user.Id;
-        var channel = !string.IsNullOrWhiteSpace(user.Email) && AccountVerificationPolicy.CanVerifyViaEmail(_config)
-            ? RegistrationVerificationChannel.Email
-            : RegistrationVerificationChannel.Sms;
-        var destination = channel == RegistrationVerificationChannel.Email
-            ? user.Email!
-            : user.PhoneNumber ?? "";
-
+        var (channel, destination) = ResolveChannel(user);
         if (string.IsNullOrWhiteSpace(destination))
         {
             ErrorMessage = "This account has no email or mobile on file.";
@@ -98,21 +89,12 @@ public class VerifyAccountModel : PageModel
                 CodeSent = true;
                 ShowCodeForm = true;
                 MaskedDestination = outcome.MaskedDestination;
+                OtpDeliveredViaLog = outcome.DeliveredViaLog;
                 VerificationChannelLabel = channel == RegistrationVerificationChannel.Email ? "email" : "mobile";
                 return Page();
             }
 
             ErrorMessage = outcome.ErrorMessage ?? "Could not send verification code.";
-            return Page();
-        }
-        catch (ClinicalEmailNotConfiguredException ex)
-        {
-            ErrorMessage = ex.Message;
-            return Page();
-        }
-        catch (ClinicalSmsNotConfiguredException ex)
-        {
-            ErrorMessage = ex.Message;
             return Page();
         }
         catch (Exception ex)
@@ -149,6 +131,17 @@ public class VerifyAccountModel : PageModel
         ShowCodeForm = true;
         ErrorMessage = outcome.ErrorMessage ?? "Verification failed.";
         return Page();
+    }
+
+    private static (RegistrationVerificationChannel Channel, string Destination) ResolveChannel(ApplicationUser user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.Email))
+            return (RegistrationVerificationChannel.Email, user.Email.Trim());
+
+        if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+            return (RegistrationVerificationChannel.Sms, user.PhoneNumber.Trim());
+
+        return (RegistrationVerificationChannel.Email, string.Empty);
     }
 
     public sealed class VerifyInput

@@ -33,11 +33,18 @@
                     <div class="atz-card p-4">
                         <h4 class="fw-bold mb-2" style="color:#0b4f8a">Enter verification code</h4>
                         <p class="text-muted small">
-                            We sent a 4-digit code to your @Model.VerificationChannelLabel
-                            @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
+                            @if (Model.OtpDeliveredViaLog)
                             {
-                                <strong>@Model.MaskedDestination</strong>
-                            }.
+                                <span>A 4-digit verification code was generated. Email/SMS is not configured — check the <strong>server logs</strong> on Render for <code>OTP LOG DELIVERY</code>.</span>
+                            }
+                            else
+                            {
+                                <span>We sent a 4-digit code to your @Model.VerificationChannelLabel
+                                @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
+                                {
+                                    <strong>@Model.MaskedDestination</strong>
+                                }.</span>
+                            }
                         </p>
                         @if (Model.CodeResent)
                         {
@@ -142,20 +149,14 @@
                             <div class="mb-3">
                                 <label class="form-label">Verify with</label>
                                 <div class="btn-group w-100 contact-method-toggle" role="group">
-                                    @if (Model.EmailVerificationAvailable)
-                                    {
-                                        <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactEmail" value="email" />
-                                        <label class="btn btn-outline-primary" for="contactEmail">Email</label>
-                                    }
-                                    @if (Model.SmsVerificationAvailable)
-                                    {
-                                        <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactMobile" value="mobile" />
-                                        <label class="btn btn-outline-primary" for="contactMobile">Mobile</label>
-                                    }
+                                    <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactEmail" value="email" />
+                                    <label class="btn btn-outline-primary" for="contactEmail">Email</label>
+                                    <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactMobile" value="mobile" />
+                                    <label class="btn btn-outline-primary" for="contactMobile">Mobile</label>
                                 </div>
-                                @if (!Model.EmailVerificationAvailable && !Model.SmsVerificationAvailable)
+                                @if (Model.UsesLogOnlyOtp)
                                 {
-                                    <p class="text-warning small mt-2 mb-0">Verification is not configured — you can register and sign in immediately.</p>
+                                    <p class="text-warning small mt-2 mb-0">Email/SMS not configured — the 4-digit code will appear in server logs until SMTP or Twilio is set up.</p>
                                 }
                             </div>
 
