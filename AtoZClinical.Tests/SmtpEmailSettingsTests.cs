@@ -7,42 +7,38 @@ namespace AtoZClinical.Tests;
 public class SmtpEmailSettingsTests
 {
     [Fact]
-    public void From_IsReady_When_Host_From_And_Credentials_Set()
+    public void IsEmailConfigured_True_When_All_Variables_Set()
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Email:SmtpHost"] = "smtp.sendgrid.net",
+                ["Email:SmtpPort"] = "587",
                 ["Email:FromAddress"] = "noreply@example.com",
                 ["Email:SmtpUser"] = "apikey",
-                ["Email:SmtpPassword"] = "secret",
-                ["Email:Enabled"] = "true"
+                ["Email:SmtpPassword"] = "secret"
             })
             .Build();
 
-        var settings = SmtpEmailSettings.From(config);
-
-        Assert.True(settings.IsReady);
-        Assert.Equal("ready", settings.DescribeReadiness());
-        Assert.Equal(MailKit.Security.SecureSocketOptions.StartTls, settings.SecureSocketOptions);
+        Assert.True(SmtpEmailConfiguration.IsEmailConfigured(config));
+        Assert.Equal(SecureSocketOptions.StartTls, SmtpEmailSettings.From(config).SecureSocketOptions);
     }
 
     [Fact]
-    public void From_NotReady_Without_Smtp_Credentials()
+    public void IsEmailConfigured_False_Without_Smtp_Credentials()
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Email:SmtpHost"] = "smtp.gmail.com",
-                ["Email:FromAddress"] = "noreply@example.com",
-                ["Email:Enabled"] = "true"
+                ["Email:SmtpPort"] = "587",
+                ["Email:FromAddress"] = "noreply@example.com"
             })
             .Build();
 
-        var settings = SmtpEmailSettings.From(config);
-
-        Assert.False(settings.IsReady);
-        Assert.Equal("missing SMTP_USER", settings.DescribeReadiness());
+        Assert.False(SmtpEmailConfiguration.IsEmailConfigured(config));
+        Assert.Contains("SMTP_USER", SmtpEmailConfiguration.GetMissingVariables(config));
+        Assert.Contains("SMTP_PASS", SmtpEmailConfiguration.GetMissingVariables(config));
     }
 
     [Fact]
@@ -58,8 +54,8 @@ public class SmtpEmailSettingsTests
             var config = new ConfigurationManager();
             SmtpConfigurationBootstrap.Apply(config);
 
+            Assert.True(SmtpEmailConfiguration.IsEmailConfigured(config));
             var settings = SmtpEmailSettings.From(config);
-            Assert.True(settings.IsReady);
             Assert.Equal("smtp.mailgun.org", settings.Host);
             Assert.Equal("hello@clinic.test", settings.FromAddress);
             Assert.Equal("postmaster", settings.User);
@@ -76,24 +72,26 @@ public class SmtpEmailSettingsTests
     }
 
     [Fact]
-    public void From_Uses_SmtpUser_As_From_For_Gmail()
+    public void From_Uses_SmtpUser_As_From_For_Gmail_When_From_Missing()
     {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Email:SmtpHost"] = "smtp.gmail.com",
-                ["Email:FromAddress"] = "wrong@example.com",
-                ["Email:SmtpUser"] = "user@gmail.com",
-                ["Email:SmtpPassword"] = "app-password",
-                ["Email:Enabled"] = "true"
-            })
-            .Build();
-
-        var settings = SmtpEmailSettings.From(config);
-
-        Assert.True(settings.IsReady);
-        Assert.Equal("user@gmail.com", settings.FromAddress);
-        Assert.Contains("Gmail", settings.ConfigurationWarning ?? string.Empty);
+        Environment.SetEnvironmentVariable("SMTP_HOST", "smtp.gmail.com");
+        Environment.SetEnvironmentVariable("SMTP_PORT", "587");
+        Environment.SetEnvironmentVariable("SMTP_USER", "user@gmail.com");
+        Environment.SetEnvironmentVariable("SMTP_PASS", "app-password");
+        Environment.SetEnvironmentVariable("FROM_EMAIL", null);
+        try
+        {
+            var config = new ConfigurationBuilder().Build();
+            Assert.True(SmtpEmailConfiguration.IsEmailConfigured(config));
+            Assert.Equal("user@gmail.com", SmtpEmailSettings.From(config).FromAddress);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("SMTP_HOST", null);
+            Environment.SetEnvironmentVariable("SMTP_PORT", null);
+            Environment.SetEnvironmentVariable("SMTP_USER", null);
+            Environment.SetEnvironmentVariable("SMTP_PASS", null);
+        }
     }
 
     [Fact]

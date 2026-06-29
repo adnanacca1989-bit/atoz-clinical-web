@@ -38,9 +38,9 @@ public sealed class RegistrationEmailService
         if (!_email.IsConfigured)
         {
             _logger.LogWarning(
-                "Email confirmation not sent for user {UserId}: SMTP not configured ({Reason})",
+                "Email confirmation not sent for user {UserId}: SMTP not configured. Missing: {Missing}",
                 user.Id,
-                SmtpEmailSettings.From(_config).DescribeReadiness());
+                string.Join(", ", SmtpEmailConfiguration.GetMissingVariables(_config)));
             return EmailConfirmationSendResult.NotConfigured;
         }
 

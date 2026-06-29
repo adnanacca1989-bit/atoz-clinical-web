@@ -411,7 +411,7 @@ var app = builder.Build();
 await DatabaseInitializer.InitializeAsync(app.Services);
 
 var emailSettings = SmtpEmailSettings.From(app.Configuration);
-app.Logger.LogInformation(emailSettings.StartupLogMessage());
+SmtpEmailConfiguration.LogDiagnostics(app.Logger, app.Configuration);
 if (!string.IsNullOrWhiteSpace(emailSettings.ConfigurationWarning))
     app.Logger.LogWarning(emailSettings.ConfigurationWarning);
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
@@ -467,16 +467,15 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         if (!await db.Database.CanConnectAsync())
             return Results.Problem("Database unreachable", statusCode: StatusCodes.Status503ServiceUnavailable);
 
-        var emailSettings = SmtpEmailSettings.From(config);
         var basic = new Dictionary<string, object?>
         {
             ["status"] = "healthy",
             ["version"] = AppBuildInfo.Version,
             ["timestamp"] = DateTime.UtcNow,
             ["isHttps"] = ctx.Request.IsHttps,
-            ["emailConfigured"] = emailSettings.IsReady,
-            ["emailStatus"] = emailSettings.DescribeReadiness(),
-            ["emailMissingVariables"] = emailSettings.ListMissingVariables()
+            ["emailConfigured"] = SmtpEmailConfiguration.IsEmailConfigured(config),
+            ["emailStatus"] = SmtpEmailConfiguration.IsEmailConfigured(config) ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
+            ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config)
         };
 
         var token = config["Operations:HealthToken"];

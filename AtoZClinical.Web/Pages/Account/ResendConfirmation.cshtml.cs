@@ -14,18 +14,15 @@ public class ResendConfirmationModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _users;
     private readonly RegistrationEmailService _registrationEmail;
-    private readonly IClinicalEmailSender _email;
     private readonly ILogger<ResendConfirmationModel> _logger;
 
     public ResendConfirmationModel(
         UserManager<ApplicationUser> users,
         RegistrationEmailService registrationEmail,
-        IClinicalEmailSender email,
         ILogger<ResendConfirmationModel> logger)
     {
         _users = users;
         _registrationEmail = registrationEmail;
-        _email = email;
         _logger = logger;
     }
 
@@ -36,8 +33,7 @@ public class ResendConfirmationModel : PageModel
     public bool EmailDeliveryFailed { get; private set; }
     public bool EmailNotConfigured { get; private set; }
     public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
-    public string AdminSetupMessage { get; private set; } =
-        "Email is not configured on the server. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and FROM_EMAIL in Render environment variables, then redeploy.";
+    public string AdminSetupMessage { get; private set; } = SmtpEmailConfiguration.NotConfiguredUserMessage;
 
     public void OnGet(string? username)
     {
@@ -49,8 +45,12 @@ public class ResendConfirmationModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
-        if (!_email.IsConfigured)
+        if (!SmtpEmailConfiguration.IsEmailConfigured())
         {
+            var missing = SmtpEmailConfiguration.GetMissingVariables();
+            _logger.LogError(
+                "Resend confirmation requested but SMTP not configured. Missing: {Missing}",
+                string.Join(", ", missing));
             EmailNotConfigured = true;
             EmailDeliveryFailed = true;
             ModelState.AddModelError(string.Empty, AdminSetupMessage);

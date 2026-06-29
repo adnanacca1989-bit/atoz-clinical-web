@@ -25,7 +25,7 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         _env = env;
     }
 
-    public bool IsConfigured => SmtpEmailSettings.From(_config).IsReady;
+    public bool IsConfigured => SmtpEmailConfiguration.IsEmailConfigured(_config);
 
     public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {

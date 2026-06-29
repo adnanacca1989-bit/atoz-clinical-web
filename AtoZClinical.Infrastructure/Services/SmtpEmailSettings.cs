@@ -3,10 +3,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace AtoZClinical.Infrastructure.Services;
 
-/// <summary>Resolves SMTP settings from appsettings and Render-friendly environment variables.</summary>
+/// <summary>Resolved SMTP settings for sending mail via MailKit.</summary>
 public sealed class SmtpEmailSettings
 {
-    public bool Enabled { get; init; }
     public string? Host { get; init; }
     public int Port { get; init; } = 587;
     public string? User { get; init; }
@@ -19,17 +18,15 @@ public sealed class SmtpEmailSettings
     public bool IsReady =>
         !string.IsNullOrWhiteSpace(Host) &&
         !string.IsNullOrWhiteSpace(FromAddress) &&
-        HasRequiredCredentials();
+        !string.IsNullOrWhiteSpace(User) &&
+        !string.IsNullOrWhiteSpace(Password) &&
+        Port > 0;
 
-    public IReadOnlyList<string> ListMissingVariables()
-    {
-        var missing = new List<string>();
-        if (string.IsNullOrWhiteSpace(Host)) missing.Add("SMTP_HOST");
-        if (string.IsNullOrWhiteSpace(FromAddress)) missing.Add("FROM_EMAIL");
-        if (string.IsNullOrWhiteSpace(User)) missing.Add("SMTP_USER");
-        if (string.IsNullOrWhiteSpace(Password)) missing.Add("SMTP_PASS");
-        return missing;
-    }
+    public static bool IsEmailConfigured(IConfiguration? config = null) =>
+        SmtpEmailConfiguration.IsEmailConfigured(config);
+
+    public IReadOnlyList<string> ListMissingVariables() =>
+        SmtpEmailConfiguration.GetMissingVariables();
 
     public string DescribeReadiness()
     {
@@ -45,86 +42,35 @@ public sealed class SmtpEmailSettings
 
     public string StartupLogMessage() =>
         IsReady
-            ? $"SMTP email ready: {Host}:{Port} from {FromAddress}"
-            : $"SMTP not configured: {DescribeReadiness()}";
+            ? $"SMTP email ready: {Host}:{Port}"
+            : $"SMTP not configured: missing variables: {string.Join(", ", ListMissingVariables())}";
 
-    private bool HasRequiredCredentials()
+    public static SmtpEmailSettings From(IConfiguration? config = null)
     {
-        if (Host is "localhost" or "127.0.0.1")
-            return true;
-
-        return !string.IsNullOrWhiteSpace(User) && !string.IsNullOrWhiteSpace(Password);
-    }
-
-    public static SmtpEmailSettings From(IConfiguration config)
-    {
-        static string? First(params string?[] values)
-        {
-            foreach (var value in values)
-            {
-                if (!string.IsNullOrWhiteSpace(value))
-                    return value.Trim();
-            }
-
-            return null;
-        }
-
-        var host = First(
-            config["Email:SmtpHost"],
-            config["SMTP_HOST"]);
-
-        var user = First(
-            config["Email:SmtpUser"],
-            config["SMTP_USER"]);
-
-        var fromAddress = First(
-            config["Email:FromAddress"],
-            config["FROM_EMAIL"]);
+        var host = SmtpEmailConfiguration.ReadHost(config);
+        var user = SmtpEmailConfiguration.ReadUser(config);
+        var fromAddress = SmtpEmailConfiguration.ReadFromEmail(config);
 
         string? warning = null;
-        if (string.IsNullOrWhiteSpace(fromAddress) && !string.IsNullOrWhiteSpace(user))
-            fromAddress = user;
-
-        if (SmtpEmailDiagnostics.IsGmailHost(host) && !string.IsNullOrWhiteSpace(user))
+        var configuredFrom = SmtpEmailConfiguration.Read("FROM_EMAIL", config, "Email:FromAddress", "FROM_EMAIL");
+        if (SmtpEmailDiagnostics.IsGmailHost(host)
+            && !string.IsNullOrWhiteSpace(user)
+            && !string.IsNullOrWhiteSpace(configuredFrom)
+            && !string.Equals(configuredFrom, user, StringComparison.OrdinalIgnoreCase))
         {
-            if (!string.Equals(fromAddress, user, StringComparison.OrdinalIgnoreCase))
-            {
-                warning = $"FROM_EMAIL ({fromAddress}) did not match SMTP_USER; using {user} for Gmail.";
-                fromAddress = user;
-            }
+            warning = $"FROM_EMAIL ({configuredFrom}) did not match SMTP_USER; using {user} for Gmail.";
+            fromAddress = user;
         }
-
-        var portRaw = First(
-            config["Email:SmtpPort"],
-            config["SMTP_PORT"]);
-        var port = int.TryParse(portRaw, out var parsedPort) ? parsedPort : 587;
-
-        var useSslRaw = First(
-            config["Email:UseSsl"],
-            config["SMTP_USE_SSL"]);
-        var useSsl = string.IsNullOrWhiteSpace(useSslRaw)
-            ? port is 465 or 587
-            : bool.TryParse(useSslRaw, out var ssl) && ssl;
-
-        var password = First(
-            config["Email:SmtpPassword"],
-            config["SMTP_PASS"],
-            config["SMTP_PASSWORD"]);
-
-        var hasMinimum = !string.IsNullOrWhiteSpace(host) && !string.IsNullOrWhiteSpace(fromAddress);
 
         return new SmtpEmailSettings
         {
-            Enabled = hasMinimum,
             Host = host,
-            Port = port,
+            Port = SmtpEmailConfiguration.ReadPort(config),
             User = user,
-            Password = password,
+            Password = SmtpEmailConfiguration.ReadPassword(config),
             FromAddress = fromAddress,
-            FromName = First(
-                config["Email:FromName"],
-                config["FROM_NAME"]) ?? "A to Z Clinical",
-            UseSsl = useSsl,
+            FromName = SmtpEmailConfiguration.ReadFromName(config) ?? "A to Z Clinical",
+            UseSsl = SmtpEmailConfiguration.ReadUseSsl(config),
             ConfigurationWarning = warning
         };
     }
