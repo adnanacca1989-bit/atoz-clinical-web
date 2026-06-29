@@ -76,7 +76,6 @@ public class ResponsibilitiesModel : PageModel
         (ClinicalFormKeys.BalanceSheet, "Balance Sheet"),
         (ClinicalFormKeys.AccountsReceivable, "Accounts Receivable"),
         (ClinicalFormKeys.AccountsPayable, "Accounts Payable"),
-        (ClinicalFormKeys.OperatingReport, "Operating Report"),
         (ClinicalFormKeys.CashReport, "Cash Report"),
         (ClinicalFormKeys.PharmacyInventory, "Pharmacy Inventory Report"),
         (ClinicalFormKeys.DoctorReport, "Doctor Report"),

@@ -175,7 +175,6 @@ public sealed class FormPermissionService
             "/reports/balancesheet" => ClinicalFormKeys.BalanceSheet,
             "/reports/accountsreceivable" => ClinicalFormKeys.AccountsReceivable,
             "/reports/accountspayable" => ClinicalFormKeys.AccountsPayable,
-            "/reports/operatingreport" => ClinicalFormKeys.OperatingReport,
             "/reports/cashreport" => ClinicalFormKeys.CashReport,
             "/reports/pharmacyinventory" => ClinicalFormKeys.PharmacyInventory,
             "/reports/doctorreport" => ClinicalFormKeys.DoctorReport,

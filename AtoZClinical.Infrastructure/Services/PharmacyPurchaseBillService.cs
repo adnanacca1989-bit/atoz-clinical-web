@@ -9,12 +9,18 @@ public sealed class PharmacyPurchaseBillService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly PharmacyInventoryService _inventory;
+    private readonly ClinicalJournalSyncService _journalSync;
 
-    public PharmacyPurchaseBillService(ClinicalDbContext db, AuditService audit, PharmacyInventoryService inventory)
+    public PharmacyPurchaseBillService(
+        ClinicalDbContext db,
+        AuditService audit,
+        PharmacyInventoryService inventory,
+        ClinicalJournalSyncService journalSync)
     {
         _db = db;
         _audit = audit;
         _inventory = inventory;
+        _journalSync = journalSync;
     }
 
     public static void ApplyDiscount(PharmacyPurchaseBill bill)
@@ -130,6 +136,9 @@ public sealed class PharmacyPurchaseBillService
         }
 
         await _inventory.SyncPurchaseInAsync(clinicId, item, validLines);
+
+        try { await _journalSync.SyncPharmacyPurchaseBillAsync(clinicId, item); }
+        catch { }
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Purchase Bill", isNew ? "Create" : "Update",
             $"Purchase #{item.PurchaseNo} — {item.SupplierName}, net {item.NetAmount:N2}");

@@ -319,6 +319,15 @@ public sealed class RadiologyRequestService
         await _audit.LogAsync(clinicId, userName, "Radiology Request", "Delete", $"Request #{item.RequestNo}");
     }
 
+    public async Task<RadiologyRequest?> GetByRequestNoAsync(Guid clinicId, int requestNo)
+    {
+        var item = await _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId)
+            .FirstOrDefaultAsync(r => r.RequestNo == requestNo);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
+
     public Task<RadiologyRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode)
     {
         var barcode = patientBarcode?.Trim();

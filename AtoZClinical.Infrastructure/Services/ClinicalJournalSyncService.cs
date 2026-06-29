@@ -11,6 +11,33 @@ public static class ClinicalJournalSources
     public const string CashReceipt = "CashReceipt";
     public const string CashPayment = "CashPayment";
     public const string PharmacyBill = "PharmacyBill";
+    public const string PharmacyOpeningBalance = "PharmacyOpeningBalance";
+    public const string PharmacyPurchaseBill = "PharmacyPurchaseBill";
+}
+
+public static class InventoryAccountingHelper
+{
+    public const string InventoryAccount = "Inventory";
+    public const string CogsAccount = "Cost of Goods Sold";
+    public const string OpeningEquityAccount = "Retained Earnings";
+
+    public static string ResolveInventoryAccount(IReadOnlyList<ChartAccount> accounts) =>
+        RevenueAccountingHelper.ResolveAssetAccount(accounts, InventoryAccount, InventoryAccount);
+
+    public static string ResolveCogsAccount(IReadOnlyList<ChartAccount> accounts) =>
+        accounts.FirstOrDefault(a =>
+            string.Equals(a.Name, CogsAccount, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(a.DetailType, CogsAccount, StringComparison.OrdinalIgnoreCase))?.Name ?? CogsAccount;
+
+    public static string ResolvePayableAccount(IReadOnlyList<ChartAccount> accounts) =>
+        accounts.FirstOrDefault(a =>
+            string.Equals(a.Name, "Account Payable", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(a.DetailType, "Account Payable", StringComparison.OrdinalIgnoreCase))?.Name ?? "Account Payable";
+
+    public static string ResolveEquityAccount(IReadOnlyList<ChartAccount> accounts) =>
+        accounts.FirstOrDefault(a =>
+            string.Equals(a.Name, OpeningEquityAccount, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(a.DetailType, OpeningEquityAccount, StringComparison.OrdinalIgnoreCase))?.Name ?? OpeningEquityAccount;
 }
 
 public static class RevenueAccountingHelper
@@ -111,6 +138,32 @@ public sealed class ClinicalJournalSyncService
                 }
             }
 
+            var openingBalances = await _db.PharmacyOpeningBalances.Include(b => b.Lines).ForClinic(clinicId).ToListAsync();
+            foreach (var balance in openingBalances)
+            {
+                try
+                {
+                    await SyncPharmacyOpeningBalanceAsync(clinicId, balance, chartAccounts, saveChanges: false, forceResync: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped pharmacy opening balance journal sync #{BalanceNo}", balance.BalanceNo);
+                }
+            }
+
+            var purchases = await _db.PharmacyPurchaseBills.Include(b => b.Lines).ForClinic(clinicId).ToListAsync();
+            foreach (var purchase in purchases)
+            {
+                try
+                {
+                    await SyncPharmacyPurchaseBillAsync(clinicId, purchase, chartAccounts, saveChanges: false, forceResync: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped pharmacy purchase journal sync #{PurchaseNo}", purchase.PurchaseNo);
+                }
+            }
+
             var patientPayments = await _db.CashPayments
                 .ForClinic(clinicId)
                 .Where(p => !p.VendorId.HasValue && (p.PatientId != null || p.PayeeName != null))
@@ -148,6 +201,12 @@ public sealed class ClinicalJournalSyncService
 
     public Task SyncPharmacyBillAsync(Guid clinicId, PharmacyBill bill, List<PharmacyBillLine> lines) =>
         SyncPharmacyBillAsync(clinicId, bill, lines, null, saveChanges: true);
+
+    public Task SyncPharmacyOpeningBalanceAsync(Guid clinicId, PharmacyOpeningBalance balance) =>
+        SyncPharmacyOpeningBalanceAsync(clinicId, balance, null, saveChanges: true);
+
+    public Task SyncPharmacyPurchaseBillAsync(Guid clinicId, PharmacyPurchaseBill bill) =>
+        SyncPharmacyPurchaseBillAsync(clinicId, bill, null, saveChanges: true);
 
     public Task SyncPatientCashPaymentAsync(Guid clinicId, CashPayment payment) =>
         SyncPatientCashPaymentAsync(clinicId, payment, null, saveChanges: true);
@@ -325,16 +384,149 @@ public sealed class ClinicalJournalSyncService
         var incomeCategory = chartAccounts.FirstOrDefault(a =>
             string.Equals(a.Name, incomeAccount, StringComparison.OrdinalIgnoreCase))?.CategoryType ?? "Income";
 
+        var cogsTotal = await SumBillCogsAsync(clinicId, bill.Id);
+        var inventoryAccount = InventoryAccountingHelper.ResolveInventoryAccount(chartAccounts);
+        var cogsAccount = InventoryAccountingHelper.ResolveCogsAccount(chartAccounts);
+        var inventoryCategory = CategoryFor(chartAccounts, inventoryAccount, "Asset");
+        var cogsCategory = CategoryFor(chartAccounts, cogsAccount, "Expense");
+
         var journalLines = new List<JournalEntryLine>
         {
-            CreateLine(entry.Id, 1, arAccount, "Asset", bill.TotalAmount, 0, $"Bill #{bill.BillNo}"),
+            CreateLine(entry.Id, 1, arAccount, "Asset", bill.TotalAmount, 0, $"Bill #{bill.BillNo} revenue"),
             CreateLine(entry.Id, 2, incomeAccount, incomeCategory, 0, bill.TotalAmount, incomeAccount)
+        };
+
+        if (cogsTotal > 0)
+        {
+            journalLines.Add(CreateLine(entry.Id, 3, cogsAccount, cogsCategory, cogsTotal, 0, $"Bill #{bill.BillNo} COGS"));
+            journalLines.Add(CreateLine(entry.Id, 4, inventoryAccount, inventoryCategory, 0, cogsTotal, inventoryAccount));
+        }
+
+        AddLines(journalLines);
+        if (saveChanges)
+            await _db.SaveChangesAsync();
+    }
+
+    private async Task SyncPharmacyOpeningBalanceAsync(
+        Guid clinicId,
+        PharmacyOpeningBalance balance,
+        List<ChartAccount>? chartAccounts,
+        bool saveChanges,
+        bool forceResync = false)
+    {
+        chartAccounts ??= await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        if (!forceResync && await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.PharmacyOpeningBalance, balance.Id, balance.UpdatedAt))
+            return;
+
+        var total = await SumInventoryMovementValueAsync(
+            clinicId, PharmacyInventoryTypes.ReferenceOpeningBalance, balance.Id);
+        if (total <= 0)
+            return;
+
+        var entry = await GetOrResetEntryAsync(
+            clinicId,
+            ClinicalJournalSources.PharmacyOpeningBalance,
+            balance.Id,
+            balance.BalanceDate,
+            $"Pharmacy opening balance #{balance.BalanceNo}",
+            null,
+            null);
+
+        var inventoryAccount = InventoryAccountingHelper.ResolveInventoryAccount(chartAccounts);
+        var equityAccount = InventoryAccountingHelper.ResolveEquityAccount(chartAccounts);
+
+        var journalLines = new List<JournalEntryLine>
+        {
+            CreateLine(entry.Id, 1, inventoryAccount, CategoryFor(chartAccounts, inventoryAccount, "Asset"), total, 0,
+                $"Opening balance #{balance.BalanceNo}"),
+            CreateLine(entry.Id, 2, equityAccount, CategoryFor(chartAccounts, equityAccount, "Equity"), 0, total,
+                $"Opening balance #{balance.BalanceNo}")
         };
 
         AddLines(journalLines);
         if (saveChanges)
             await _db.SaveChangesAsync();
     }
+
+    private async Task SyncPharmacyPurchaseBillAsync(
+        Guid clinicId,
+        PharmacyPurchaseBill bill,
+        List<ChartAccount>? chartAccounts,
+        bool saveChanges,
+        bool forceResync = false)
+    {
+        if (bill.NetAmount <= 0)
+            return;
+
+        chartAccounts ??= await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        if (!forceResync && await IsJournalCurrentAsync(clinicId, ClinicalJournalSources.PharmacyPurchaseBill, bill.Id, bill.UpdatedAt))
+            return;
+
+        var entry = await GetOrResetEntryAsync(
+            clinicId,
+            ClinicalJournalSources.PharmacyPurchaseBill,
+            bill.Id,
+            bill.PurchaseDate,
+            $"Pharmacy purchase #{bill.PurchaseNo} — {bill.SupplierName}",
+            null,
+            null);
+
+        var inventoryAccount = InventoryAccountingHelper.ResolveInventoryAccount(chartAccounts);
+        var payableAccount = InventoryAccountingHelper.ResolvePayableAccount(chartAccounts);
+        var inventoryCategory = CategoryFor(chartAccounts, inventoryAccount, "Asset");
+        var payableCategory = CategoryFor(chartAccounts, payableAccount, "Liability");
+
+        var journalLines = new List<JournalEntryLine>
+        {
+            CreateLine(entry.Id, 1, inventoryAccount, inventoryCategory, bill.NetAmount, 0,
+                $"Purchase #{bill.PurchaseNo}")
+        };
+
+        var lineNo = 2;
+        var amountPaid = Math.Max(0m, bill.AmountPaid);
+        var balanceDue = Math.Max(0m, bill.BalanceDue);
+        if (amountPaid > 0 && balanceDue > 0)
+        {
+            var cashAccount = PaymentJournalHelper.ResolvePaymentCreditAccount(bill.PaymentMethod, chartAccounts);
+            journalLines.Add(CreateLine(entry.Id, lineNo++, cashAccount, CategoryFor(chartAccounts, cashAccount, "Asset"),
+                0, amountPaid, $"Purchase #{bill.PurchaseNo} payment"));
+            journalLines.Add(CreateLine(entry.Id, lineNo, payableAccount, payableCategory, 0, balanceDue,
+                $"Purchase #{bill.PurchaseNo} payable"));
+        }
+        else if (amountPaid >= bill.NetAmount)
+        {
+            var cashAccount = PaymentJournalHelper.ResolvePaymentCreditAccount(bill.PaymentMethod, chartAccounts);
+            journalLines.Add(CreateLine(entry.Id, lineNo, cashAccount, CategoryFor(chartAccounts, cashAccount, "Asset"),
+                0, bill.NetAmount, $"Purchase #{bill.PurchaseNo} payment"));
+        }
+        else
+        {
+            journalLines.Add(CreateLine(entry.Id, lineNo, payableAccount, payableCategory, 0, bill.NetAmount,
+                $"Purchase #{bill.PurchaseNo} payable"));
+        }
+
+        AddLines(journalLines);
+        if (saveChanges)
+            await _db.SaveChangesAsync();
+    }
+
+    private async Task<decimal> SumBillCogsAsync(Guid clinicId, Guid billId) =>
+        await _db.PharmacyInventoryMovements
+            .ForClinic(clinicId)
+            .Where(m => m.ReferenceType == PharmacyInventoryTypes.ReferenceBill &&
+                        m.ReferenceId == billId &&
+                        m.MovementType == PharmacyInventoryTypes.BillOut)
+            .SumAsync(m => m.TotalValue);
+
+    private async Task<decimal> SumInventoryMovementValueAsync(Guid clinicId, string referenceType, Guid referenceId) =>
+        await _db.PharmacyInventoryMovements
+            .ForClinic(clinicId)
+            .Where(m => m.ReferenceType == referenceType && m.ReferenceId == referenceId)
+            .SumAsync(m => m.TotalValue);
+
+    private static string CategoryFor(IReadOnlyList<ChartAccount> accounts, string accountName, string fallback) =>
+        accounts.FirstOrDefault(a => string.Equals(a.Name, accountName, StringComparison.OrdinalIgnoreCase))?.CategoryType
+        ?? fallback;
 
     private async Task<bool> IsJournalCurrentAsync(Guid clinicId, string sourceType, Guid sourceId, DateTime sourceUpdatedAt)
     {

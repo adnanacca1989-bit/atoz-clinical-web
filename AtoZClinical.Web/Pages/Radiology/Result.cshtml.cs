@@ -75,20 +75,20 @@ public class ResultModel : ClinicFormPageModel
 
     private async Task BackfillFromRadiologyRequestAsync(Guid clinicId)
     {
-        var needsDoctor = string.IsNullOrWhiteSpace(Input.DoctorName);
-        var needsLines = Lines.All(l => string.IsNullOrWhiteSpace(l.TestCode) && string.IsNullOrWhiteSpace(l.TestName));
-        if (!needsDoctor && !needsLines && Input.RequestNo.HasValue) return;
-
-        var request = await _requestService.GetLatestByPatientAsync(clinicId, Input.PatientName, Input.PatientBarcode);
+        RadiologyRequest? request = null;
+        if (Input.RequestNo.HasValue)
+            request = await _requestService.GetByRequestNoAsync(clinicId, Input.RequestNo.Value);
+        request ??= await _requestService.GetLatestByPatientAsync(clinicId, Input.PatientName, Input.PatientBarcode);
         if (request is null) return;
 
         if (!Input.RequestNo.HasValue) Input.RequestNo = request.RequestNo;
-        if (needsDoctor)
+        if (string.IsNullOrWhiteSpace(Input.DoctorName))
         {
             Input.DoctorName ??= request.DoctorName;
             Input.Specialty ??= request.Specialty;
         }
 
+        var needsLines = Lines.All(l => string.IsNullOrWhiteSpace(l.TestCode) && string.IsNullOrWhiteSpace(l.TestName));
         if (needsLines && request.Lines.Count > 0)
         {
             Lines = request.Lines.OrderBy(l => l.LineNo).Select(l => new RadiologyResultLineInput
@@ -96,9 +96,33 @@ public class ResultModel : ClinicFormPageModel
                 LineNo = l.LineNo,
                 TestCode = l.TestCode,
                 TestName = l.TestName,
-                Category = l.Category
+                Category = l.Category,
+                Qty = l.Qty
             }).ToList();
             EnsureLineRows();
+        }
+        else
+        {
+            ApplyRequestQuantities(request);
+        }
+    }
+
+    private void ApplyRequestQuantities(RadiologyRequest request)
+    {
+        foreach (var line in Lines)
+        {
+            if (string.IsNullOrWhiteSpace(line.TestCode) && string.IsNullOrWhiteSpace(line.TestName))
+                continue;
+
+            var reqLine = request.Lines.FirstOrDefault(l => l.LineNo == line.LineNo)
+                ?? request.Lines.FirstOrDefault(l =>
+                    !string.IsNullOrWhiteSpace(line.TestCode) &&
+                    string.Equals(l.TestCode, line.TestCode, StringComparison.OrdinalIgnoreCase))
+                ?? request.Lines.FirstOrDefault(l =>
+                    !string.IsNullOrWhiteSpace(line.TestName) &&
+                    string.Equals(l.TestName, line.TestName, StringComparison.OrdinalIgnoreCase));
+            if (reqLine is not null)
+                line.Qty = reqLine.Qty;
         }
     }
 
@@ -229,6 +253,7 @@ public class ResultModel : ClinicFormPageModel
         public string? Result { get; set; }
         public string? Impression { get; set; }
         public string? Findings { get; set; }
+        public int Qty { get; set; } = 1;
 
         public static RadiologyResultLineInput FromEntity(RadiologyResultLine l) => new()
         {

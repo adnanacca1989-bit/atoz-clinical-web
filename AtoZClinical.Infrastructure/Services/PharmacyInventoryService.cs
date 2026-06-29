@@ -347,12 +347,18 @@ public sealed class PharmacyOpeningBalanceService
     private readonly ClinicalDbContext _db;
     private readonly AuditService _audit;
     private readonly PharmacyInventoryService _inventory;
+    private readonly ClinicalJournalSyncService _journalSync;
 
-    public PharmacyOpeningBalanceService(ClinicalDbContext db, AuditService audit, PharmacyInventoryService inventory)
+    public PharmacyOpeningBalanceService(
+        ClinicalDbContext db,
+        AuditService audit,
+        PharmacyInventoryService inventory,
+        ClinicalJournalSyncService journalSync)
     {
         _db = db;
         _audit = audit;
         _inventory = inventory;
+        _journalSync = journalSync;
     }
 
     public Task<List<PharmacyOpeningBalance>> ListAsync(Guid clinicId) =>
@@ -414,6 +420,9 @@ public sealed class PharmacyOpeningBalanceService
 
         await _db.SaveChangesAsync();
         await _inventory.SyncOpeningBalanceAsync(clinicId, item, validLines);
+
+        try { await _journalSync.SyncPharmacyOpeningBalanceAsync(clinicId, item); }
+        catch { }
 
         await _audit.LogAsync(clinicId, userName, "Pharmacy Opening Balance", isNew ? "Create" : "Update",
             $"Opening Balance #{item.BalanceNo}, {validLines.Count} line(s)");

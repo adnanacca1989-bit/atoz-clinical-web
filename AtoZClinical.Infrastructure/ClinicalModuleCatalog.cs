@@ -30,7 +30,7 @@ public static class ClinicalModuleCatalog
         new("Reports", "Reports", [
             ClinicalFormKeys.PatientHistory, ClinicalFormKeys.AppointmentReminders, ClinicalFormKeys.PatientStatus,
             ClinicalFormKeys.PlStatement, ClinicalFormKeys.GeneralLedger, ClinicalFormKeys.TrialBalance, ClinicalFormKeys.CostOfGoodsSold, ClinicalFormKeys.BalanceSheet,
-            ClinicalFormKeys.AccountsReceivable, ClinicalFormKeys.AccountsPayable, ClinicalFormKeys.OperatingReport,
+            ClinicalFormKeys.AccountsReceivable, ClinicalFormKeys.AccountsPayable,
             ClinicalFormKeys.CashReport, ClinicalFormKeys.PharmacyInventory, ClinicalFormKeys.DoctorReport,
             ClinicalFormKeys.RequestReport
         ]),

@@ -41,7 +41,7 @@
                     <div class="line-grid-scroll clinical-line-grid-scroll">
                         <table class="line-grid clinical-line-grid">
                             <thead>
-                                <tr><th class="col-no">No</th><th class="col-item">Test Name</th><th>Code</th><th>Category</th><th>Result</th><th>Normal Range</th><th>Unit</th><th class="col-del">Del</th></tr>
+                                <tr><th class="col-no">No</th><th class="col-item">Test Name</th><th>Code</th><th>Category</th><th>Qty</th><th>Result</th><th>Normal Range</th><th>Unit</th><th class="col-del">Del</th></tr>
                             </thead>
                             <tbody>
                             @for (var i = 0; i < Model.Lines.Count; i++)
@@ -51,6 +51,7 @@
                                     <td class="col-item"><input asp-for="Lines[i].TestName" readonly /></td>
                                     <td><input asp-for="Lines[i].TestCode" readonly /></td>
                                     <td><input asp-for="Lines[i].Category" readonly /></td>
+                                    <td><input asp-for="Lines[i].Qty" readonly class="text-center" /></td>
                                     <td><input asp-for="Lines[i].Result" /></td>
                                     <td><input asp-for="Lines[i].NormalRange" /></td>
                                     <td><input asp-for="Lines[i].Unit" /></td>

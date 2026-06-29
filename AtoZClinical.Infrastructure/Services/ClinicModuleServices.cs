@@ -832,6 +832,15 @@ public sealed class LabRequestService
             $"Request #{item.RequestNo} — {item.PatientName}");
     }
 
+    public async Task<LabRequest?> GetByRequestNoAsync(Guid clinicId, int requestNo)
+    {
+        var item = await _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId)
+            .FirstOrDefaultAsync(r => r.RequestNo == requestNo);
+        if (item is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, item.DoctorRecordId, item.DoctorName))
+            return null;
+        return item;
+    }
+
     public Task<LabRequest?> GetLatestByPatientAsync(Guid clinicId, string? patientName, string? patientBarcode) =>
         _db.LabRequests
             .Include(r => r.Lines)
