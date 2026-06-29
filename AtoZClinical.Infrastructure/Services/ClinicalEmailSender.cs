@@ -1,5 +1,4 @@
 using MailKit.Net.Smtp;
-using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -37,16 +36,28 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         if (!settings.IsReady)
         {
             var reason = settings.DescribeReadiness();
+            _logger.LogError(
+                "Email not sent to {To}: SMTP not configured ({Reason})",
+                toEmail, reason);
+
             if (_env.IsDevelopment())
             {
                 _logger.LogWarning(
-                    "Email not configured ({Reason}). Would send to {To}: {Subject}",
-                    reason, toEmail, subject);
+                    "Development mode: would send to {To}: {Subject}",
+                    toEmail, subject);
                 return;
             }
 
-            throw new InvalidOperationException($"Email is not configured ({reason}).");
+            throw new ClinicalEmailSendException(reason,
+                new InvalidOperationException($"SMTP not configured: {reason}"));
         }
+
+        if (!string.IsNullOrWhiteSpace(settings.ConfigurationWarning))
+            _logger.LogWarning(settings.ConfigurationWarning);
+
+        _logger.LogInformation(
+            "Sending email to {To} subject={Subject} via {Host}:{Port} ({SocketOption}) from {From}",
+            toEmail, subject, settings.Host, settings.Port, settings.SecureSocketOptions, settings.FromAddress);
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(settings.FromName, settings.FromAddress));
@@ -57,24 +68,29 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         using var client = new SmtpClient();
         try
         {
+            _logger.LogInformation("Connecting to SMTP {Host}:{Port}...", settings.Host, settings.Port);
             await client.ConnectAsync(settings.Host!, settings.Port, settings.SecureSocketOptions, cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(settings.User))
+            {
+                _logger.LogInformation("Authenticating SMTP user {User}...", settings.User);
                 await client.AuthenticateAsync(settings.User, settings.Password, cancellationToken);
+            }
 
             var response = await client.SendAsync(message, cancellationToken);
             await client.DisconnectAsync(true, cancellationToken);
 
             _logger.LogInformation(
-                "Email sent to {To}: {Subject} via {Host}:{Port} (response: {Response})",
-                toEmail, subject, settings.Host, settings.Port, response);
+                "Email sent successfully to {To} via {Host}:{Port} (response: {Response})",
+                toEmail, settings.Host, settings.Port, response);
         }
         catch (Exception ex)
         {
+            var reason = SmtpEmailDiagnostics.ClassifyFailure(ex);
             _logger.LogError(ex,
-                "Failed to send email to {To}: {Subject} via {Host}:{Port} ({SocketOption})",
-                toEmail, subject, settings.Host, settings.Port, settings.SecureSocketOptions);
-            throw;
+                "Email send failed to {To} via {Host}:{Port}: {FailureReason}",
+                toEmail, settings.Host, settings.Port, reason);
+            throw new ClinicalEmailSendException(reason, ex);
         }
     }
 }

@@ -17,6 +17,7 @@ public sealed class TenantContextMiddleware
         "/Index",
         "/Error",
         "/health",
+        "/test-email",
         "/Portal",
         "/lib",
         "/css",

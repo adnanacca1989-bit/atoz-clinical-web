@@ -24,8 +24,17 @@ public static class SmtpConfigurationBootstrap
         SetIfPresent(configuration, "SMTP_USE_SSL", "Email:UseSsl");
 
         var host = configuration["Email:SmtpHost"];
+        var user = configuration["Email:SmtpUser"];
         var from = configuration["Email:FromAddress"];
-        if (!string.IsNullOrWhiteSpace(host) && !string.IsNullOrWhiteSpace(from))
+
+        if (string.IsNullOrWhiteSpace(from) && !string.IsNullOrWhiteSpace(user))
+            configuration["Email:FromAddress"] = user;
+
+        if (SmtpEmailDiagnostics.IsGmailHost(host) && !string.IsNullOrWhiteSpace(user))
+            configuration["Email:FromAddress"] = user;
+
+        if (!string.IsNullOrWhiteSpace(configuration["Email:SmtpHost"])
+            && !string.IsNullOrWhiteSpace(configuration["Email:FromAddress"]))
             configuration["Email:Enabled"] = "true";
     }
 }

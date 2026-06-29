@@ -70,9 +70,16 @@ public sealed class RegistrationEmailService
             _logger.LogInformation("Email confirmation sent to {Email} for user {UserId}", email, user.Id);
             return EmailConfirmationSendResult.Sent;
         }
+        catch (ClinicalEmailSendException ex)
+        {
+            _logger.LogError(ex, "Failed to send email confirmation to {Email} for user {UserId}: {Reason}",
+                email, user.Id, ex.FailureReason);
+            return EmailConfirmationSendResult.Failed;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email confirmation to {Email} for user {UserId}", email, user.Id);
+            _logger.LogError(ex, "Failed to send email confirmation to {Email} for user {UserId}: {Reason}",
+                email, user.Id, SmtpEmailDiagnostics.ClassifyFailure(ex));
             return EmailConfirmationSendResult.Failed;
         }
     }

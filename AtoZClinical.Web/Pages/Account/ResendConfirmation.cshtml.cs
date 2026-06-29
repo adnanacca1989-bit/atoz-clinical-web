@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages.Account;
 
@@ -35,6 +34,7 @@ public class ResendConfirmationModel : PageModel
 
     public bool Submitted { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
+    public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
 
     public void OnGet(string? username)
     {
@@ -49,8 +49,7 @@ public class ResendConfirmationModel : PageModel
         if (!_email.IsConfigured)
         {
             EmailDeliveryFailed = true;
-            ModelState.AddModelError(string.Empty,
-                "Email is not configured on this server. Contact your system administrator.");
+            ModelState.AddModelError(string.Empty, UserErrorMessage);
             return Page();
         }
 
@@ -65,10 +64,8 @@ public class ResendConfirmationModel : PageModel
             var result = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
             if (result is EmailConfirmationSendResult.Failed or EmailConfirmationSendResult.NotConfigured)
             {
-                _logger.LogError("Resend confirmation failed for user {UserId}", user.Id);
                 EmailDeliveryFailed = true;
-                ModelState.AddModelError(string.Empty,
-                    "We could not send the confirmation email. Please try again later.");
+                ModelState.AddModelError(string.Empty, UserErrorMessage);
                 return Page();
             }
         }

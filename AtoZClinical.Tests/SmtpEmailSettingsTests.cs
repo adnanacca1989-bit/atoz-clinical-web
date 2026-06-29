@@ -1,4 +1,5 @@
 using AtoZClinical.Infrastructure.Services;
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 
 namespace AtoZClinical.Tests;
@@ -72,5 +73,33 @@ public class SmtpEmailSettingsTests
             Environment.SetEnvironmentVariable("SMTP_PASS", null);
             Environment.SetEnvironmentVariable("FROM_EMAIL", null);
         }
+    }
+
+    [Fact]
+    public void From_Uses_SmtpUser_As_From_For_Gmail()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Email:SmtpHost"] = "smtp.gmail.com",
+                ["Email:FromAddress"] = "wrong@example.com",
+                ["Email:SmtpUser"] = "user@gmail.com",
+                ["Email:SmtpPassword"] = "app-password",
+                ["Email:Enabled"] = "true"
+            })
+            .Build();
+
+        var settings = SmtpEmailSettings.From(config);
+
+        Assert.True(settings.IsReady);
+        Assert.Equal("user@gmail.com", settings.FromAddress);
+        Assert.Contains("Gmail", settings.ConfigurationWarning ?? string.Empty);
+    }
+
+    [Fact]
+    public void ClassifyFailure_Identifies_Authentication_Error()
+    {
+        var ex = new AuthenticationException("Invalid credentials");
+        Assert.Contains("authentication", SmtpEmailDiagnostics.ClassifyFailure(ex), StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -14,6 +14,7 @@ public sealed class SmtpEmailSettings
     public string? FromAddress { get; init; }
     public string FromName { get; init; } = "A to Z Clinical";
     public bool UseSsl { get; init; } = true;
+    public string? ConfigurationWarning { get; init; }
 
     public bool IsReady =>
         Enabled &&
@@ -36,6 +37,11 @@ public sealed class SmtpEmailSettings
         if (string.IsNullOrWhiteSpace(Password)) return "missing SMTP_PASS";
         return "ready";
     }
+
+    public string StartupLogMessage() =>
+        IsReady
+            ? $"SMTP email ready: {Host}:{Port} from {FromAddress}"
+            : $"SMTP not configured: {DescribeReadiness()}";
 
     private bool HasRequiredCredentials()
     {
@@ -62,9 +68,26 @@ public sealed class SmtpEmailSettings
             config["Email:SmtpHost"],
             config["SMTP_HOST"]);
 
+        var user = First(
+            config["Email:SmtpUser"],
+            config["SMTP_USER"]);
+
         var fromAddress = First(
             config["Email:FromAddress"],
             config["FROM_EMAIL"]);
+
+        string? warning = null;
+        if (string.IsNullOrWhiteSpace(fromAddress) && !string.IsNullOrWhiteSpace(user))
+            fromAddress = user;
+
+        if (SmtpEmailDiagnostics.IsGmailHost(host) && !string.IsNullOrWhiteSpace(user))
+        {
+            if (!string.Equals(fromAddress, user, StringComparison.OrdinalIgnoreCase))
+            {
+                warning = $"FROM_EMAIL ({fromAddress}) did not match SMTP_USER; using {user} for Gmail.";
+                fromAddress = user;
+            }
+        }
 
         var portRaw = First(
             config["Email:SmtpPort"],
@@ -78,9 +101,6 @@ public sealed class SmtpEmailSettings
             ? port is 465 or 587
             : bool.TryParse(useSslRaw, out var ssl) && ssl;
 
-        var user = First(
-            config["Email:SmtpUser"],
-            config["SMTP_USER"]);
         var password = First(
             config["Email:SmtpPassword"],
             config["SMTP_PASS"],
@@ -100,7 +120,8 @@ public sealed class SmtpEmailSettings
             FromName = First(
                 config["Email:FromName"],
                 config["FROM_NAME"]) ?? "A to Z Clinical",
-            UseSsl = useSsl
+            UseSsl = useSsl,
+            ConfigurationWarning = warning
         };
     }
 }

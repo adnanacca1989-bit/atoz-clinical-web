@@ -32,6 +32,7 @@ public class ForgotPasswordModel : PageModel
 
     public bool Submitted { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
+    public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
 
     public void OnGet() { }
 
@@ -41,8 +42,8 @@ public class ForgotPasswordModel : PageModel
 
         if (!_email.IsConfigured)
         {
-            _logger.LogError("Password reset requested but SMTP is not configured ({Reason})",
-                SmtpEmailSettings.From(HttpContext.RequestServices.GetRequiredService<IConfiguration>()).DescribeReadiness());
+            var reason = SmtpEmailSettings.From(HttpContext.RequestServices.GetRequiredService<IConfiguration>()).DescribeReadiness();
+            _logger.LogError("Password reset requested but SMTP not configured: {Reason}", reason);
             EmailDeliveryFailed = true;
             return Page();
         }
@@ -68,9 +69,16 @@ public class ForgotPasswordModel : PageModel
                 await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
                 _logger.LogInformation("Password reset email delivered to {Email}", payload.Email);
             }
+            catch (ClinicalEmailSendException ex)
+            {
+                _logger.LogError(ex, "Password reset email failed for {Email}: {Reason}", payload.Email, ex.FailureReason);
+                EmailDeliveryFailed = true;
+                return Page();
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Password reset email could not be sent for {Email}", payload.Email);
+                _logger.LogError(ex, "Password reset email failed for {Email}: {Reason}",
+                    payload.Email, SmtpEmailDiagnostics.ClassifyFailure(ex));
                 EmailDeliveryFailed = true;
                 return Page();
             }

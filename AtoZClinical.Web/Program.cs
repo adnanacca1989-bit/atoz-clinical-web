@@ -411,18 +411,9 @@ var app = builder.Build();
 await DatabaseInitializer.InitializeAsync(app.Services);
 
 var emailSettings = SmtpEmailSettings.From(app.Configuration);
-if (emailSettings.IsReady)
-{
-    app.Logger.LogInformation(
-        "SMTP email ready: {Host}:{Port} from {From} ({SocketOption})",
-        emailSettings.Host, emailSettings.Port, emailSettings.FromAddress, emailSettings.SecureSocketOptions);
-}
-else
-{
-    app.Logger.LogWarning(
-        "SMTP email not ready: {Reason}. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and FROM_EMAIL on Render.",
-        emailSettings.DescribeReadiness());
-}
+app.Logger.LogInformation(emailSettings.StartupLogMessage());
+if (!string.IsNullOrWhiteSpace(emailSettings.ConfigurationWarning))
+    app.Logger.LogWarning(emailSettings.ConfigurationWarning);
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
 
 var forwardedHeaders = new ForwardedHeadersOptions
@@ -485,6 +476,9 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["emailConfigured"] = SmtpEmailSettings.From(config).IsReady
         };
 
+        var emailSettings = SmtpEmailSettings.From(config);
+        basic["emailStatus"] = emailSettings.DescribeReadiness();
+
         var token = config["Operations:HealthToken"];
         if (!string.IsNullOrWhiteSpace(token) &&
             ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided) &&
@@ -508,6 +502,68 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
     {
         Log.Error(ex, "Health check failed");
         return Results.Problem("Health check failed", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+}).AllowAnonymous().DisableRateLimiting();
+
+app.MapGet("/test-email", async (HttpContext ctx, IClinicalEmailSender email, IConfiguration config, ILogger<Program> logger) =>
+{
+    var healthToken = config["Operations:HealthToken"];
+    var isDev = app.Environment.IsDevelopment();
+    if (!isDev)
+    {
+        if (string.IsNullOrWhiteSpace(healthToken)
+            || !ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided)
+            || provided != healthToken)
+        {
+            return Results.Json(new { success = false, error = "Unauthorized. Send header X-Health-Token." }, statusCode: StatusCodes.Status401Unauthorized);
+        }
+    }
+
+    var to = ctx.Request.Query["to"].ToString().Trim();
+    if (string.IsNullOrWhiteSpace(to) || !to.Contains('@'))
+        return Results.Json(new { success = false, error = "Provide ?to=email@example.com" }, statusCode: StatusCodes.Status400BadRequest);
+
+    var settings = SmtpEmailSettings.From(config);
+    if (!settings.IsReady)
+        return Results.Json(new { success = false, error = settings.DescribeReadiness(), configured = false });
+
+    try
+    {
+        await email.SendAsync(to,
+            "A to Z Clinical — SMTP test",
+            "<p>This is a test email from A to Z Clinical. SMTP is working.</p>");
+        return Results.Json(new
+        {
+            success = true,
+            to,
+            host = settings.Host,
+            port = settings.Port,
+            from = settings.FromAddress,
+            message = "Email sent successfully"
+        });
+    }
+    catch (ClinicalEmailSendException ex)
+    {
+        logger.LogError(ex, "Test email failed to {To}: {Reason}", to, ex.FailureReason);
+        return Results.Json(new
+        {
+            success = false,
+            error = ex.FailureReason,
+            userMessage = SmtpEmailDiagnostics.UserFriendlyFailureMessage,
+            detail = ex.InnerException?.Message
+        }, statusCode: StatusCodes.Status502BadGateway);
+    }
+    catch (Exception ex)
+    {
+        var reason = SmtpEmailDiagnostics.ClassifyFailure(ex);
+        logger.LogError(ex, "Test email failed to {To}: {Reason}", to, reason);
+        return Results.Json(new
+        {
+            success = false,
+            error = reason,
+            userMessage = SmtpEmailDiagnostics.UserFriendlyFailureMessage,
+            detail = ex.Message
+        }, statusCode: StatusCodes.Status502BadGateway);
     }
 }).AllowAnonymous().DisableRateLimiting();
 
