@@ -6,56 +6,71 @@ namespace AtoZClinical.Tests;
 public class SmtpEmailSettingsTests
 {
     [Fact]
-    public void From_Enables_When_Smtp_Env_Vars_Present()
+    public void From_IsReady_When_Host_From_And_Credentials_Set()
     {
-        Environment.SetEnvironmentVariable("SMTP_HOST", "smtp.sendgrid.net");
-        Environment.SetEnvironmentVariable("FROM_EMAIL", "noreply@example.com");
-        try
-        {
-            var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["Email:Enabled"] = "false"
-                })
-                .Build();
-
-            var settings = SmtpEmailSettings.From(config);
-
-            Assert.True(settings.Enabled);
-            Assert.True(settings.IsReady);
-            Assert.Equal("smtp.sendgrid.net", settings.Host);
-            Assert.Equal("noreply@example.com", settings.FromAddress);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("SMTP_HOST", null);
-            Environment.SetEnvironmentVariable("FROM_EMAIL", null);
-        }
-    }
-
-    [Fact]
-    public void From_Reads_Legacy_Email_Config_Keys()
-    {
-        Environment.SetEnvironmentVariable("SMTP_HOST", null);
-        Environment.SetEnvironmentVariable("FROM_EMAIL", null);
-
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Email:SmtpHost"] = "smtp.mailgun.org",
-                ["Email:FromAddress"] = "hello@clinic.test",
-                ["Email:SmtpPort"] = "587",
-                ["Email:SmtpUser"] = "user",
-                ["Email:SmtpPassword"] = "secret"
+                ["Email:SmtpHost"] = "smtp.sendgrid.net",
+                ["Email:FromAddress"] = "noreply@example.com",
+                ["Email:SmtpUser"] = "apikey",
+                ["Email:SmtpPassword"] = "secret",
+                ["Email:Enabled"] = "true"
             })
             .Build();
 
         var settings = SmtpEmailSettings.From(config);
 
         Assert.True(settings.IsReady);
-        Assert.Equal("smtp.mailgun.org", settings.Host);
-        Assert.Equal(587, settings.Port);
-        Assert.Equal("user", settings.User);
-        Assert.Equal("secret", settings.Password);
+        Assert.Equal("ready", settings.DescribeReadiness());
+        Assert.Equal(MailKit.Security.SecureSocketOptions.StartTls, settings.SecureSocketOptions);
+    }
+
+    [Fact]
+    public void From_NotReady_Without_Smtp_Credentials()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Email:SmtpHost"] = "smtp.gmail.com",
+                ["Email:FromAddress"] = "noreply@example.com",
+                ["Email:Enabled"] = "true"
+            })
+            .Build();
+
+        var settings = SmtpEmailSettings.From(config);
+
+        Assert.False(settings.IsReady);
+        Assert.Equal("missing SMTP_USER", settings.DescribeReadiness());
+    }
+
+    [Fact]
+    public void Bootstrap_Maps_Render_Environment_Variables()
+    {
+        Environment.SetEnvironmentVariable("SMTP_HOST", "smtp.mailgun.org");
+        Environment.SetEnvironmentVariable("SMTP_PORT", "587");
+        Environment.SetEnvironmentVariable("SMTP_USER", "postmaster");
+        Environment.SetEnvironmentVariable("SMTP_PASS", "key");
+        Environment.SetEnvironmentVariable("FROM_EMAIL", "hello@clinic.test");
+        try
+        {
+            var config = new ConfigurationManager();
+            SmtpConfigurationBootstrap.Apply(config);
+
+            var settings = SmtpEmailSettings.From(config);
+            Assert.True(settings.IsReady);
+            Assert.Equal("smtp.mailgun.org", settings.Host);
+            Assert.Equal("hello@clinic.test", settings.FromAddress);
+            Assert.Equal("postmaster", settings.User);
+            Assert.Equal("key", settings.Password);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("SMTP_HOST", null);
+            Environment.SetEnvironmentVariable("SMTP_PORT", null);
+            Environment.SetEnvironmentVariable("SMTP_USER", null);
+            Environment.SetEnvironmentVariable("SMTP_PASS", null);
+            Environment.SetEnvironmentVariable("FROM_EMAIL", null);
+        }
     }
 }

@@ -1,8 +1,9 @@
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Net;
-using System.Net.Mail;
+using MimeKit;
 
 namespace AtoZClinical.Infrastructure.Services;
 
@@ -35,46 +36,44 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         var settings = SmtpEmailSettings.From(_config);
         if (!settings.IsReady)
         {
+            var reason = settings.DescribeReadiness();
             if (_env.IsDevelopment())
             {
                 _logger.LogWarning(
-                    "Email not configured. Would send to {To}: {Subject}\n{Body}",
-                    toEmail, subject, htmlBody);
+                    "Email not configured ({Reason}). Would send to {To}: {Subject}",
+                    reason, toEmail, subject);
                 return;
             }
 
-            throw new InvalidOperationException(
-                "Email is not configured. Set SMTP_HOST and FROM_EMAIL (or Email:SmtpHost and Email:FromAddress).");
+            throw new InvalidOperationException($"Email is not configured ({reason}).");
         }
 
-        using var message = new MailMessage
-        {
-            From = new MailAddress(settings.FromAddress!, settings.FromName),
-            Subject = subject,
-            Body = htmlBody,
-            IsBodyHtml = true
-        };
-        message.To.Add(toEmail.Trim());
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(settings.FromName, settings.FromAddress));
+        message.To.Add(MailboxAddress.Parse(toEmail.Trim()));
+        message.Subject = subject;
+        message.Body = new TextPart("html") { Text = htmlBody };
 
-        using var client = new SmtpClient(settings.Host!, settings.Port)
-        {
-            EnableSsl = settings.UseSsl,
-            DeliveryMethod = SmtpDeliveryMethod.Network
-        };
-
-        if (!string.IsNullOrWhiteSpace(settings.User))
-            client.Credentials = new NetworkCredential(settings.User, settings.Password);
-
+        using var client = new SmtpClient();
         try
         {
-            await client.SendMailAsync(message, cancellationToken);
-            _logger.LogInformation("Email sent to {To}: {Subject} via {Host}:{Port}", toEmail, subject, settings.Host, settings.Port);
+            await client.ConnectAsync(settings.Host!, settings.Port, settings.SecureSocketOptions, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(settings.User))
+                await client.AuthenticateAsync(settings.User, settings.Password, cancellationToken);
+
+            var response = await client.SendAsync(message, cancellationToken);
+            await client.DisconnectAsync(true, cancellationToken);
+
+            _logger.LogInformation(
+                "Email sent to {To}: {Subject} via {Host}:{Port} (response: {Response})",
+                toEmail, subject, settings.Host, settings.Port, response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Failed to send email to {To}: {Subject} via {Host}:{Port}",
-                toEmail, subject, settings.Host, settings.Port);
+                "Failed to send email to {To}: {Subject} via {Host}:{Port} ({SocketOption})",
+                toEmail, subject, settings.Host, settings.Port, settings.SecureSocketOptions);
             throw;
         }
     }

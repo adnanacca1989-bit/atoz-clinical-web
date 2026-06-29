@@ -26,6 +26,8 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
+SmtpConfigurationBootstrap.Apply(builder.Configuration);
+
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
@@ -408,9 +410,17 @@ await DatabaseInitializer.InitializeAsync(app.Services);
 
 var emailSettings = SmtpEmailSettings.From(app.Configuration);
 if (emailSettings.IsReady)
-    app.Logger.LogInformation("SMTP email is configured ({Host}:{Port}, from {From})", emailSettings.Host, emailSettings.Port, emailSettings.FromAddress);
+{
+    app.Logger.LogInformation(
+        "SMTP email ready: {Host}:{Port} from {From} ({SocketOption})",
+        emailSettings.Host, emailSettings.Port, emailSettings.FromAddress, emailSettings.SecureSocketOptions);
+}
 else
-    app.Logger.LogWarning("SMTP email is not configured. Set SMTP_HOST and FROM_EMAIL for password reset and notifications.");
+{
+    app.Logger.LogWarning(
+        "SMTP email not ready: {Reason}. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and FROM_EMAIL on Render.",
+        emailSettings.DescribeReadiness());
+}
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
 
 var forwardedHeaders = new ForwardedHeadersOptions
@@ -469,7 +479,8 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["status"] = "healthy",
             ["version"] = AppBuildInfo.Version,
             ["timestamp"] = DateTime.UtcNow,
-            ["isHttps"] = ctx.Request.IsHttps
+            ["isHttps"] = ctx.Request.IsHttps,
+            ["emailConfigured"] = SmtpEmailSettings.From(config).IsReady
         };
 
         var token = config["Operations:HealthToken"];
@@ -497,6 +508,15 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         return Results.Problem("Health check failed", statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 }).AllowAnonymous().DisableRateLimiting();
+
+app.MapGet("/reset-password", (HttpContext ctx) =>
+{
+    var token = ctx.Request.Query["token"].ToString();
+    return string.IsNullOrWhiteSpace(token)
+        ? Results.Redirect("/Account/ForgotPassword")
+        : Results.Redirect($"/Account/ResetPassword?token={Uri.EscapeDataString(token)}");
+}).AllowAnonymous().DisableRateLimiting();
+
 app.MapPost("/api/stripe/webhook", async (HttpContext ctx, IStripeBillingService billing, ILogger<Program> logger) =>
 {
     if (!billing.IsConfigured)

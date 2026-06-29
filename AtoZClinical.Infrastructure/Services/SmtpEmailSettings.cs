@@ -1,3 +1,4 @@
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 
 namespace AtoZClinical.Infrastructure.Services;
@@ -17,7 +18,32 @@ public sealed class SmtpEmailSettings
     public bool IsReady =>
         Enabled &&
         !string.IsNullOrWhiteSpace(Host) &&
-        !string.IsNullOrWhiteSpace(FromAddress);
+        !string.IsNullOrWhiteSpace(FromAddress) &&
+        HasRequiredCredentials();
+
+    public SecureSocketOptions SecureSocketOptions =>
+        !UseSsl ? SecureSocketOptions.None :
+        Port == 465 ? SecureSocketOptions.SslOnConnect :
+        Port == 587 ? SecureSocketOptions.StartTls :
+        SecureSocketOptions.Auto;
+
+    public string DescribeReadiness()
+    {
+        if (!Enabled) return "disabled (set SMTP_HOST and FROM_EMAIL)";
+        if (string.IsNullOrWhiteSpace(Host)) return "missing SMTP_HOST";
+        if (string.IsNullOrWhiteSpace(FromAddress)) return "missing FROM_EMAIL";
+        if (string.IsNullOrWhiteSpace(User)) return "missing SMTP_USER";
+        if (string.IsNullOrWhiteSpace(Password)) return "missing SMTP_PASS";
+        return "ready";
+    }
+
+    private bool HasRequiredCredentials()
+    {
+        if (Host is "localhost" or "127.0.0.1")
+            return true;
+
+        return !string.IsNullOrWhiteSpace(User) && !string.IsNullOrWhiteSpace(Password);
+    }
 
     public static SmtpEmailSettings From(IConfiguration config)
     {
@@ -34,55 +60,46 @@ public sealed class SmtpEmailSettings
 
         var host = First(
             config["Email:SmtpHost"],
-            config["SMTP_HOST"],
-            Environment.GetEnvironmentVariable("SMTP_HOST"));
+            config["SMTP_HOST"]);
 
         var fromAddress = First(
             config["Email:FromAddress"],
-            config["FROM_EMAIL"],
-            Environment.GetEnvironmentVariable("FROM_EMAIL"));
+            config["FROM_EMAIL"]);
 
         var portRaw = First(
             config["Email:SmtpPort"],
-            config["SMTP_PORT"],
-            Environment.GetEnvironmentVariable("SMTP_PORT"));
+            config["SMTP_PORT"]);
         var port = int.TryParse(portRaw, out var parsedPort) ? parsedPort : 587;
 
         var useSslRaw = First(
             config["Email:UseSsl"],
-            config["SMTP_USE_SSL"],
-            Environment.GetEnvironmentVariable("SMTP_USE_SSL"));
+            config["SMTP_USE_SSL"]);
         var useSsl = string.IsNullOrWhiteSpace(useSslRaw)
             ? port is 465 or 587
             : bool.TryParse(useSslRaw, out var ssl) && ssl;
 
-        var hasSmtpEnv = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SMTP_HOST"))
-            && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FROM_EMAIL"));
+        var user = First(
+            config["Email:SmtpUser"],
+            config["SMTP_USER"]);
+        var password = First(
+            config["Email:SmtpPassword"],
+            config["SMTP_PASS"],
+            config["SMTP_PASSWORD"]);
 
-        var enabled = hasSmtpEnv || config.GetValue(
-            "Email:Enabled",
-            !string.IsNullOrWhiteSpace(host) && !string.IsNullOrWhiteSpace(fromAddress));
+        var hasMinimum = !string.IsNullOrWhiteSpace(host) && !string.IsNullOrWhiteSpace(fromAddress);
+        var enabled = config.GetValue("Email:Enabled", hasMinimum);
 
         return new SmtpEmailSettings
         {
-            Enabled = enabled,
+            Enabled = enabled && hasMinimum,
             Host = host,
             Port = port,
-            User = First(
-                config["Email:SmtpUser"],
-                config["SMTP_USER"],
-                Environment.GetEnvironmentVariable("SMTP_USER")),
-            Password = First(
-                config["Email:SmtpPassword"],
-                config["SMTP_PASS"],
-                config["SMTP_PASSWORD"],
-                Environment.GetEnvironmentVariable("SMTP_PASS"),
-                Environment.GetEnvironmentVariable("SMTP_PASSWORD")),
+            User = user,
+            Password = password,
             FromAddress = fromAddress,
             FromName = First(
                 config["Email:FromName"],
-                config["FROM_NAME"],
-                Environment.GetEnvironmentVariable("FROM_NAME")) ?? "A to Z Clinical",
+                config["FROM_NAME"]) ?? "A to Z Clinical",
             UseSsl = useSsl
         };
     }

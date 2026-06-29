@@ -3,6 +3,8 @@ using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AtoZClinical.Web.Pages.Account;
 
@@ -29,6 +31,7 @@ public class ForgotPasswordModel : PageModel
     public ForgotInput Input { get; set; } = new();
 
     public bool Submitted { get; private set; }
+    public bool EmailDeliveryFailed { get; private set; }
 
     public void OnGet() { }
 
@@ -36,10 +39,18 @@ public class ForgotPasswordModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
+        if (!_email.IsConfigured)
+        {
+            _logger.LogError("Password reset requested but SMTP is not configured ({Reason})",
+                SmtpEmailSettings.From(HttpContext.RequestServices.GetRequiredService<IConfiguration>()).DescribeReadiness());
+            EmailDeliveryFailed = true;
+            return Page();
+        }
+
         var payload = await _reset.CreateTokenForEmailAsync(Input.Email);
         if (payload is not null)
         {
-            var link = _urls.BuildPageUrl("Account/ResetPassword", new Dictionary<string, string?>
+            var link = _urls.BuildPageUrl("reset-password", new Dictionary<string, string?>
             {
                 ["token"] = payload.PlainToken
             });
@@ -55,10 +66,13 @@ public class ForgotPasswordModel : PageModel
             try
             {
                 await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
+                _logger.LogInformation("Password reset email delivered to {Email}", payload.Email);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Password reset email could not be sent for {Email}", payload.Email);
+                EmailDeliveryFailed = true;
+                return Page();
             }
         }
 
