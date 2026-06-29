@@ -1,8 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,18 +11,18 @@ namespace AtoZClinical.Web.Pages.Account;
 [DisableRateLimiting]
 public class ResendConfirmationModel : PageModel
 {
-    private readonly UserManager<ApplicationUser> _users;
+    private readonly ApplicationUserLookup _userLookup;
     private readonly RegistrationEmailService _registrationEmail;
     private readonly IConfiguration _config;
     private readonly ILogger<ResendConfirmationModel> _logger;
 
     public ResendConfirmationModel(
-        UserManager<ApplicationUser> users,
+        ApplicationUserLookup userLookup,
         RegistrationEmailService registrationEmail,
         IConfiguration config,
         ILogger<ResendConfirmationModel> logger)
     {
-        _users = users;
+        _userLookup = userLookup;
         _registrationEmail = registrationEmail;
         _config = config;
         _logger = logger;
@@ -53,8 +51,7 @@ public class ResendConfirmationModel : PageModel
         var username = Input.Username.Trim();
         try
         {
-            var user = await _users.FindByNameAsync(username)
-                ?? await _users.FindByEmailAsync(username);
+            var user = await _userLookup.FindByUsernameOrEmailAsync(username);
 
             if (user is not null
                 && !string.IsNullOrWhiteSpace(user.Email)
