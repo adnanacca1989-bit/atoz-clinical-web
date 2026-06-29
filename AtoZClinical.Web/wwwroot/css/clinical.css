@@ -494,6 +494,21 @@ html[dir="rtl"] .clinical-form-left {
     overflow-y: auto;
 }
 
+.request-status-created {
+    color: #146c43 !important;
+    font-weight: 600;
+}
+
+.request-status-pending {
+    color: #b02a37 !important;
+    font-weight: 600;
+}
+
+.request-report-grid th,
+.request-report-grid td {
+    white-space: nowrap;
+}
+
 .text-success-emphasis {
     color: #146c43 !important;
 }

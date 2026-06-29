@@ -31,7 +31,8 @@ public static class ClinicalModuleCatalog
             ClinicalFormKeys.PatientHistory, ClinicalFormKeys.AppointmentReminders, ClinicalFormKeys.PatientStatus,
             ClinicalFormKeys.PlStatement, ClinicalFormKeys.GeneralLedger, ClinicalFormKeys.TrialBalance, ClinicalFormKeys.CostOfGoodsSold, ClinicalFormKeys.BalanceSheet,
             ClinicalFormKeys.AccountsReceivable, ClinicalFormKeys.AccountsPayable, ClinicalFormKeys.OperatingReport,
-            ClinicalFormKeys.CashReport, ClinicalFormKeys.PharmacyInventory, ClinicalFormKeys.DoctorReport
+            ClinicalFormKeys.CashReport, ClinicalFormKeys.PharmacyInventory, ClinicalFormKeys.DoctorReport,
+            ClinicalFormKeys.RequestReport
         ]),
         new("Admin", "Admin", [
             ClinicalFormKeys.RolePermissions, ClinicalFormKeys.AuditLog, ClinicalFormKeys.Backup, ClinicalFormKeys.Settings

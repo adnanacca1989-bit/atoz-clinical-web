@@ -21,6 +21,7 @@ public static class RolePermissionDefaults
         ClinicalFormKeys.AppointmentReminders,
         ClinicalFormKeys.PatientStatus,
         ClinicalFormKeys.DoctorReport,
+        ClinicalFormKeys.RequestReport,
         ClinicalFormKeys.Invoices
     ];
 
@@ -33,6 +34,7 @@ public static class RolePermissionDefaults
         ClinicalFormKeys.ServiceIncomeRequest,
         ClinicalFormKeys.AppointmentReminders,
         ClinicalFormKeys.PatientStatus,
+        ClinicalFormKeys.RequestReport,
         ClinicalFormKeys.CashReceipts,
         ClinicalFormKeys.Invoices
     ];
@@ -44,7 +46,8 @@ public static class RolePermissionDefaults
         ClinicalFormKeys.PatientRegistration,
         ClinicalFormKeys.LabRegistration,
         ClinicalFormKeys.LabRequest,
-        ClinicalFormKeys.LabResult
+        ClinicalFormKeys.LabResult,
+        ClinicalFormKeys.RequestReport
     ];
 
     private static readonly HashSet<string> RadiologyForms =
@@ -54,7 +57,8 @@ public static class RolePermissionDefaults
         ClinicalFormKeys.PatientRegistration,
         ClinicalFormKeys.RadiologyRegistration,
         ClinicalFormKeys.RadiologyRequest,
-        ClinicalFormKeys.RadiologyResult
+        ClinicalFormKeys.RadiologyResult,
+        ClinicalFormKeys.RequestReport
     ];
 
     private static readonly HashSet<string> CashierForms =
@@ -65,6 +69,7 @@ public static class RolePermissionDefaults
         ClinicalFormKeys.PharmacyRegistration,
         ClinicalFormKeys.PharmacyRequest,
         ClinicalFormKeys.PharmacyBill,
+        ClinicalFormKeys.RequestReport,
         ClinicalFormKeys.CashReceipts,
         ClinicalFormKeys.Invoices
     ];

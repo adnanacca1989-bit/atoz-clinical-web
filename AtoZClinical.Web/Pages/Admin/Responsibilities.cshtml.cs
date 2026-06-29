@@ -80,6 +80,7 @@ public class ResponsibilitiesModel : PageModel
         (ClinicalFormKeys.CashReport, "Cash Report"),
         (ClinicalFormKeys.PharmacyInventory, "Pharmacy Inventory Report"),
         (ClinicalFormKeys.DoctorReport, "Doctor Report"),
+        (ClinicalFormKeys.RequestReport, "Request Report"),
         (ClinicalFormKeys.Settings, "Settings"),
         (ClinicalFormKeys.RolePermissions, "Responsibilities"),
         (ClinicalFormKeys.AuditLog, "Audit Log"),

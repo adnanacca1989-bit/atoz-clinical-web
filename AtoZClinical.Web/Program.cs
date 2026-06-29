@@ -310,6 +310,7 @@ builder.Services.AddScoped<PatientVisitStatusService>();
 builder.Services.AddScoped<FormPermissionService>();
 builder.Services.AddScoped<ClinicModuleService>();
 builder.Services.AddScoped<DoctorReportService>();
+builder.Services.AddScoped<RequestReportService>();
 builder.Services.AddScoped<GlobalTransactionSearchService>();
 builder.Services.AddScoped<FormPermissionPageFilter>();
 builder.Services.AddScoped<ReportBrandingPageFilter>();

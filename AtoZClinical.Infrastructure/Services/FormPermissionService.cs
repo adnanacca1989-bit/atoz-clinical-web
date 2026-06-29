@@ -179,6 +179,7 @@ public sealed class FormPermissionService
             "/reports/cashreport" => ClinicalFormKeys.CashReport,
             "/reports/pharmacyinventory" => ClinicalFormKeys.PharmacyInventory,
             "/reports/doctorreport" => ClinicalFormKeys.DoctorReport,
+            "/reports/requestreport" => ClinicalFormKeys.RequestReport,
             "/admin/responsibilities" => ClinicalFormKeys.RolePermissions,
             "/admin/auditlog" => ClinicalFormKeys.AuditLog,
             "/admin/backup" => ClinicalFormKeys.Backup,

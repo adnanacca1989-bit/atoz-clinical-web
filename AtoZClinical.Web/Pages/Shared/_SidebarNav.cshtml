@@ -126,7 +126,7 @@
     <a class="sidebar-link" asp-page="/ChartOfAccounts/Index">Chart of Accounts</a>
 }
 
-@if (NavCan(ClinicalFormKeys.PatientHistory) || NavCan(ClinicalFormKeys.PatientStatus))
+@if (NavCan(ClinicalFormKeys.PatientHistory) || NavCan(ClinicalFormKeys.PatientStatus) || NavCan(ClinicalFormKeys.RequestReport))
 {
     <div class="text-white-50 small mt-3 mb-1">REPORTS</div>
 }
@@ -141,6 +141,10 @@
 @if (NavCan(ClinicalFormKeys.PatientStatus))
 {
     <a class="sidebar-link" asp-page="/Reports/PatientStatus">Patient Status</a>
+}
+@if (NavCan(ClinicalFormKeys.RequestReport))
+{
+    <a class="sidebar-link" asp-page="/Reports/RequestReport">Request Report</a>
 }
 @if (NavCan(ClinicalFormKeys.PlStatement))
 {
