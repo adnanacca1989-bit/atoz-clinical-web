@@ -64,7 +64,19 @@
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Password</label>
-                        <input asp-for="Input.Password" class="clinical-field" type="password" placeholder="@(Model.IsNewUser ? "Required" : "Leave blank to keep")" />
+                        <div class="clinical-password-wrap">
+                            <input asp-for="Input.Password"
+                                   id="defineUserPassword"
+                                   class="clinical-field clinical-password-input"
+                                   type="password"
+                                   autocomplete="new-password"
+                                   placeholder="@(Model.IsNewUser ? "Required" : "Leave blank to keep")" />
+                            <button type="button"
+                                    class="clinical-password-toggle"
+                                    id="defineUserPasswordToggle"
+                                    aria-label="Show password"
+                                    title="Show password">👁</button>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <label class="clinical-field-label">Role</label>
@@ -89,7 +101,8 @@
                         <tbody>
                         @foreach (var r in Model.Records)
                         {
-                            <tr class="@(Model.UserRecordId == r.Id ? "selected" : "")" onclick="location.href='?UserRecordId=@r.Id'">
+                            var selected = !Model.IsNewUser && Model.UserRecordId == r.Id;
+                            <tr class="@(selected ? "selected" : "")" onclick="location.href='?UserRecordId=@r.Id'">
                                 <td>@r.UserNo</td>
                                 <td>@r.UserName</td>
                                 <td>@r.FullName</td>
@@ -110,11 +123,13 @@
 <partial name="_DoctorSelectModal" />
 
 @section Scripts {
+    <script src="~/js/clinical-password.js" asp-append-version="true"></script>
     <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
     <script src="~/js/users-define-doctor.js" asp-append-version="true"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             initDefineUserDoctorPicker({ doctorRoleValue: '@((int)ClinicUserRole.Doctor)' });
+            initClinicalPasswordToggle('defineUserPassword', 'defineUserPasswordToggle');
         });
     </script>
 }

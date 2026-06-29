@@ -47,15 +47,13 @@ public class UsersModel : SettingsFormPageModel
         var clinicId = await RequireSettingsClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
         await LoadAsync(clinicId.Value);
+
         if (!string.IsNullOrEmpty(UserRecordId) && !NewRecord)
             await LoadRecord(clinicId.Value, UserRecordId);
-        else if (NewRecord)
-            await PrepareNew(clinicId.Value);
-        else if (Records.Count > 0)
-            await LoadRecord(clinicId.Value, Records[0].Id);
         else
             await PrepareNew(clinicId.Value);
-        SetFormViewData("Define User", null, null, null);
+
+        SetUserFormViewData();
         return Page();
     }
 
@@ -81,21 +79,45 @@ public class UsersModel : SettingsFormPageModel
         var user = await _users.Users.FirstOrDefaultAsync(u => u.Id == id && u.ClinicId == clinicId);
         if (user is null) return;
         UserRecordId = user.Id;
+        NewRecord = false;
         Input = UserInput.FromEntity(user);
+        Input.Password = null;
         await SyncDoctorDisplayAsync(clinicId);
     }
 
     private async Task PrepareNew(Guid clinicId)
     {
         UserRecordId = null;
+        NewRecord = true;
         var clinicUsers = await _users.Users.Where(u => u.ClinicId == clinicId).ToListAsync();
         var nextNo = clinicUsers.Count > 0 ? clinicUsers.Max(u => u.UserNo) + 1 : 1;
         Input = new UserInput
         {
             UserNo = nextNo,
+            Username = string.Empty,
+            FullName = string.Empty,
+            DoctorDisplayName = string.Empty,
+            Email = null,
+            Password = null,
             IsActive = true,
-            Role = ClinicUserRole.Receptionist
+            Role = ClinicUserRole.Receptionist,
+            DoctorRecordId = null
         };
+    }
+
+    private void SetUserFormViewData()
+    {
+        var isEdit = !string.IsNullOrEmpty(UserRecordId) && !NewRecord;
+        ViewData["FormTitle"] = "Define User";
+        ViewData["StatusText"] = StatusText;
+        ViewData["IsEditMode"] = isEdit;
+        ViewData["FormMode"] = isEdit ? "Edit" : "New";
+        ViewData["FormModeLabel"] = isEdit
+            ? $"Edit Record Mode — {Input.Username}"
+            : "New Record Mode";
+        ViewData["CreatedBy"] = UserName;
+        ViewData["UpdatedBy"] = isEdit ? Input.Username : UserName;
+        ViewData["UpdatedOn"] = DateTime.Now.ToString("M/d/yyyy h:mm tt");
     }
 
     private async Task<IActionResult> SaveCoreAsync()
@@ -110,6 +132,7 @@ public class UsersModel : SettingsFormPageModel
             {
                 ModelState.AddModelError(string.Empty, "Username is required.");
                 await LoadAsync(clinicId.Value);
+                SetUserFormViewData();
                 return Page();
             }
 
@@ -118,6 +141,7 @@ public class UsersModel : SettingsFormPageModel
             {
                 ModelState.AddModelError(string.Empty, doctorError);
                 await LoadAsync(clinicId.Value);
+                SetUserFormViewData();
                 return Page();
             }
 
@@ -125,6 +149,7 @@ public class UsersModel : SettingsFormPageModel
             {
                 ModelState.AddModelError(string.Empty, "Full Name is required.");
                 await LoadAsync(clinicId.Value);
+                SetUserFormViewData();
                 return Page();
             }
 
@@ -161,6 +186,7 @@ public class UsersModel : SettingsFormPageModel
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
                 await LoadAsync(clinicId.Value);
+                SetUserFormViewData();
                 return Page();
             }
         }
@@ -177,6 +203,7 @@ public class UsersModel : SettingsFormPageModel
             ModelState.AddModelError(string.Empty, editDoctorError);
             await LoadAsync(clinicId.Value);
             await LoadRecord(clinicId.Value, UserRecordId!);
+            SetUserFormViewData();
             return Page();
         }
 
@@ -185,6 +212,7 @@ public class UsersModel : SettingsFormPageModel
             ModelState.AddModelError(string.Empty, "Full Name is required.");
             await LoadAsync(clinicId.Value);
             await LoadRecord(clinicId.Value, UserRecordId!);
+            SetUserFormViewData();
             return Page();
         }
 
@@ -243,7 +271,8 @@ public class UsersModel : SettingsFormPageModel
     private async Task<IActionResult> DeleteCoreAsync()
     {
         var clinicId = await RequireSettingsClinicIdAsync();
-        if (clinicId is null || string.IsNullOrEmpty(UserRecordId)) return RedirectToPage();
+        if (clinicId is null || string.IsNullOrEmpty(UserRecordId))
+            return RedirectToPage(new { Search, NewRecord = true, UserRecordId = (string?)null });
         var user = await _users.FindByIdAsync(UserRecordId);
         if (user is null || user.ClinicId != clinicId) return RedirectToPage();
         if (user.UserName == UserName)
@@ -251,10 +280,11 @@ public class UsersModel : SettingsFormPageModel
             ModelState.AddModelError(string.Empty, "You cannot delete your own account.");
             await LoadAsync(clinicId.Value);
             await LoadRecord(clinicId.Value, UserRecordId);
+            SetUserFormViewData();
             return Page();
         }
         await _users.DeleteAsync(user);
-        return RedirectToPage();
+        return RedirectToPage(new { Search, NewRecord = true, UserRecordId = (string?)null });
     }
 
     private async Task<IActionResult> NavigateCoreAsync(int delta)

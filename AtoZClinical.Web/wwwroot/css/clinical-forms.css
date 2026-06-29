@@ -1388,6 +1388,40 @@ main:has(.clinical-form-page) {
     max-height: none;
 }
 
+/* Password field with show/hide toggle */
+.clinical-password-wrap {
+    position: relative;
+}
+
+.clinical-password-input {
+    padding-right: 2.5rem !important;
+}
+
+.clinical-password-toggle {
+    position: absolute;
+    right: 0.35rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #6c757d;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0.2rem 0.45rem;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.clinical-password-toggle:hover,
+.clinical-password-toggle.is-visible {
+    color: var(--clinic-primary, #0b4f8a);
+}
+
+.clinical-password-toggle:focus {
+    outline: 2px solid var(--clinic-primary, #0b4f8a);
+    outline-offset: 1px;
+}
+
 .clinical-his-compact .record-transaction-header {
     padding: 0.35rem 0.6rem;
     font-size: 0.82rem;
