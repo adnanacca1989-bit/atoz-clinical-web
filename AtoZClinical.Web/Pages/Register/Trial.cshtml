@@ -37,26 +37,23 @@
                         <p>Username: <strong>@Model.AdminUsername</strong></p>
                         @if (Model.EmailConfirmationSent)
                         {
-                            <p class="text-muted small">We sent a confirmation link to your email. Please confirm your address before signing in.</p>
+                            <div class="alert alert-success small mb-0">@SmtpEmailConfiguration.ConfirmationEmailSentMessage</div>
                         }
                         else if (Model.EmailNotConfigured)
                         {
                             <div class="alert alert-warning small mb-0">
-                                <p class="mb-2">@SmtpEmailConfiguration.EmailServiceUnavailableUserMessage</p>
-                                @if (!string.IsNullOrWhiteSpace(Model.EmailConfigurationWarningHtml))
-                                {
-                                    @Html.Raw(Model.EmailConfigurationWarningHtml)
-                                }
-                                <p class="mb-0 mt-2">Your account was created. After SMTP is configured, use
+                                @Html.Raw(Model.EmailConfigurationWarningHtml)
+                                <p class="mb-0 mt-2">Your account was created. After SMTP is configured on Render, use
                                 <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>.</p>
                             </div>
                         }
                         else if (Model.EmailConfirmationFailed)
                         {
-                            <div class="alert alert-warning small mb-0">
-                                Your account was created but we could not send the confirmation email. Use
+                            <div class="alert alert-danger small mb-0">
+                                @Model.EmailConfirmationErrorMessage
+                                <p class="mb-0 mt-2">Use
                                 <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>
-                                or contact support.
+                                or contact support.</p>
                             </div>
                         }
                         else

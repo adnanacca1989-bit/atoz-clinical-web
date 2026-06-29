@@ -7,7 +7,7 @@ namespace AtoZClinical.Infrastructure.Services;
 public static class SmtpEmailConfiguration
 {
     public const string NotConfiguredUserMessage = "Email is not configured on the server.";
-    public const string EmailServiceUnavailableUserMessage = "Email service is not available. Please contact admin.";
+    public const string ConfirmationEmailSentMessage = "Confirmation email sent. Check your inbox and spam folder.";
     public const string NotConfiguredServiceMessage = ClinicalEmailSendResult.NotConfiguredMessage;
 
     public static string FormatMissingVariablesText(IReadOnlyList<string> missing)
@@ -34,7 +34,7 @@ public static class SmtpEmailConfiguration
         "SMTP_PORT",
         "SMTP_USER",
         "SMTP_PASS",
-        "FROM_EMAIL"
+        "SMTP_FROM"
     ];
 
     public static bool IsEmailConfigured(IConfiguration? config = null) =>
@@ -48,7 +48,7 @@ public static class SmtpEmailConfiguration
             ["SMTP_PORT"] = HasValidPort(config),
             ["SMTP_USER"] = HasValue(ReadUser(config)),
             ["SMTP_PASS"] = HasValue(ReadPassword(config)),
-            ["FROM_EMAIL"] = HasValue(ReadFromEmail(config))
+            ["SMTP_FROM"] = HasValue(ReadFromEmail(config))
         };
     }
 
@@ -59,7 +59,7 @@ public static class SmtpEmailConfiguration
         if (!HasValidPort(config)) missing.Add("SMTP_PORT");
         if (!HasValue(ReadUser(config))) missing.Add("SMTP_USER");
         if (!HasValue(ReadPassword(config))) missing.Add("SMTP_PASS");
-        if (!HasValue(ReadFromEmail(config))) missing.Add("FROM_EMAIL");
+        if (!HasValue(ReadFromEmail(config))) missing.Add("SMTP_FROM");
         return missing;
     }
 
@@ -70,6 +70,7 @@ public static class SmtpEmailConfiguration
         LogRawEnv(logger, "SMTP_PORT");
         LogRawEnv(logger, "SMTP_USER");
         LogRawEnv(logger, "SMTP_PASS");
+        LogRawEnv(logger, "SMTP_FROM");
         LogRawEnv(logger, "FROM_EMAIL");
     }
 
@@ -80,7 +81,7 @@ public static class SmtpEmailConfiguration
         logger.LogInformation("SMTP_PORT: {Exists}", presence["SMTP_PORT"]);
         logger.LogInformation("SMTP_USER: {Exists}", presence["SMTP_USER"]);
         logger.LogInformation("SMTP_PASS: {Exists}", presence["SMTP_PASS"]);
-        logger.LogInformation("FROM_EMAIL: {Exists}", presence["FROM_EMAIL"]);
+        logger.LogInformation("SMTP_FROM: {Exists}", presence["SMTP_FROM"]);
 
         if (IsEmailConfigured(config))
         {
@@ -137,12 +138,12 @@ public static class SmtpEmailConfiguration
         ?? ReadConfig(config, "Email:SmtpPassword");
 
     internal static string? ReadExplicitFromEmail(IConfiguration? config) =>
-        ReadEnvFirst("FROM_EMAIL", "Email__FromAddress")
+        ReadEnvFirst("SMTP_FROM", "FROM_EMAIL", "Email__FromAddress")
         ?? ReadConfig(config, "Email:FromAddress");
 
     internal static string? ReadFromEmail(IConfiguration? config)
     {
-        var from = ReadEnvFirst("FROM_EMAIL", "Email__FromAddress")
+        var from = ReadEnvFirst("SMTP_FROM", "FROM_EMAIL", "Email__FromAddress")
             ?? ReadConfig(config, "Email:FromAddress");
         if (HasValue(from))
             return from;

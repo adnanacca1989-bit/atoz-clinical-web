@@ -67,7 +67,7 @@ public class SmtpEmailSettingsTests
             Assert.True(presence["SMTP_PORT"]);
             Assert.True(presence["SMTP_USER"]);
             Assert.True(presence["SMTP_PASS"]);
-            Assert.True(presence["FROM_EMAIL"]);
+            Assert.True(presence["SMTP_FROM"]);
         }
         finally
         {
@@ -76,6 +76,29 @@ public class SmtpEmailSettingsTests
             Environment.SetEnvironmentVariable("Email__SmtpUser", null);
             Environment.SetEnvironmentVariable("Email__SmtpPassword", null);
             Environment.SetEnvironmentVariable("Email__FromAddress", null);
+        }
+    }
+
+    [Fact]
+    public void IsEmailConfigured_True_When_SMTP_FROM_Set()
+    {
+        Environment.SetEnvironmentVariable("SMTP_HOST", "smtp.gmail.com");
+        Environment.SetEnvironmentVariable("SMTP_PORT", "587");
+        Environment.SetEnvironmentVariable("SMTP_USER", "user@gmail.com");
+        Environment.SetEnvironmentVariable("SMTP_PASS", "secret");
+        Environment.SetEnvironmentVariable("SMTP_FROM", "user@gmail.com");
+        try
+        {
+            Assert.True(SmtpEmailConfiguration.IsEmailConfigured());
+            Assert.True(SmtpEmailConfiguration.GetVariablePresence()["SMTP_FROM"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("SMTP_HOST", null);
+            Environment.SetEnvironmentVariable("SMTP_PORT", null);
+            Environment.SetEnvironmentVariable("SMTP_USER", null);
+            Environment.SetEnvironmentVariable("SMTP_PASS", null);
+            Environment.SetEnvironmentVariable("SMTP_FROM", null);
         }
     }
 

@@ -34,12 +34,12 @@ public sealed class RegistrationEmailService
         _logger = logger;
     }
 
-    public async Task<EmailConfirmationSendResult> SendEmailConfirmationAsync(ApplicationUser user, string email)
+    public async Task<EmailConfirmationSendOutcome> SendEmailConfirmationAsync(ApplicationUser user, string email)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(email) || user.EmailConfirmed)
-                return EmailConfirmationSendResult.AlreadyConfirmed;
+                return EmailConfirmationSendOutcome.AlreadyConfirmed();
 
             if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
             {
@@ -62,7 +62,7 @@ public sealed class RegistrationEmailService
                     }
                 }
 
-                return EmailConfirmationSendResult.NotConfigured;
+                return EmailConfirmationSendOutcome.NotConfigured();
             }
 
             var link = await BuildConfirmationLinkAsync(user);
@@ -85,7 +85,7 @@ public sealed class RegistrationEmailService
                     "Email confirmation skipped (not configured) for user {UserId}. Missing: {Missing}",
                     user.Id,
                     string.Join(", ", SmtpEmailConfiguration.GetMissingVariables(_config)));
-                return EmailConfirmationSendResult.NotConfigured;
+                return EmailConfirmationSendOutcome.NotConfigured();
             }
 
             if (!result.Success)
@@ -93,18 +93,18 @@ public sealed class RegistrationEmailService
                 _logger.LogError(
                     "Failed to send email confirmation to {Email} for user {UserId}: {Reason}",
                     email, user.Id, result.Message);
-                return EmailConfirmationSendResult.Failed;
+                return EmailConfirmationSendOutcome.Failed(result.Message);
             }
 
             _logger.LogInformation("Email confirmation sent to {Email} for user {UserId}", email, user.Id);
-            return EmailConfirmationSendResult.Sent;
+            return EmailConfirmationSendOutcome.Sent();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Email confirmation failed for user {UserId} email {Email}", user.Id, email);
             if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-                return EmailConfirmationSendResult.NotConfigured;
-            return EmailConfirmationSendResult.Failed;
+                return EmailConfirmationSendOutcome.NotConfigured();
+            return EmailConfirmationSendOutcome.Failed(SmtpEmailDiagnostics.ClassifyFailure(ex));
         }
     }
 

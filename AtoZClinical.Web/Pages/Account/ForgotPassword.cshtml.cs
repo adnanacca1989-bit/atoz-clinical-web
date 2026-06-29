@@ -37,10 +37,11 @@ public class ForgotPasswordModel : PageModel
     public ForgotInput Input { get; set; } = new();
 
     public bool Submitted { get; private set; }
+    public bool EmailSent { get; private set; }
+    public bool EmailNotConfigured { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
-    public string? UserFacingMessage { get; private set; }
     public string? EmailConfigurationWarningHtml { get; private set; }
-    public string UserErrorMessage { get; private set; } = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+    public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
 
     public void OnGet() { }
 
@@ -69,26 +70,26 @@ public class ForgotPasswordModel : PageModel
                 var result = await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
                 if (result.Skipped)
                 {
-                    UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                    EmailNotConfigured = true;
+                    EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(
+                        SmtpEmailConfiguration.GetMissingVariables(_config));
                     _logger.LogWarning(
                         "Email skipped (not configured) for password reset. Missing: {Missing}",
                         string.Join(", ", SmtpEmailConfiguration.GetMissingVariables(_config)));
 
                     if (_env.IsDevelopment())
-                    {
-                        EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(
-                            SmtpEmailConfiguration.GetMissingVariables(_config));
                         _logger.LogWarning("Development mode reset link for {Email}: {Link}", payload.Email, link);
-                    }
                 }
                 else if (!result.Success)
                 {
                     _logger.LogError("Password reset email failed for {Email}: {Reason}", payload.Email, result.Message);
                     EmailDeliveryFailed = true;
+                    UserErrorMessage = result.Message;
                     return Page();
                 }
                 else
                 {
+                    EmailSent = true;
                     _logger.LogInformation("Password reset email delivered to {Email}", payload.Email);
                 }
             }
@@ -100,7 +101,7 @@ public class ForgotPasswordModel : PageModel
         {
             _logger.LogError(ex, "Password reset failed for email {Email}", Input.Email);
             EmailDeliveryFailed = true;
-            UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+            UserErrorMessage = SmtpEmailDiagnostics.ClassifyFailure(ex);
             return Page();
         }
     }

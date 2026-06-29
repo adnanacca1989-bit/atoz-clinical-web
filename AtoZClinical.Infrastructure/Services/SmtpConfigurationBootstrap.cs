@@ -24,7 +24,7 @@ public static class SmtpConfigurationBootstrap
         SetIfPresent(configuration, "Email:SmtpPort", "SMTP_PORT", "Email__SmtpPort");
         SetIfPresent(configuration, "Email:SmtpUser", "SMTP_USER", "Email__SmtpUser");
         SetIfPresent(configuration, "Email:SmtpPassword", "SMTP_PASS", "SMTP_PASSWORD", "Email__SmtpPassword");
-        SetIfPresent(configuration, "Email:FromAddress", "FROM_EMAIL", "Email__FromAddress");
+        SetIfPresent(configuration, "Email:FromAddress", "SMTP_FROM", "FROM_EMAIL", "Email__FromAddress");
         SetIfPresent(configuration, "Email:FromName", "FROM_NAME", "Email__FromName");
         SetIfPresent(configuration, "Email:UseSsl", "SMTP_USE_SSL", "Email__UseSsl");
 

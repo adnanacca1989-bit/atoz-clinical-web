@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 
 namespace AtoZClinical.Web.Pages.Account;
 
@@ -17,20 +16,17 @@ public class ResendConfirmationModel : PageModel
     private readonly UserManager<ApplicationUser> _users;
     private readonly RegistrationEmailService _registrationEmail;
     private readonly IConfiguration _config;
-    private readonly IHostEnvironment _env;
     private readonly ILogger<ResendConfirmationModel> _logger;
 
     public ResendConfirmationModel(
         UserManager<ApplicationUser> users,
         RegistrationEmailService registrationEmail,
         IConfiguration config,
-        IHostEnvironment env,
         ILogger<ResendConfirmationModel> logger)
     {
         _users = users;
         _registrationEmail = registrationEmail;
         _config = config;
-        _env = env;
         _logger = logger;
     }
 
@@ -38,10 +34,11 @@ public class ResendConfirmationModel : PageModel
     public ResendInput Input { get; set; } = new();
 
     public bool Submitted { get; private set; }
+    public bool EmailSent { get; private set; }
+    public bool EmailNotConfigured { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
-    public string? UserFacingMessage { get; private set; }
     public string? EmailConfigurationWarningHtml { get; private set; }
-    public string UserErrorMessage { get; private set; } = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+    public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
 
     public void OnGet(string? username)
     {
@@ -63,28 +60,21 @@ public class ResendConfirmationModel : PageModel
                 && !string.IsNullOrWhiteSpace(user.Email)
                 && !user.EmailConfirmed)
             {
-                var result = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
-                if (result == EmailConfirmationSendResult.NotConfigured)
+                var outcome = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
+                switch (outcome.Result)
                 {
-                    UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
-                    if (_env.IsDevelopment())
-                    {
-                        var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-                        EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(missing);
-                    }
-                }
-                else if (result == EmailConfirmationSendResult.Failed)
-                {
-                    if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-                    {
-                        UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
-                    }
-                    else
-                    {
+                    case EmailConfirmationSendResult.Sent:
+                        EmailSent = true;
+                        break;
+                    case EmailConfirmationSendResult.NotConfigured:
+                        EmailNotConfigured = true;
+                        EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(
+                            SmtpEmailConfiguration.GetMissingVariables(_config));
+                        break;
+                    case EmailConfirmationSendResult.Failed:
                         EmailDeliveryFailed = true;
-                        UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+                        UserErrorMessage = outcome.ErrorMessage ?? SmtpEmailDiagnostics.UserFriendlyFailureMessage;
                         return Page();
-                    }
                 }
             }
 
@@ -94,14 +84,8 @@ public class ResendConfirmationModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Resend confirmation failed for username {Username}", username);
-            if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-            {
-                UserFacingMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
-                Submitted = true;
-                return Page();
-            }
             EmailDeliveryFailed = true;
-            UserErrorMessage = SmtpEmailConfiguration.EmailServiceUnavailableUserMessage;
+            UserErrorMessage = SmtpEmailDiagnostics.ClassifyFailure(ex);
             return Page();
         }
     }

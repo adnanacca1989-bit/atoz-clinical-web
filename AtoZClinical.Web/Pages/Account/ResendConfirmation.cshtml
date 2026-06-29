@@ -23,22 +23,22 @@
         </div>
         @if (Model.Submitted)
         {
-            @if (!string.IsNullOrWhiteSpace(Model.UserFacingMessage))
+            @if (Model.EmailSent)
             {
-                <div class="alert alert-warning">@Model.UserFacingMessage</div>
+                <div class="alert alert-success">@SmtpEmailConfiguration.ConfirmationEmailSentMessage</div>
             }
-            @if (!string.IsNullOrWhiteSpace(Model.EmailConfigurationWarningHtml))
+            else if (Model.EmailNotConfigured)
             {
                 <div class="alert alert-warning">
                     @Html.Raw(Model.EmailConfigurationWarningHtml)
+                    <p class="mb-0 mt-2 small">Add the missing SMTP variables on Render, redeploy, then try again.</p>
                 </div>
             }
-            <div class="alert alert-info">
-                If an account with that username or email exists and is not yet confirmed, a confirmation link has been sent.
-            </div>
-            @if (!string.IsNullOrWhiteSpace(Model.UserFacingMessage))
+            else
             {
-                <p class="text-muted small mb-0">No email was sent until SMTP is configured on the server.</p>
+                <div class="alert alert-info">
+                    If an account with that username or email exists and is not yet confirmed, a confirmation link has been sent.
+                </div>
             }
             <a class="btn btn-atz-primary w-100" asp-page="/Account/Login">Back to Login</a>
         }

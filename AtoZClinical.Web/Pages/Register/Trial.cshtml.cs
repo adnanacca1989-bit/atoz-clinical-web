@@ -35,6 +35,7 @@ public class TrialModel : CaptchaPageModel
     public bool EmailConfirmationFailed { get; private set; }
     public bool EmailNotConfigured { get; private set; }
     public string? EmailConfigurationWarningHtml { get; private set; }
+    public string? EmailConfirmationErrorMessage { get; private set; }
     public string? ClinicName { get; private set; }
     public string? ClinicCode { get; private set; }
     public string? AdminUsername { get; private set; }
@@ -61,10 +62,11 @@ public class TrialModel : CaptchaPageModel
                 Email = Input.Email
             });
 
-            var sendResult = await _registrationEmail.SendEmailConfirmationAsync(admin, Input.Email);
-            EmailConfirmationSent = sendResult == EmailConfirmationSendResult.Sent;
-            EmailNotConfigured = sendResult == EmailConfirmationSendResult.NotConfigured;
-            EmailConfirmationFailed = sendResult == EmailConfirmationSendResult.Failed;
+            var sendOutcome = await _registrationEmail.SendEmailConfirmationAsync(admin, Input.Email);
+            EmailConfirmationSent = sendOutcome.Result == EmailConfirmationSendResult.Sent;
+            EmailNotConfigured = sendOutcome.Result == EmailConfirmationSendResult.NotConfigured;
+            EmailConfirmationFailed = sendOutcome.Result == EmailConfirmationSendResult.Failed;
+            EmailConfirmationErrorMessage = sendOutcome.ErrorMessage;
             EmailConfigurationWarningHtml = EmailNotConfigured
                 ? SmtpEmailConfiguration.FormatMissingVariablesHtml(
                     SmtpEmailConfiguration.GetMissingVariables(_config))
