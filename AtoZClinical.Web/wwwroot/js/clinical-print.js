@@ -7,8 +7,28 @@ function clinicalPrintForm() {
 
 function clinicalPrintReport() {
     document.body.classList.add('clinical-report-page-printing');
+    if (document.getElementById('print-area'))
+        document.body.classList.add('clinical-print-area-active');
     window.print();
-    window.addEventListener('afterprint', () => document.body.classList.remove('clinical-report-page-printing'), { once: true });
+    window.addEventListener('afterprint', () => {
+        document.body.classList.remove('clinical-report-page-printing', 'clinical-print-area-active');
+    }, { once: true });
+}
+
+/** Print only the element with id print-area (or a custom selector). */
+function clinicalPrintArea(selector) {
+    const target = selector ? document.querySelector(selector) : document.getElementById('print-area');
+    if (!target) {
+        clinicalPrintReport();
+        return;
+    }
+    if (!target.id)
+        target.id = 'print-area';
+    document.body.classList.add('clinical-print-area-active');
+    window.print();
+    window.addEventListener('afterprint', () => {
+        document.body.classList.remove('clinical-print-area-active');
+    }, { once: true });
 }
 
 function openPatientPrintBundle(patientName, patientId, doctorName, section) {

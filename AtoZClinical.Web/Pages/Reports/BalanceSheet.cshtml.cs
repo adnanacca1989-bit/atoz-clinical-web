@@ -69,6 +69,7 @@ public class BalanceSheetModel : PageModel
 
             var chartAccounts = await _db.ChartAccounts.ForClinic(id).AsNoTracking().ToListAsync();
             var trialBalance = await _journal.GetTrialBalanceAsync(id, asOf);
+            var integrity = await _journal.ValidateIntegrityAsync(id);
             var arReport = await _ar.BuildAsync(id, null, asOf, null, null, null);
             var openAr = Math.Max(0m, arReport.TotalEndingBalance);
 
@@ -77,7 +78,8 @@ public class BalanceSheetModel : PageModel
                 .Sum(r => r.Balance);
             OperationalArBalance = openAr;
 
-            var snapshot = FinancialStatementBuilder.BuildBalanceSheet(trialBalance, openAr);
+            // Balance sheet is journal-only so Assets = Liabilities + Equity mathematically.
+            var snapshot = FinancialStatementBuilder.BuildBalanceSheet(trialBalance);
             var liquidAccounts = FinancialStatementBuilder.ResolveLiquidAccounts("All", chartAccounts);
 
             Assets = snapshot.Assets.Select(r => new BsRow(r.Account, r.Amount)).ToList();
@@ -88,10 +90,19 @@ public class BalanceSheetModel : PageModel
             TotalEquity = snapshot.TotalEquity;
             TotalLiquidCash = FinancialStatementBuilder.SumLiquidBalance(trialBalance, liquidAccounts);
             IsBalanced = snapshot.IsBalanced;
-            ErrorMessage = null;
+            if (Math.Abs(JournalArBalance - OperationalArBalance) > 0.01m && OperationalArBalance > 0)
+            {
+                ErrorMessage =
+                    $"Operational A/R ({OperationalArBalance:N2}) differs from journal A/R ({JournalArBalance:N2}). " +
+                    "Run journal sync from Cash Report or post missing invoices — balance sheet uses journal totals only.";
+            }
+            else
+            {
+                ErrorMessage = null;
+            }
 
-            var tbDebit = trialBalance.Sum(r => r.TotalDebit);
-            var tbCredit = trialBalance.Sum(r => r.TotalCredit);
+            var tbDebit = trialBalance.Sum(r => r.DisplayDebit);
+            var tbCredit = trialBalance.Sum(r => r.DisplayCredit);
             _logger.LogDebug(
                 "Balance sheet clinic {ClinicId} as of {AsOf}: assets={Assets}, liabilities={Liabilities}, equity={Equity}, journal AR={JournalAr}, operational AR={OperationalAr}, TB debit={TbDebit}, TB credit={TbCredit}",
                 id, asOf, TotalAssets, TotalLiabilities, TotalEquity, JournalArBalance, OperationalArBalance, tbDebit, tbCredit);
@@ -109,6 +120,13 @@ public class BalanceSheetModel : PageModel
                 _logger.LogWarning(
                     "Trial balance debits/credits mismatch for clinic {ClinicId}: debit={Debit} credit={Credit}",
                     id, tbDebit, tbCredit);
+            }
+
+            if (!integrity.IsTrialBalanceBalanced || integrity.UnbalancedEntries.Count > 0)
+            {
+                _logger.LogWarning(
+                    "Journal integrity issues for clinic {ClinicId}: unbalanced={Unbalanced}, draft={Draft}",
+                    id, integrity.UnbalancedEntries.Count, integrity.DraftEntryCount);
             }
         }
         catch (Exception ex)

@@ -37,6 +37,7 @@ public static class DatabaseInitializer
         await EnsureExpenseJournalSchemaAsync(db, logger);
         await EnsureVendorPaymentSchemaAsync(db, logger);
         await EnsureJournalEntryNamesSchemaAsync(db, logger);
+        await EnsureJournalPostingSchemaAsync(db, logger);
         await EnsureInvoiceRecordLinkSchemaAsync(db, logger);
         await EnsureDoctorRecordLinkSchemaAsync(db, logger);
         await BackfillDoctorRecordLinksAsync(db, scope.ServiceProvider, logger);
@@ -737,6 +738,27 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Vendor payment schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureJournalPostingSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE "JournalEntries" ADD COLUMN IF NOT EXISTS "IsPosted" boolean NOT NULL DEFAULT true;
+                ALTER TABLE "JournalEntries" ADD COLUMN IF NOT EXISTS "IsDeleted" boolean NOT NULL DEFAULT false;
+                """);
+
+            logger.LogInformation("Journal posting flags verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Journal posting schema verification skipped.");
         }
     }
 

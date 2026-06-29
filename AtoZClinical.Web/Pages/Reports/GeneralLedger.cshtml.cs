@@ -58,8 +58,8 @@ public class GeneralLedgerModel : PageModel
         ChartAccounts = await _chartService.ListAsync(clinicId.Value);
         Results = await _journal.GetGeneralLedgerAsync(
             clinicId.Value, FromDate, ToDate, AccountName, PatientName, DoctorName, SortBy);
-        TotalDebit = Results.Sum(r => r.Debit);
-        TotalCredit = Results.Sum(r => r.Credit);
+        TotalDebit = Results.Where(r => !r.IsOpeningBalance).Sum(r => r.Debit);
+        TotalCredit = Results.Where(r => !r.IsOpeningBalance).Sum(r => r.Credit);
         return Page();
     }
 }

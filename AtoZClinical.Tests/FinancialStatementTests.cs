@@ -250,6 +250,86 @@ public class FinancialStatementTests
         Assert.Equal(15_000m, ar.Balance);
         Assert.Equal(-5_000m, cash.Balance);
     }
+
+    [Fact]
+    public async Task General_ledger_includes_opening_balance_before_from_date()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+        await DatabaseInitializer.EnsureStandardChartAccountsAsync(db.Db, clinicId);
+
+        db.Db.CashReceipts.Add(new CashReceipt
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            ReceiptNo = 1,
+            PatientName = "AAA",
+            ReceiptDate = new DateTime(2026, 6, 1),
+            Amount = 10_000m,
+            PaymentMethod = "Cash",
+            UpdatedAt = DateTime.UtcNow
+        });
+        db.Db.CashReceipts.Add(new CashReceipt
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            ReceiptNo = 2,
+            PatientName = "AAA",
+            ReceiptDate = new DateTime(2026, 6, 15),
+            Amount = 5_000m,
+            PaymentMethod = "Cash",
+            UpdatedAt = DateTime.UtcNow
+        });
+        await db.Db.SaveChangesAsync();
+
+        var sync = new ClinicalJournalSyncService(db.Db, NullLogger<ClinicalJournalSyncService>.Instance);
+        var journal = new JournalReportService(db.Db, sync);
+        await sync.EnsureClinicalJournalsAsync(clinicId);
+
+        var rows = await journal.GetGeneralLedgerAsync(
+            clinicId,
+            new DateTime(2026, 6, 10),
+            new DateTime(2026, 6, 30),
+            accountName: "Cash");
+
+        var opening = rows.Single(r => r.IsOpeningBalance);
+        Assert.Equal(10_000m, opening.RunningBalance);
+        Assert.Equal(15_000m, rows.Last().RunningBalance);
+    }
+
+    [Fact]
+    public async Task Trial_balance_display_debits_equal_display_credits()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+        await DatabaseInitializer.EnsureStandardChartAccountsAsync(db.Db, clinicId);
+
+        db.Db.CashReceipts.Add(new CashReceipt
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            ReceiptNo = 1,
+            PatientName = "Walk-in",
+            ReceiptDate = new DateTime(2026, 6, 1),
+            Amount = 10_000m,
+            PaymentMethod = "Cash",
+            UpdatedAt = DateTime.UtcNow
+        });
+        await db.Db.SaveChangesAsync();
+
+        var sync = new ClinicalJournalSyncService(db.Db, NullLogger<ClinicalJournalSyncService>.Instance);
+        var journal = new JournalReportService(db.Db, sync);
+        await sync.EnsureClinicalJournalsAsync(clinicId);
+
+        var tb = await journal.GetTrialBalanceAsync(clinicId, new DateTime(2026, 6, 28));
+        var totalDebit = tb.Sum(r => r.DisplayDebit);
+        var totalCredit = tb.Sum(r => r.DisplayCredit);
+
+        Assert.Equal(totalDebit, totalCredit);
+        Assert.True((await journal.ValidateIntegrityAsync(clinicId)).IsTrialBalanceBalanced);
+    }
 }
 
 internal static class JournalTestExtensions

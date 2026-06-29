@@ -29,3 +29,41 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* Reusable print area — wrap printable content in #print-area; call clinicalPrintReport() or clinicalPrintArea() */
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  body {
+    margin: 0 !important;
+    background: #fff !important;
+  }
+
+  body.clinical-print-area-active * {
+    visibility: hidden;
+  }
+
+  body.clinical-print-area-active #print-area,
+  body.clinical-print-area-active #print-area * {
+    visibility: visible;
+  }
+
+  body.clinical-print-area-active #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .no-print,
+  .clinical-toolbar,
+  .report-toolbar,
+  .report-filter-panel,
+  .btn-form,
+  .btn,
+  .alert.no-print {
+    display: none !important;
+  }
+}

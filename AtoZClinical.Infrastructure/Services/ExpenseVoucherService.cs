@@ -243,6 +243,57 @@ public sealed class JournalReportService
         _journalSync = journalSync;
     }
 
+    /// <summary>Posted, non-deleted journal entries for a clinic — single source for all GL reports.</summary>
+    public IQueryable<JournalEntry> PostedEntries(Guid clinicId) =>
+        _db.JournalEntries
+            .Include(j => j.Lines)
+            .ForClinic(clinicId)
+            .Where(j => j.IsPosted && !j.IsDeleted);
+
+    public async Task<JournalIntegrityReport> ValidateIntegrityAsync(Guid clinicId, CancellationToken ct = default)
+    {
+        await _journalSync.EnsureClinicalJournalsAsync(clinicId);
+
+        var entries = await _db.JournalEntries
+            .Include(j => j.Lines)
+            .ForClinic(clinicId)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var unbalanced = new List<JournalIntegrityReport.UnbalancedEntry>();
+        foreach (var entry in entries.Where(e => e.IsPosted && !e.IsDeleted))
+        {
+            var debit = entry.Lines.Sum(l => l.Debit);
+            var credit = entry.Lines.Sum(l => l.Credit);
+            if (Math.Abs(debit - credit) > 0.005m)
+            {
+                unbalanced.Add(new JournalIntegrityReport.UnbalancedEntry(
+                    entry.EntryNo,
+                    entry.EntryDate,
+                    entry.SourceType,
+                    debit,
+                    credit));
+            }
+        }
+
+        var postedLines = entries
+            .Where(e => e.IsPosted && !e.IsDeleted)
+            .SelectMany(e => e.Lines)
+            .ToList();
+
+        var draftCount = entries.Count(e => !e.IsPosted && !e.IsDeleted);
+        var deletedCount = entries.Count(e => e.IsDeleted);
+
+        return new JournalIntegrityReport(
+            entries.Count,
+            postedLines.Count,
+            postedLines.Sum(l => l.Debit),
+            postedLines.Sum(l => l.Credit),
+            unbalanced,
+            draftCount,
+            deletedCount);
+    }
+
     public async Task<List<GeneralLedgerRow>> GetGeneralLedgerAsync(
         Guid clinicId,
         DateTime from,
@@ -256,24 +307,48 @@ public sealed class JournalReportService
 
         var fromDate = from.Date;
         var toDate = to.Date;
+        var accountFilter = string.IsNullOrWhiteSpace(accountName) ? null : accountName.Trim();
 
         var accountLookup = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking()
             .ToDictionaryAsync(a => a.Name, a => a.AccountNo, StringComparer.OrdinalIgnoreCase);
 
-        var entries = await _db.JournalEntries
-            .Include(j => j.Lines)
-            .ForClinic(clinicId)
-            .Where(j => j.EntryDate >= fromDate && j.EntryDate <= toDate)
+        var entries = await PostedEntries(clinicId)
+            .AsNoTracking()
+            .Where(j => j.EntryDate <= toDate)
             .OrderBy(j => j.EntryDate).ThenBy(j => j.EntryNo)
             .ToListAsync();
 
         var rows = new List<GeneralLedgerRow>();
-        foreach (var entry in entries)
+
+        if (!string.IsNullOrWhiteSpace(accountFilter))
+        {
+            var opening = entries
+                .Where(j => j.EntryDate < fromDate)
+                .SelectMany(e => e.Lines)
+                .Where(l => AccountNamesEqual(l.AccountName, accountFilter))
+                .Sum(l => l.Debit - l.Credit);
+
+            accountLookup.TryGetValue(accountFilter, out var openingAccountNo);
+            rows.Add(new GeneralLedgerRow(
+                fromDate,
+                0,
+                "Opening",
+                openingAccountNo,
+                accountFilter,
+                "Opening balance",
+                opening > 0 ? opening : 0,
+                opening < 0 ? -opening : 0,
+                opening,
+                null,
+                null,
+                IsOpeningBalance: true));
+        }
+
+        foreach (var entry in entries.Where(j => j.EntryDate >= fromDate && j.EntryDate <= toDate))
         {
             foreach (var line in entry.Lines.OrderBy(l => l.LineNo))
             {
-                if (!string.IsNullOrWhiteSpace(accountName) &&
-                    !string.Equals(line.AccountName, accountName.Trim(), StringComparison.OrdinalIgnoreCase))
+                if (accountFilter is not null && !AccountNamesEqual(line.AccountName, accountFilter))
                     continue;
 
                 accountLookup.TryGetValue(line.AccountName, out var accountNo);
@@ -295,27 +370,32 @@ public sealed class JournalReportService
         if (!string.IsNullOrWhiteSpace(patientName))
         {
             var filter = patientName.Trim();
-            rows = rows.Where(r => r.PatientName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true).ToList();
+            rows = rows.Where(r => r.IsOpeningBalance ||
+                                   r.PatientName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true).ToList();
         }
 
         if (!string.IsNullOrWhiteSpace(doctorName))
         {
             var filter = doctorName.Trim();
-            rows = rows.Where(r => r.DoctorName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true).ToList();
+            rows = rows.Where(r => r.IsOpeningBalance ||
+                                   r.DoctorName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true).ToList();
         }
 
         rows = sortBy.Trim().ToLowerInvariant() switch
         {
-            "doctor" => rows.OrderBy(r => r.DoctorName).ThenBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList(),
-            "patient" => rows.OrderBy(r => r.PatientName).ThenBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList(),
-            _ => rows.OrderBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList()
+            "doctor" => rows.OrderBy(r => r.IsOpeningBalance ? 0 : 1).ThenBy(r => r.DoctorName).ThenBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList(),
+            "patient" => rows.OrderBy(r => r.IsOpeningBalance ? 0 : 1).ThenBy(r => r.PatientName).ThenBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList(),
+            _ => rows.OrderBy(r => r.IsOpeningBalance ? 0 : 1).ThenBy(r => r.EntryDate).ThenBy(r => r.EntryNo).ToList()
         };
 
-        if (!string.IsNullOrWhiteSpace(accountName))
+        if (!string.IsNullOrWhiteSpace(accountFilter))
         {
-            var running = 0m;
+            var running = rows.FirstOrDefault(r => r.IsOpeningBalance)?.RunningBalance ?? 0m;
             for (var i = 0; i < rows.Count; i++)
             {
+                if (rows[i].IsOpeningBalance)
+                    continue;
+
                 running += rows[i].Debit - rows[i].Credit;
                 rows[i] = rows[i] with { RunningBalance = running };
             }
@@ -333,11 +413,11 @@ public sealed class JournalReportService
             .OrderBy(a => a.AccountNo)
             .ToListAsync();
 
-        var entries = await _db.JournalEntries
-            .Include(j => j.Lines)
-            .ForClinic(clinicId)
-            .Where(j => j.EntryDate <= asOfDate)
+        var chartByName = chartAccounts.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
+
+        var entries = await PostedEntries(clinicId)
             .AsNoTracking()
+            .Where(j => j.EntryDate <= asOfDate)
             .ToListAsync();
 
         var journalTotals = entries
@@ -345,11 +425,13 @@ public sealed class JournalReportService
             .GroupBy(l => l.AccountName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,
-                g => new
+                g =>
                 {
-                    Category = g.First().AccountCategory ?? "",
-                    Debit = g.Sum(x => x.Debit),
-                    Credit = g.Sum(x => x.Credit)
+                    chartByName.TryGetValue(g.Key, out var chart);
+                    return new AccountTotals(
+                        chart?.CategoryType ?? g.First().AccountCategory ?? "",
+                        g.Sum(x => x.Debit),
+                        g.Sum(x => x.Credit));
                 },
                 StringComparer.OrdinalIgnoreCase);
 
@@ -377,6 +459,30 @@ public sealed class JournalReportService
         return rows;
     }
 
+    private static bool AccountNamesEqual(string? left, string? right) =>
+        string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private sealed record AccountTotals(string Category, decimal Debit, decimal Credit);
+
+    public sealed record JournalIntegrityReport(
+        int TotalEntries,
+        int PostedLineCount,
+        decimal TotalDebits,
+        decimal TotalCredits,
+        IReadOnlyList<JournalIntegrityReport.UnbalancedEntry> UnbalancedEntries,
+        int DraftEntryCount,
+        int DeletedEntryCount)
+    {
+        public bool IsTrialBalanceBalanced => Math.Abs(TotalDebits - TotalCredits) < 0.01m;
+
+        public sealed record UnbalancedEntry(
+            int EntryNo,
+            DateTime EntryDate,
+            string SourceType,
+            decimal TotalDebit,
+            decimal TotalCredit);
+    }
+
     public sealed record GeneralLedgerRow(
         DateTime EntryDate,
         int EntryNo,
@@ -388,7 +494,8 @@ public sealed class JournalReportService
         decimal Credit,
         decimal RunningBalance,
         string? PatientName,
-        string? DoctorName);
+        string? DoctorName,
+        bool IsOpeningBalance = false);
 
     public sealed record TrialBalanceRow(
         int AccountNo,
@@ -398,5 +505,11 @@ public sealed class JournalReportService
         decimal TotalCredit)
     {
         public decimal Balance => TotalDebit - TotalCredit;
+
+        /// <summary>Net debit column for standard trial balance presentation.</summary>
+        public decimal DisplayDebit => Balance > 0 ? Balance : 0;
+
+        /// <summary>Net credit column for standard trial balance presentation.</summary>
+        public decimal DisplayCredit => Balance < 0 ? -Balance : 0;
     }
 }

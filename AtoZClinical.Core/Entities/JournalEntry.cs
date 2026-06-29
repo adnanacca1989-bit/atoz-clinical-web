@@ -11,6 +11,10 @@ public class JournalEntry : IClinicScoped
     public string? Description { get; set; }
     public string? PatientName { get; set; }
     public string? DoctorName { get; set; }
+    /// <summary>Only posted entries appear on GL, Trial Balance, and Balance Sheet.</summary>
+    public bool IsPosted { get; set; } = true;
+    /// <summary>Soft-deleted entries are excluded from all financial reports.</summary>
+    public bool IsDeleted { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

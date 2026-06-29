@@ -6,11 +6,10 @@
 }
 
 <div class="clinical-form-page clinical-report-page">
-    <h1 class="page-title">Trial Balance</h1>
-    <partial name="_ReportBranding" />
+    <h1 class="page-title no-print">Trial Balance</h1>
     <form method="post" id="clinicalReportForm">
         <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
-        <div class="report-filter-panel">
+        <div class="report-filter-panel no-print">
             <div class="row g-2 mb-0">
                 <div class="col-md-3">
                     <label class="clinical-field-label">As Of Date</label>
@@ -24,38 +23,59 @@
                 </div>
             </div>
         </div>
-        <p class="report-hint">Journal trial balance as of the selected date. <strong>Cash &amp; equivalents (Cash + Bank + Visa Card)</strong> matches the Cash Report closing balance and Balance Sheet.</p>
-        <div class="report-summary-panel">
-            <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
-            <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
-            <span><strong>Cash &amp; Equivalents (GL):</strong> @Model.TotalLiquidCash.ToString("N2")</span>
-        </div>
-        <div class="report-results-scroll">
-            <table class="line-grid report-grid">
-                <thead>
-                    <tr>
-                        <th>GL No</th>
-                        <th>Category</th>
-                        <th>Account</th>
-                        <th class="text-end">Debit</th>
-                        <th class="text-end">Credit</th>
-                        <th class="text-end">Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @foreach (var r in Model.Results)
-                {
-                    <tr>
-                        <td>@(r.AccountNo > 0 ? r.AccountNo.ToString() : "—")</td>
-                        <td>@r.AccountCategory</td>
-                        <td>@r.AccountName</td>
-                        <td class="text-end">@r.TotalDebit.ToString("N2")</td>
-                        <td class="text-end">@r.TotalCredit.ToString("N2")</td>
-                        <td class="text-end">@r.Balance.ToString("N2")</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
+
+        <div id="print-area">
+            <partial name="_ReportBranding" />
+            <p class="report-hint">Journal trial balance as of <strong>@Model.AsOfDate.ToString("d")</strong> (posted entries only). Cash &amp; equivalents matches Cash Report and Balance Sheet.</p>
+            @if (!string.IsNullOrWhiteSpace(Model.WarningMessage))
+            {
+                <div class="alert alert-warning no-print">@Model.WarningMessage</div>
+            }
+            @if (!Model.IsBalanced)
+            {
+                <div class="alert alert-danger no-print">Trial balance debits and credits do not match. Review unbalanced journal entries before relying on financial statements.</div>
+            }
+            <div class="report-summary-panel">
+                <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
+                <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
+                <span><strong>Balanced:</strong> @(Model.IsBalanced ? "Yes" : "No")</span>
+                <span><strong>Cash &amp; Equivalents (GL):</strong> @Model.TotalLiquidCash.ToString("N2")</span>
+            </div>
+            <div class="report-results-scroll">
+                <table class="line-grid report-grid">
+                    <thead>
+                        <tr>
+                            <th>GL No</th>
+                            <th>Category</th>
+                            <th>Account</th>
+                            <th class="text-end">Debit</th>
+                            <th class="text-end">Credit</th>
+                            <th class="text-end">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var r in Model.Results)
+                    {
+                        <tr class="@(r.AccountNo == 0 && r.Balance != 0 ? "table-warning" : null)">
+                            <td>@(r.AccountNo > 0 ? r.AccountNo.ToString() : "—")</td>
+                            <td>@r.AccountCategory</td>
+                            <td>@r.AccountName</td>
+                            <td class="text-end">@(r.DisplayDebit > 0 ? r.DisplayDebit.ToString("N2") : "")</td>
+                            <td class="text-end">@(r.DisplayCredit > 0 ? r.DisplayCredit.ToString("N2") : "")</td>
+                            <td class="text-end">@r.Balance.ToString("N2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-bold">
+                            <td colspan="3">Totals</td>
+                            <td class="text-end">@Model.TotalDebit.ToString("N2")</td>
+                            <td class="text-end">@Model.TotalCredit.ToString("N2")</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         </div>
         <partial name="_ReportToolbar" />
     </form>

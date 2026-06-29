@@ -49,7 +49,7 @@
                 </div>
             </div>
         </div>
-        <p class="report-hint">Journal entries with GL account numbers. Income from invoices, receipts, and pharmacy bills is posted automatically. Filter and sort by patient or doctor.</p>
+        <p class="report-hint">Posted journal entries with GL account numbers. When an account is selected, an opening balance row is included before the date range.</p>
         <div class="report-summary-panel">
             <span><strong>Total Debit:</strong> @Model.TotalDebit.ToString("N2")</span>
             <span><strong>Total Credit:</strong> @Model.TotalCredit.ToString("N2")</span>
@@ -77,9 +77,9 @@
                 <tbody>
                 @foreach (var r in Model.Results)
                 {
-                    <tr>
+                    <tr class="@(r.IsOpeningBalance ? "table-secondary fw-semibold" : null)">
                         <td>@r.EntryDate.ToString("d")</td>
-                        <td>@r.EntryNo</td>
+                        <td>@(r.IsOpeningBalance ? "—" : r.EntryNo.ToString())</td>
                         <td>@r.SourceType</td>
                         <td>@(r.AccountNo > 0 ? r.AccountNo.ToString() : "—")</td>
                         <td>@r.AccountName</td>
