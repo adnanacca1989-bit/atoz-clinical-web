@@ -57,6 +57,7 @@ public class ResendConfirmationModel : PageModel
                 string.Join(", ", missing));
             EmailNotConfigured = true;
             EmailDeliveryFailed = true;
+            AdminSetupMessage = BuildNotConfiguredMessage(missing);
             ModelState.AddModelError(string.Empty, AdminSetupMessage);
             return Page();
         }
@@ -87,4 +88,10 @@ public class ResendConfirmationModel : PageModel
         [Required, Display(Name = "Username or Email")]
         public string Username { get; set; } = string.Empty;
     }
+
+    private static string BuildNotConfiguredMessage(IReadOnlyList<string> missing) =>
+        missing.Count == 0
+            ? SmtpEmailConfiguration.NotConfiguredUserMessage
+            : $"Email is not configured on the server. Missing on Render: {string.Join(", ", missing)}. "
+              + "Open the atoz-clinical web service → Environment, add them, save, and wait for redeploy.";
 }

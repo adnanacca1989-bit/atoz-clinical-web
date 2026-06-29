@@ -52,6 +52,7 @@ public class ForgotPasswordModel : PageModel
                 string.Join(", ", missing));
             EmailNotConfigured = true;
             EmailDeliveryFailed = true;
+            AdminSetupMessage = BuildNotConfiguredMessage(missing);
             return Page();
         }
 
@@ -100,4 +101,10 @@ public class ForgotPasswordModel : PageModel
         [Required, EmailAddress, Display(Name = "Email")]
         public string Email { get; set; } = string.Empty;
     }
+
+    private static string BuildNotConfiguredMessage(IReadOnlyList<string> missing) =>
+        missing.Count == 0
+            ? SmtpEmailConfiguration.NotConfiguredUserMessage
+            : $"Email is not configured on the server. Missing on Render: {string.Join(", ", missing)}. "
+              + "Open the atoz-clinical web service → Environment, add them, save, and wait for redeploy.";
 }
