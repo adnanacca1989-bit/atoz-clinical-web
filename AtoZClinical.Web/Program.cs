@@ -467,17 +467,17 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         if (!await db.Database.CanConnectAsync())
             return Results.Problem("Database unreachable", statusCode: StatusCodes.Status503ServiceUnavailable);
 
+        var emailSettings = SmtpEmailSettings.From(config);
         var basic = new Dictionary<string, object?>
         {
             ["status"] = "healthy",
             ["version"] = AppBuildInfo.Version,
             ["timestamp"] = DateTime.UtcNow,
             ["isHttps"] = ctx.Request.IsHttps,
-            ["emailConfigured"] = SmtpEmailSettings.From(config).IsReady
+            ["emailConfigured"] = emailSettings.IsReady,
+            ["emailStatus"] = emailSettings.DescribeReadiness(),
+            ["emailMissingVariables"] = emailSettings.ListMissingVariables()
         };
-
-        var emailSettings = SmtpEmailSettings.From(config);
-        basic["emailStatus"] = emailSettings.DescribeReadiness();
 
         var token = config["Operations:HealthToken"];
         if (!string.IsNullOrWhiteSpace(token) &&

@@ -17,26 +17,31 @@ public sealed class SmtpEmailSettings
     public string? ConfigurationWarning { get; init; }
 
     public bool IsReady =>
-        Enabled &&
         !string.IsNullOrWhiteSpace(Host) &&
         !string.IsNullOrWhiteSpace(FromAddress) &&
         HasRequiredCredentials();
+
+    public IReadOnlyList<string> ListMissingVariables()
+    {
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(Host)) missing.Add("SMTP_HOST");
+        if (string.IsNullOrWhiteSpace(FromAddress)) missing.Add("FROM_EMAIL");
+        if (string.IsNullOrWhiteSpace(User)) missing.Add("SMTP_USER");
+        if (string.IsNullOrWhiteSpace(Password)) missing.Add("SMTP_PASS");
+        return missing;
+    }
+
+    public string DescribeReadiness()
+    {
+        var missing = ListMissingVariables();
+        return missing.Count == 0 ? "ready" : "missing " + string.Join(", ", missing);
+    }
 
     public SecureSocketOptions SecureSocketOptions =>
         !UseSsl ? SecureSocketOptions.None :
         Port == 465 ? SecureSocketOptions.SslOnConnect :
         Port == 587 ? SecureSocketOptions.StartTls :
         SecureSocketOptions.Auto;
-
-    public string DescribeReadiness()
-    {
-        if (!Enabled) return "disabled (set SMTP_HOST and FROM_EMAIL)";
-        if (string.IsNullOrWhiteSpace(Host)) return "missing SMTP_HOST";
-        if (string.IsNullOrWhiteSpace(FromAddress)) return "missing FROM_EMAIL";
-        if (string.IsNullOrWhiteSpace(User)) return "missing SMTP_USER";
-        if (string.IsNullOrWhiteSpace(Password)) return "missing SMTP_PASS";
-        return "ready";
-    }
 
     public string StartupLogMessage() =>
         IsReady
@@ -107,11 +112,10 @@ public sealed class SmtpEmailSettings
             config["SMTP_PASSWORD"]);
 
         var hasMinimum = !string.IsNullOrWhiteSpace(host) && !string.IsNullOrWhiteSpace(fromAddress);
-        var enabled = config.GetValue("Email:Enabled", hasMinimum);
 
         return new SmtpEmailSettings
         {
-            Enabled = enabled && hasMinimum,
+            Enabled = hasMinimum,
             Host = host,
             Port = port,
             User = user,

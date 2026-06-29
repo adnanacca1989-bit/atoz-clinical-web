@@ -33,6 +33,7 @@ public class TrialModel : CaptchaPageModel
     public bool Registered { get; private set; }
     public bool EmailConfirmationSent { get; private set; }
     public bool EmailConfirmationFailed { get; private set; }
+    public bool EmailNotConfigured { get; private set; }
     public string? ClinicName { get; private set; }
     public string? ClinicCode { get; private set; }
     public string? AdminUsername { get; private set; }
@@ -61,6 +62,7 @@ public class TrialModel : CaptchaPageModel
 
             var sendResult = await _registrationEmail.SendEmailConfirmationAsync(admin, Input.Email);
             EmailConfirmationSent = sendResult == EmailConfirmationSendResult.Sent;
+            EmailNotConfigured = sendResult == EmailConfirmationSendResult.NotConfigured;
             EmailConfirmationFailed = sendResult is EmailConfirmationSendResult.Failed
                 or EmailConfirmationSendResult.NotConfigured;
 

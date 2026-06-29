@@ -41,7 +41,14 @@
                         else if (Model.EmailConfirmationFailed)
                         {
                             <div class="alert alert-warning small mb-0">
-                                Your account was created but we could not send the confirmation email. Use
+                                @if (Model.EmailNotConfigured)
+                                {
+                                    <text>Your account was created, but email is not configured on the server yet. Ask the system administrator to set SMTP_HOST, SMTP_USER, SMTP_PASS, and FROM_EMAIL in Render, then use </text>
+                                }
+                                else
+                                {
+                                    <text>Your account was created but we could not send the confirmation email. Use </text>
+                                }
                                 <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>
                                 or contact support.
                             </div>
