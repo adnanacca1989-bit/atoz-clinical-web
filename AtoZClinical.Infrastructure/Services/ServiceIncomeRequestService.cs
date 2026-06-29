@@ -86,7 +86,7 @@ public sealed class ServiceIncomeRequestService
                 }
             });
             await SyncBillingAsync(clinicId, item, validLines, previous, previousLines);
-            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName, item.PatientRecordId); }
             catch { }
             await _audit.LogAsync(clinicId, userName, "Service Income Request", "Update",
                 $"Request #{item.RequestNo} — {item.PatientName}");
@@ -136,7 +136,7 @@ public sealed class ServiceIncomeRequestService
             .ToListAsync();
         await SyncBillingAsync(clinicId, item, savedLines, null, null);
 
-        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName, item.PatientRecordId); }
         catch { }
 
         await _audit.LogAsync(clinicId, userName, "Service Income Request", "Create",

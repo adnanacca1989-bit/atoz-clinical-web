@@ -137,4 +137,77 @@ public class PatientVisitStatusServiceTests
         await status.OnInvoiceBillingAsync(clinicId, "PAT-00001", "Ali Patient");
         Assert.Equal(PatientVisitStatuses.Completed, await GetStatusAsync(db, clinicId));
     }
+
+    [Fact]
+    public async Task Sync_clinical_activity_outranks_cash_receipt()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+
+        var patientId = Guid.NewGuid();
+        db.Db.Patients.Add(new Patient
+        {
+            Id = patientId,
+            ClinicId = clinicId,
+            PatientNo = "PAT-00001",
+            FirstName = "Ali Patient",
+            Status = PatientVisitStatuses.Confirmed
+        });
+        db.Db.CashReceipts.Add(new CashReceipt
+        {
+            ClinicId = clinicId,
+            ReceiptNo = 1,
+            PatientRecordId = patientId,
+            PatientName = "Ali Patient",
+            Amount = 50
+        });
+        db.Db.LabRequests.Add(new LabRequest
+        {
+            ClinicId = clinicId,
+            RequestNo = 1,
+            PatientRecordId = patientId,
+            PatientName = "Ali Patient"
+        });
+        await db.Db.SaveChangesAsync();
+
+        var audit = new AuditService(db.Db);
+        var status = new PatientVisitStatusService(db.Db, audit);
+        await status.SyncAllPatientStatusesForClinicAsync(clinicId);
+
+        Assert.Equal(PatientVisitStatuses.UnderProcess, await GetStatusAsync(db, clinicId));
+    }
+
+    [Fact]
+    public async Task Sync_pharmacy_bill_sets_under_process()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+
+        var patientId = Guid.NewGuid();
+        db.Db.Patients.Add(new Patient
+        {
+            Id = patientId,
+            ClinicId = clinicId,
+            PatientNo = "PAT-00001",
+            FirstName = "Ali Patient",
+            Status = PatientVisitStatuses.Pending
+        });
+        db.Db.PharmacyBills.Add(new PharmacyBill
+        {
+            ClinicId = clinicId,
+            BillNo = 1,
+            PatientRecordId = patientId,
+            PatientName = "Ali Patient",
+            TotalAmount = 100
+        });
+        await db.Db.SaveChangesAsync();
+
+        var audit = new AuditService(db.Db);
+        var status = new PatientVisitStatusService(db.Db, audit);
+        await status.SyncAllPatientStatusesForClinicAsync(clinicId);
+
+        Assert.Equal(PatientVisitStatuses.UnderProcess, await GetStatusAsync(db, clinicId));
+    }
 }

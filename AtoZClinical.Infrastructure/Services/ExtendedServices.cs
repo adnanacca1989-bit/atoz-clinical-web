@@ -222,7 +222,7 @@ public sealed class RadiologyRequestService
             });
             try { await _billing.SyncRadiologyRequestAsync(clinicId, item, lines, previous, previousLines); }
             catch { }
-            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName, item.PatientRecordId); }
             catch { }
             await _audit.LogAsync(clinicId, userName, "Radiology Request", "Update",
                 $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
@@ -266,7 +266,7 @@ public sealed class RadiologyRequestService
             ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_RadiologyRequests_ClinicId_RequestNo"),
             failureMessage: "Could not save radiology request");
 
-        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName, item.PatientRecordId); }
         catch { }
 
         var savedLines = await _db.RadiologyRequestLines.Where(l => l.RadiologyRequestId == item.Id).OrderBy(l => l.LineNo).ToListAsync();
@@ -426,7 +426,7 @@ public sealed class RadiologyResultService
             try { await _billing.SyncRadiologyResultAsync(clinicId, item, previous); }
             catch { }
         }
-        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName, item.PatientRecordId);
         await _audit.LogAsync(clinicId, userName, "Radiology Result", isNew ? "Create" : "Update",
             $"Result #{item.ResultNo} — {item.PatientName}");
         return item;
@@ -531,7 +531,7 @@ public sealed class PrescriptionService
             try { await _billing.SyncPrescriptionAsync(clinicId, item, previous); }
             catch { }
         }
-        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName, item.PatientRecordId);
         await _audit.LogAsync(clinicId, userName, "Prescription", isNew ? "Create" : "Update",
             $"Prescription #{item.PrescriptionNo} — {item.PatientName}");
         return item;
@@ -599,7 +599,12 @@ public sealed class InvoiceService
     public async Task<int> NextInvoiceNoAsync(Guid clinicId) =>
         await NextInvoiceNoWithSkipAsync(clinicId, 0);
 
-    public async Task<Invoice> SaveAsync(Guid clinicId, Invoice item, List<InvoiceLine> lines, string? userName = null)
+    public async Task<Invoice> SaveAsync(
+        Guid clinicId,
+        Invoice item,
+        List<InvoiceLine> lines,
+        string? userName = null,
+        bool updatePatientVisitStatus = true)
     {
         var isNew = item.Id == Guid.Empty;
         item.ClinicId = clinicId;
@@ -611,6 +616,9 @@ public sealed class InvoiceService
         item.SubTotal = lines.Sum(l => l.LineTotal);
         item.TotalAmount = item.SubTotal - item.Discount + item.TaxAmount;
         item.BalanceDue = item.TotalAmount - item.AmountPaid;
+
+        if (updatePatientVisitStatus)
+            item.Notes = PatientVisitInvoiceMarkers.ClearProvisional(item.Notes);
 
         if (isNew)
         {
@@ -660,8 +668,11 @@ public sealed class InvoiceService
             });
         }
 
-        try { await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName, item.PatientRecordId); }
-        catch { }
+        if (updatePatientVisitStatus)
+        {
+            try { await _visitStatus.OnInvoiceBillingAsync(clinicId, item.PatientId, item.PatientName, item.PatientRecordId); }
+            catch { }
+        }
 
         try
         {
@@ -697,7 +708,8 @@ public sealed class InvoiceService
             InvoiceDate = patient.AppointmentDate ?? DateTime.Today,
             PaymentMethod = "Cash",
             PaymentStatus = "Unpaid",
-            AmountPaid = 0
+            AmountPaid = 0,
+            Notes = PatientVisitInvoiceMarkers.MarkProvisional(null)
         };
         _demographics.ApplyPatientToInvoice(patient, invoice);
         await _demographics.ApplyDoctorToInvoiceAsync(clinicId, doctor, invoice);
@@ -711,7 +723,7 @@ public sealed class InvoiceService
             LineTotal = doctor.ConsultationFee
         };
 
-        await SaveAsync(clinicId, invoice, [line], userName);
+        await SaveAsync(clinicId, invoice, [line], userName, updatePatientVisitStatus: false);
     }
 
     private async Task<int> NextInvoiceNoWithSkipAsync(Guid clinicId, int skip = 0)
@@ -1250,7 +1262,7 @@ public sealed class PharmacyRequestService
             });
             try { await _billing.SyncPharmacyRequestAsync(clinicId, item, lines, previous, previousLines); }
             catch { }
-            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName); }
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName, item.PatientRecordId); }
             catch { }
             await _audit.LogAsync(clinicId, userName, "Pharmacy Request", "Update",
                 $"Request #{item.RequestNo} — {item.PatientName}, total {item.TotalAmount:N2}");
@@ -1296,7 +1308,7 @@ public sealed class PharmacyRequestService
             ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_PharmacyRequests_ClinicId_RequestNo"),
             failureMessage: "Could not save pharmacy request");
 
-        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName); }
+        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName, item.PatientRecordId); }
         catch { }
 
         var savedRequestLines = await _db.PharmacyRequestLines.Where(l => l.PharmacyRequestId == item.Id).OrderBy(l => l.LineNo).ToListAsync();
@@ -1478,7 +1490,7 @@ public sealed class PharmacyBillService
         catch { }
 
         await _inventory.SyncBillOutAsync(clinicId, item, validLines);
-        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName);
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientId, item.PatientName, item.PatientRecordId);
 
         try { await _journalSync.SyncPharmacyBillAsync(clinicId, item, validLines); }
         catch { }

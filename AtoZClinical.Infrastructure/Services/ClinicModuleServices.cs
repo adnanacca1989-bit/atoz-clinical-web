@@ -734,7 +734,7 @@ public sealed class LabRequestService
             });
             try { await _billing.SyncLabRequestAsync(clinicId, item, lines, previous, previousLines); }
             catch { }
-            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+            try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName, item.PatientRecordId); }
             catch { }
             await _audit.LogAsync(clinicId, userName, "Laboratory Request", "Update",
                 $"Request #{item.RequestNo} — {item.PatientName}");
@@ -778,7 +778,7 @@ public sealed class LabRequestService
             ex => ClinicSaveHelper.IsDuplicateKey(ex, "IX_LabRequests_ClinicId_RequestNo"),
             failureMessage: "Could not save laboratory request");
 
-        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName); }
+        try { await _visitStatus.OnClinicalCheckInAsync(clinicId, item.PatientBarcode, item.PatientName, item.PatientRecordId); }
         catch { }
 
         var savedLines = await _db.LabRequestLines.Where(l => l.LabRequestId == item.Id).OrderBy(l => l.LineNo).ToListAsync();
@@ -922,7 +922,7 @@ public sealed class LabResultService
             try { await _billing.SyncLabResultAsync(clinicId, item, previous); }
             catch { }
         }
-        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName);
+        await _visitStatus.OnClinicalCheckInAsync(clinicId, null, item.PatientName, item.PatientRecordId);
         return item;
     }
 

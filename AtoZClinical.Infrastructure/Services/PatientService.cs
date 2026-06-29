@@ -440,7 +440,7 @@ public sealed class PatientService
         VisitNumber = source.VisitNumber,
         AppointmentDate = source.AppointmentDate,
         AppointmentTime = source.AppointmentTime,
-        Status = source.Status,
+        Status = PatientVisitStatuses.Pending,
         MarriedStatus = source.MarriedStatus,
         MotherName = source.MotherName
     };
