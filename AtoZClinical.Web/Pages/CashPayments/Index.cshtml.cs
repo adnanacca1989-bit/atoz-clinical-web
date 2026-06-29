@@ -59,7 +59,10 @@ public class IndexModel : ClinicFormPageModel
         Records = await _service.ListAsync(clinicId);
         RegisteredVendors = await _lookup.ListVendorsAsync(clinicId, activeOnly: true);
         var allAccounts = await _chartService.ListAsync(clinicId);
-        Accounts = allAccounts.OrderBy(a => a.CategoryType).ThenBy(a => a.AccountNo).ToList();
+        Accounts = allAccounts
+            .Where(IsLiabilityOrEquityAccount)
+            .OrderBy(a => a.CategoryType).ThenBy(a => a.AccountNo)
+            .ToList();
         ExpenseAccounts = allAccounts
             .Where(a => string.Equals(a.CategoryType, "Expense", StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.AccountNo)
@@ -86,6 +89,7 @@ public class IndexModel : ClinicFormPageModel
         RecordId = null;
         var next = await _service.NextPaymentNoAsync(clinicId);
         var accounts = await _chartService.ListAsync(clinicId);
+        var liabilityEquity = accounts.Where(IsLiabilityOrEquityAccount).OrderBy(a => a.AccountNo).ToList();
         Input = new CashPaymentInput
         {
             PaymentNo = next,
@@ -93,7 +97,7 @@ public class IndexModel : ClinicFormPageModel
             PaymentMethod = ClinicLookup.PaymentMethods[0],
             WrittenAmount = "Zero",
             BalanceStatus = "Due",
-            ChartAccountName = accounts.FirstOrDefault()?.Name ?? ClinicLookup.AccountNames[0]
+            ChartAccountName = liabilityEquity.FirstOrDefault()?.Name ?? ClinicLookup.AccountNames[0]
         };
     }
 
@@ -117,6 +121,14 @@ public class IndexModel : ClinicFormPageModel
                 string.Equals(a.Name, Input.ChartAccountName, StringComparison.OrdinalIgnoreCase));
             if (expenseAccount is null)
                 ModelState.AddModelError(nameof(Input.ChartAccountName), "Vendor payments require an expense account.");
+        }
+        else
+        {
+            var liabilityEquityAccount = Accounts.FirstOrDefault(a =>
+                string.Equals(a.Name, Input.ChartAccountName, StringComparison.OrdinalIgnoreCase));
+            if (liabilityEquityAccount is null)
+                ModelState.AddModelError(nameof(Input.ChartAccountName),
+                    "Patient payments require a liability or equity account from the chart of accounts.");
         }
 
         if (!ModelState.IsValid)
@@ -172,6 +184,10 @@ public class IndexModel : ClinicFormPageModel
         idx = Math.Clamp(idx + delta, 0, Records.Count - 1);
         return RedirectToRecord(Records[idx].Id);
     }
+
+    private static bool IsLiabilityOrEquityAccount(ChartAccount account) =>
+        string.Equals(account.CategoryType, "Liability", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(account.CategoryType, "Equity", StringComparison.OrdinalIgnoreCase);
 
     public sealed class CashPaymentInput
     {

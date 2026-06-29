@@ -32,6 +32,7 @@ public static class DatabaseInitializer
         await EnsureSchemaAsync(db, env, logger);
         await EnsureEnterpriseSchemaAsync(db, logger);
         await EnsureSaasPlatformSchemaAsync(db, logger);
+        await EnsurePasswordResetTokenSchemaAsync(db, logger);
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
         await EnsurePrescriptionLinesSchemaAsync(db, logger);
         await EnsureExpenseJournalSchemaAsync(db, logger);
@@ -477,6 +478,36 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "SaaS platform schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsurePasswordResetTokenSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "PasswordResetTokens" (
+                    "Id" uuid NOT NULL,
+                    "UserId" character varying(450) NOT NULL,
+                    "TokenHash" character varying(128) NOT NULL,
+                    "ExpiryDate" timestamp without time zone NOT NULL,
+                    "Used" boolean NOT NULL DEFAULT false,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_PasswordResetTokens" PRIMARY KEY ("Id")
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_PasswordResetTokens_TokenHash" ON "PasswordResetTokens" ("TokenHash");
+                CREATE INDEX IF NOT EXISTS "IX_PasswordResetTokens_UserId" ON "PasswordResetTokens" ("UserId");
+                """);
+
+            logger.LogInformation("Password reset token schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Password reset token schema verification skipped.");
         }
     }
 

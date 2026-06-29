@@ -75,6 +75,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ClinicMessage> ClinicMessages => Set<ClinicMessage>();
     public DbSet<ClinicMessageAttachment> ClinicMessageAttachments => Set<ClinicMessageAttachment>();
     public DbSet<ClinicalNotification> ClinicalNotifications => Set<ClinicalNotification>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -373,6 +374,15 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
             e.Property(x => x.EventType).HasMaxLength(64).IsRequired();
             e.Property(x => x.UserName).HasMaxLength(256);
             e.Property(x => x.IpAddress).HasMaxLength(64);
+        });
+
+        builder.Entity<PasswordResetToken>(e =>
+        {
+            e.ToTable("PasswordResetTokens");
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.UserId);
+            e.Property(x => x.UserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
         });
 
         builder.Entity<ClinicBackupHistory>(e =>

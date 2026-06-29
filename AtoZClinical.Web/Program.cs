@@ -246,6 +246,7 @@ builder.Services.AddSingleton<OperationalMetrics>();
 builder.Services.AddHttpClient("operations-alerts");
 builder.Services.AddHostedService<OperationalMetricsResetService>();
 builder.Services.AddScoped<ICurrentClinicProvider, HttpContextClinicProvider>();
+builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<IClinicalEmailSender, SmtpClinicalEmailSender>();
 builder.Services.AddScoped<RegistrationEmailService>();
 builder.Services.AddScoped<SubscriptionEmailService>();
