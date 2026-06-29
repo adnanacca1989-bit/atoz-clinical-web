@@ -33,6 +33,15 @@
                         {
                             <p class="text-muted">A confirmation email was sent. Confirm your email before signing in once the vendor activates your account.</p>
                         }
+                        else if (Model.EmailConfirmationFailed)
+                        {
+                            <div class="alert alert-danger small">
+                                @Model.EmailConfirmationErrorMessage
+                                <p class="mb-0 mt-2">Use
+                                <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>
+                                after SMTP is configured, or contact support.</p>
+                            </div>
+                        }
                         else
                         {
                             <p class="text-muted">You will receive access after the vendor activates your account. Then login at the clinic login page.</p>

@@ -6,6 +6,8 @@ using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
@@ -14,12 +16,21 @@ public sealed class VendorClinicService
     private readonly ClinicalDbContext _db;
     private readonly UserManager<ApplicationUser> _users;
     private readonly RoleManager<IdentityRole> _roles;
+    private readonly IConfiguration _config;
+    private readonly ILogger<VendorClinicService> _logger;
 
-    public VendorClinicService(ClinicalDbContext db, UserManager<ApplicationUser> users, RoleManager<IdentityRole> roles)
+    public VendorClinicService(
+        ClinicalDbContext db,
+        UserManager<ApplicationUser> users,
+        RoleManager<IdentityRole> roles,
+        IConfiguration config,
+        ILogger<VendorClinicService> logger)
     {
         _db = db;
         _users = users;
         _roles = roles;
+        _config = config;
+        _logger = logger;
     }
 
     public Task<List<Clinic>> ListClinicsAsync() =>
@@ -92,6 +103,18 @@ public sealed class VendorClinicService
             ? GeneratePassword()
             : request.AdminPassword;
 
+        var smtpReady = SmtpEmailConfiguration.IsEmailConfigured(_config);
+        var requireEmailConfirmation = request.RequireEmailConfirmation
+            && smtpReady
+            && !string.IsNullOrWhiteSpace(request.Email?.Trim());
+
+        if (request.RequireEmailConfirmation && !string.IsNullOrWhiteSpace(request.Email?.Trim()) && !smtpReady)
+        {
+            _logger.LogWarning(
+                "SMTP not configured — admin user {Username} for clinic {ClinicName} will be auto-confirmed so sign-in is not blocked.",
+                username, clinic.Name);
+        }
+
         var admin = new ApplicationUser
         {
             UserName = username,
@@ -100,7 +123,7 @@ public sealed class VendorClinicService
             ClinicId = clinic.Id,
             ClinicRole = ClinicUserRole.ClinicAdmin,
             IsVendorAdmin = false,
-            EmailConfirmed = string.IsNullOrWhiteSpace(request.Email) || !request.RequireEmailConfirmation
+            EmailConfirmed = !requireEmailConfirmation
         };
 
         var result = await _users.CreateAsync(admin, password);

@@ -39,12 +39,10 @@
                         {
                             <div class="alert alert-success small mb-0">@SmtpEmailConfiguration.ConfirmationEmailSentMessage</div>
                         }
-                        else if (Model.EmailNotConfigured)
+                        else if (Model.ReadyToSignIn)
                         {
-                            <div class="alert alert-warning small mb-0">
-                                @Html.Raw(Model.EmailConfigurationWarningHtml)
-                                <p class="mb-0 mt-2">Your account was created. After SMTP is configured on Render, use
-                                <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>.</p>
+                            <div class="alert alert-info small mb-0">
+                                Your account is ready. You can sign in now with your username and password.
                             </div>
                         }
                         else if (Model.EmailConfirmationFailed)

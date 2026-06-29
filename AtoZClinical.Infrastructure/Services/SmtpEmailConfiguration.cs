@@ -37,6 +37,9 @@ public static class SmtpEmailConfiguration
         "SMTP_FROM"
     ];
 
+    public static bool IsEmailConfirmationEnabled(IConfiguration? config = null) =>
+        IsEmailConfigured(config);
+
     public static bool IsEmailConfigured(IConfiguration? config = null) =>
         GetMissingVariables(config).Count == 0;
 

@@ -21,29 +21,26 @@
             <h3 class="fw-bold" style="color:#0b4f8a">Resend confirmation email</h3>
             <p class="text-muted mb-0">Enter your username or email</p>
         </div>
-        @if (Model.Submitted)
+        @if (Model.Submitted && Model.EmailSent)
         {
-            @if (Model.EmailSent)
-            {
-                <div class="alert alert-success">@SmtpEmailConfiguration.ConfirmationEmailSentMessage</div>
-            }
-            else if (Model.EmailNotConfigured)
-            {
-                <div class="alert alert-warning">
-                    @Html.Raw(Model.EmailConfigurationWarningHtml)
-                    <p class="mb-0 mt-2 small">Add the missing SMTP variables on Render, redeploy, then try again.</p>
-                </div>
-            }
-            else
-            {
-                <div class="alert alert-info">
-                    If an account with that username or email exists and is not yet confirmed, a confirmation link has been sent.
-                </div>
-            }
+            <div class="alert alert-success">@SmtpEmailConfiguration.ConfirmationEmailSentMessage</div>
+            <a class="btn btn-atz-primary w-100" asp-page="/Account/Login">Back to Login</a>
+        }
+        else if (Model.Submitted && Model.ShowGenericAcknowledgment)
+        {
+            <div class="alert alert-info">
+                If an unconfirmed account exists for that username or email, check your inbox. Otherwise verify the username or register first.
+            </div>
             <a class="btn btn-atz-primary w-100" asp-page="/Account/Login">Back to Login</a>
         }
         else if (Model.EmailDeliveryFailed)
         {
+            @if (!string.IsNullOrWhiteSpace(Model.EmailConfigurationWarningHtml))
+            {
+                <div class="alert alert-warning mb-3">
+                    @Html.Raw(Model.EmailConfigurationWarningHtml)
+                </div>
+            }
             <div class="alert alert-danger">
                 @Model.UserErrorMessage
             </div>

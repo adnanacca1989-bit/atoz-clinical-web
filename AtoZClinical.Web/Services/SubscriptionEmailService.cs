@@ -43,6 +43,40 @@ public sealed class SubscriptionEmailService
         await SendTrialRemindersAsync(ct);
     }
 
+    private async Task<bool> TrySendAsync(
+        string recipient,
+        string subject,
+        string htmlBody,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await _email.SendAsync(recipient, subject, htmlBody, ct);
+            if (!result.Success)
+            {
+                _logger.LogError(
+                    "Subscription email failed to {Recipient} subject={Subject}: {Reason}",
+                    recipient, subject, result.Message);
+                return false;
+            }
+
+            _logger.LogInformation(
+                "Subscription email sent to {Recipient} subject={Subject}",
+                recipient, subject);
+            return true;
+        }
+        catch (ClinicalEmailNotConfiguredException ex)
+        {
+            _logger.LogWarning(ex, "Subscription email skipped: SMTP not configured");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Subscription email failed to {Recipient} subject={Subject}", recipient, subject);
+            return false;
+        }
+    }
+
     private async Task SendOnboardingEmailsAsync(CancellationToken ct)
     {
         var clinics = await _db.Clinics
@@ -58,40 +92,43 @@ public sealed class SubscriptionEmailService
             if (ageDays >= 0 && (clinic.OnboardingEmailsSent & OnboardingWelcome) == 0)
             {
                 var billingUrl = _urls.BuildPageUrl("Billing/Index");
-                await _email.SendAsync(recipient,
+                if (!await TrySendAsync(recipient,
                     "Welcome to A to Z Clinical",
                     $"""
                     <p>Hello,</p>
                     <p>Your clinic <strong>{clinic.Name}</strong> is ready. Start with patient registration, then explore billing and reports from the sidebar.</p>
                     <p><a href="{billingUrl}">View subscription &amp; billing</a></p>
                     """,
-                    ct);
+                    ct))
+                    continue;
                 clinic.OnboardingEmailsSent |= OnboardingWelcome;
             }
             else if (ageDays >= 3 && (clinic.OnboardingEmailsSent & OnboardingDay3) == 0)
             {
-                await _email.SendAsync(recipient,
+                if (!await TrySendAsync(recipient,
                     "Quick tips for your clinic workspace",
                     """
                     <p>Hello,</p>
                     <p>Tip: use <strong>Workflow</strong> to track patient visits, and <strong>Dashboard</strong> for daily totals.</p>
                     <p>Need help? Reply to this email or contact your vendor.</p>
                     """,
-                    ct);
+                    ct))
+                    continue;
                 clinic.OnboardingEmailsSent |= OnboardingDay3;
             }
             else if (ageDays >= 7 && (clinic.OnboardingEmailsSent & OnboardingDay7) == 0 &&
                      clinic.PlanName.Equals(SubscriptionPlans.Trial, StringComparison.OrdinalIgnoreCase))
             {
                 var upgradeUrl = _urls.BuildPageUrl("Billing/Index");
-                await _email.SendAsync(recipient,
+                if (!await TrySendAsync(recipient,
                     "Your trial is halfway through",
                     $"""
                     <p>Hello,</p>
                     <p>Your trial for <strong>{clinic.Name}</strong> is in progress. Upgrade anytime to keep uninterrupted access.</p>
                     <p><a href="{upgradeUrl}">Upgrade now</a></p>
                     """,
-                    ct);
+                    ct))
+                    continue;
                 clinic.OnboardingEmailsSent |= OnboardingDay7;
             }
         }
@@ -125,13 +162,14 @@ public sealed class SubscriptionEmailService
                 _ => $"Your trial ends in {daysLeft} days"
             };
 
-            await _email.SendAsync(recipient, subject,
+            if (!await TrySendAsync(recipient, subject,
                 $"""
                 <p>Hello,</p>
                 <p>Your trial for <strong>{clinic.Name}</strong> ends on <strong>{clinic.TrialEndsAt.Value:d}</strong>.</p>
                 <p><a href="{upgradeUrl}">Upgrade your subscription</a> to keep your data and users active.</p>
                 """,
-                ct);
+                ct))
+                continue;
 
             clinic.LastTrialReminderSentAt = DateTime.UtcNow;
         }

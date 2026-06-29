@@ -8,7 +8,7 @@ public sealed record ClinicalEmailSendResult(bool Success, bool Skipped, string 
         new(true, false, message);
 
     public static ClinicalEmailSendResult SkippedNotConfigured() =>
-        new(true, true, NotConfiguredMessage);
+        new(false, true, NotConfiguredMessage);
 
     public static ClinicalEmailSendResult Failed(string message) =>
         new(false, false, message);

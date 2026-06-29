@@ -4,7 +4,6 @@ using AtoZClinical.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Services;
@@ -15,7 +14,6 @@ public sealed class RegistrationEmailService
     private readonly IClinicalEmailSender _email;
     private readonly ClinicalAppUrls _urls;
     private readonly IConfiguration _config;
-    private readonly IHostEnvironment _env;
     private readonly ILogger<RegistrationEmailService> _logger;
 
     public RegistrationEmailService(
@@ -23,48 +21,31 @@ public sealed class RegistrationEmailService
         IClinicalEmailSender email,
         ClinicalAppUrls urls,
         IConfiguration config,
-        IHostEnvironment env,
         ILogger<RegistrationEmailService> logger)
     {
         _users = users;
         _email = email;
         _urls = urls;
         _config = config;
-        _env = env;
         _logger = logger;
     }
 
     public async Task<EmailConfirmationSendOutcome> SendEmailConfirmationAsync(ApplicationUser user, string email)
     {
+        if (string.IsNullOrWhiteSpace(email) || user.EmailConfirmed)
+            return EmailConfirmationSendOutcome.AlreadyConfirmed();
+
+        if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
+        {
+            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
+            _logger.LogError(
+                "Cannot send confirmation email to {Email} for user {UserId}: SMTP not configured. Missing: {Missing}",
+                email, user.Id, string.Join(", ", missing));
+            throw new ClinicalEmailNotConfiguredException(missing);
+        }
+
         try
         {
-            if (string.IsNullOrWhiteSpace(email) || user.EmailConfirmed)
-                return EmailConfirmationSendOutcome.AlreadyConfirmed();
-
-            if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-            {
-                var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-                _logger.LogWarning(
-                    "Email skipped (not configured) for user {UserId}. Missing: {Missing}",
-                    user.Id,
-                    string.Join(", ", missing));
-
-                if (_env.IsDevelopment())
-                {
-                    try
-                    {
-                        var devLink = await BuildConfirmationLinkAsync(user);
-                        _logger.LogWarning("Development confirmation link for {Email}: {Link}", email.Trim(), devLink);
-                    }
-                    catch (Exception linkEx)
-                    {
-                        _logger.LogError(linkEx, "Could not build development confirmation link for user {UserId}", user.Id);
-                    }
-                }
-
-                return EmailConfirmationSendOutcome.NotConfigured();
-            }
-
             var link = await BuildConfirmationLinkAsync(user);
             var body = $"""
                 <p>Hello {user.FullName},</p>
@@ -79,31 +60,26 @@ public sealed class RegistrationEmailService
                 """;
 
             var result = await _email.SendAsync(email.Trim(), "Confirm your email", body);
-            if (result.Skipped)
-            {
-                _logger.LogWarning(
-                    "Email confirmation skipped (not configured) for user {UserId}. Missing: {Missing}",
-                    user.Id,
-                    string.Join(", ", SmtpEmailConfiguration.GetMissingVariables(_config)));
-                return EmailConfirmationSendOutcome.NotConfigured();
-            }
-
             if (!result.Success)
             {
                 _logger.LogError(
-                    "Failed to send email confirmation to {Email} for user {UserId}: {Reason}",
+                    "Confirmation email failed for {Email} user {UserId}: {Reason}",
                     email, user.Id, result.Message);
                 return EmailConfirmationSendOutcome.Failed(result.Message);
             }
 
-            _logger.LogInformation("Email confirmation sent to {Email} for user {UserId}", email, user.Id);
+            _logger.LogInformation(
+                "Confirmation email sent successfully to {Email} for user {UserId}",
+                email, user.Id);
             return EmailConfirmationSendOutcome.Sent();
+        }
+        catch (ClinicalEmailNotConfiguredException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Email confirmation failed for user {UserId} email {Email}", user.Id, email);
-            if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-                return EmailConfirmationSendOutcome.NotConfigured();
+            _logger.LogError(ex, "Confirmation email failed for {Email} user {UserId}", email, user.Id);
             return EmailConfirmationSendOutcome.Failed(SmtpEmailDiagnostics.ClassifyFailure(ex));
         }
     }

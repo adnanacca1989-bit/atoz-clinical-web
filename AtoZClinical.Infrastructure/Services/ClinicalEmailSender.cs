@@ -44,19 +44,11 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         if (!settings.IsReady)
         {
             var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-            _logger.LogWarning(
-                "Email skipped (not configured) for {To}. Missing: {Missing}",
+            _logger.LogError(
+                "Email not sent to {To}: SMTP not configured. Missing: {Missing}",
                 toEmail.Trim(),
                 string.Join(", ", missing));
-
-            if (_env.IsDevelopment())
-            {
-                _logger.LogWarning(
-                    "Development mode: would send to {To}: {Subject}",
-                    toEmail.Trim(), subject);
-            }
-
-            return ClinicalEmailSendResult.SkippedNotConfigured();
+            throw new ClinicalEmailNotConfiguredException(missing);
         }
 
         if (!string.IsNullOrWhiteSpace(settings.ConfigurationWarning))

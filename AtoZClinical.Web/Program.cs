@@ -122,6 +122,8 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "X-CSRF-TOKEN";
 });
 
+var smtpConfiguredAtStartup = SmtpEmailConfiguration.IsEmailConfigured(builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
         options.Password.RequireDigit = true;
@@ -133,7 +135,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = false;
-        options.SignIn.RequireConfirmedEmail = true;
+        options.SignIn.RequireConfirmedEmail = smtpConfiguredAtStartup;
     })
     .AddEntityFrameworkStores<ClinicalDbContext>()
     .AddDefaultTokenProviders();
@@ -418,6 +420,11 @@ await DatabaseInitializer.InitializeAsync(app.Services);
 
 var emailSettings = SmtpEmailSettings.From(app.Configuration);
 SmtpEmailConfiguration.LogDiagnostics(app.Logger, app.Configuration);
+if (smtpConfiguredAtStartup)
+    app.Logger.LogInformation("Email confirmation is enabled (SMTP configured).");
+else
+    app.Logger.LogWarning(
+        "Email confirmation is disabled because SMTP is not configured. Users can sign in without confirming email.");
 if (!string.IsNullOrWhiteSpace(emailSettings.ConfigurationWarning))
     app.Logger.LogWarning(emailSettings.ConfigurationWarning);
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
@@ -480,6 +487,7 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["timestamp"] = DateTime.UtcNow,
             ["isHttps"] = ctx.Request.IsHttps,
             ["emailConfigured"] = SmtpEmailConfiguration.IsEmailConfigured(config),
+            ["emailConfirmationRequired"] = SmtpEmailConfiguration.IsEmailConfigured(config),
             ["emailStatus"] = SmtpEmailConfiguration.IsEmailConfigured(config) ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
             ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config)
         };
@@ -533,58 +541,45 @@ app.MapGet("/test-email", async (HttpContext ctx, IClinicalEmailSender email, IC
     if (string.IsNullOrWhiteSpace(to) || !to.Contains('@'))
         return Results.Json(new { success = false, error = "Provide ?to=email@example.com" }, statusCode: StatusCodes.Status400BadRequest);
 
-    var settings = SmtpEmailSettings.From(config);
-    if (!settings.IsReady)
+    try
     {
-        var missing = SmtpEmailConfiguration.GetMissingVariables(config);
-        logger.LogWarning("Test email skipped (not configured). Missing: {Missing}", string.Join(", ", missing));
+        var sendResult = await email.SendAsync(to,
+            "A to Z Clinical — SMTP test",
+            "<p>This is a test email from A to Z Clinical. SMTP is working.</p>");
+
+        if (!sendResult.Success)
+        {
+            logger.LogError("Test email failed to {To}: {Reason}", to, sendResult.Message);
+            return Results.Json(new
+            {
+                success = false,
+                error = sendResult.Message,
+                userMessage = SmtpEmailDiagnostics.UserFriendlyFailureMessage
+            }, statusCode: StatusCodes.Status502BadGateway);
+        }
+
         return Results.Json(new
         {
             success = true,
-            configured = false,
-            skipped = true,
-            message = ClinicalEmailSendResult.NotConfiguredMessage,
-            missing,
-            presence = SmtpEmailConfiguration.GetVariablePresence(config)
+            to,
+            host = SmtpEmailSettings.From(config).Host,
+            port = SmtpEmailSettings.From(config).Port,
+            from = SmtpEmailSettings.From(config).FromAddress,
+            message = sendResult.Message
         });
     }
-
-    var sendResult = await email.SendAsync(to,
-        "A to Z Clinical — SMTP test",
-        "<p>This is a test email from A to Z Clinical. SMTP is working.</p>");
-
-    if (sendResult.Skipped)
+    catch (ClinicalEmailNotConfiguredException ex)
     {
-        return Results.Json(new
-        {
-            success = true,
-            configured = false,
-            skipped = true,
-            message = sendResult.Message,
-            presence = SmtpEmailConfiguration.GetVariablePresence(config)
-        });
-    }
-
-    if (!sendResult.Success)
-    {
-        logger.LogError("Test email failed to {To}: {Reason}", to, sendResult.Message);
+        logger.LogError(ex, "Test email blocked: SMTP not configured");
         return Results.Json(new
         {
             success = false,
-            error = sendResult.Message,
-            userMessage = SmtpEmailDiagnostics.UserFriendlyFailureMessage
-        }, statusCode: StatusCodes.Status502BadGateway);
+            configured = false,
+            error = ex.Message,
+            missing = ex.MissingVariables,
+            presence = SmtpEmailConfiguration.GetVariablePresence(config)
+        }, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
-
-    return Results.Json(new
-    {
-        success = true,
-        to,
-        host = settings.Host,
-        port = settings.Port,
-        from = settings.FromAddress,
-        message = sendResult.Message
-    });
 }).AllowAnonymous().DisableRateLimiting();
 
 app.MapGet("/reset-password", (HttpContext ctx) =>

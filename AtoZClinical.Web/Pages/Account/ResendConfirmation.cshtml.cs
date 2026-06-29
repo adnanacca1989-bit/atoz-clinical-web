@@ -33,7 +33,7 @@ public class ResendConfirmationModel : PageModel
 
     public bool Submitted { get; private set; }
     public bool EmailSent { get; private set; }
-    public bool EmailNotConfigured { get; private set; }
+    public bool ShowGenericAcknowledgment { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
     public string? EmailConfigurationWarningHtml { get; private set; }
     public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
@@ -51,31 +51,55 @@ public class ResendConfirmationModel : PageModel
         var username = Input.Username.Trim();
         try
         {
-            var user = await _userLookup.FindByUsernameOrEmailAsync(username);
+            if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
+            {
+                var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
+                _logger.LogError(
+                    "Resend confirmation blocked: SMTP not configured. Missing: {Missing}",
+                    string.Join(", ", missing));
+                EmailDeliveryFailed = true;
+                EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(missing);
+                UserErrorMessage = new ClinicalEmailNotConfiguredException(missing).Message;
+                return Page();
+            }
 
+            var user = await _userLookup.FindByUsernameOrEmailAsync(username);
             if (user is not null
                 && !string.IsNullOrWhiteSpace(user.Email)
                 && !user.EmailConfirmed)
             {
                 var outcome = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
-                switch (outcome.Result)
+                if (outcome.Result == EmailConfirmationSendResult.Sent)
                 {
-                    case EmailConfirmationSendResult.Sent:
-                        EmailSent = true;
-                        break;
-                    case EmailConfirmationSendResult.NotConfigured:
-                        EmailNotConfigured = true;
-                        EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(
-                            SmtpEmailConfiguration.GetMissingVariables(_config));
-                        break;
-                    case EmailConfirmationSendResult.Failed:
-                        EmailDeliveryFailed = true;
-                        UserErrorMessage = outcome.ErrorMessage ?? SmtpEmailDiagnostics.UserFriendlyFailureMessage;
-                        return Page();
+                    EmailSent = true;
+                    Submitted = true;
+                    _logger.LogInformation(
+                        "Resend confirmation succeeded for user {UserId} email {Email}",
+                        user.Id, user.Email);
+                    return Page();
+                }
+
+                if (outcome.Result == EmailConfirmationSendResult.Failed)
+                {
+                    EmailDeliveryFailed = true;
+                    UserErrorMessage = outcome.ErrorMessage ?? SmtpEmailDiagnostics.UserFriendlyFailureMessage;
+                    _logger.LogError(
+                        "Resend confirmation failed for user {UserId}: {Reason}",
+                        user.Id, UserErrorMessage);
+                    return Page();
                 }
             }
 
+            ShowGenericAcknowledgment = true;
             Submitted = true;
+            return Page();
+        }
+        catch (ClinicalEmailNotConfiguredException ex)
+        {
+            _logger.LogError(ex, "Resend confirmation blocked: SMTP not configured");
+            EmailDeliveryFailed = true;
+            EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(ex.MissingVariables);
+            UserErrorMessage = ex.Message;
             return Page();
         }
         catch (Exception ex)

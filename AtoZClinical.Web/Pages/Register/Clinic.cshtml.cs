@@ -3,51 +3,35 @@ using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Infrastructure;
 
 using AtoZClinical.Infrastructure.Services;
-
 using AtoZClinical.Web.Services;
-
 using Microsoft.AspNetCore.Mvc;
-
 using Microsoft.AspNetCore.Mvc.RazorPages;
-
 using Microsoft.AspNetCore.RateLimiting;
-
-
+using Microsoft.Extensions.Configuration;
 
 namespace AtoZClinical.Web.Pages.Register;
 
-
-
 [EnableRateLimiting("register")]
-
 public class ClinicModel : CaptchaPageModel
-
 {
-
     private readonly VendorClinicService _vendor;
-
     private readonly CaptchaService _captcha;
-
     private readonly RegistrationEmailService _registrationEmail;
-
-
+    private readonly IConfiguration _config;
+    private readonly ILogger<ClinicModel> _logger;
 
     public ClinicModel(
-
         VendorClinicService vendor,
-
         CaptchaService captcha,
-
-        RegistrationEmailService registrationEmail)
-
+        RegistrationEmailService registrationEmail,
+        IConfiguration config,
+        ILogger<ClinicModel> logger)
     {
-
         _vendor = vendor;
-
         _captcha = captcha;
-
         _registrationEmail = registrationEmail;
-
+        _config = config;
+        _logger = logger;
     }
 
 
@@ -59,11 +43,10 @@ public class ClinicModel : CaptchaPageModel
 
 
     public bool Registered { get; private set; }
-
     public bool EmailConfirmationSent { get; private set; }
-
+    public bool EmailConfirmationFailed { get; private set; }
+    public string? EmailConfirmationErrorMessage { get; private set; }
     public string? ClinicName { get; private set; }
-
     public string? AdminUsername { get; private set; }
 
 
@@ -124,13 +107,20 @@ public class ClinicModel : CaptchaPageModel
 
 
 
-            if (!string.IsNullOrWhiteSpace(Input.Email))
+            if (!string.IsNullOrWhiteSpace(Input.Email) && !admin.EmailConfirmed)
             {
                 var sendOutcome = await _registrationEmail.SendEmailConfirmationAsync(admin, Input.Email);
                 EmailConfirmationSent = sendOutcome.Result == EmailConfirmationSendResult.Sent;
+                EmailConfirmationFailed = sendOutcome.Result == EmailConfirmationSendResult.Failed;
+                EmailConfirmationErrorMessage = sendOutcome.ErrorMessage;
+
+                if (EmailConfirmationSent)
+                    _logger.LogInformation("Clinic registration confirmation email sent for admin {UserId}", admin.Id);
+                else if (EmailConfirmationFailed)
+                    _logger.LogError(
+                        "Clinic registration confirmation email failed for admin {UserId}: {Reason}",
+                        admin.Id, EmailConfirmationErrorMessage);
             }
-
-
 
             Registered = true;
 
@@ -142,6 +132,12 @@ public class ClinicModel : CaptchaPageModel
 
         }
 
+        catch (ClinicalEmailNotConfiguredException ex)
+        {
+            _logger.LogError(ex, "Clinic registration confirmation blocked: SMTP not configured");
+            ModelState.AddModelError(string.Empty, ex.Message);
+            return Page();
+        }
         catch (Exception ex)
 
         {

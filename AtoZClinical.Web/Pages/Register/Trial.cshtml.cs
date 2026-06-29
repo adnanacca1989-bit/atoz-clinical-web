@@ -14,17 +14,20 @@ public class TrialModel : CaptchaPageModel
     private readonly CaptchaService _captcha;
     private readonly RegistrationEmailService _registrationEmail;
     private readonly IConfiguration _config;
+    private readonly ILogger<TrialModel> _logger;
 
     public TrialModel(
         VendorClinicService vendor,
         CaptchaService captcha,
         RegistrationEmailService registrationEmail,
-        IConfiguration config)
+        IConfiguration config,
+        ILogger<TrialModel> logger)
     {
         _vendor = vendor;
         _captcha = captcha;
         _registrationEmail = registrationEmail;
         _config = config;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -33,8 +36,7 @@ public class TrialModel : CaptchaPageModel
     public bool Registered { get; private set; }
     public bool EmailConfirmationSent { get; private set; }
     public bool EmailConfirmationFailed { get; private set; }
-    public bool EmailNotConfigured { get; private set; }
-    public string? EmailConfigurationWarningHtml { get; private set; }
+    public bool ReadyToSignIn { get; private set; }
     public string? EmailConfirmationErrorMessage { get; private set; }
     public string? ClinicName { get; private set; }
     public string? ClinicCode { get; private set; }
@@ -62,24 +64,49 @@ public class TrialModel : CaptchaPageModel
                 Email = Input.Email
             });
 
-            var sendOutcome = await _registrationEmail.SendEmailConfirmationAsync(admin, Input.Email);
-            EmailConfirmationSent = sendOutcome.Result == EmailConfirmationSendResult.Sent;
-            EmailNotConfigured = sendOutcome.Result == EmailConfirmationSendResult.NotConfigured;
-            EmailConfirmationFailed = sendOutcome.Result == EmailConfirmationSendResult.Failed;
-            EmailConfirmationErrorMessage = sendOutcome.ErrorMessage;
-            EmailConfigurationWarningHtml = EmailNotConfigured
-                ? SmtpEmailConfiguration.FormatMissingVariablesHtml(
-                    SmtpEmailConfiguration.GetMissingVariables(_config))
-                : null;
-
             Registered = true;
             ClinicName = clinic.Name;
             ClinicCode = clinic.ClinicCode;
             AdminUsername = admin.UserName;
+
+            if (admin.EmailConfirmed)
+            {
+                ReadyToSignIn = true;
+                _logger.LogInformation(
+                    "Trial clinic {ClinicId} registered — admin {UserId} auto-confirmed (SMTP not required).",
+                    clinic.Id, admin.Id);
+                return Page();
+            }
+
+            var sendOutcome = await _registrationEmail.SendEmailConfirmationAsync(admin, Input.Email);
+            EmailConfirmationSent = sendOutcome.Result == EmailConfirmationSendResult.Sent;
+            EmailConfirmationFailed = sendOutcome.Result == EmailConfirmationSendResult.Failed;
+            EmailConfirmationErrorMessage = sendOutcome.ErrorMessage;
+
+            if (EmailConfirmationSent)
+            {
+                _logger.LogInformation(
+                    "Trial registration confirmation email sent for clinic {ClinicId} admin {UserId}",
+                    clinic.Id, admin.Id);
+            }
+            else if (EmailConfirmationFailed)
+            {
+                _logger.LogError(
+                    "Trial registration confirmation email failed for clinic {ClinicId} admin {UserId}: {Reason}",
+                    clinic.Id, admin.Id, EmailConfirmationErrorMessage);
+            }
+
+            return Page();
+        }
+        catch (ClinicalEmailNotConfiguredException ex)
+        {
+            _logger.LogError(ex, "Trial registration confirmation blocked: SMTP not configured");
+            ModelState.AddModelError(string.Empty, ex.Message);
             return Page();
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Trial registration failed");
             ModelState.AddModelError(string.Empty, ex.Message);
             return Page();
         }
