@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages.Account;
 
@@ -15,22 +16,25 @@ public class ResendConfirmationModel : PageModel
     private readonly UserManager<ApplicationUser> _users;
     private readonly RegistrationEmailService _registrationEmail;
     private readonly IClinicalEmailSender _email;
+    private readonly ILogger<ResendConfirmationModel> _logger;
 
     public ResendConfirmationModel(
         UserManager<ApplicationUser> users,
         RegistrationEmailService registrationEmail,
-        IClinicalEmailSender email)
+        IClinicalEmailSender email,
+        ILogger<ResendConfirmationModel> logger)
     {
         _users = users;
         _registrationEmail = registrationEmail;
         _email = email;
+        _logger = logger;
     }
 
     [BindProperty]
     public ResendInput Input { get; set; } = new();
 
     public bool Submitted { get; private set; }
-    public bool EmailNotConfigured { get; private set; }
+    public bool EmailDeliveryFailed { get; private set; }
 
     public void OnGet(string? username)
     {
@@ -44,9 +48,9 @@ public class ResendConfirmationModel : PageModel
 
         if (!_email.IsConfigured)
         {
-            EmailNotConfigured = true;
+            EmailDeliveryFailed = true;
             ModelState.AddModelError(string.Empty,
-                "Email is not configured on this server. Contact your system vendor to activate your account.");
+                "Email is not configured on this server. Contact your system administrator.");
             return Page();
         }
 
@@ -58,7 +62,15 @@ public class ResendConfirmationModel : PageModel
             && !string.IsNullOrWhiteSpace(user.Email)
             && !user.EmailConfirmed)
         {
-            await _registrationEmail.TrySendEmailConfirmationAsync(user, user.Email);
+            var result = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
+            if (result is EmailConfirmationSendResult.Failed or EmailConfirmationSendResult.NotConfigured)
+            {
+                _logger.LogError("Resend confirmation failed for user {UserId}", user.Id);
+                EmailDeliveryFailed = true;
+                ModelState.AddModelError(string.Empty,
+                    "We could not send the confirmation email. Please try again later.");
+                return Page();
+            }
         }
 
         Submitted = true;

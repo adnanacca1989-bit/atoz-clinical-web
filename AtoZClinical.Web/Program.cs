@@ -128,6 +128,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = false;
+        options.SignIn.RequireConfirmedEmail = true;
     })
     .AddEntityFrameworkStores<ClinicalDbContext>()
     .AddDefaultTokenProviders();
@@ -390,6 +391,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
     options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
     options.Conventions.AllowAnonymousToPage("/Account/ConfirmEmail");
+    options.Conventions.AllowAnonymousToPage("/Account/ResendConfirmation");
     options.Conventions.AllowAnonymousToPage("/Register/Clinic");
     options.Conventions.AllowAnonymousToPage("/Register/Trial");
     options.Conventions.AllowAnonymousToPage("/Legal/Terms");
@@ -515,6 +517,16 @@ app.MapGet("/reset-password", (HttpContext ctx) =>
     return string.IsNullOrWhiteSpace(token)
         ? Results.Redirect("/Account/ForgotPassword")
         : Results.Redirect($"/Account/ResetPassword?token={Uri.EscapeDataString(token)}");
+}).AllowAnonymous().DisableRateLimiting();
+
+app.MapGet("/confirm-email", (HttpContext ctx) =>
+{
+    var userId = ctx.Request.Query["userId"].ToString();
+    var token = ctx.Request.Query["token"].ToString();
+    if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+        return Results.Redirect("/Account/ConfirmEmail");
+    return Results.Redirect(
+        $"/Account/ConfirmEmail?userId={Uri.EscapeDataString(userId)}&token={Uri.EscapeDataString(token)}");
 }).AllowAnonymous().DisableRateLimiting();
 
 app.MapPost("/api/stripe/webhook", async (HttpContext ctx, IStripeBillingService billing, ILogger<Program> logger) =>

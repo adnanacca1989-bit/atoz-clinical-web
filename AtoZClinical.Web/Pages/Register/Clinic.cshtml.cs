@@ -125,8 +125,10 @@ public class ClinicModel : CaptchaPageModel
 
 
             if (!string.IsNullOrWhiteSpace(Input.Email))
-
-                EmailConfirmationSent = await _registrationEmail.TrySendEmailConfirmationAsync(admin, Input.Email);
+            {
+                var sendResult = await _registrationEmail.SendEmailConfirmationAsync(admin, Input.Email);
+                EmailConfirmationSent = sendResult == EmailConfirmationSendResult.Sent;
+            }
 
 
 

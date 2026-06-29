@@ -16,9 +16,10 @@ public class ConfirmEmailModel : PageModel
     public bool Succeeded { get; private set; }
     public string? Message { get; private set; }
 
-    public async Task<IActionResult> OnGetAsync(string? userId, string? code)
+    public async Task<IActionResult> OnGetAsync(string? userId, string? token, string? code)
     {
-        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(code))
+        var encodedToken = token ?? code;
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(encodedToken))
         {
             Message = "Invalid confirmation link.";
             return Page();
@@ -31,10 +32,17 @@ public class ConfirmEmailModel : PageModel
             return Page();
         }
 
+        if (user.EmailConfirmed)
+        {
+            Succeeded = true;
+            Message = "Your email is already confirmed. You can sign in.";
+            return Page();
+        }
+
         try
         {
-            var token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
-            var result = await _users.ConfirmEmailAsync(user, token);
+            var identityToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(encodedToken));
+            var result = await _users.ConfirmEmailAsync(user, identityToken);
             if (result.Succeeded)
             {
                 Succeeded = true;

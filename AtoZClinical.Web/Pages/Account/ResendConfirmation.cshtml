@@ -23,9 +23,17 @@
         @if (Model.Submitted)
         {
             <div class="alert alert-info">
-                If an account with that username or email exists and is not yet confirmed, you will receive a confirmation link shortly.
+                If an account with that username or email exists and is not yet confirmed, a confirmation link has been sent.
             </div>
             <a class="btn btn-atz-primary w-100" asp-page="/Account/Login">Back to Login</a>
+        }
+        else if (Model.EmailDeliveryFailed)
+        {
+            <div class="alert alert-danger">
+                We could not send the confirmation email. Please try again later.
+            </div>
+            <button type="button" class="btn btn-atz-primary w-100 mb-2" onclick="location.reload()">Try Again</button>
+            <a class="btn btn-outline-secondary w-100" asp-page="/Account/Login">Back to Login</a>
         }
         else
         {

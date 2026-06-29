@@ -225,7 +225,7 @@ public sealed class VendorClinicService
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
-            RequireEmailConfirmation = false,
+            RequireEmailConfirmation = !string.IsNullOrWhiteSpace(request.Email?.Trim()),
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),

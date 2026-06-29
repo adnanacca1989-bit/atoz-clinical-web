@@ -19,7 +19,7 @@
         <div class="text-center mb-4">
             <h1 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h1>
             <p class="lead mb-1">Clinical Management System — Web Edition</p>
-            <p class="text-muted">30-day trial · Register and login immediately</p>
+            <p class="text-muted">30-day trial · Confirm your email to sign in</p>
         </div>
 
         <div class="row justify-content-center g-4">
@@ -36,11 +36,19 @@
                         <p>Username: <strong>@Model.AdminUsername</strong></p>
                         @if (Model.EmailConfirmationSent)
                         {
-                            <p class="text-muted small">We sent a welcome email to your address. You can sign in now.</p>
+                            <p class="text-muted small">We sent a confirmation link to your email. Please confirm your address before signing in.</p>
+                        }
+                        else if (Model.EmailConfirmationFailed)
+                        {
+                            <div class="alert alert-warning small mb-0">
+                                Your account was created but we could not send the confirmation email. Use
+                                <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>
+                                or contact support.
+                            </div>
                         }
                         else
                         {
-                            <p class="text-muted small mb-0">Trial expires 30 days from today. Use Login with your username and password.</p>
+                            <p class="text-muted small mb-0">Trial expires 30 days from today.</p>
                         }
                         <div class="mt-4 d-flex flex-wrap gap-2">
                             <a class="btn btn-atz-primary" asp-page="/Account/Login">Login</a>

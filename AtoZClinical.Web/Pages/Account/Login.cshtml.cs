@@ -26,7 +26,6 @@ public class LoginModel : PageModel
     private readonly SecurityAuditService _securityAudit;
     private readonly FormPermissionService _permissions;
     private readonly ClinicRuntimeCache _runtimeCache;
-    private readonly IClinicalEmailSender _email;
     private readonly ILogger<LoginModel> _logger;
 
     public LoginModel(
@@ -37,7 +36,6 @@ public class LoginModel : PageModel
         SecurityAuditService securityAudit,
         FormPermissionService permissions,
         ClinicRuntimeCache runtimeCache,
-        IClinicalEmailSender email,
         ILogger<LoginModel> logger)
     {
         _signIn = signIn;
@@ -47,7 +45,6 @@ public class LoginModel : PageModel
         _securityAudit = securityAudit;
         _permissions = permissions;
         _runtimeCache = runtimeCache;
-        _email = email;
         _logger = logger;
     }
 
@@ -147,6 +144,14 @@ public class LoginModel : PageModel
         if (result.RequiresTwoFactor)
             return RedirectToPage("/Account/LoginWith2fa", new { RememberMe = Input.RememberMe });
 
+        if (result.IsNotAllowed)
+        {
+            ShowResendConfirmation = !string.IsNullOrWhiteSpace(user.Email);
+            ModelState.AddModelError(string.Empty, "Please confirm your email before logging in.");
+            Input.Password = string.Empty;
+            return Page();
+        }
+
         if (!result.Succeeded)
         {
             _logger.LogWarning(
@@ -165,27 +170,6 @@ public class LoginModel : PageModel
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             Input.Password = string.Empty;
             return Page();
-        }
-
-        if (!user.IsVendorAdmin
-            && !await _users.IsInRoleAsync(user, ClinicalRoles.Vendor)
-            && !string.IsNullOrWhiteSpace(user.Email)
-            && !user.EmailConfirmed)
-        {
-            if (!_email.IsConfigured)
-            {
-                user.EmailConfirmed = true;
-                await _users.UpdateAsync(user);
-            }
-            else
-            {
-                await _signIn.SignOutAsync();
-                ShowResendConfirmation = true;
-                ModelState.AddModelError(string.Empty,
-                    "Please confirm your email before signing in. Check your inbox for the confirmation link.");
-                Input.Password = string.Empty;
-                return Page();
-            }
         }
 
         if (user.IsVendorAdmin || await _users.IsInRoleAsync(user, ClinicalRoles.Vendor))
