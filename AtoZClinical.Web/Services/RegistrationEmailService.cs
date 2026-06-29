@@ -35,15 +35,6 @@ public sealed class RegistrationEmailService
         if (string.IsNullOrWhiteSpace(email) || user.EmailConfirmed)
             return EmailConfirmationSendResult.AlreadyConfirmed;
 
-        if (!_email.IsConfigured)
-        {
-            _logger.LogWarning(
-                "Email confirmation not sent for user {UserId}: SMTP not configured. Missing: {Missing}",
-                user.Id,
-                string.Join(", ", SmtpEmailConfiguration.GetMissingVariables(_config)));
-            return EmailConfirmationSendResult.NotConfigured;
-        }
-
         var token = await _users.GenerateEmailConfirmationTokenAsync(user);
         var urlToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
         var link = _urls.BuildPageUrl("confirm-email", new Dictionary<string, string?>
@@ -64,23 +55,25 @@ public sealed class RegistrationEmailService
             <p style="color:#666;font-size:14px">If you did not register, you can ignore this message.</p>
             """;
 
-        try
+        var result = await _email.SendAsync(email.Trim(), "Confirm your email", body);
+        if (result.Skipped)
         {
-            await _email.SendAsync(email.Trim(), "Confirm your email", body);
-            _logger.LogInformation("Email confirmation sent to {Email} for user {UserId}", email, user.Id);
-            return EmailConfirmationSendResult.Sent;
+            _logger.LogWarning(
+                "Email confirmation skipped (not configured) for user {UserId}. Missing: {Missing}",
+                user.Id,
+                string.Join(", ", SmtpEmailConfiguration.GetMissingVariables(_config)));
+            return EmailConfirmationSendResult.NotConfigured;
         }
-        catch (ClinicalEmailSendException ex)
+
+        if (!result.Success)
         {
-            _logger.LogError(ex, "Failed to send email confirmation to {Email} for user {UserId}: {Reason}",
-                email, user.Id, ex.FailureReason);
+            _logger.LogError(
+                "Failed to send email confirmation to {Email} for user {UserId}: {Reason}",
+                email, user.Id, result.Message);
             return EmailConfirmationSendResult.Failed;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send email confirmation to {Email} for user {UserId}: {Reason}",
-                email, user.Id, SmtpEmailDiagnostics.ClassifyFailure(ex));
-            return EmailConfirmationSendResult.Failed;
-        }
+
+        _logger.LogInformation("Email confirmation sent to {Email} for user {UserId}", email, user.Id);
+        return EmailConfirmationSendResult.Sent;
     }
 }

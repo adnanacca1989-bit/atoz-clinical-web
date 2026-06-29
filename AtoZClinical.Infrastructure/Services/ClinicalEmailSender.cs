@@ -9,7 +9,11 @@ namespace AtoZClinical.Infrastructure.Services;
 public interface IClinicalEmailSender
 {
     bool IsConfigured { get; }
-    Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default);
+    Task<ClinicalEmailSendResult> SendAsync(
+        string toEmail,
+        string subject,
+        string htmlBody,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
@@ -27,7 +31,11 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
 
     public bool IsConfigured => SmtpEmailConfiguration.IsEmailConfigured(_config);
 
-    public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default)
+    public async Task<ClinicalEmailSendResult> SendAsync(
+        string toEmail,
+        string subject,
+        string htmlBody,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(toEmail))
             throw new ArgumentException("Recipient email is required.", nameof(toEmail));
@@ -35,21 +43,20 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         var settings = SmtpEmailSettings.From(_config);
         if (!settings.IsReady)
         {
-            var reason = settings.DescribeReadiness();
-            _logger.LogError(
-                "Email not sent to {To}: SMTP not configured ({Reason})",
-                toEmail, reason);
+            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
+            _logger.LogWarning(
+                "Email skipped (not configured) for {To}. Missing: {Missing}",
+                toEmail.Trim(),
+                string.Join(", ", missing));
 
             if (_env.IsDevelopment())
             {
                 _logger.LogWarning(
                     "Development mode: would send to {To}: {Subject}",
-                    toEmail, subject);
-                return;
+                    toEmail.Trim(), subject);
             }
 
-            throw new ClinicalEmailSendException(reason,
-                new InvalidOperationException($"SMTP not configured: {reason}"));
+            return ClinicalEmailSendResult.SkippedNotConfigured();
         }
 
         if (!string.IsNullOrWhiteSpace(settings.ConfigurationWarning))
@@ -83,6 +90,8 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
             _logger.LogInformation(
                 "Email sent successfully to {To} via {Host}:{Port} (response: {Response})",
                 toEmail, settings.Host, settings.Port, response);
+
+            return ClinicalEmailSendResult.Sent();
         }
         catch (Exception ex)
         {
@@ -90,7 +99,7 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
             _logger.LogError(ex,
                 "Email send failed to {To} via {Host}:{Port}: {FailureReason}",
                 toEmail, settings.Host, settings.Port, reason);
-            throw new ClinicalEmailSendException(reason, ex);
+            return ClinicalEmailSendResult.Failed(reason);
         }
     }
 }

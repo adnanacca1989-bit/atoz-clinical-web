@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace AtoZClinical.Web.Pages.Account;
 
@@ -16,17 +17,20 @@ public class ResendConfirmationModel : PageModel
     private readonly UserManager<ApplicationUser> _users;
     private readonly RegistrationEmailService _registrationEmail;
     private readonly IConfiguration _config;
+    private readonly IHostEnvironment _env;
     private readonly ILogger<ResendConfirmationModel> _logger;
 
     public ResendConfirmationModel(
         UserManager<ApplicationUser> users,
         RegistrationEmailService registrationEmail,
         IConfiguration config,
+        IHostEnvironment env,
         ILogger<ResendConfirmationModel> logger)
     {
         _users = users;
         _registrationEmail = registrationEmail;
         _config = config;
+        _env = env;
         _logger = logger;
     }
 
@@ -35,9 +39,8 @@ public class ResendConfirmationModel : PageModel
 
     public bool Submitted { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
-    public bool EmailNotConfigured { get; private set; }
+    public string? EmailConfigurationWarningHtml { get; private set; }
     public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
-    public string AdminSetupMessage { get; private set; } = SmtpEmailConfiguration.NotConfiguredUserMessage;
 
     public void OnGet(string? username)
     {
@@ -49,19 +52,6 @@ public class ResendConfirmationModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
-        if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-        {
-            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-            _logger.LogError(
-                "Resend confirmation requested but SMTP not configured. Missing: {Missing}",
-                string.Join(", ", missing));
-            EmailNotConfigured = true;
-            EmailDeliveryFailed = true;
-            AdminSetupMessage = BuildNotConfiguredMessage(missing);
-            ModelState.AddModelError(string.Empty, AdminSetupMessage);
-            return Page();
-        }
-
         var username = Input.Username.Trim();
         var user = await _users.FindByNameAsync(username)
             ?? await _users.FindByEmailAsync(username);
@@ -71,11 +61,22 @@ public class ResendConfirmationModel : PageModel
             && !user.EmailConfirmed)
         {
             var result = await _registrationEmail.SendEmailConfirmationAsync(user, user.Email);
-            if (result is EmailConfirmationSendResult.Failed or EmailConfirmationSendResult.NotConfigured)
+            if (result == EmailConfirmationSendResult.NotConfigured)
+            {
+                var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
+                EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(missing);
+                _logger.LogWarning(
+                    "Resend confirmation skipped (not configured). Missing: {Missing}",
+                    string.Join(", ", missing));
+            }
+            else if (result == EmailConfirmationSendResult.Failed)
             {
                 EmailDeliveryFailed = true;
-                ModelState.AddModelError(string.Empty, UserErrorMessage);
                 return Page();
+            }
+            else if (result == EmailConfirmationSendResult.Sent && _env.IsDevelopment())
+            {
+                _logger.LogInformation("Development mode: confirmation email sent to {Email}", user.Email);
             }
         }
 
@@ -88,10 +89,4 @@ public class ResendConfirmationModel : PageModel
         [Required, Display(Name = "Username or Email")]
         public string Username { get; set; } = string.Empty;
     }
-
-    private static string BuildNotConfiguredMessage(IReadOnlyList<string> missing) =>
-        missing.Count == 0
-            ? SmtpEmailConfiguration.NotConfiguredUserMessage
-            : $"Email is not configured on the server. Missing on Render: {string.Join(", ", missing)}. "
-              + "Open the atoz-clinical web service → Environment, add them, save, and wait for redeploy.";
 }

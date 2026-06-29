@@ -2,8 +2,9 @@ using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace AtoZClinical.Web.Pages.Account;
 
@@ -13,6 +14,7 @@ public class ForgotPasswordModel : PageModel
     private readonly IClinicalEmailSender _email;
     private readonly ClinicalAppUrls _urls;
     private readonly IConfiguration _config;
+    private readonly IHostEnvironment _env;
     private readonly ILogger<ForgotPasswordModel> _logger;
 
     public ForgotPasswordModel(
@@ -20,12 +22,14 @@ public class ForgotPasswordModel : PageModel
         IClinicalEmailSender email,
         ClinicalAppUrls urls,
         IConfiguration config,
+        IHostEnvironment env,
         ILogger<ForgotPasswordModel> logger)
     {
         _reset = reset;
         _email = email;
         _urls = urls;
         _config = config;
+        _env = env;
         _logger = logger;
     }
 
@@ -34,27 +38,14 @@ public class ForgotPasswordModel : PageModel
 
     public bool Submitted { get; private set; }
     public bool EmailDeliveryFailed { get; private set; }
-    public bool EmailNotConfigured { get; private set; }
+    public string? EmailConfigurationWarningHtml { get; private set; }
     public string UserErrorMessage { get; private set; } = SmtpEmailDiagnostics.UserFriendlyFailureMessage;
-    public string AdminSetupMessage { get; private set; } = SmtpEmailConfiguration.NotConfiguredUserMessage;
 
     public void OnGet() { }
 
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();
-
-        if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
-        {
-            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-            _logger.LogError(
-                "Password reset requested but SMTP not configured. Missing: {Missing}",
-                string.Join(", ", missing));
-            EmailNotConfigured = true;
-            EmailDeliveryFailed = true;
-            AdminSetupMessage = BuildNotConfiguredMessage(missing);
-            return Page();
-        }
 
         var payload = await _reset.CreateTokenForEmailAsync(Input.Email);
         if (payload is not null)
@@ -72,23 +63,27 @@ public class ForgotPasswordModel : PageModel
                 <p>This link expires in {PasswordResetService.DefaultExpiryMinutes} minutes for security.</p>
                 """;
 
-            try
+            var result = await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
+            if (result.Skipped)
             {
-                await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
+                var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
+                EmailConfigurationWarningHtml = SmtpEmailConfiguration.FormatMissingVariablesHtml(missing);
+                _logger.LogWarning(
+                    "Password reset email skipped (not configured). Missing: {Missing}",
+                    string.Join(", ", missing));
+
+                if (_env.IsDevelopment())
+                    _logger.LogWarning("Development mode reset link for {Email}: {Link}", payload.Email, link);
+            }
+            else if (!result.Success)
+            {
+                _logger.LogError("Password reset email failed for {Email}: {Reason}", payload.Email, result.Message);
+                EmailDeliveryFailed = true;
+                return Page();
+            }
+            else
+            {
                 _logger.LogInformation("Password reset email delivered to {Email}", payload.Email);
-            }
-            catch (ClinicalEmailSendException ex)
-            {
-                _logger.LogError(ex, "Password reset email failed for {Email}: {Reason}", payload.Email, ex.FailureReason);
-                EmailDeliveryFailed = true;
-                return Page();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Password reset email failed for {Email}: {Reason}",
-                    payload.Email, SmtpEmailDiagnostics.ClassifyFailure(ex));
-                EmailDeliveryFailed = true;
-                return Page();
             }
         }
 
@@ -101,10 +96,4 @@ public class ForgotPasswordModel : PageModel
         [Required, EmailAddress, Display(Name = "Email")]
         public string Email { get; set; } = string.Empty;
     }
-
-    private static string BuildNotConfiguredMessage(IReadOnlyList<string> missing) =>
-        missing.Count == 0
-            ? SmtpEmailConfiguration.NotConfiguredUserMessage
-            : $"Email is not configured on the server. Missing on Render: {string.Join(", ", missing)}. "
-              + "Open the atoz-clinical web service → Environment, add them, save, and wait for redeploy.";
 }

@@ -534,46 +534,56 @@ app.MapGet("/test-email", async (HttpContext ctx, IClinicalEmailSender email, IC
 
     var settings = SmtpEmailSettings.From(config);
     if (!settings.IsReady)
-        return Results.Json(new { success = false, error = settings.DescribeReadiness(), configured = false });
-
-    try
     {
-        await email.SendAsync(to,
-            "A to Z Clinical — SMTP test",
-            "<p>This is a test email from A to Z Clinical. SMTP is working.</p>");
+        var missing = SmtpEmailConfiguration.GetMissingVariables(config);
+        logger.LogWarning("Test email skipped (not configured). Missing: {Missing}", string.Join(", ", missing));
         return Results.Json(new
         {
             success = true,
-            to,
-            host = settings.Host,
-            port = settings.Port,
-            from = settings.FromAddress,
-            message = "Email sent successfully"
+            configured = false,
+            skipped = true,
+            message = ClinicalEmailSendResult.NotConfiguredMessage,
+            missing,
+            presence = SmtpEmailConfiguration.GetVariablePresence(config)
         });
     }
-    catch (ClinicalEmailSendException ex)
+
+    var sendResult = await email.SendAsync(to,
+        "A to Z Clinical — SMTP test",
+        "<p>This is a test email from A to Z Clinical. SMTP is working.</p>");
+
+    if (sendResult.Skipped)
     {
-        logger.LogError(ex, "Test email failed to {To}: {Reason}", to, ex.FailureReason);
+        return Results.Json(new
+        {
+            success = true,
+            configured = false,
+            skipped = true,
+            message = sendResult.Message,
+            presence = SmtpEmailConfiguration.GetVariablePresence(config)
+        });
+    }
+
+    if (!sendResult.Success)
+    {
+        logger.LogError("Test email failed to {To}: {Reason}", to, sendResult.Message);
         return Results.Json(new
         {
             success = false,
-            error = ex.FailureReason,
-            userMessage = SmtpEmailDiagnostics.UserFriendlyFailureMessage,
-            detail = ex.InnerException?.Message
+            error = sendResult.Message,
+            userMessage = SmtpEmailDiagnostics.UserFriendlyFailureMessage
         }, statusCode: StatusCodes.Status502BadGateway);
     }
-    catch (Exception ex)
+
+    return Results.Json(new
     {
-        var reason = SmtpEmailDiagnostics.ClassifyFailure(ex);
-        logger.LogError(ex, "Test email failed to {To}: {Reason}", to, reason);
-        return Results.Json(new
-        {
-            success = false,
-            error = reason,
-            userMessage = SmtpEmailDiagnostics.UserFriendlyFailureMessage,
-            detail = ex.Message
-        }, statusCode: StatusCodes.Status502BadGateway);
-    }
+        success = true,
+        to,
+        host = settings.Host,
+        port = settings.Port,
+        from = settings.FromAddress,
+        message = sendResult.Message
+    });
 }).AllowAnonymous().DisableRateLimiting();
 
 app.MapGet("/reset-password", (HttpContext ctx) =>

@@ -1,4 +1,5 @@
 @page
+@using AtoZClinical.Infrastructure.Services
 @model AtoZClinical.Web.Pages.Register.TrialModel
 @{
     ViewData["Title"] = "30-Day Trial Registration";
@@ -38,17 +39,19 @@
                         {
                             <p class="text-muted small">We sent a confirmation link to your email. Please confirm your address before signing in.</p>
                         }
+                        else if (Model.EmailNotConfigured && !string.IsNullOrWhiteSpace(Model.EmailConfigurationWarningHtml))
+                        {
+                            <div class="alert alert-warning small mb-0">
+                                @Html.Raw(Model.EmailConfigurationWarningHtml)
+                                <p class="mb-0 mt-2">@ClinicalEmailSendResult.NotConfiguredMessage</p>
+                                <p class="mb-0 mt-2">Your account was created. After SMTP is configured, use
+                                <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>.</p>
+                            </div>
+                        }
                         else if (Model.EmailConfirmationFailed)
                         {
                             <div class="alert alert-warning small mb-0">
-                                @if (Model.EmailNotConfigured)
-                                {
-                                    <text>Your account was created, but email is not configured on the server yet. Ask the system administrator to set SMTP_HOST, SMTP_USER, SMTP_PASS, and FROM_EMAIL in Render, then use </text>
-                                }
-                                else
-                                {
-                                    <text>Your account was created but we could not send the confirmation email. Use </text>
-                                }
+                                Your account was created but we could not send the confirmation email. Use
                                 <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>
                                 or contact support.
                             </div>

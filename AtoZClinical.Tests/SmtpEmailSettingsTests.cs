@@ -7,6 +7,15 @@ namespace AtoZClinical.Tests;
 public class SmtpEmailSettingsTests
 {
     [Fact]
+    public void FormatMissingVariablesText_Lists_Each_Variable_As_Bullet()
+    {
+        var text = SmtpEmailConfiguration.FormatMissingVariablesText(["SMTP_HOST", "SMTP_USER"]);
+        Assert.Contains("Missing:", text);
+        Assert.Contains("* SMTP_HOST", text);
+        Assert.Contains("* SMTP_USER", text);
+    }
+
+    [Fact]
     public void IsEmailConfigured_True_When_All_Variables_Set()
     {
         var config = new ConfigurationBuilder()

@@ -7,6 +7,25 @@ namespace AtoZClinical.Infrastructure.Services;
 public static class SmtpEmailConfiguration
 {
     public const string NotConfiguredUserMessage = "Email is not configured on the server.";
+    public const string NotConfiguredServiceMessage = ClinicalEmailSendResult.NotConfiguredMessage;
+
+    public static string FormatMissingVariablesText(IReadOnlyList<string> missing)
+    {
+        if (missing.Count == 0)
+            return NotConfiguredUserMessage;
+
+        var bullets = string.Join(Environment.NewLine, missing.Select(name => $"* {name}"));
+        return $"Email is not configured on the server.{Environment.NewLine}{Environment.NewLine}Missing:{Environment.NewLine}{bullets}";
+    }
+
+    public static string FormatMissingVariablesHtml(IReadOnlyList<string> missing)
+    {
+        if (missing.Count == 0)
+            return NotConfiguredUserMessage;
+
+        var items = string.Join(string.Empty, missing.Select(name => $"<li><code>{name}</code></li>"));
+        return $"<p>Email is not configured on the server.</p><p><strong>Missing:</strong></p><ul class=\"mb-0\">{items}</ul>";
+    }
 
     public static readonly string[] RequiredVariableNames =
     [
@@ -56,11 +75,11 @@ public static class SmtpEmailConfiguration
     public static void LogDiagnostics(ILogger logger, IConfiguration? config = null)
     {
         var presence = GetVariablePresence(config);
-        logger.LogInformation("SMTP_HOST exists: {Exists}", presence["SMTP_HOST"]);
-        logger.LogInformation("SMTP_PORT exists: {Exists}", presence["SMTP_PORT"]);
-        logger.LogInformation("SMTP_USER exists: {Exists}", presence["SMTP_USER"]);
-        logger.LogInformation("SMTP_PASS exists: {Exists}", presence["SMTP_PASS"]);
-        logger.LogInformation("FROM_EMAIL exists: {Exists}", presence["FROM_EMAIL"]);
+        logger.LogInformation("SMTP_HOST: {Exists}", presence["SMTP_HOST"]);
+        logger.LogInformation("SMTP_PORT: {Exists}", presence["SMTP_PORT"]);
+        logger.LogInformation("SMTP_USER: {Exists}", presence["SMTP_USER"]);
+        logger.LogInformation("SMTP_PASS: {Exists}", presence["SMTP_PASS"]);
+        logger.LogInformation("FROM_EMAIL: {Exists}", presence["FROM_EMAIL"]);
 
         if (IsEmailConfigured(config))
         {
@@ -81,7 +100,7 @@ public static class SmtpEmailConfiguration
     private static void LogRawEnv(ILogger logger, string name)
     {
         var exists = HasValue(Environment.GetEnvironmentVariable(name));
-        logger.LogInformation("{Name} exists: {Exists}", name, exists);
+        logger.LogInformation("{Name}: {Exists}", name, exists);
     }
 
     private static bool HasValue(string? value) => !string.IsNullOrWhiteSpace(value);

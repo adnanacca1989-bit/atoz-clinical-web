@@ -1,4 +1,5 @@
 @page
+@using AtoZClinical.Infrastructure.Services
 @model AtoZClinical.Web.Pages.Account.ResendConfirmationModel
 @{
     ViewData["Title"] = "Resend Confirmation";
@@ -22,6 +23,13 @@
         </div>
         @if (Model.Submitted)
         {
+            @if (!string.IsNullOrWhiteSpace(Model.EmailConfigurationWarningHtml))
+            {
+                <div class="alert alert-warning">
+                    @Html.Raw(Model.EmailConfigurationWarningHtml)
+                    <p class="mb-0 mt-2 small">@ClinicalEmailSendResult.NotConfiguredMessage</p>
+                </div>
+            }
             <div class="alert alert-info">
                 If an account with that username or email exists and is not yet confirmed, a confirmation link has been sent.
             </div>
@@ -30,7 +38,7 @@
         else if (Model.EmailDeliveryFailed)
         {
             <div class="alert alert-danger">
-                @(Model.EmailNotConfigured ? Model.AdminSetupMessage : Model.UserErrorMessage)
+                @Model.UserErrorMessage
             </div>
             <button type="button" class="btn btn-atz-primary w-100 mb-2" onclick="location.reload()">Try Again</button>
             <a class="btn btn-outline-secondary w-100" asp-page="/Account/Login">Back to Login</a>
