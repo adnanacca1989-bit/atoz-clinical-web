@@ -55,18 +55,21 @@ public class TrialModel : CaptchaPageModel
     public string? CodeSendErrorMessage { get; private set; }
     public string? VerificationErrorMessage { get; private set; }
     public string? MaskedDestination { get; private set; }
-    public string VerificationChannelLabel { get; private set; } = "email";
+    public string? DeliveryMessage { get; private set; }
     public string? ClinicName { get; private set; }
     public string? ClinicCode { get; private set; }
     public string? AdminUsername { get; private set; }
     public string TrialShareUrl { get; private set; } = "";
     public bool OtpDeliveredViaLog { get; private set; }
     public bool UsesLogOnlyOtp { get; private set; }
+    public bool EmailDeliveryAvailable { get; private set; }
+    public bool SmsDeliveryAvailable { get; private set; }
+    public bool WhatsAppDeliveryAvailable { get; private set; }
 
     public void OnGet(string? verify)
     {
         TrialShareUrl = BuildTrialUrl();
-        LoadChannelAvailability();
+        LoadDeliveryStatus();
         if (!string.IsNullOrWhiteSpace(verify))
             Input.AdminUsername = verify.Trim();
     }
@@ -74,21 +77,21 @@ public class TrialModel : CaptchaPageModel
     public async Task<IActionResult> OnPostRegisterAsync()
     {
         TrialShareUrl = BuildTrialUrl();
-        LoadChannelAvailability();
+        LoadDeliveryStatus();
         ValidateContactMethod();
         if (!ModelState.IsValid) return Page();
         if (!await ValidateCaptchaAsync(_captcha)) return Page();
 
         try
         {
-            var useEmail = Input.UseEmail;
+            var (channel, destination) = ResolveRegistrationChannel();
             var (clinic, admin, _) = await _vendor.RegisterTrialClinicAsync(new TrialClinicRegistrationRequest
             {
                 ClinicName = Input.ClinicName,
                 AdminUsername = Input.AdminUsername,
                 AdminPassword = Input.AdminPassword,
-                Email = useEmail ? Input.Email?.Trim() : null,
-                Phone = useEmail ? null : Input.Mobile?.Trim()
+                Email = Input.UseEmail ? Input.Email?.Trim() : null,
+                Phone = Input.UseEmail ? null : Input.Mobile?.Trim()
             });
 
             ClinicName = clinic.Name;
@@ -100,31 +103,21 @@ public class TrialModel : CaptchaPageModel
             {
                 Registered = true;
                 ReadyToSignIn = true;
-                _logger.LogInformation(
-                    "Trial clinic {ClinicId} registered — admin {UserId} auto-confirmed.",
-                    clinic.Id, admin.Id);
                 return Page();
             }
 
-            var channel = useEmail
-                ? RegistrationVerificationChannel.Email
-                : RegistrationVerificationChannel.Sms;
-            var destination = useEmail ? Input.Email!.Trim() : Input.Mobile!.Trim();
             var sendOutcome = await _verification.SendCodeAsync(admin, channel, destination);
+            ApplySendOutcome(sendOutcome);
 
             if (sendOutcome.Result == VerificationCodeSendResult.Sent)
             {
                 AwaitingVerification = true;
-                MaskedDestination = sendOutcome.MaskedDestination;
-                OtpDeliveredViaLog = sendOutcome.DeliveredViaLog;
-                VerificationChannelLabel = channel == RegistrationVerificationChannel.Email ? "email" : "mobile";
                 return Page();
             }
 
             Registered = true;
             CodeSendFailed = true;
-            CodeSendErrorMessage = sendOutcome.ErrorMessage
-                ?? "Verification code could not be sent.";
+            CodeSendErrorMessage = sendOutcome.ErrorMessage ?? "Verification code could not be sent.";
             return Page();
         }
         catch (Exception ex)
@@ -138,7 +131,7 @@ public class TrialModel : CaptchaPageModel
     public async Task<IActionResult> OnPostVerifyAsync()
     {
         TrialShareUrl = BuildTrialUrl();
-        LoadChannelAvailability();
+        LoadDeliveryStatus();
         if (string.IsNullOrWhiteSpace(PendingUserId) || string.IsNullOrWhiteSpace(VerificationCode))
         {
             ModelState.AddModelError(string.Empty, "Enter the 4-digit verification code.");
@@ -164,7 +157,7 @@ public class TrialModel : CaptchaPageModel
     public async Task<IActionResult> OnPostResendCodeAsync()
     {
         TrialShareUrl = BuildTrialUrl();
-        LoadChannelAvailability();
+        LoadDeliveryStatus();
         if (string.IsNullOrWhiteSpace(PendingUserId))
         {
             ModelState.AddModelError(string.Empty, "Session expired. Please register again.");
@@ -187,20 +180,14 @@ public class TrialModel : CaptchaPageModel
                 return Page();
             }
 
-            var channel = Input.UseEmail
-                ? RegistrationVerificationChannel.Email
-                : RegistrationVerificationChannel.Sms;
-            var destination = Input.UseEmail ? Input.Email!.Trim() : Input.Mobile!.Trim();
+            var (channel, destination) = ResolveRegistrationChannel();
             var sendOutcome = await _verification.SendCodeAsync(user, channel, destination);
-
             AwaitingVerification = true;
-            VerificationChannelLabel = channel == RegistrationVerificationChannel.Email ? "email" : "mobile";
+            ApplySendOutcome(sendOutcome);
 
             if (sendOutcome.Result == VerificationCodeSendResult.Sent)
             {
                 CodeResent = true;
-                MaskedDestination = sendOutcome.MaskedDestination;
-                OtpDeliveredViaLog = sendOutcome.DeliveredViaLog;
                 return Page();
             }
 
@@ -217,9 +204,33 @@ public class TrialModel : CaptchaPageModel
         }
     }
 
-    private void LoadChannelAvailability()
+    private void ApplySendOutcome(VerificationCodeSendOutcome sendOutcome)
     {
-        UsesLogOnlyOtp = AccountVerificationPolicy.UsesLogOnlyDelivery(_config);
+        MaskedDestination = sendOutcome.MaskedDestination;
+        OtpDeliveredViaLog = sendOutcome.DeliveredViaLog;
+        DeliveryMessage = OtpDeliveryConfiguration.BuildSentMessage(sendOutcome.DeliveryMethod, sendOutcome.MaskedDestination);
+    }
+
+    private (RegistrationVerificationChannel Channel, string Destination) ResolveRegistrationChannel()
+    {
+        if (Input.UseEmail)
+            return (RegistrationVerificationChannel.Email, Input.Email!.Trim());
+
+        var channel = OtpDeliveryConfiguration.ResolveMobileChannel(_config, Input.ContactMethod);
+        return (channel, Input.Mobile!.Trim());
+    }
+
+    private void LoadDeliveryStatus()
+    {
+        EmailDeliveryAvailable = OtpDeliveryConfiguration.IsEmailAvailable(_config);
+        SmsDeliveryAvailable = OtpDeliveryConfiguration.IsSmsAvailable(_config);
+        WhatsAppDeliveryAvailable = OtpDeliveryConfiguration.IsWhatsAppAvailable(_config);
+        UsesLogOnlyOtp = OtpDeliveryConfiguration.UsesServerLogFallback(_config);
+
+        if (!Input.UseEmail && !SmsDeliveryAvailable && WhatsAppDeliveryAvailable)
+            Input.ContactMethod = "whatsapp";
+        else if (!Input.UseEmail && SmsDeliveryAvailable && !WhatsAppDeliveryAvailable)
+            Input.ContactMethod = "sms";
     }
 
     private void ValidateContactMethod()

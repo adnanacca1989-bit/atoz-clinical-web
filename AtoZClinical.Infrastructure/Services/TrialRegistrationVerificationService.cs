@@ -72,8 +72,24 @@ public sealed class TrialRegistrationVerificationService
         });
         await _db.SaveChangesAsync(ct);
 
+        return await DeliverCodeAsync(user, plainCode, channel, destination, ct);
+    }
+
+    private async Task<VerificationCodeSendOutcome> DeliverCodeAsync(
+        ApplicationUser user,
+        string plainCode,
+        RegistrationVerificationChannel channel,
+        string destination,
+        CancellationToken ct)
+    {
+        if (OtpDeliveryConfiguration.ForceLogDelivery(_config))
+        {
+            LogOtpForServerDelivery(user, plainCode, channel, destination);
+            return BuildLogOutcome(channel, destination);
+        }
+
         if (channel == RegistrationVerificationChannel.Email
-            && SmtpEmailConfiguration.IsEmailConfigured(_config))
+            && OtpDeliveryConfiguration.IsEmailAvailable(_config))
         {
             var body = $"""
                 <p>Hello {user.FullName},</p>
@@ -91,14 +107,35 @@ public sealed class TrialRegistrationVerificationService
             }
 
             _logger.LogInformation("Verification code email sent to {Destination} for user {UserId}", destination, user.Id);
-            return VerificationCodeSendOutcome.Sent(channel, MaskEmail(destination));
+            return VerificationCodeSendOutcome.Sent(
+                channel,
+                MaskEmail(destination),
+                OtpDeliveryMethod.Email);
+        }
+
+        var smsText = $"Your A to Z Clinical verification code is {plainCode}. It expires in {CodeExpiryMinutes} minutes.";
+
+        if (channel == RegistrationVerificationChannel.WhatsApp
+            && OtpDeliveryConfiguration.IsWhatsAppAvailable(_config))
+        {
+            var whatsAppResult = await _sms.SendWhatsAppAsync(destination, smsText, ct);
+            if (!whatsAppResult.Success)
+            {
+                _logger.LogError("Verification WhatsApp failed for user {UserId}: {Reason}", user.Id, whatsAppResult.Message);
+                return VerificationCodeSendOutcome.Failed(whatsAppResult.Message);
+            }
+
+            _logger.LogInformation("Verification code WhatsApp sent to {Destination} for user {UserId}", destination, user.Id);
+            return VerificationCodeSendOutcome.Sent(
+                channel,
+                MaskPhone(destination),
+                OtpDeliveryMethod.WhatsApp);
         }
 
         if (channel == RegistrationVerificationChannel.Sms
-            && SmsConfiguration.IsSmsConfigured(_config))
+            && OtpDeliveryConfiguration.IsSmsAvailable(_config))
         {
-            var smsText = $"Your A to Z Clinical verification code is {plainCode}. It expires in {CodeExpiryMinutes} minutes.";
-            var smsResult = await _sms.SendAsync(destination, smsText, ct);
+            var smsResult = await _sms.SendSmsAsync(destination, smsText, ct);
             if (!smsResult.Success)
             {
                 _logger.LogError("Verification SMS failed for user {UserId}: {Reason}", user.Id, smsResult.Message);
@@ -106,10 +143,20 @@ public sealed class TrialRegistrationVerificationService
             }
 
             _logger.LogInformation("Verification code SMS sent to {Destination} for user {UserId}", destination, user.Id);
-            return VerificationCodeSendOutcome.Sent(channel, MaskPhone(destination));
+            return VerificationCodeSendOutcome.Sent(
+                channel,
+                MaskPhone(destination),
+                OtpDeliveryMethod.Sms);
         }
 
         LogOtpForServerDelivery(user, plainCode, channel, destination);
+        return BuildLogOutcome(channel, destination);
+    }
+
+    private static VerificationCodeSendOutcome BuildLogOutcome(
+        RegistrationVerificationChannel channel,
+        string destination)
+    {
         var masked = channel == RegistrationVerificationChannel.Email
             ? MaskEmail(destination)
             : MaskPhone(destination);
@@ -179,7 +226,7 @@ public sealed class TrialRegistrationVerificationService
         await _db.SaveChangesAsync(ct);
 
         user.EmailConfirmed = true;
-        if (row.Channel == RegistrationVerificationChannel.Sms)
+        if (row.Channel is RegistrationVerificationChannel.Sms or RegistrationVerificationChannel.WhatsApp)
             user.PhoneNumberConfirmed = true;
 
         var update = await _users.UpdateAsync(user);
@@ -202,7 +249,7 @@ public sealed class TrialRegistrationVerificationService
         string destination)
     {
         _logger.LogWarning(
-            "OTP LOG DELIVERY (email/SMS not configured): OTP={Otp} UserId={UserId} Username={Username} Channel={Channel} Destination={Destination} ExpiresInMinutes={Expiry}",
+            "OTP LOG DELIVERY (development fallback — configure SMTP or Twilio for real delivery): OTP={Otp} UserId={UserId} Username={Username} Channel={Channel} Destination={Destination} ExpiresInMinutes={Expiry}",
             plainCode,
             user.Id,
             user.UserName,
@@ -250,15 +297,20 @@ public sealed class VerificationCodeSendOutcome
     public VerificationCodeSendResult Result { get; init; }
     public string? MaskedDestination { get; init; }
     public RegistrationVerificationChannel? Channel { get; init; }
+    public OtpDeliveryMethod DeliveryMethod { get; init; }
     public string? ErrorMessage { get; init; }
-    public bool DeliveredViaLog { get; init; }
+    public bool DeliveredViaLog => DeliveryMethod == OtpDeliveryMethod.ServerLog;
 
-    public static VerificationCodeSendOutcome Sent(RegistrationVerificationChannel channel, string masked) =>
+    public static VerificationCodeSendOutcome Sent(
+        RegistrationVerificationChannel channel,
+        string masked,
+        OtpDeliveryMethod deliveryMethod) =>
         new()
         {
             Result = VerificationCodeSendResult.Sent,
             Channel = channel,
-            MaskedDestination = masked
+            MaskedDestination = masked,
+            DeliveryMethod = deliveryMethod
         };
 
     public static VerificationCodeSendOutcome SentViaLog(RegistrationVerificationChannel channel, string masked) =>
@@ -267,7 +319,7 @@ public sealed class VerificationCodeSendOutcome
             Result = VerificationCodeSendResult.Sent,
             Channel = channel,
             MaskedDestination = masked,
-            DeliveredViaLog = true
+            DeliveryMethod = OtpDeliveryMethod.ServerLog
         };
 
     public static VerificationCodeSendOutcome Failed(string? message) =>
@@ -331,6 +383,8 @@ public static class AccountVerificationPolicy
 
     public static bool CanVerifyViaSms(IConfiguration config) => true;
 
+    public static bool CanVerifyViaWhatsApp(IConfiguration config) => true;
+
     public static bool UsesLogOnlyDelivery(IConfiguration config) =>
-        !SmtpEmailConfiguration.IsEmailConfigured(config) && !SmsConfiguration.IsSmsConfigured(config);
+        OtpDeliveryConfiguration.UsesServerLogFallback(config);
 }

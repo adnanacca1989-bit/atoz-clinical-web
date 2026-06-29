@@ -3,7 +3,8 @@ namespace AtoZClinical.Core.Entities;
 public enum RegistrationVerificationChannel
 {
     Email = 0,
-    Sms = 1
+    Sms = 1,
+    WhatsApp = 2
 }
 
 /// <summary>Time-limited 4-digit registration code (hashed at rest).</summary>

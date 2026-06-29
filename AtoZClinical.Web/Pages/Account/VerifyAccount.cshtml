@@ -1,4 +1,5 @@
 @page
+@using AtoZClinical.Infrastructure.Services
 @model AtoZClinical.Web.Pages.Account.VerifyAccountModel
 @{
     ViewData["Title"] = "Verify Account";
@@ -21,7 +22,7 @@
     <div class="login-panel atz-card p-4">
         <div class="text-center mb-4">
             <h3 class="fw-bold" style="color:#0b4f8a">Verify your account</h3>
-            <p class="text-muted mb-0">Enter the 4-digit code sent to your email or mobile</p>
+            <p class="text-muted mb-0">Enter the 4-digit code sent to your email, SMS, or WhatsApp</p>
         </div>
 
         @if (Model.Verified)
@@ -33,20 +34,16 @@
         {
             @if (Model.CodeSent)
             {
-                <div class="alert alert-success small">
-                    @if (Model.OtpDeliveredViaLog)
-                    {
-                        <span>A code was generated. Check server logs for <code>OTP LOG DELIVERY</code> (email/SMS not configured).</span>
-                    }
-                    else
-                    {
-                        <span>If an unconfirmed account exists, a code was sent to your @Model.VerificationChannelLabel
-                        @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
-                        {
-                            <strong>@Model.MaskedDestination</strong>
-                        }.</span>
-                    }
-                </div>
+                @if (Model.OtpDeliveredViaLog)
+                {
+                    <div class="alert alert-warning small">
+                        <strong>Development mode.</strong> @OtpDeliveryConfiguration.DevelopmentLogMessage
+                    </div>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.DeliveryMessage))
+                {
+                    <div class="alert alert-success small">@Model.DeliveryMessage</div>
+                }
             }
             @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
             {

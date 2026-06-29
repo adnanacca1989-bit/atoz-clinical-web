@@ -1,8 +1,6 @@
-using AtoZClinical.Core.Entities;
-using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Web.Pages.Account;
 using Microsoft.AspNetCore.Mvc;
-
 namespace AtoZClinical.Web.Api;
 
 public static class AuthOtpApiEndpoints
@@ -15,6 +13,7 @@ public static class AuthOtpApiEndpoints
             SendOtpApiRequest body,
             ApplicationUserLookup userLookup,
             TrialRegistrationVerificationService verification,
+            IConfiguration config,
             ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(body.Username))
@@ -40,7 +39,7 @@ public static class AuthOtpApiEndpoints
                 });
             }
 
-            var (channel, destination) = ResolveChannel(user);
+            var (channel, destination) = VerifyAccountModel.ResolveChannel(user, config);
             if (string.IsNullOrWhiteSpace(destination))
             {
                 return Results.Json(new
@@ -71,11 +70,10 @@ public static class AuthOtpApiEndpoints
                     success = true,
                     userId = user.Id,
                     deliveredViaLog = outcome.DeliveredViaLog,
+                    deliveryMethod = OtpDeliveryConfiguration.DescribeDeliveryMethod(outcome.DeliveryMethod),
                     maskedDestination = outcome.MaskedDestination,
                     expiresInMinutes = TrialRegistrationVerificationService.CodeExpiryMinutes,
-                    message = outcome.DeliveredViaLog
-                        ? "OTP written to server logs (email/SMS not configured)."
-                        : "Verification code sent."
+                    message = OtpDeliveryConfiguration.BuildSentMessage(outcome.DeliveryMethod, outcome.MaskedDestination)
                 });
             }
             catch (Exception ex)
@@ -142,17 +140,6 @@ public static class AuthOtpApiEndpoints
                 }, statusCode: StatusCodes.Status500InternalServerError)
             };
         }).AllowAnonymous();
-    }
-
-    private static (RegistrationVerificationChannel Channel, string Destination) ResolveChannel(ApplicationUser user)
-    {
-        if (!string.IsNullOrWhiteSpace(user.Email))
-            return (RegistrationVerificationChannel.Email, user.Email.Trim());
-
-        if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
-            return (RegistrationVerificationChannel.Sms, user.PhoneNumber.Trim());
-
-        return (RegistrationVerificationChannel.Email, string.Empty);
     }
 }
 

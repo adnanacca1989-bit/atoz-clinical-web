@@ -104,15 +104,15 @@ public sealed class VendorClinicService
             : request.AdminPassword;
 
         var smtpReady = SmtpEmailConfiguration.IsEmailConfigured(_config);
-        var smsReady = SmsConfiguration.IsSmsConfigured(_config);
+        var phoneMessagingReady = OtpDeliveryConfiguration.IsPhoneMessagingAvailable(_config);
         var hasEmail = !string.IsNullOrWhiteSpace(request.Email?.Trim());
         var hasPhone = !string.IsNullOrWhiteSpace(request.AdminPhone?.Trim());
         var requireVerification = request.RequireAccountVerification && (hasEmail || hasPhone);
 
-        if (requireVerification && !smtpReady && !smsReady)
+        if (requireVerification && !smtpReady && !phoneMessagingReady)
         {
             _logger.LogWarning(
-                "Email/SMS not configured — OTP for admin {Username} clinic {ClinicName} will be written to server logs.",
+                "SMTP/Twilio not configured — OTP for admin {Username} clinic {ClinicName} will be written to server logs until delivery is configured.",
                 username, clinic.Name);
         }
 

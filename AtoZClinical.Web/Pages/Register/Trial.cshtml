@@ -1,4 +1,5 @@
 @page
+@using AtoZClinical.Infrastructure.Services
 @model AtoZClinical.Web.Pages.Register.TrialModel
 @{
     ViewData["Title"] = "30-Day Trial Registration";
@@ -32,23 +33,23 @@
                 {
                     <div class="atz-card p-4">
                         <h4 class="fw-bold mb-2" style="color:#0b4f8a">Enter verification code</h4>
-                        <p class="text-muted small">
-                            @if (Model.OtpDeliveredViaLog)
-                            {
-                                <span>A 4-digit verification code was generated. Email/SMS is not configured — check the <strong>server logs</strong> on Render for <code>OTP LOG DELIVERY</code>.</span>
-                            }
-                            else
-                            {
-                                <span>We sent a 4-digit code to your @Model.VerificationChannelLabel
-                                @if (!string.IsNullOrWhiteSpace(Model.MaskedDestination))
-                                {
-                                    <strong>@Model.MaskedDestination</strong>
-                                }.</span>
-                            }
-                        </p>
+                        @if (Model.OtpDeliveredViaLog)
+                        {
+                            <div class="alert alert-warning small">
+                                <strong>Development mode.</strong> @OtpDeliveryConfiguration.DevelopmentLogMessage
+                            </div>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(Model.DeliveryMessage))
+                        {
+                            <div class="alert alert-info small mb-0">@Model.DeliveryMessage</div>
+                        }
                         @if (Model.CodeResent)
                         {
-                            <div class="alert alert-success small">A new code has been sent.</div>
+                            <div class="alert @(Model.OtpDeliveredViaLog ? "alert-warning" : "alert-success") small mt-3 mb-0">
+                                @(Model.OtpDeliveredViaLog
+                                    ? "A new code was generated — check server logs for OTP LOG DELIVERY."
+                                    : "A new code has been sent.")
+                            </div>
                         }
                         @if (Model.VerificationFailed)
                         {
@@ -148,15 +149,28 @@
 
                             <div class="mb-3">
                                 <label class="form-label">Verify with</label>
-                                <div class="btn-group w-100 contact-method-toggle" role="group">
+                                <div class="btn-group w-100 contact-method-toggle flex-wrap" role="group">
                                     <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactEmail" value="email" />
                                     <label class="btn btn-outline-primary" for="contactEmail">Email</label>
-                                    <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactMobile" value="mobile" />
-                                    <label class="btn btn-outline-primary" for="contactMobile">Mobile</label>
+                                    @if (Model.SmsDeliveryAvailable || Model.UsesLogOnlyOtp)
+                                    {
+                                        <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactSms" value="sms" />
+                                        <label class="btn btn-outline-primary" for="contactSms">SMS</label>
+                                    }
+                                    @if (Model.WhatsAppDeliveryAvailable || Model.UsesLogOnlyOtp)
+                                    {
+                                        <input type="radio" class="btn-check" asp-for="Input.ContactMethod" id="contactWhatsApp" value="whatsapp" />
+                                        <label class="btn btn-outline-primary" for="contactWhatsApp">WhatsApp</label>
+                                    }
                                 </div>
+                                <ul class="list-unstyled small mt-2 mb-0">
+                                    <li>Email: @(Model.EmailDeliveryAvailable ? "✅ will send via SMTP" : "⚠️ not configured — code in logs")</li>
+                                    <li>SMS: @(Model.SmsDeliveryAvailable ? "✅ will send via Twilio" : "⚠️ not configured — code in logs")</li>
+                                    <li>WhatsApp: @(Model.WhatsAppDeliveryAvailable ? "✅ will send via Twilio" : "⚠️ not configured — code in logs")</li>
+                                </ul>
                                 @if (Model.UsesLogOnlyOtp)
                                 {
-                                    <p class="text-warning small mt-2 mb-0">Email/SMS not configured — the 4-digit code will appear in server logs until SMTP or Twilio is set up.</p>
+                                    <p class="text-warning small mt-2 mb-0">No delivery channel is configured yet. Codes are written to server logs (development mode).</p>
                                 }
                             </div>
 

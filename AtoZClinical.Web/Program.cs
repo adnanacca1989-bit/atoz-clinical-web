@@ -443,7 +443,16 @@ if (!accountVerificationRequiredAtStartup)
         "Account verification is disabled. Users can sign in without a verification code.");
 else if (AccountVerificationPolicy.UsesLogOnlyDelivery(app.Configuration))
     app.Logger.LogWarning(
-        "OTP verification uses server log delivery (configure SMTP or Twilio for real email/SMS).");
+        "OTP uses server log delivery (development). Configure SMTP for email and/or Twilio for SMS/WhatsApp.");
+else
+{
+    if (OtpDeliveryConfiguration.IsEmailAvailable(app.Configuration))
+        app.Logger.LogInformation("OTP email delivery enabled (SMTP).");
+    if (OtpDeliveryConfiguration.IsSmsAvailable(app.Configuration))
+        app.Logger.LogInformation("OTP SMS delivery enabled (Twilio).");
+    if (OtpDeliveryConfiguration.IsWhatsAppAvailable(app.Configuration))
+        app.Logger.LogInformation("OTP WhatsApp delivery enabled (Twilio).");
+}
 if (!string.IsNullOrWhiteSpace(emailSettings.ConfigurationWarning))
     app.Logger.LogWarning(emailSettings.ConfigurationWarning);
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
@@ -507,7 +516,9 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["isHttps"] = ctx.Request.IsHttps,
             ["emailConfigured"] = SmtpEmailConfiguration.IsEmailConfigured(config),
             ["smsConfigured"] = SmsConfiguration.IsSmsConfigured(config),
-            ["otpLogDelivery"] = AccountVerificationPolicy.UsesLogOnlyDelivery(config),
+            ["whatsappConfigured"] = SmsConfiguration.IsWhatsAppConfigured(config),
+            ["otpDelivery"] = OtpDeliveryConfiguration.GetDeliveryAvailability(config),
+            ["otpLogDelivery"] = OtpDeliveryConfiguration.UsesServerLogFallback(config),
             ["emailConfirmationRequired"] = true,
             ["emailStatus"] = SmtpEmailConfiguration.IsEmailConfigured(config) ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
             ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config)

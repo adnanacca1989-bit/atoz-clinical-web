@@ -41,8 +41,7 @@ public class VerifyAccountModel : PageModel
     public bool Verified { get; private set; }
     public bool ShowCodeForm { get; private set; }
     public bool OtpDeliveredViaLog { get; private set; }
-    public string? MaskedDestination { get; private set; }
-    public string VerificationChannelLabel { get; private set; } = "email";
+    public string? DeliveryMessage { get; private set; }
     public string? ErrorMessage { get; private set; }
 
     public void OnGet(string? username)
@@ -74,7 +73,7 @@ public class VerifyAccountModel : PageModel
         }
 
         PendingUserId = user.Id;
-        var (channel, destination) = ResolveChannel(user);
+        var (channel, destination) = ResolveChannel(user, _config);
         if (string.IsNullOrWhiteSpace(destination))
         {
             ErrorMessage = "This account has no email or mobile on file.";
@@ -88,9 +87,8 @@ public class VerifyAccountModel : PageModel
             {
                 CodeSent = true;
                 ShowCodeForm = true;
-                MaskedDestination = outcome.MaskedDestination;
                 OtpDeliveredViaLog = outcome.DeliveredViaLog;
-                VerificationChannelLabel = channel == RegistrationVerificationChannel.Email ? "email" : "mobile";
+                DeliveryMessage = OtpDeliveryConfiguration.BuildSentMessage(outcome.DeliveryMethod, outcome.MaskedDestination);
                 return Page();
             }
 
@@ -133,13 +131,18 @@ public class VerifyAccountModel : PageModel
         return Page();
     }
 
-    private static (RegistrationVerificationChannel Channel, string Destination) ResolveChannel(ApplicationUser user)
+    internal static (RegistrationVerificationChannel Channel, string Destination) ResolveChannel(
+        ApplicationUser user,
+        IConfiguration config)
     {
         if (!string.IsNullOrWhiteSpace(user.Email))
             return (RegistrationVerificationChannel.Email, user.Email.Trim());
 
         if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
-            return (RegistrationVerificationChannel.Sms, user.PhoneNumber.Trim());
+        {
+            var channel = OtpDeliveryConfiguration.ResolveMobileChannel(config, null);
+            return (channel, user.PhoneNumber.Trim());
+        }
 
         return (RegistrationVerificationChannel.Email, string.Empty);
     }
