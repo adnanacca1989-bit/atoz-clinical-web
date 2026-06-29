@@ -25,17 +25,15 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         _env = env;
     }
 
-    public bool IsConfigured =>
-        _config.GetValue("Email:Enabled", false) &&
-        !string.IsNullOrWhiteSpace(_config["Email:SmtpHost"]) &&
-        !string.IsNullOrWhiteSpace(_config["Email:FromAddress"]);
+    public bool IsConfigured => SmtpEmailSettings.From(_config).IsReady;
 
     public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(toEmail))
             throw new ArgumentException("Recipient email is required.", nameof(toEmail));
 
-        if (!IsConfigured)
+        var settings = SmtpEmailSettings.From(_config);
+        if (!settings.IsReady)
         {
             if (_env.IsDevelopment())
             {
@@ -46,36 +44,38 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
             }
 
             throw new InvalidOperationException(
-                "Email is not configured. Set Email:Enabled, Email:SmtpHost, and Email:FromAddress.");
+                "Email is not configured. Set SMTP_HOST and FROM_EMAIL (or Email:SmtpHost and Email:FromAddress).");
         }
-
-        var host = _config["Email:SmtpHost"]!.Trim();
-        var port = _config.GetValue("Email:SmtpPort", 587);
-        var user = _config["Email:SmtpUser"];
-        var password = _config["Email:SmtpPassword"];
-        var fromAddress = _config["Email:FromAddress"]!.Trim();
-        var fromName = _config["Email:FromName"] ?? "A to Z Clinical";
-        var useSsl = _config.GetValue("Email:UseSsl", port == 465);
 
         using var message = new MailMessage
         {
-            From = new MailAddress(fromAddress, fromName),
+            From = new MailAddress(settings.FromAddress!, settings.FromName),
             Subject = subject,
             Body = htmlBody,
             IsBodyHtml = true
         };
         message.To.Add(toEmail.Trim());
 
-        using var client = new SmtpClient(host, port)
+        using var client = new SmtpClient(settings.Host!, settings.Port)
         {
-            EnableSsl = useSsl,
+            EnableSsl = settings.UseSsl,
             DeliveryMethod = SmtpDeliveryMethod.Network
         };
 
-        if (!string.IsNullOrWhiteSpace(user))
-            client.Credentials = new NetworkCredential(user, password);
+        if (!string.IsNullOrWhiteSpace(settings.User))
+            client.Credentials = new NetworkCredential(settings.User, settings.Password);
 
-        await client.SendMailAsync(message, cancellationToken);
-        _logger.LogInformation("Email sent to {To}: {Subject}", toEmail, subject);
+        try
+        {
+            await client.SendMailAsync(message, cancellationToken);
+            _logger.LogInformation("Email sent to {To}: {Subject} via {Host}:{Port}", toEmail, subject, settings.Host, settings.Port);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to send email to {To}: {Subject} via {Host}:{Port}",
+                toEmail, subject, settings.Host, settings.Port);
+            throw;
+        }
     }
 }

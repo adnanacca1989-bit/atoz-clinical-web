@@ -405,6 +405,12 @@ if (!string.IsNullOrEmpty(port))
 var app = builder.Build();
 
 await DatabaseInitializer.InitializeAsync(app.Services);
+
+var emailSettings = SmtpEmailSettings.From(app.Configuration);
+if (emailSettings.IsReady)
+    app.Logger.LogInformation("SMTP email is configured ({Host}:{Port}, from {From})", emailSettings.Host, emailSettings.Port, emailSettings.FromAddress);
+else
+    app.Logger.LogWarning("SMTP email is not configured. Set SMTP_HOST and FROM_EMAIL for password reset and notifications.");
 await ClinicalDataProtectionSetup.WarmUpAsync(app.Services, useSqlite, app.Logger);
 
 var forwardedHeaders = new ForwardedHeadersOptions

@@ -11,12 +11,18 @@ public class ForgotPasswordModel : PageModel
     private readonly PasswordResetService _reset;
     private readonly IClinicalEmailSender _email;
     private readonly ClinicalAppUrls _urls;
+    private readonly ILogger<ForgotPasswordModel> _logger;
 
-    public ForgotPasswordModel(PasswordResetService reset, IClinicalEmailSender email, ClinicalAppUrls urls)
+    public ForgotPasswordModel(
+        PasswordResetService reset,
+        IClinicalEmailSender email,
+        ClinicalAppUrls urls,
+        ILogger<ForgotPasswordModel> logger)
     {
         _reset = reset;
         _email = email;
         _urls = urls;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -50,16 +56,9 @@ public class ForgotPasswordModel : PageModel
             {
                 await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);
             }
-            catch
+            catch (Exception ex)
             {
-                if (!_email.IsConfigured)
-                {
-                    ModelState.AddModelError(string.Empty,
-                        "Password reset email is not configured. Contact your system vendor.");
-                    return Page();
-                }
-
-                throw;
+                _logger.LogError(ex, "Password reset email could not be sent for {Email}", payload.Email);
             }
         }
 

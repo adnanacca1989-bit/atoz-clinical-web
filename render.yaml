@@ -27,10 +27,18 @@ services:
         generateValue: true
       - key: App__PublicBaseUrl
         value: https://atoz-clinical.onrender.com
-      - key: AllowedHosts
-        value: "atoz-clinical.onrender.com;*.onrender.com"
-      - key: Email__Enabled
-        value: "false"
+      # Password reset / transactional email (set in Render dashboard — SendGrid example below)
+      # SMTP_HOST=smtp.sendgrid.net  SMTP_PORT=587  SMTP_USER=apikey  SMTP_PASS=<SendGrid API key>  FROM_EMAIL=<verified sender>
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
       - key: Email__SmtpHost
         sync: false
       - key: Email__SmtpPort
@@ -43,6 +51,10 @@ services:
         sync: false
       - key: Email__FromName
         value: A to Z Clinical
+      - key: Email__UseSsl
+        value: "true"
+      - key: AllowedHosts
+        value: "atoz-clinical.onrender.com;*.onrender.com"
       - key: Captcha__Enabled
         value: "false"
       - key: Captcha__Provider
