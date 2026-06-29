@@ -447,6 +447,17 @@ html[dir="rtl"] .clinical-form-left {
     color: #333;
 }
 
+.pl-line-indent-2 {
+    padding-left: 3rem !important;
+    color: #333;
+}
+
+.pl-subsection-row td {
+    font-weight: 600;
+    color: #444;
+    background: #fcfcfc;
+}
+
 .pl-subtotal-row td {
     font-weight: 600;
     border-top: 1px solid #ccc;

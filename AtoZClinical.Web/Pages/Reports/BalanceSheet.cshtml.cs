@@ -42,6 +42,9 @@ public class BalanceSheetModel : PageModel
     public List<BsRow> Assets { get; private set; } = [];
     public List<BsRow> Liabilities { get; private set; } = [];
     public List<BsRow> Equity { get; private set; } = [];
+    public IReadOnlyList<FinancialStatementBuilder.BalanceSheetSection> AssetSections { get; private set; } = [];
+    public IReadOnlyList<FinancialStatementBuilder.BalanceSheetSection> LiabilitySections { get; private set; } = [];
+    public IReadOnlyList<FinancialStatementBuilder.BalanceSheetSection> EquitySections { get; private set; } = [];
     public decimal TotalAssets { get; private set; }
     public decimal TotalLiabilities { get; private set; }
     public decimal TotalEquity { get; private set; }
@@ -79,9 +82,12 @@ public class BalanceSheetModel : PageModel
             OperationalArBalance = openAr;
 
             // Balance sheet is journal-only so Assets = Liabilities + Equity mathematically.
-            var snapshot = FinancialStatementBuilder.BuildBalanceSheet(trialBalance);
+            var snapshot = FinancialStatementBuilder.BuildBalanceSheet(trialBalance, chartAccounts);
             var liquidAccounts = FinancialStatementBuilder.ResolveLiquidAccounts("All", chartAccounts);
 
+            AssetSections = snapshot.AssetSections;
+            LiabilitySections = snapshot.LiabilitySections;
+            EquitySections = snapshot.EquitySections;
             Assets = snapshot.Assets.Select(r => new BsRow(r.Account, r.Amount)).ToList();
             Liabilities = snapshot.Liabilities.Select(r => new BsRow(r.Account, r.Amount)).ToList();
             Equity = snapshot.Equity.Select(r => new BsRow(r.Account, r.Amount)).ToList();

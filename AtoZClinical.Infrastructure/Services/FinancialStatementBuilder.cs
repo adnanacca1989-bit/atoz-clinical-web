@@ -2,13 +2,24 @@ using AtoZClinical.Core.Entities;
 
 namespace AtoZClinical.Infrastructure.Services;
 
-/// <summary>Builds balance sheet and cash positions from trial balance journal totals.</summary>
+/// <summary>Builds P&amp;L and balance sheet from posted journal trial balance / period activity.</summary>
 public static class FinancialStatementBuilder
 {
     public static readonly string[] LiquidAssetAccountNames = ["Cash", "Bank", "Visa Card"];
     public const string CashEquivalentsLabel = "Cash & Cash Equivalents";
     public const string AccountsReceivableName = "Accounts Receivable";
     public const string PatientDepositsLabel = "Patient Deposits (unapplied)";
+    public const string NetIncomeLabel = "Net Income (unclosed)";
+
+    private static readonly HashSet<string> CurrentAssetDetailTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Cash", "Bank", "Visa Card", "Accounts Receivable", "Inventory", "Pre-Paid Expenses", "Health Insurance"
+    };
+
+    private static readonly HashSet<string> CurrentLiabilityDetailTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Account Payable", "Accrual Expenses"
+    };
 
     public static IReadOnlyList<string> ResolveLiquidAccounts(
         string? paymentMethod,
@@ -38,6 +49,43 @@ public static class FinancialStatementBuilder
             .Where(r => accountNames.Contains(r.AccountName, StringComparer.OrdinalIgnoreCase))
             .Sum(r => r.Balance);
 
+    public static ProfitAndLossSnapshot BuildProfitAndLoss(
+        IReadOnlyList<JournalReportService.PeriodActivityRow> periodActivity,
+        bool nonZeroOnly = false)
+    {
+        var income = new List<StatementLine>();
+        var cogs = new List<StatementLine>();
+        var expenses = new List<StatementLine>();
+
+        foreach (var row in periodActivity.OrderBy(r => r.AccountNo).ThenBy(r => r.AccountName))
+        {
+            if (row.AccountCategory.Equals("Income", StringComparison.OrdinalIgnoreCase))
+            {
+                var amount = row.IncomeAmount;
+                if (nonZeroOnly && amount == 0) continue;
+                income.Add(new StatementLine(row.AccountName, amount, row.DetailType));
+            }
+            else if (row.AccountCategory.Equals("Expense", StringComparison.OrdinalIgnoreCase))
+            {
+                var amount = row.ExpenseAmount;
+                if (nonZeroOnly && amount == 0) continue;
+                var line = new StatementLine(row.AccountName, amount, row.DetailType);
+                if (IsCostOfGoodsSold(row.DetailType, row.AccountName))
+                    cogs.Add(line);
+                else
+                    expenses.Add(line);
+            }
+        }
+
+        var totalIncome = income.Sum(l => l.Amount);
+        var totalCogs = cogs.Sum(l => l.Amount);
+        var totalExpenses = expenses.Sum(l => l.Amount);
+        var grossProfit = totalIncome - totalCogs;
+        var netIncome = grossProfit - totalExpenses;
+
+        return new ProfitAndLossSnapshot(income, cogs, expenses, totalIncome, totalCogs, totalExpenses, grossProfit, netIncome);
+    }
+
     public static decimal ComputeUnclosedNetIncome(IEnumerable<JournalReportService.TrialBalanceRow> trialBalance)
     {
         decimal net = 0;
@@ -54,10 +102,14 @@ public static class FinancialStatementBuilder
 
     public static BalanceSheetSnapshot BuildBalanceSheet(
         IReadOnlyList<JournalReportService.TrialBalanceRow> trialBalance,
-        decimal supplementalOpenAr = 0)
+        IReadOnlyList<ChartAccount> chartAccounts)
     {
-        var assets = new List<BalanceSheetLine>();
-        var liabilities = new List<BalanceSheetLine>();
+        var detailByName = chartAccounts.ToDictionary(a => a.Name, a => a.DetailType, StringComparer.OrdinalIgnoreCase);
+
+        var currentAssets = new List<BalanceSheetLine>();
+        var nonCurrentAssets = new List<BalanceSheetLine>();
+        var currentLiabilities = new List<BalanceSheetLine>();
+        var nonCurrentLiabilities = new List<BalanceSheetLine>();
         var equity = new List<BalanceSheetLine>();
 
         foreach (var row in trialBalance.OrderBy(r => r.AccountNo).ThenBy(r => r.AccountName))
@@ -65,35 +117,73 @@ public static class FinancialStatementBuilder
             if (row.Balance == 0)
                 continue;
 
+            detailByName.TryGetValue(row.AccountName, out var detailType);
+            detailType ??= row.AccountCategory;
+
             switch (row.AccountCategory.ToLowerInvariant())
             {
                 case "asset":
                     if (IsAccountsReceivable(row.AccountName) && row.Balance < 0)
                     {
-                        liabilities.Add(new BalanceSheetLine(PatientDepositsLabel, -row.Balance));
+                        currentLiabilities.Add(new BalanceSheetLine(PatientDepositsLabel, -row.Balance, detailType));
                         break;
                     }
 
-                    assets.Add(new BalanceSheetLine(row.AccountName, row.Balance));
+                    if (IsCurrentAsset(detailType, row.AccountName))
+                        currentAssets.Add(new BalanceSheetLine(row.AccountName, row.Balance, detailType));
+                    else
+                        nonCurrentAssets.Add(new BalanceSheetLine(row.AccountName, row.Balance, detailType));
                     break;
+
                 case "liability":
-                    liabilities.Add(new BalanceSheetLine(row.AccountName, -row.Balance));
+                    var liabilityAmount = -row.Balance;
+                    if (IsCurrentLiability(detailType))
+                        currentLiabilities.Add(new BalanceSheetLine(row.AccountName, liabilityAmount, detailType));
+                    else
+                        nonCurrentLiabilities.Add(new BalanceSheetLine(row.AccountName, liabilityAmount, detailType));
                     break;
+
                 case "equity":
-                    equity.Add(new BalanceSheetLine(row.AccountName, -row.Balance));
+                    equity.Add(new BalanceSheetLine(row.AccountName, -row.Balance, detailType));
                     break;
             }
         }
 
-        ApplySupplementalOpenAr(assets, trialBalance, supplementalOpenAr);
+        currentAssets = AggregateLiquidAssets(currentAssets);
 
         var netIncome = ComputeUnclosedNetIncome(trialBalance);
         if (netIncome != 0)
-            equity.Add(new BalanceSheetLine("Net Income (unclosed)", netIncome));
+            equity.Add(new BalanceSheetLine(NetIncomeLabel, netIncome, "Retained Earnings"));
 
-        assets = AggregateLiquidAssets(assets);
+        var assetSections = BuildSections(
+            ("Current Assets", currentAssets),
+            ("Non-current Assets", nonCurrentAssets));
 
-        return new BalanceSheetSnapshot(assets, liabilities, equity);
+        var liabilitySections = BuildSections(
+            ("Current Liabilities", currentLiabilities),
+            ("Non-current Liabilities", nonCurrentLiabilities));
+
+        var equitySections = BuildSections(
+            ("Equity", equity));
+
+        var flatAssets = assetSections.SelectMany(s => s.Lines).ToList();
+        var flatLiabilities = liabilitySections.SelectMany(s => s.Lines).ToList();
+        var flatEquity = equitySections.SelectMany(s => s.Lines).ToList();
+
+        return new BalanceSheetSnapshot(assetSections, liabilitySections, equitySections, flatAssets, flatLiabilities, flatEquity);
+    }
+
+    private static IReadOnlyList<BalanceSheetSection> BuildSections(
+        params (string Title, List<BalanceSheetLine> Lines)[] sections)
+    {
+        var result = new List<BalanceSheetSection>();
+        foreach (var (title, lines) in sections)
+        {
+            if (lines.Count == 0) continue;
+            result.Add(new BalanceSheetSection(title, lines));
+        }
+
+        return result;
     }
 
     public static List<BalanceSheetLine> AggregateLiquidAssets(IReadOnlyList<BalanceSheetLine> assets)
@@ -104,42 +194,52 @@ public static class FinancialStatementBuilder
             return assets.ToList();
 
         var other = assets.Where(a => !liquidSet.Contains(a.Account)).ToList();
-        other.Add(new BalanceSheetLine(CashEquivalentsLabel, liquidLines.Sum(l => l.Amount)));
+        other.Insert(0, new BalanceSheetLine(CashEquivalentsLabel, liquidLines.Sum(l => l.Amount), "Cash"));
         return other;
     }
 
-    private static void ApplySupplementalOpenAr(
-        List<BalanceSheetLine> assets,
-        IReadOnlyList<JournalReportService.TrialBalanceRow> trialBalance,
-        decimal supplementalOpenAr)
-    {
-        if (supplementalOpenAr <= 0)
-            return;
-
-        var journalAr = trialBalance
-            .Where(r => IsAccountsReceivable(r.AccountName))
-            .Sum(r => r.Balance);
-
-        if (journalAr >= supplementalOpenAr)
-            return;
-
-        var gap = supplementalOpenAr - Math.Max(0m, journalAr);
-        if (gap <= 0)
-            return;
-
-        var existing = assets.FindIndex(a => IsAccountsReceivable(a.Account));
-        if (existing >= 0)
-            assets[existing] = assets[existing] with { Amount = assets[existing].Amount + gap };
-        else
-            assets.Add(new BalanceSheetLine(AccountsReceivableName, supplementalOpenAr));
-    }
+    public static bool IsCostOfGoodsSold(string? detailType, string accountName) =>
+        detailType?.Contains("Cost of Goods", StringComparison.OrdinalIgnoreCase) == true
+        || accountName.Contains("Cost of Goods", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsAccountsReceivable(string accountName) =>
         accountName.Contains("Receivable", StringComparison.OrdinalIgnoreCase);
 
-    public sealed record BalanceSheetLine(string Account, decimal Amount);
+    private static bool IsCurrentAsset(string? detailType, string accountName)
+    {
+        if (CurrentAssetDetailTypes.Contains(detailType ?? ""))
+            return true;
+        return LiquidAssetAccountNames.Contains(accountName, StringComparer.OrdinalIgnoreCase)
+            || IsAccountsReceivable(accountName);
+    }
+
+    private static bool IsCurrentLiability(string? detailType) =>
+        CurrentLiabilityDetailTypes.Contains(detailType ?? "")
+        || string.Equals(detailType, PatientDepositsLabel, StringComparison.OrdinalIgnoreCase);
+
+    public sealed record StatementLine(string Account, decimal Amount, string? DetailType = null);
+
+    public sealed record ProfitAndLossSnapshot(
+        IReadOnlyList<StatementLine> Income,
+        IReadOnlyList<StatementLine> CostOfGoodsSold,
+        IReadOnlyList<StatementLine> Expenses,
+        decimal TotalIncome,
+        decimal TotalCostOfGoodsSold,
+        decimal TotalExpenses,
+        decimal GrossProfit,
+        decimal NetIncome);
+
+    public sealed record BalanceSheetLine(string Account, decimal Amount, string? DetailType = null);
+
+    public sealed record BalanceSheetSection(string Title, IReadOnlyList<BalanceSheetLine> Lines)
+    {
+        public decimal Subtotal => Lines.Sum(l => l.Amount);
+    }
 
     public sealed record BalanceSheetSnapshot(
+        IReadOnlyList<BalanceSheetSection> AssetSections,
+        IReadOnlyList<BalanceSheetSection> LiabilitySections,
+        IReadOnlyList<BalanceSheetSection> EquitySections,
         IReadOnlyList<BalanceSheetLine> Assets,
         IReadOnlyList<BalanceSheetLine> Liabilities,
         IReadOnlyList<BalanceSheetLine> Equity)

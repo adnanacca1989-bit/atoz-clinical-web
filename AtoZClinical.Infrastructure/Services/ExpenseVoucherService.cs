@@ -404,6 +404,88 @@ public sealed class JournalReportService
         return rows;
     }
 
+    /// <summary>Posted journal activity within a date range — source for Profit &amp; Loss.</summary>
+    public async Task<List<PeriodActivityRow>> GetPeriodActivityAsync(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? patientName = null,
+        string? doctorName = null,
+        CancellationToken ct = default)
+    {
+        await _journalSync.EnsureClinicalJournalsAsync(clinicId);
+
+        var fromDate = from.Date;
+        var toDate = to.Date;
+
+        var chartAccounts = await _db.ChartAccounts.ForClinic(clinicId).AsNoTracking()
+            .OrderBy(a => a.AccountNo)
+            .ToListAsync(ct);
+
+        var chartByName = chartAccounts.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
+
+        var entries = await PostedEntries(clinicId)
+            .AsNoTracking()
+            .Where(j => j.EntryDate >= fromDate && j.EntryDate <= toDate)
+            .ToListAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var filter = patientName.Trim();
+            entries = entries
+                .Where(e => e.PatientName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true)
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(doctorName))
+        {
+            var filter = doctorName.Trim();
+            entries = entries
+                .Where(e => e.DoctorName?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true)
+                .ToList();
+        }
+
+        var journalTotals = entries
+            .SelectMany(e => e.Lines)
+            .GroupBy(l => l.AccountName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    chartByName.TryGetValue(g.Key, out var chart);
+                    return new AccountTotals(
+                        chart?.CategoryType ?? g.First().AccountCategory ?? "",
+                        chart?.DetailType ?? "",
+                        g.Sum(x => x.Debit),
+                        g.Sum(x => x.Credit));
+                },
+                StringComparer.OrdinalIgnoreCase);
+
+        var rows = new List<PeriodActivityRow>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var acct in chartAccounts)
+        {
+            seen.Add(acct.Name);
+            journalTotals.TryGetValue(acct.Name, out var totals);
+            rows.Add(new PeriodActivityRow(
+                acct.AccountNo,
+                acct.CategoryType,
+                acct.DetailType,
+                acct.Name,
+                totals?.Debit ?? 0,
+                totals?.Credit ?? 0));
+        }
+
+        foreach (var extra in journalTotals.Keys.Where(k => !seen.Contains(k)).OrderBy(k => k))
+        {
+            var totals = journalTotals[extra];
+            rows.Add(new PeriodActivityRow(0, totals.Category, totals.DetailType, extra, totals.Debit, totals.Credit));
+        }
+
+        return rows;
+    }
+
     public async Task<List<TrialBalanceRow>> GetTrialBalanceAsync(Guid clinicId, DateTime asOf)
     {
         await _journalSync.EnsureClinicalJournalsAsync(clinicId);
@@ -430,6 +512,7 @@ public sealed class JournalReportService
                     chartByName.TryGetValue(g.Key, out var chart);
                     return new AccountTotals(
                         chart?.CategoryType ?? g.First().AccountCategory ?? "",
+                        chart?.DetailType ?? "",
                         g.Sum(x => x.Debit),
                         g.Sum(x => x.Credit));
                 },
@@ -462,7 +545,30 @@ public sealed class JournalReportService
     private static bool AccountNamesEqual(string? left, string? right) =>
         string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
 
-    private sealed record AccountTotals(string Category, decimal Debit, decimal Credit);
+    private sealed record AccountTotals(string Category, string DetailType, decimal Debit, decimal Credit);
+
+    public sealed record PeriodActivityRow(
+        int AccountNo,
+        string AccountCategory,
+        string DetailType,
+        string AccountName,
+        decimal PeriodDebit,
+        decimal PeriodCredit)
+    {
+        public decimal PeriodBalance => PeriodDebit - PeriodCredit;
+
+        /// <summary>Revenue recognized in the period (credit-normal).</summary>
+        public decimal IncomeAmount =>
+            AccountCategory.Equals("Income", StringComparison.OrdinalIgnoreCase)
+                ? PeriodCredit - PeriodDebit
+                : 0;
+
+        /// <summary>Expense recognized in the period (debit-normal).</summary>
+        public decimal ExpenseAmount =>
+            AccountCategory.Equals("Expense", StringComparison.OrdinalIgnoreCase)
+                ? PeriodDebit - PeriodCredit
+                : 0;
+    }
 
     public sealed record JournalIntegrityReport(
         int TotalEntries,

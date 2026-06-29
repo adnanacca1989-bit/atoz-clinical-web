@@ -88,7 +88,8 @@ public class FinancialStatementTests
         await sync.EnsureClinicalJournalsAsync(clinicId);
 
         var tb = await journal.GetTrialBalanceAsync(clinicId, new DateTime(2026, 6, 28));
-        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb);
+        var chart = await db.Db.ChartAccounts.ForClinic(clinicId).ToListAsync();
+        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb, chart);
 
         var ar = snapshot.Assets.Single(a => a.Account == "Accounts Receivable");
         Assert.Equal(30_000m, ar.Amount);
@@ -155,7 +156,7 @@ public class FinancialStatementTests
         Assert.Equal(25_000m, tb.Single(r => r.AccountName == "Visa Card").Balance);
         Assert.Equal(109_000m, totalLiquid);
 
-        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb);
+        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb, chart);
         var cashLine = snapshot.Assets.Single(a => a.Account == FinancialStatementBuilder.CashEquivalentsLabel);
         Assert.Equal(109_000m, cashLine.Amount);
     }
@@ -187,7 +188,8 @@ public class FinancialStatementTests
 
         var journal = new JournalReportService(db.Db, sync);
         var tb = await journal.GetTrialBalanceAsync(clinicId, new DateTime(2026, 6, 28));
-        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb);
+        var chart = await db.Db.ChartAccounts.ForClinic(clinicId).ToListAsync();
+        var snapshot = FinancialStatementBuilder.BuildBalanceSheet(tb, chart);
 
         Assert.DoesNotContain(snapshot.Assets, a => a.Amount < 0);
         Assert.Contains(snapshot.Liabilities, l => l.Account == FinancialStatementBuilder.PatientDepositsLabel);
@@ -329,6 +331,50 @@ public class FinancialStatementTests
 
         Assert.Equal(totalDebit, totalCredit);
         Assert.True((await journal.ValidateIntegrityAsync(clinicId)).IsTrialBalanceBalanced);
+    }
+
+    [Fact]
+    public async Task Profit_and_loss_matches_journal_income_for_period()
+    {
+        var clinicId = Guid.NewGuid();
+        await using var db = await SqliteTestDatabase.CreateAsync(TestClinicProvider.ForClinic(clinicId));
+        db.Db.Clinics.Add(new Clinic { Id = clinicId, ClinicCode = "TST", Name = "Test Clinic" });
+        await DatabaseInitializer.EnsureStandardChartAccountsAsync(db.Db, clinicId);
+
+        var invoiceId = Guid.NewGuid();
+        db.Db.Invoices.Add(new Invoice
+        {
+            Id = invoiceId,
+            ClinicId = clinicId,
+            InvoiceNo = 1,
+            PatientName = "Noor",
+            DoctorName = "CIMA",
+            InvoiceDate = new DateTime(2026, 6, 29),
+            TotalAmount = 75_000m,
+            UpdatedAt = DateTime.UtcNow,
+            Lines =
+            [
+                new InvoiceLine { Id = Guid.NewGuid(), InvoiceId = invoiceId, ServiceName = "Consultation", LineTotal = 50_000m },
+                new InvoiceLine { Id = Guid.NewGuid(), InvoiceId = invoiceId, ServiceName = "Pharmacy", LineTotal = 9_000m },
+                new InvoiceLine { Id = Guid.NewGuid(), InvoiceId = invoiceId, ServiceName = "Laboratory", LineTotal = 10_000m },
+                new InvoiceLine { Id = Guid.NewGuid(), InvoiceId = invoiceId, ServiceName = "Consultation", LineTotal = 6_000m }
+            ]
+        });
+        await db.Db.SaveChangesAsync();
+
+        var sync = new ClinicalJournalSyncService(db.Db, NullLogger<ClinicalJournalSyncService>.Instance);
+        var journal = new JournalReportService(db.Db, sync);
+        await sync.EnsureClinicalJournalsAsync(clinicId);
+
+        var periodActivity = await journal.GetPeriodActivityAsync(
+            clinicId, new DateTime(2026, 6, 1), new DateTime(2026, 6, 29));
+        var pl = FinancialStatementBuilder.BuildProfitAndLoss(periodActivity);
+
+        Assert.Equal(56_000m, pl.Income.Single(i => i.Account == "Consultation Income").Amount);
+        Assert.Equal(9_000m, pl.Income.Single(i => i.Account == "Pharmacy Income").Amount);
+        Assert.Equal(10_000m, pl.Income.Single(i => i.Account == "Laboratory Income").Amount);
+        Assert.Equal(75_000m, pl.TotalIncome);
+        Assert.Equal(75_000m, pl.NetIncome);
     }
 }
 

@@ -4,8 +4,7 @@
     ViewData["Title"] = "PL Statement";
     ViewData["UseReportPickers"] = true;
     Layout = "_Layout";
-    var revenueRows = Model.Results.Where(r => r.Section == "Revenue").ToList();
-    var expenseRows = Model.Results.Where(r => r.Section == "Expense").ToList();
+    var snap = Model.Snapshot;
 }
 
 <div class="clinical-form-page clinical-report-page pl-qb-page">
@@ -39,79 +38,98 @@
                 </div>
             </div>
         </div>
-        <p class="report-hint">Profit &amp; Loss statement (QuickBooks style) for the selected period.</p>
+        <p class="report-hint">
+            Profit &amp; Loss from <strong>posted journal entries</strong> for @Model.FromDate.ToString("d") – @Model.ToDate.ToString("d").
+            Income and expenses match General Ledger and Trial Balance for the same period.
+        </p>
 
-        <div class="pl-qb-report atz-card">
-            <div class="pl-qb-header text-center">
-                <div class="pl-qb-company">@(ViewData["ReportClinicName"] as string ?? "Clinical")</div>
-                <div class="pl-qb-title">Profit and Loss</div>
-                <div class="pl-qb-period">@Model.FromDate.ToString("MMMM d, yyyy") – @Model.ToDate.ToString("MMMM d, yyyy")</div>
+        @if (snap is not null)
+        {
+            <div class="pl-qb-report atz-card">
+                <div class="pl-qb-header text-center">
+                    <div class="pl-qb-company">@(ViewData["ReportClinicName"] as string ?? "Clinical")</div>
+                    <div class="pl-qb-title">Profit and Loss</div>
+                    <div class="pl-qb-period">@Model.FromDate.ToString("MMMM d, yyyy") – @Model.ToDate.ToString("MMMM d, yyyy")</div>
+                </div>
+
+                <div id="print-area" class="report-results-scroll">
+                    <table class="line-grid report-grid pl-statement-grid pl-qb-grid">
+                        <thead>
+                            <tr>
+                                <th>Account / Detail</th>
+                                <th class="text-end">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <tr class="pl-section-row">
+                            <td colspan="2"><span class="pl-section-label">▾ Income</span></td>
+                        </tr>
+                        @foreach (var r in snap.Income)
+                        {
+                            <tr class="pl-line-row">
+                                <td class="pl-line-indent">@r.Account</td>
+                                <td class="text-end">@r.Amount.ToString("N2")</td>
+                            </tr>
+                        }
+                        <tr class="pl-subtotal-row">
+                            <td>Total Income</td>
+                            <td class="text-end">@snap.TotalIncome.ToString("N2")</td>
+                        </tr>
+
+                        <tr class="pl-section-row">
+                            <td colspan="2"><span class="pl-section-label">▾ Cost of Goods Sold</span></td>
+                        </tr>
+                        @if (snap.CostOfGoodsSold.Count == 0)
+                        {
+                            <tr class="pl-line-row">
+                                <td class="pl-line-indent">Cost of Goods Sold</td>
+                                <td class="text-end">@snap.TotalCostOfGoodsSold.ToString("N2")</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var r in snap.CostOfGoodsSold)
+                            {
+                                <tr class="pl-line-row">
+                                    <td class="pl-line-indent">@r.Account</td>
+                                    <td class="text-end">@r.Amount.ToString("N2")</td>
+                                </tr>
+                            }
+                        }
+                        <tr class="pl-subtotal-row">
+                            <td>Total Cost of Goods Sold</td>
+                            <td class="text-end">@snap.TotalCostOfGoodsSold.ToString("N2")</td>
+                        </tr>
+
+                        <tr class="pl-highlight-row">
+                            <td>Gross Profit</td>
+                            <td class="text-end">@snap.GrossProfit.ToString("N2")</td>
+                        </tr>
+
+                        <tr class="pl-section-row">
+                            <td colspan="2"><span class="pl-section-label">▾ Operating Expenses</span></td>
+                        </tr>
+                        @foreach (var r in snap.Expenses)
+                        {
+                            <tr class="pl-line-row">
+                                <td class="pl-line-indent">@r.Account</td>
+                                <td class="text-end">@r.Amount.ToString("N2")</td>
+                            </tr>
+                        }
+                        <tr class="pl-subtotal-row">
+                            <td>Total Expenses</td>
+                            <td class="text-end">@snap.TotalExpenses.ToString("N2")</td>
+                        </tr>
+
+                        <tr class="pl-highlight-row pl-net-row">
+                            <td>Net Income</td>
+                            <td class="text-end">@snap.NetIncome.ToString("N2")</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
-            <div class="report-results-scroll">
-                <table class="line-grid report-grid pl-statement-grid pl-qb-grid">
-                    <thead>
-                        <tr>
-                            <th>Account / Detail</th>
-                            <th class="text-end">TOTAL</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    <tr class="pl-section-row">
-                        <td colspan="2"><span class="pl-section-label">▾ Income</span></td>
-                    </tr>
-                    @foreach (var r in revenueRows)
-                    {
-                        <tr class="pl-line-row">
-                            <td class="pl-line-indent">@r.Detail</td>
-                            <td class="text-end">@r.Amount.ToString("N2")</td>
-                        </tr>
-                    }
-                    <tr class="pl-subtotal-row">
-                        <td>Total Income</td>
-                        <td class="text-end">@Model.NetRevenue.ToString("N2")</td>
-                    </tr>
-
-                    <tr class="pl-section-row">
-                        <td colspan="2"><span class="pl-section-label">▾ Cost of Goods Sold</span></td>
-                    </tr>
-                    <tr class="pl-line-row">
-                        <td class="pl-line-indent">Cost of Goods Sold</td>
-                        <td class="text-end">@Model.CostOfGoodsSold.ToString("N2")</td>
-                    </tr>
-                    <tr class="pl-subtotal-row">
-                        <td>Total Cost of Goods Sold</td>
-                        <td class="text-end">@Model.CostOfGoodsSold.ToString("N2")</td>
-                    </tr>
-
-                    <tr class="pl-highlight-row">
-                        <td>Gross Profit</td>
-                        <td class="text-end">@Model.GrossProfit.ToString("N2")</td>
-                    </tr>
-
-                    <tr class="pl-section-row">
-                        <td colspan="2"><span class="pl-section-label">▾ Expenses</span></td>
-                    </tr>
-                    @foreach (var r in expenseRows)
-                    {
-                        <tr class="pl-line-row">
-                            <td class="pl-line-indent">@(string.IsNullOrWhiteSpace(r.Account) ? r.Detail : $"{r.Account} — {r.Detail}")</td>
-                            <td class="text-end">@r.Amount.ToString("N2")</td>
-                        </tr>
-                    }
-                    <tr class="pl-subtotal-row">
-                        <td>Total Expenses</td>
-                        <td class="text-end">@Model.Expenses.ToString("N2")</td>
-                    </tr>
-
-                    <tr class="pl-highlight-row pl-net-row">
-                        <td>Net Income</td>
-                        <td class="text-end">@Model.NetProfit.ToString("N2")</td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        }
 
         <partial name="_ReportToolbar" />
     </form>

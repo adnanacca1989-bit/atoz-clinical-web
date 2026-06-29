@@ -4,6 +4,7 @@ using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Web.Pages.Reports;
 
@@ -11,13 +12,22 @@ public class PlStatementModel : PageModel
 {
     private readonly ClinicalDbContext _db;
     private readonly ClinicContextService _clinicContext;
-    private readonly PharmacyCogsService _cogs;
+    private readonly ClinicalJournalSyncService _journalSync;
+    private readonly JournalReportService _journal;
+    private readonly ILogger<PlStatementModel> _logger;
 
-    public PlStatementModel(ClinicalDbContext db, ClinicContextService clinicContext, PharmacyCogsService cogs)
+    public PlStatementModel(
+        ClinicalDbContext db,
+        ClinicContextService clinicContext,
+        ClinicalJournalSyncService journalSync,
+        JournalReportService journal,
+        ILogger<PlStatementModel> logger)
     {
         _db = db;
         _clinicContext = clinicContext;
-        _cogs = cogs;
+        _journalSync = journalSync;
+        _journal = journal;
+        _logger = logger;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -35,16 +45,9 @@ public class PlStatementModel : PageModel
     [BindProperty(SupportsGet = true)]
     public bool NonZero { get; set; }
 
-    public List<PlRow> Results { get; private set; } = [];
-    public decimal ConsultationRevenue { get; private set; }
-    public decimal LabRevenue { get; private set; }
-    public decimal RadiologyRevenue { get; private set; }
-    public decimal PharmacyRevenue { get; private set; }
-    public decimal NetRevenue { get; private set; }
-    public decimal CostOfGoodsSold { get; private set; }
-    public decimal Expenses { get; private set; }
-    public decimal GrossProfit => NetRevenue - CostOfGoodsSold;
-    public decimal NetProfit => NetRevenue - CostOfGoodsSold - Expenses;
+    public FinancialStatementBuilder.ProfitAndLossSnapshot? Snapshot { get; private set; }
+    public decimal JournalIncomeCredits { get; private set; }
+    public decimal JournalExpenseDebits { get; private set; }
 
     public async Task<IActionResult> OnGetAsync() => await RunAsync();
     public Task<IActionResult> OnPostRunAsync() => RunAsync();
@@ -55,142 +58,45 @@ public class PlStatementModel : PageModel
         var clinicId = await _clinicContext.GetClinicIdAsync();
         if (clinicId is null) return Forbid();
 
-        var invoices = await _db.Invoices
-            .Include(i => i.Lines)
-            .ForClinic(clinicId.Value)
-            .Where(i => i.InvoiceDate >= FromDate.Date && i.InvoiceDate <= ToDate.Date)
-            .ToListAsync();
+        var id = clinicId.Value;
+        await _journalSync.EnsureClinicalJournalsAsync(id);
 
-        if (!string.IsNullOrWhiteSpace(DoctorName))
-            invoices = invoices.Where(i => i.DoctorName?.Contains(DoctorName, StringComparison.OrdinalIgnoreCase) == true).ToList();
-        if (!string.IsNullOrWhiteSpace(PatientName))
-            invoices = invoices.Where(i => i.PatientName?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) == true).ToList();
+        var periodActivity = await _journal.GetPeriodActivityAsync(
+            id, FromDate, ToDate, PatientName, DoctorName);
 
-        foreach (var inv in invoices)
-        {
-            foreach (var line in inv.Lines)
-            {
-                switch (ClassifyRevenue(line.ServiceName))
-                {
-                    case RevenueBucket.Lab:
-                        LabRevenue += line.LineTotal;
-                        break;
-                    case RevenueBucket.Radiology:
-                        RadiologyRevenue += line.LineTotal;
-                        break;
-                    case RevenueBucket.Pharmacy:
-                        PharmacyRevenue += line.LineTotal;
-                        break;
-                    default:
-                        ConsultationRevenue += line.LineTotal;
-                        break;
-                }
-            }
-        }
+        Snapshot = FinancialStatementBuilder.BuildProfitAndLoss(periodActivity, NonZero);
 
-        AddRevenueRow("Consultation Revenue", ConsultationRevenue);
-        AddRevenueRow("Lab Revenue", LabRevenue);
-        AddRevenueRow("Radiology Revenue", RadiologyRevenue);
-        AddRevenueRow("Pharmacy Bill Revenue", PharmacyRevenue);
+        JournalIncomeCredits = periodActivity
+            .Where(r => r.AccountCategory.Equals("Income", StringComparison.OrdinalIgnoreCase))
+            .Sum(r => r.PeriodCredit);
+        JournalExpenseDebits = periodActivity
+            .Where(r => r.AccountCategory.Equals("Expense", StringComparison.OrdinalIgnoreCase))
+            .Sum(r => r.PeriodDebit);
 
-        CostOfGoodsSold = await _cogs.GetTotalCogsAsync(clinicId.Value, FromDate, ToDate, DoctorName, PatientName);
+        _logger.LogDebug(
+            "P&L clinic {ClinicId} {From:d}-{To:d}: income={Income}, cogs={Cogs}, expenses={Expenses}, net={Net}",
+            id, FromDate, ToDate,
+            Snapshot.TotalIncome, Snapshot.TotalCostOfGoodsSold, Snapshot.TotalExpenses, Snapshot.NetIncome);
 
-        var chartAccounts = await _db.ChartAccounts
-            .AsNoTracking()
-            .ForClinic(clinicId.Value)
-            .ToListAsync();
-        var expenseAccounts = new HashSet<string>(
-            chartAccounts
-                .Where(a => string.Equals(a.CategoryType, "Expense", StringComparison.OrdinalIgnoreCase))
-                .Select(a => a.Name),
-            StringComparer.OrdinalIgnoreCase);
-
-        var payments = await _db.CashPayments
-            .ForClinic(clinicId.Value)
-            .Where(p => p.PaymentDate >= FromDate.Date && p.PaymentDate <= ToDate.Date)
-            .ToListAsync();
-
-        foreach (var pay in payments)
-        {
-            // Patient cash payments (refunds/credits) are balance-sheet movements, not P&L expenses.
-            if (!string.IsNullOrWhiteSpace(pay.PatientId))
-                continue;
-
-            if (string.IsNullOrWhiteSpace(pay.ChartAccountName) ||
-                !expenseAccounts.Contains(pay.ChartAccountName))
-                continue;
-
-            Results.Add(new PlRow(
-                "Expense",
-                pay.ChartAccountName,
-                pay.Description ?? pay.PayeeName ?? "Payment",
-                pay.Amount));
-        }
-
-        var expenseVouchers = await _db.ExpenseVouchers
-            .Include(v => v.Lines)
-            .ForClinic(clinicId.Value)
-            .Where(v => v.ExpenseDate >= FromDate.Date && v.ExpenseDate <= ToDate.Date)
-            .ToListAsync();
-
-        foreach (var voucher in expenseVouchers)
-        {
-            foreach (var line in voucher.Lines.OrderBy(l => l.LineNo))
-            {
-                if (line.Amount <= 0) continue;
-                Results.Add(new PlRow(
-                    "Expense",
-                    line.ChartAccountName,
-                    line.Description ?? voucher.Description ?? $"Expense #{voucher.ExpenseNo}",
-                    line.Amount));
-            }
-        }
-
-        if (NonZero)
-            Results = Results.Where(r => r.Amount != 0).ToList();
-
-        NetRevenue = ConsultationRevenue + LabRevenue + RadiologyRevenue + PharmacyRevenue;
-        Expenses = Results.Where(r => r.Section == "Expense").Sum(r => r.Amount);
         return Page();
-    }
-
-    private void AddRevenueRow(string label, decimal amount)
-    {
-        if (!NonZero || amount != 0)
-            Results.Add(new PlRow("Revenue", "Income", label, amount));
-    }
-
-    private static RevenueBucket ClassifyRevenue(string? serviceName)
-    {
-        var name = serviceName ?? "";
-        if (name.Contains("Pharmacy", StringComparison.OrdinalIgnoreCase))
-            return RevenueBucket.Pharmacy;
-        if (name.StartsWith("Lab", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Laboratory", StringComparison.OrdinalIgnoreCase))
-            return RevenueBucket.Lab;
-        if (name.StartsWith("Radiology", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Radiology", StringComparison.OrdinalIgnoreCase))
-            return RevenueBucket.Radiology;
-        return RevenueBucket.Consultation;
     }
 
     public async Task<IActionResult> OnPostExportAsync()
     {
         await RunAsync();
-        var exportRows = new List<object?[]>
-        {
-            new object?[] { "Income", "Consultation Revenue", ConsultationRevenue },
-            new object?[] { "Income", "Lab Revenue", LabRevenue },
-            new object?[] { "Income", "Radiology Revenue", RadiologyRevenue },
-            new object?[] { "Income", "Pharmacy Bill Revenue", PharmacyRevenue },
-            new object?[] { "Income", "Total Income", NetRevenue },
-            new object?[] { "COGS", "Cost of Goods Sold", CostOfGoodsSold },
-            new object?[] { "Summary", "Gross Profit", GrossProfit }
-        };
-        exportRows.AddRange(Results.Where(r => r.Section == "Expense")
-            .Select(r => new object?[] { "Expense", r.Detail, r.Amount }));
-        exportRows.Add(new object?[] { "Summary", "Total Expenses", Expenses });
-        exportRows.Add(new object?[] { "Summary", "Net Income", NetProfit });
+        if (Snapshot is null)
+            return RedirectToPage();
+
+        var exportRows = new List<object?[]>();
+        foreach (var line in Snapshot.Income)
+            exportRows.Add(["Income", line.Account, line.Amount]);
+        exportRows.Add(["Income", "Total Income", Snapshot.TotalIncome]);
+        exportRows.Add(["COGS", "Cost of Goods Sold", Snapshot.TotalCostOfGoodsSold]);
+        exportRows.Add(["Summary", "Gross Profit", Snapshot.GrossProfit]);
+        foreach (var line in Snapshot.Expenses)
+            exportRows.Add(["Expense", line.Account, line.Amount]);
+        exportRows.Add(["Summary", "Total Expenses", Snapshot.TotalExpenses]);
+        exportRows.Add(["Summary", "Net Income", Snapshot.NetIncome]);
 
         var bytes = ReportExcelService.Export("PL Statement",
             ["Section", "Account / Detail", "Amount"],
@@ -198,8 +104,4 @@ public class PlStatementModel : PageModel
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"PLStatement_{DateTime.Now:yyyyMMdd}.xlsx");
     }
-
-    private enum RevenueBucket { Consultation, Lab, Radiology, Pharmacy }
-
-    public sealed record PlRow(string Section, string Account, string Detail, decimal Amount);
 }

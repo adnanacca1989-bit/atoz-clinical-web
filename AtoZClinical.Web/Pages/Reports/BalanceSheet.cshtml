@@ -1,133 +1,128 @@
 @page
-
 @model AtoZClinical.Web.Pages.Reports.BalanceSheetModel
-
 @{
-
     ViewData["Title"] = "Balance Sheet";
-
     Layout = "_Layout";
-
 }
 
-
-
-<div class="clinical-form-page clinical-report-page">
-
+<div class="clinical-form-page clinical-report-page pl-qb-page">
     <h1 class="page-title">Balance Sheet Statement</h1>
     <partial name="_ReportBranding" />
-
     <form method="post" id="clinicalReportForm">
-
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
         <div class="report-filter-panel">
-
             <div class="row g-2 mb-0">
-
                 <div class="col-md-2">
-
                     <label class="clinical-field-label">From Date</label>
-
                     <input asp-for="FromDate" class="clinical-field" type="date" />
-
                 </div>
-
                 <div class="col-md-2">
-
                     <label class="clinical-field-label">To Date</label>
-
                     <input asp-for="ToDate" class="clinical-field" type="date" />
-
                 </div>
-
             </div>
-
         </div>
-
-        <p class="report-hint">Statement of financial position as of <strong>@Model.ToDate.ToString("d")</strong>. <strong>Cash &amp; equivalents (GL):</strong> @Model.TotalLiquidCash.ToString("N2") — matches Cash Report and Trial Balance. Assets = @Model.TotalAssets.ToString("N2") · Liabilities + Equity = @((Model.TotalLiabilities + Model.TotalEquity).ToString("N2"))@(Model.IsBalanced ? "" : " — out of balance")</p>
+        <p class="report-hint">
+            Statement of financial position as of <strong>@Model.ToDate.ToString("d")</strong> from <strong>posted journal entries</strong>.
+            <strong>Cash &amp; equivalents (GL):</strong> @Model.TotalLiquidCash.ToString("N2") — matches Cash Report and Trial Balance.
+            Assets = @Model.TotalAssets.ToString("N2") · Liabilities + Equity = @((Model.TotalLiabilities + Model.TotalEquity).ToString("N2"))@(Model.IsBalanced ? "" : " — out of balance")
+        </p>
 
         @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
         {
             <div class="alert alert-warning">@Model.ErrorMessage</div>
         }
 
-        <div class="report-results-scroll">
+        <div class="pl-qb-report atz-card">
+            <div class="pl-qb-header text-center">
+                <div class="pl-qb-company">@(ViewData["ReportClinicName"] as string ?? "Clinical")</div>
+                <div class="pl-qb-title">Balance Sheet</div>
+                <div class="pl-qb-period">As of @Model.ToDate.ToString("MMMM d, yyyy")</div>
+            </div>
 
-            <h5 class="mt-2">Assets</h5>
+            <div id="print-area" class="report-results-scroll">
+                <table class="line-grid report-grid pl-statement-grid pl-qb-grid">
+                    <thead>
+                        <tr>
+                            <th>Account</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="pl-section-row">
+                        <td colspan="2"><span class="pl-section-label">▾ Assets</span></td>
+                    </tr>
+                    @foreach (var assetBlock in Model.AssetSections)
+                    {
+                        <tr class="pl-subsection-row">
+                            <td class="pl-line-indent">@assetBlock.Title</td>
+                            <td></td>
+                        </tr>
+                        @foreach (var line in assetBlock.Lines)
+                        {
+                            <tr class="pl-line-row">
+                                <td class="pl-line-indent-2">@line.Account</td>
+                                <td class="text-end">@line.Amount.ToString("N2")</td>
+                            </tr>
+                        }
+                        <tr class="pl-subtotal-row">
+                            <td class="pl-line-indent">Total @assetBlock.Title</td>
+                            <td class="text-end">@assetBlock.Subtotal.ToString("N2")</td>
+                        </tr>
+                    }
+                    <tr class="pl-highlight-row">
+                        <td>Total Assets</td>
+                        <td class="text-end">@Model.TotalAssets.ToString("N2")</td>
+                    </tr>
 
-            <table class="line-grid report-grid mb-3">
+                    <tr class="pl-section-row">
+                        <td colspan="2"><span class="pl-section-label">▾ Liabilities</span></td>
+                    </tr>
+                    @foreach (var liabilityBlock in Model.LiabilitySections)
+                    {
+                        <tr class="pl-subsection-row">
+                            <td class="pl-line-indent">@liabilityBlock.Title</td>
+                            <td></td>
+                        </tr>
+                        @foreach (var line in liabilityBlock.Lines)
+                        {
+                            <tr class="pl-line-row">
+                                <td class="pl-line-indent-2">@line.Account</td>
+                                <td class="text-end">@line.Amount.ToString("N2")</td>
+                            </tr>
+                        }
+                        <tr class="pl-subtotal-row">
+                            <td class="pl-line-indent">Total @liabilityBlock.Title</td>
+                            <td class="text-end">@liabilityBlock.Subtotal.ToString("N2")</td>
+                        </tr>
+                    }
+                    <tr class="pl-highlight-row">
+                        <td>Total Liabilities</td>
+                        <td class="text-end">@Model.TotalLiabilities.ToString("N2")</td>
+                    </tr>
 
-                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
-
-                <tbody>
-
-                @foreach (var r in Model.Assets)
-
-                {
-
-                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
-
-                }
-
-                </tbody>
-
-                <tfoot><tr class="fw-bold"><td>Total Assets</td><td>@Model.TotalAssets.ToString("N2")</td></tr></tfoot>
-
-            </table>
-
-
-
-            <h5>Liabilities</h5>
-
-            <table class="line-grid report-grid mb-3">
-
-                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
-
-                <tbody>
-
-                @foreach (var r in Model.Liabilities)
-
-                {
-
-                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
-
-                }
-
-                </tbody>
-
-                <tfoot><tr class="fw-bold"><td>Total Liabilities</td><td>@Model.TotalLiabilities.ToString("N2")</td></tr></tfoot>
-
-            </table>
-
-
-
-            <h5>Equity</h5>
-
-            <table class="line-grid report-grid mb-3">
-
-                <thead><tr><th>Account</th><th>Amount</th></tr></thead>
-
-                <tbody>
-
-                @foreach (var r in Model.Equity)
-
-                {
-
-                    <tr><td>@r.Account</td><td>@r.Amount.ToString("N2")</td></tr>
-
-                }
-
-                </tbody>
-
-                <tfoot><tr class="fw-bold"><td>Total Equity</td><td>@Model.TotalEquity.ToString("N2")</td></tr></tfoot>
-
-            </table>
-
+                    <tr class="pl-section-row">
+                        <td colspan="2"><span class="pl-section-label">▾ Equity</span></td>
+                    </tr>
+                    @foreach (var equityBlock in Model.EquitySections)
+                    {
+                        @foreach (var line in equityBlock.Lines)
+                        {
+                            <tr class="pl-line-row">
+                                <td class="pl-line-indent">@line.Account</td>
+                                <td class="text-end">@line.Amount.ToString("N2")</td>
+                            </tr>
+                        }
+                    }
+                    <tr class="pl-highlight-row pl-net-row">
+                        <td>Total Equity</td>
+                        <td class="text-end">@Model.TotalEquity.ToString("N2")</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <partial name="_ReportToolbar" />
-
     </form>
-
 </div>
-
-
