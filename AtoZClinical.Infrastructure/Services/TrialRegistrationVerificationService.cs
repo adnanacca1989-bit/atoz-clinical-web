@@ -91,6 +91,7 @@ public sealed class TrialRegistrationVerificationService
         if (channel == RegistrationVerificationChannel.Email
             && OtpDeliveryConfiguration.IsEmailAvailable(_config))
         {
+            // Email channel: SMTP via MailKit (reads SMTP_* from process environment).
             var body = $"""
                 <p>Hello {user.FullName},</p>
                 <p>Your A to Z Clinical verification code is:</p>
@@ -118,6 +119,7 @@ public sealed class TrialRegistrationVerificationService
         if (channel == RegistrationVerificationChannel.WhatsApp
             && OtpDeliveryConfiguration.IsWhatsAppAvailable(_config))
         {
+            // WhatsApp channel: Twilio (TWILIO_WHATSAPP_FROM + TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN).
             var whatsAppResult = await _sms.SendWhatsAppAsync(destination, smsText, ct);
             if (!whatsAppResult.Success)
             {
@@ -135,6 +137,7 @@ public sealed class TrialRegistrationVerificationService
         if (channel == RegistrationVerificationChannel.Sms
             && OtpDeliveryConfiguration.IsSmsAvailable(_config))
         {
+            // SMS channel: Twilio (TWILIO_FROM_NUMBER + TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN).
             var smsResult = await _sms.SendSmsAsync(destination, smsText, ct);
             if (!smsResult.Success)
             {
@@ -248,12 +251,15 @@ public sealed class TrialRegistrationVerificationService
         RegistrationVerificationChannel channel,
         string destination)
     {
-        _logger.LogWarning(
-            "OTP LOG DELIVERY (development fallback — configure SMTP or Twilio for real delivery): OTP={Otp} UserId={UserId} Username={Username} Channel={Channel} Destination={Destination} ExpiresInMinutes={Expiry}",
+        if (!OtpDeliveryConfiguration.IsEmailAvailable(_config))
+            SmtpEmailConfiguration.LogMissingVariablesAsErrors(_logger, _config);
+
+        OtpLogDelivery.LogCode(
+            _logger,
             plainCode,
             user.Id,
             user.UserName,
-            channel,
+            channel.ToString(),
             destination,
             CodeExpiryMinutes);
     }

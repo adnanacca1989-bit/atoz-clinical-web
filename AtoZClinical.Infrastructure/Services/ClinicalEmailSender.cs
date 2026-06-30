@@ -43,11 +43,8 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         var settings = SmtpEmailSettings.From(_config);
         if (!settings.IsReady)
         {
+            SmtpEmailConfiguration.LogMissingVariablesAsErrors(_logger, _config);
             var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-            _logger.LogError(
-                "Email not sent to {To}: SMTP not configured. Missing: {Missing}",
-                toEmail.Trim(),
-                string.Join(", ", missing));
             throw new ClinicalEmailNotConfiguredException(missing);
         }
 

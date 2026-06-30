@@ -427,6 +427,7 @@ await DatabaseInitializer.InitializeAsync(app.Services);
 
 var emailSettings = SmtpEmailSettings.From(app.Configuration);
 SmtpEmailConfiguration.LogDiagnostics(app.Logger, app.Configuration);
+SmtpEmailConfiguration.LogMissingVariablesAsErrors(app.Logger, app.Configuration);
 if (smtpConfiguredAtStartup)
     app.Logger.LogInformation("Email confirmation is enabled (SMTP configured).");
 else
@@ -521,7 +522,8 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["otpLogDelivery"] = OtpDeliveryConfiguration.UsesServerLogFallback(config),
             ["emailConfirmationRequired"] = true,
             ["emailStatus"] = SmtpEmailConfiguration.IsEmailConfigured(config) ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
-            ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config)
+            ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config),
+            ["smtpEnvUnset"] = SmtpEmailConfiguration.GetUnsetProcessEnvironmentVariables()
         };
 
         var token = config["Operations:HealthToken"];

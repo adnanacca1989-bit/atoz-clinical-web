@@ -14,7 +14,7 @@ public enum OtpDeliveryMethod
 public static class OtpDeliveryConfiguration
 {
     public const string DevelopmentLogMessage =
-        "Development mode: your 4-digit code is in the server logs. Search for OTP LOG DELIVERY on Render (email/SMS/WhatsApp are not configured yet).";
+        "Your 4-digit code is in the server logs. On Render, open Logs and search for OTP LOG DELIVERY: (SMTP/Twilio are not configured on this server yet).";
 
     public static bool ForceLogDelivery(IConfiguration? config) =>
         ReadBool(config, "Otp:ForceLogDelivery", "OTP_FORCE_LOG_DELIVERY");

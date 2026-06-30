@@ -66,6 +66,66 @@ public static class SmtpEmailConfiguration
         return missing;
     }
 
+    /// <summary>
+    /// Variables not set in the process environment (Render dashboard).
+    /// Equivalent to checking process.env.SMTP_* in Node.js — values are never logged.
+    /// </summary>
+    public static IReadOnlyList<string> GetUnsetProcessEnvironmentVariables()
+    {
+        var missing = new List<string>();
+        foreach (var name in RequiredVariableNames)
+        {
+            if (name == "SMTP_PORT")
+            {
+                var raw = Environment.GetEnvironmentVariable("SMTP_PORT");
+                if (!HasValue(raw))
+                {
+                    missing.Add("SMTP_PORT");
+                }
+                else if (!int.TryParse(raw.Trim(), out var port) || port is <= 0 or > 65535)
+                {
+                    missing.Add("SMTP_PORT");
+                }
+
+                continue;
+            }
+
+            if (!HasValue(Environment.GetEnvironmentVariable(name)))
+                missing.Add(name);
+        }
+
+        return missing;
+    }
+
+    /// <summary>Logs an error for each required SMTP env var missing on the server (never logs secret values).</summary>
+    public static void LogMissingVariablesAsErrors(ILogger logger, IConfiguration? config = null)
+    {
+        var unsetOnProcess = GetUnsetProcessEnvironmentVariables();
+        foreach (var name in unsetOnProcess)
+        {
+            logger.LogError(
+                "SMTP environment variable {Variable} is not set. Add it to Render (or process.env / Environment Variables). OTP will use server log delivery until SMTP is configured.",
+                name);
+        }
+
+        if (unsetOnProcess.Count > 0)
+        {
+            logger.LogError(
+                "SMTP is not fully configured. Missing on server: {Missing}. Required: {Required}",
+                string.Join(", ", unsetOnProcess),
+                string.Join(", ", RequiredVariableNames));
+            return;
+        }
+
+        if (!IsEmailConfigured(config))
+        {
+            var missing = GetMissingVariables(config);
+            logger.LogError(
+                "SMTP environment variables are present but email is still not ready. Check values for: {Missing}",
+                string.Join(", ", missing));
+        }
+    }
+
     /// <summary>Logs raw process environment variable presence (values are never logged).</summary>
     public static void LogEnvironmentPresence(ILogger logger)
     {
@@ -95,10 +155,7 @@ public static class SmtpEmailConfiguration
         }
         else
         {
-            var missing = GetMissingVariables(config);
-            logger.LogWarning(
-                "SMTP not configured: missing variables: {Missing}",
-                string.Join(", ", missing));
+            LogMissingVariablesAsErrors(logger, config);
         }
     }
 
