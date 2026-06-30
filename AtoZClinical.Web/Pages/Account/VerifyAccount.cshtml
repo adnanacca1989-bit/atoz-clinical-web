@@ -36,13 +36,7 @@
             {
                 @if (!string.IsNullOrWhiteSpace(Model.DeliveryMessage))
                 {
-                    <div class="alert alert-info small">@Model.DeliveryMessage</div>
-                }
-                @if (Model.ShowDevelopmentOtpHints && Model.OtpDeliveredViaLog)
-                {
-                    <div class="alert alert-warning small">
-                        <strong>Development only.</strong> @OtpDeliveryConfiguration.DevelopmentLogMessage
-                    </div>
+                    <div class="alert @(Model.EmailConfigured ? "alert-info" : "alert-warning") small">@Model.DeliveryMessage</div>
                 }
             }
             @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))

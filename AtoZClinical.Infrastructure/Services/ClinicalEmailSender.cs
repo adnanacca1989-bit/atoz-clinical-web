@@ -88,6 +88,15 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
             _logger.LogError(ex,
                 "Email send failed to {To} via {Host}:{Port}: {FailureReason}",
                 toEmail, settings.Host, settings.Port, reason);
+
+            if (SmtpEmailDiagnostics.IsGmailHost(settings.Host)
+                && reason.Contains("authentication", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError(
+                    "Gmail SMTP authentication failed. Use a Google App Password in SMTP_PASS (not your normal Gmail password). " +
+                    "Enable 2-Step Verification, then create an App Password at https://myaccount.google.com/apppasswords");
+            }
+
             return ClinicalEmailSendResult.Failed(reason);
         }
     }

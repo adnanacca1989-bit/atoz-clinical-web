@@ -4,9 +4,9 @@ using Microsoft.Extensions.Logging;
 namespace AtoZClinical.Infrastructure.Services;
 
 /// <summary>
-/// OTP delivery channels. Email uses MailKit SMTP (not nodemailer — this is ASP.NET Core).
+/// OTP delivery channels. Email uses MailKit SMTP (ASP.NET equivalent of nodemailer).
 /// SMS and WhatsApp use Twilio when TWILIO_* environment variables are set.
-/// When no channel is configured, codes are written to logs with <see cref="OtpLogDelivery.LogLabel"/>.
+/// When SMTP is not configured, codes are written to logs with <see cref="LogLabel"/>.
 /// </summary>
 public static class OtpLogDelivery
 {

@@ -13,47 +13,61 @@ public enum OtpDeliveryMethod
 
 public static class OtpDeliveryConfiguration
 {
+    /// <summary>Shown when SMTP is configured and OTP was emailed.</summary>
+    public const string EmailReadyUserMessage = "Check your email for the verification code.";
+
+    /// <summary>Shown when SMTP is not configured (codes go to server logs).</summary>
+    public const string LogFallbackUserMessage =
+        "Verification code is available in server logs (development mode).";
+
+    /// <summary>Developer-only hint (Render logs search).</summary>
     public const string DevelopmentLogMessage =
-        "Your 4-digit code is in the server logs. Search for OTP LOG DELIVERY:";
+        "Search server logs for OTP LOG DELIVERY:";
+
+    /// <summary>Returns true when all SMTP_* environment variables are set.</summary>
+    public static bool IsEmailConfigured(IConfiguration? config) =>
+        SmtpEmailConfiguration.IsEmailConfigured(config);
 
     /// <summary>User-facing verification prompt (no SMTP/Twilio technical details).</summary>
     public static string BuildUserVerificationPrompt(
+        IConfiguration? config,
         OtpDeliveryMethod method,
         RegistrationVerificationChannel? channel = null,
         string? maskedDestination = null)
     {
         var effectiveChannel = ResolvePromptChannel(method, channel);
-        var actuallyDelivered = method != OtpDeliveryMethod.ServerLog;
+
+        if (effectiveChannel == RegistrationVerificationChannel.Email)
+        {
+            if (!IsEmailConfigured(config) || method == OtpDeliveryMethod.ServerLog)
+                return LogFallbackUserMessage;
+
+            return EmailReadyUserMessage;
+        }
+
+        if (!IsPhoneMessagingAvailable(config) || method == OtpDeliveryMethod.ServerLog)
+            return LogFallbackUserMessage;
 
         return effectiveChannel switch
         {
-            RegistrationVerificationChannel.Email => actuallyDelivered
-                && !string.IsNullOrWhiteSpace(maskedDestination)
-                ? $"Check your email for the verification code. We sent it to {maskedDestination}."
-                : "Check your email for the verification code.",
-            RegistrationVerificationChannel.Sms => actuallyDelivered
-                && !string.IsNullOrWhiteSpace(maskedDestination)
-                ? $"Check your phone for the verification code. We sent it to {maskedDestination}."
-                : "Check your phone for the verification code.",
-            RegistrationVerificationChannel.WhatsApp => actuallyDelivered
-                && !string.IsNullOrWhiteSpace(maskedDestination)
-                ? $"Check WhatsApp for the verification code. We sent it to {maskedDestination}."
-                : "Check WhatsApp for the verification code.",
-            _ => "Check your email for the verification code."
+            RegistrationVerificationChannel.Sms => "Check your phone for the verification code.",
+            RegistrationVerificationChannel.WhatsApp => "Check WhatsApp for the verification code.",
+            _ => IsEmailConfigured(config) ? EmailReadyUserMessage : LogFallbackUserMessage
         };
     }
 
     public static string BuildSentMessage(
+        IConfiguration? config,
         OtpDeliveryMethod method,
         string? maskedDestination,
         RegistrationVerificationChannel? channel = null) =>
-        BuildUserVerificationPrompt(method, channel, maskedDestination);
+        BuildUserVerificationPrompt(config, method, channel, maskedDestination);
 
     public static bool ForceLogDelivery(IConfiguration? config) =>
         ReadBool(config, "Otp:ForceLogDelivery", "OTP_FORCE_LOG_DELIVERY");
 
     public static bool IsEmailAvailable(IConfiguration? config) =>
-        SmtpEmailConfiguration.IsEmailConfigured(config);
+        IsEmailConfigured(config);
 
     public static bool IsSmsAvailable(IConfiguration? config) =>
         SmsConfiguration.IsSmsConfigured(config);

@@ -139,12 +139,7 @@ public static class SmtpEmailConfiguration
 
     public static void LogDiagnostics(ILogger logger, IConfiguration? config = null)
     {
-        var presence = GetVariablePresence(config);
-        logger.LogInformation("SMTP_HOST: {Exists}", presence["SMTP_HOST"]);
-        logger.LogInformation("SMTP_PORT: {Exists}", presence["SMTP_PORT"]);
-        logger.LogInformation("SMTP_USER: {Exists}", presence["SMTP_USER"]);
-        logger.LogInformation("SMTP_PASS: {Exists}", presence["SMTP_PASS"]);
-        logger.LogInformation("SMTP_FROM: {Exists}", presence["SMTP_FROM"]);
+        LogStartupDeveloperSummary(logger, config);
 
         if (IsEmailConfigured(config))
         {
@@ -156,6 +151,30 @@ public static class SmtpEmailConfiguration
         else
         {
             LogMissingVariablesAsErrors(logger, config);
+        }
+    }
+
+    /// <summary>One-line developer summary for Render logs at startup (never logs secret values).</summary>
+    public static void LogStartupDeveloperSummary(ILogger logger, IConfiguration? config = null)
+    {
+        var presence = GetVariablePresence(config);
+        var configured = IsEmailConfigured(config);
+        logger.LogInformation(
+            "SMTP startup check — emailConfigured={Configured} | HOST={Host} PORT={Port} USER={User} PASS={Pass} FROM={From}",
+            configured,
+            presence["SMTP_HOST"],
+            presence["SMTP_PORT"],
+            presence["SMTP_USER"],
+            presence["SMTP_PASS"],
+            presence["SMTP_FROM"]);
+
+        if (!configured)
+        {
+            var missing = GetUnsetProcessEnvironmentVariables();
+            logger.LogWarning(
+                "SMTP not ready. Set these on Render (Web Service → Environment): {Required}. Missing now: {Missing}",
+                string.Join(", ", RequiredVariableNames),
+                missing.Count == 0 ? string.Join(", ", GetMissingVariables(config)) : string.Join(", ", missing));
         }
     }
 

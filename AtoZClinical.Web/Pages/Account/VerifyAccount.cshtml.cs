@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
@@ -15,20 +14,17 @@ public class VerifyAccountModel : PageModel
     private readonly ApplicationUserLookup _userLookup;
     private readonly TrialRegistrationVerificationService _verification;
     private readonly IConfiguration _config;
-    private readonly IWebHostEnvironment _env;
     private readonly ILogger<VerifyAccountModel> _logger;
 
     public VerifyAccountModel(
         ApplicationUserLookup userLookup,
         TrialRegistrationVerificationService verification,
         IConfiguration config,
-        IWebHostEnvironment env,
         ILogger<VerifyAccountModel> logger)
     {
         _userLookup = userLookup;
         _verification = verification;
         _config = config;
-        _env = env;
         _logger = logger;
     }
 
@@ -45,18 +41,20 @@ public class VerifyAccountModel : PageModel
     public bool Verified { get; private set; }
     public bool ShowCodeForm { get; private set; }
     public bool OtpDeliveredViaLog { get; private set; }
-    public bool ShowDevelopmentOtpHints => _env.IsDevelopment();
+    public bool EmailConfigured { get; private set; }
     public string? DeliveryMessage { get; private set; }
     public string? ErrorMessage { get; private set; }
 
     public void OnGet(string? username)
     {
+        EmailConfigured = OtpDeliveryConfiguration.IsEmailConfigured(_config);
         if (!string.IsNullOrWhiteSpace(username))
             Input.Username = username.Trim();
     }
 
     public async Task<IActionResult> OnPostSendCodeAsync()
     {
+        EmailConfigured = OtpDeliveryConfiguration.IsEmailConfigured(_config);
         if (string.IsNullOrWhiteSpace(Input.Username))
         {
             ModelState.AddModelError(nameof(Input.Username), "Username is required.");
@@ -94,6 +92,7 @@ public class VerifyAccountModel : PageModel
                 ShowCodeForm = true;
                 OtpDeliveredViaLog = outcome.DeliveredViaLog;
                 DeliveryMessage = OtpDeliveryConfiguration.BuildUserVerificationPrompt(
+                    _config,
                     outcome.DeliveryMethod,
                     outcome.Channel,
                     outcome.MaskedDestination);

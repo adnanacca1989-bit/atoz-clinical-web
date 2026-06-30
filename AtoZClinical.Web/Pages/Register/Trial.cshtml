@@ -35,20 +35,14 @@
                         <h4 class="fw-bold mb-2" style="color:#0b4f8a">Enter verification code</h4>
                         @if (!string.IsNullOrWhiteSpace(Model.DeliveryMessage))
                         {
-                            <div class="alert alert-info small mb-0">@Model.DeliveryMessage</div>
-                        }
-                        @if (Model.ShowDevelopmentOtpHints && Model.OtpDeliveredViaLog)
-                        {
-                            <div class="alert alert-warning small mt-2 mb-0">
-                                <strong>Development only.</strong> @OtpDeliveryConfiguration.DevelopmentLogMessage
-                            </div>
+                            <div class="alert @(Model.EmailConfigured ? "alert-info" : "alert-warning") small mb-0">@Model.DeliveryMessage</div>
                         }
                         @if (Model.CodeResent)
                         {
                             <div class="alert alert-success small mt-3 mb-0">
-                                @(Model.ShowDevelopmentOtpHints && Model.OtpDeliveredViaLog
-                                    ? "A new code was generated — see server logs (OTP LOG DELIVERY:)."
-                                    : "A new verification code has been sent.")
+                                @(Model.EmailConfigured
+                                    ? "A new verification code has been sent."
+                                    : "A new code was generated.")
                             </div>
                         }
                         @if (Model.VerificationFailed)

@@ -74,6 +74,7 @@ public static class AuthOtpApiEndpoints
                     maskedDestination = outcome.MaskedDestination,
                     expiresInMinutes = TrialRegistrationVerificationService.CodeExpiryMinutes,
                     message = OtpDeliveryConfiguration.BuildUserVerificationPrompt(
+                        config,
                         outcome.DeliveryMethod,
                         outcome.Channel,
                         outcome.MaskedDestination)

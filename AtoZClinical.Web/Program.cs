@@ -552,6 +552,11 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
     }
 }).AllowAnonymous().DisableRateLimiting();
 
+app.MapGet("/health/email", (IConfiguration config) =>
+    Results.Json(new { emailConfigured = SmtpEmailConfiguration.IsEmailConfigured(config) }))
+    .AllowAnonymous()
+    .DisableRateLimiting();
+
 app.MapGet("/debug-email-config", (IConfiguration config) =>
     Results.Json(SmtpEmailConfiguration.GetVariablePresence(config)))
     .AllowAnonymous()
