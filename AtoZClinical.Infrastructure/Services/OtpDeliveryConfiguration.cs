@@ -23,14 +23,22 @@ public static class OtpDeliveryConfiguration
         string? maskedDestination = null)
     {
         var effectiveChannel = ResolvePromptChannel(method, channel);
+        var actuallyDelivered = method != OtpDeliveryMethod.ServerLog;
 
         return effectiveChannel switch
         {
-            RegistrationVerificationChannel.Email => string.IsNullOrWhiteSpace(maskedDestination)
-                ? "Check your email for the verification code."
-                : $"Check your email for the verification code. We sent it to {maskedDestination}.",
-            RegistrationVerificationChannel.Sms => "Check your phone for the verification code.",
-            RegistrationVerificationChannel.WhatsApp => "Check WhatsApp for the verification code.",
+            RegistrationVerificationChannel.Email => actuallyDelivered
+                && !string.IsNullOrWhiteSpace(maskedDestination)
+                ? $"Check your email for the verification code. We sent it to {maskedDestination}."
+                : "Check your email for the verification code.",
+            RegistrationVerificationChannel.Sms => actuallyDelivered
+                && !string.IsNullOrWhiteSpace(maskedDestination)
+                ? $"Check your phone for the verification code. We sent it to {maskedDestination}."
+                : "Check your phone for the verification code.",
+            RegistrationVerificationChannel.WhatsApp => actuallyDelivered
+                && !string.IsNullOrWhiteSpace(maskedDestination)
+                ? $"Check WhatsApp for the verification code. We sent it to {maskedDestination}."
+                : "Check WhatsApp for the verification code.",
             _ => "Check your email for the verification code."
         };
     }
