@@ -16,6 +16,11 @@ public interface IClinicalEmailSender
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// MailKit SMTP sender (ASP.NET equivalent of nodemailer).
+/// Reads SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM from environment variables.
+/// Gmail: smtp.gmail.com:587 with STARTTLS (secure=false in nodemailer terms).
+/// </summary>
 public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
 {
     private readonly IConfiguration _config;
@@ -40,12 +45,17 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         if (string.IsNullOrWhiteSpace(toEmail))
             throw new ArgumentException("Recipient email is required.", nameof(toEmail));
 
+        if (!SmtpEmailConfiguration.IsEmailConfigured(_config))
+        {
+            SmtpEmailConfiguration.LogMissingVariablesAsErrors(_logger, _config);
+            return ClinicalEmailSendResult.SkippedNotConfigured();
+        }
+
         var settings = SmtpEmailSettings.From(_config);
         if (!settings.IsReady)
         {
             SmtpEmailConfiguration.LogMissingVariablesAsErrors(_logger, _config);
-            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
-            throw new ClinicalEmailNotConfiguredException(missing);
+            return ClinicalEmailSendResult.SkippedNotConfigured();
         }
 
         if (!string.IsNullOrWhiteSpace(settings.ConfigurationWarning))
@@ -64,14 +74,19 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         using var client = new SmtpClient();
         try
         {
-            _logger.LogInformation("Connecting to SMTP {Host}:{Port}...", settings.Host, settings.Port);
+            _logger.LogInformation(
+                "Connecting to SMTP {Host}:{Port} with {SocketOption}...",
+                settings.Host, settings.Port, settings.SecureSocketOptions);
             await client.ConnectAsync(settings.Host!, settings.Port, settings.SecureSocketOptions, cancellationToken);
 
-            if (!string.IsNullOrWhiteSpace(settings.User))
+            if (string.IsNullOrWhiteSpace(settings.User) || string.IsNullOrWhiteSpace(settings.Password))
             {
-                _logger.LogInformation("Authenticating SMTP user {User}...", settings.User);
-                await client.AuthenticateAsync(settings.User, settings.Password, cancellationToken);
+                _logger.LogError("SMTP_USER or SMTP_PASS is empty — cannot authenticate to SMTP server.");
+                return ClinicalEmailSendResult.Failed("SMTP authentication credentials are missing.");
             }
+
+            _logger.LogInformation("Authenticating SMTP user {User}...", settings.User);
+            await client.AuthenticateAsync(settings.User, settings.Password, cancellationToken);
 
             var response = await client.SendAsync(message, cancellationToken);
             await client.DisconnectAsync(true, cancellationToken);

@@ -427,11 +427,13 @@ await DatabaseInitializer.InitializeAsync(app.Services);
 
 var emailSettings = SmtpEmailSettings.From(app.Configuration);
 SmtpEmailConfiguration.LogDiagnostics(app.Logger, app.Configuration);
-SmtpEmailConfiguration.LogMissingVariablesAsErrors(app.Logger, app.Configuration);
 if (smtpConfiguredAtStartup)
+{
+    app.Logger.LogInformation(SmtpEmailConfiguration.StartupSuccessMessage);
     app.Logger.LogInformation("Email confirmation is enabled (SMTP configured).");
+}
 else
-    app.Logger.LogWarning("SMTP is not configured — email verification codes cannot be sent.");
+    app.Logger.LogWarning("{SmtpError}", SmtpEmailConfiguration.FormatMissingConfigurationError(app.Configuration));
 
 SmsConfiguration.LogDiagnostics(app.Logger, app.Configuration);
 if (smsConfiguredAtStartup)
@@ -509,21 +511,24 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
         if (!await db.Database.CanConnectAsync())
             return Results.Problem("Database unreachable", statusCode: StatusCodes.Status503ServiceUnavailable);
 
+        var emailConfigured = SmtpEmailConfiguration.IsEmailConfigured(config);
         var basic = new Dictionary<string, object?>
         {
             ["status"] = "healthy",
             ["version"] = AppBuildInfo.Version,
             ["timestamp"] = DateTime.UtcNow,
             ["isHttps"] = ctx.Request.IsHttps,
-            ["emailConfigured"] = SmtpEmailConfiguration.IsEmailConfigured(config),
+            ["emailConfigured"] = emailConfigured,
             ["smsConfigured"] = SmsConfiguration.IsSmsConfigured(config),
             ["whatsappConfigured"] = SmsConfiguration.IsWhatsAppConfigured(config),
             ["otpDelivery"] = OtpDeliveryConfiguration.GetDeliveryAvailability(config),
             ["otpLogDelivery"] = OtpDeliveryConfiguration.UsesServerLogFallback(config),
             ["emailConfirmationRequired"] = true,
-            ["emailStatus"] = SmtpEmailConfiguration.IsEmailConfigured(config) ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
+            ["emailStatus"] = emailConfigured ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
+            ["emailConfigurationError"] = emailConfigured ? null : SmtpEmailConfiguration.FormatMissingConfigurationError(config),
             ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config),
-            ["smtpEnvUnset"] = SmtpEmailConfiguration.GetUnsetProcessEnvironmentVariables()
+            ["smtpEnvUnset"] = SmtpEmailConfiguration.GetUnsetProcessEnvironmentVariables(),
+            ["smtpVariables"] = SmtpEmailConfiguration.GetVariablePresence(config)
         };
 
         var token = config["Operations:HealthToken"];
@@ -553,7 +558,9 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
 }).AllowAnonymous().DisableRateLimiting();
 
 app.MapGet("/health/email", (IConfiguration config) =>
-    Results.Json(new { emailConfigured = SmtpEmailConfiguration.IsEmailConfigured(config) }))
+    Results.Content(
+        JsonSerializer.Serialize(SmtpEmailConfiguration.BuildEmailHealthPayload(config)),
+        "application/json"))
     .AllowAnonymous()
     .DisableRateLimiting();
 
@@ -585,6 +592,17 @@ app.MapGet("/test-email", async (HttpContext ctx, IClinicalEmailSender email, IC
         var sendResult = await email.SendAsync(to,
             "A to Z Clinical — SMTP test",
             "<p>This is a test email from A to Z Clinical. SMTP is working.</p>");
+
+        if (sendResult.Skipped)
+        {
+            var missing = SmtpEmailConfiguration.GetMissingVariables(config);
+            return Results.Json(new
+            {
+                success = false,
+                error = SmtpEmailConfiguration.FormatMissingConfigurationError(config),
+                missing
+            }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
 
         if (!sendResult.Success)
         {

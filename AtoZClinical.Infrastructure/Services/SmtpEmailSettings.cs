@@ -35,10 +35,10 @@ public sealed class SmtpEmailSettings
     }
 
     public SecureSocketOptions SecureSocketOptions =>
-        !UseSsl ? SecureSocketOptions.None :
-        Port == 465 ? SecureSocketOptions.SslOnConnect :
         Port == 587 ? SecureSocketOptions.StartTls :
-        SecureSocketOptions.Auto;
+        Port == 465 ? SecureSocketOptions.SslOnConnect :
+        UseSsl ? SecureSocketOptions.StartTlsWhenAvailable :
+        SecureSocketOptions.None;
 
     public string StartupLogMessage() =>
         IsReady

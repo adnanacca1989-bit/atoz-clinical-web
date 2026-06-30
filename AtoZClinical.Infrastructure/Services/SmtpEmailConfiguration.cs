@@ -3,12 +3,29 @@ using Microsoft.Extensions.Logging;
 
 namespace AtoZClinical.Infrastructure.Services;
 
-/// <summary>SMTP detection: Render environment variables first, then IConfiguration fallback.</summary>
+/// <summary>SMTP detection from Render/process environment variables (SMTP_* only).</summary>
 public static class SmtpEmailConfiguration
 {
     public const string NotConfiguredUserMessage = "Email is not configured on the server.";
     public const string ConfirmationEmailSentMessage = "Confirmation email sent. Check your inbox and spam folder.";
     public const string NotConfiguredServiceMessage = ClinicalEmailSendResult.NotConfiguredMessage;
+    public const string StartupSuccessMessage = "SMTP configured successfully";
+    public const string OtpSendingLogMessage = "Sending OTP via email";
+    public const string NotConfiguredLogMessagePrefix = "Email is NOT CONFIGURED — missing:";
+
+    /// <summary>Operator-facing message when SMTP env vars are missing (never includes secret values).</summary>
+    public static string FormatMissingConfigurationError(IConfiguration? config = null)
+    {
+        return FormatMissingConfigurationError(GetMissingVariables(config));
+    }
+
+    public static string FormatMissingConfigurationError(IReadOnlyList<string> missing)
+    {
+        if (missing.Count == 0)
+            return NotConfiguredUserMessage;
+
+        return $"SMTP is not configured. Set these environment variables on the Render Web Service: {string.Join(", ", missing)}.";
+    }
 
     public static string FormatMissingVariablesText(IReadOnlyList<string> missing)
     {
@@ -51,20 +68,43 @@ public static class SmtpEmailConfiguration
             ["SMTP_PORT"] = HasValidPort(config),
             ["SMTP_USER"] = HasValue(ReadUser(config)),
             ["SMTP_PASS"] = HasValue(ReadPassword(config)),
-            ["SMTP_FROM"] = HasValue(ReadFromEmail(config))
+            ["SMTP_FROM"] = HasValue(ReadExplicitFromEmail(config))
         };
     }
 
     public static IReadOnlyList<string> GetMissingVariables(IConfiguration? config = null)
     {
+        _ = config;
         var missing = new List<string>();
         if (!HasValue(ReadHost(config))) missing.Add("SMTP_HOST");
         if (!HasValidPort(config)) missing.Add("SMTP_PORT");
         if (!HasValue(ReadUser(config))) missing.Add("SMTP_USER");
         if (!HasValue(ReadPassword(config))) missing.Add("SMTP_PASS");
-        if (!HasValue(ReadFromEmail(config))) missing.Add("SMTP_FROM");
+        if (!HasValue(ReadExplicitFromEmail(config))) missing.Add("SMTP_FROM");
         return missing;
     }
+
+    /// <summary>Structured payload for GET /health/email (never includes secret values).</summary>
+    public static Dictionary<string, object?> BuildEmailHealthPayload(IConfiguration? config = null)
+    {
+        var configured = IsEmailConfigured(config);
+        var missing = GetMissingVariables(config);
+        var presence = GetVariablePresence(config);
+        return new Dictionary<string, object?>
+        {
+            ["emailConfigured"] = configured,
+            ["status"] = configured ? "ready" : "not_configured",
+            ["missingVariables"] = missing,
+            ["smtpVariables"] = presence,
+            ["smtpEnvUnset"] = GetUnsetProcessEnvironmentVariables(),
+            ["emailConfigurationError"] = configured ? null : FormatMissingConfigurationError(missing),
+            ["smtpHost"] = configured ? ReadHost(config) : null,
+            ["smtpPort"] = configured ? ReadPort(config) : null
+        };
+    }
+
+    public static string FormatNotConfiguredLogMessage(IReadOnlyList<string> missing) =>
+        $"{NotConfiguredLogMessagePrefix} {string.Join(", ", missing)}";
 
     /// <summary>
     /// Variables not set in the process environment (Render dashboard).
@@ -139,7 +179,7 @@ public static class SmtpEmailConfiguration
 
     public static void LogDiagnostics(ILogger logger, IConfiguration? config = null)
     {
-        LogStartupDeveloperSummary(logger, config);
+        LogStartupEmailStatus(logger, config);
 
         if (IsEmailConfigured(config))
         {
@@ -148,17 +188,14 @@ public static class SmtpEmailConfiguration
                 ReadHost(config),
                 ReadPort(config));
         }
-        else
-        {
-            LogMissingVariablesAsErrors(logger, config);
-        }
     }
 
-    /// <summary>One-line developer summary for Render logs at startup (never logs secret values).</summary>
-    public static void LogStartupDeveloperSummary(ILogger logger, IConfiguration? config = null)
+    /// <summary>Primary startup log: whether outbound email (SMTP) is configured.</summary>
+    public static void LogStartupEmailStatus(ILogger logger, IConfiguration? config = null)
     {
         var presence = GetVariablePresence(config);
         var configured = IsEmailConfigured(config);
+
         logger.LogInformation(
             "SMTP startup check — emailConfigured={Configured} | HOST={Host} PORT={Port} USER={User} PASS={Pass} FROM={From}",
             configured,
@@ -168,14 +205,26 @@ public static class SmtpEmailConfiguration
             presence["SMTP_PASS"],
             presence["SMTP_FROM"]);
 
-        if (!configured)
+        if (configured)
         {
-            var missing = GetUnsetProcessEnvironmentVariables();
-            logger.LogWarning(
-                "SMTP not ready. Set these on Render (Web Service → Environment): {Required}. Missing now: {Missing}",
-                string.Join(", ", RequiredVariableNames),
-                missing.Count == 0 ? string.Join(", ", GetMissingVariables(config)) : string.Join(", ", missing));
+            logger.LogInformation(StartupSuccessMessage);
+            logger.LogInformation(
+                "Email is CONFIGURED — SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM are set (Gmail: host=smtp.gmail.com, port=587, STARTTLS).");
+            return;
         }
+
+        var unsetOnProcess = GetUnsetProcessEnvironmentVariables();
+        var missing = unsetOnProcess.Count > 0 ? unsetOnProcess : GetMissingVariables(config);
+        logger.LogError(FormatNotConfiguredLogMessage(missing));
+        logger.LogError(
+            "Add these on Render (Web Service → Environment): {Required}",
+            string.Join(", ", RequiredVariableNames));
+    }
+
+    /// <summary>One-line developer summary for Render logs at startup (never logs secret values).</summary>
+    public static void LogStartupDeveloperSummary(ILogger logger, IConfiguration? config = null)
+    {
+        LogStartupEmailStatus(logger, config);
     }
 
     private static void LogRawEnv(ILogger logger, string name)
@@ -194,13 +243,9 @@ public static class SmtpEmailConfiguration
             && port is > 0 and <= 65535;
     }
 
-    internal static string? ReadHost(IConfiguration? config) =>
-        ReadEnvFirst("SMTP_HOST", "Email__SmtpHost")
-        ?? ReadConfig(config, "Email:SmtpHost");
+    internal static string? ReadHost(IConfiguration? config) => ReadRequiredEnv("SMTP_HOST");
 
-    internal static string? ReadPortRaw(IConfiguration? config) =>
-        ReadEnvFirst("SMTP_PORT", "Email__SmtpPort")
-        ?? ReadConfig(config, "Email:SmtpPort");
+    internal static string? ReadPortRaw(IConfiguration? config) => ReadRequiredEnv("SMTP_PORT");
 
     internal static int ReadPort(IConfiguration? config)
     {
@@ -208,22 +253,15 @@ public static class SmtpEmailConfiguration
         return HasValue(raw) && int.TryParse(raw!.Trim(), out var port) ? port : 587;
     }
 
-    internal static string? ReadUser(IConfiguration? config) =>
-        ReadEnvFirst("SMTP_USER", "Email__SmtpUser")
-        ?? ReadConfig(config, "Email:SmtpUser");
+    internal static string? ReadUser(IConfiguration? config) => ReadRequiredEnv("SMTP_USER");
 
-    internal static string? ReadPassword(IConfiguration? config) =>
-        ReadEnvFirst("SMTP_PASS", "SMTP_PASSWORD", "Email__SmtpPassword")
-        ?? ReadConfig(config, "Email:SmtpPassword");
+    internal static string? ReadPassword(IConfiguration? config) => ReadRequiredEnv("SMTP_PASS");
 
-    internal static string? ReadExplicitFromEmail(IConfiguration? config) =>
-        ReadEnvFirst("SMTP_FROM", "FROM_EMAIL", "Email__FromAddress")
-        ?? ReadConfig(config, "Email:FromAddress");
+    internal static string? ReadExplicitFromEmail(IConfiguration? config) => ReadRequiredEnv("SMTP_FROM");
 
     internal static string? ReadFromEmail(IConfiguration? config)
     {
-        var from = ReadEnvFirst("SMTP_FROM", "FROM_EMAIL", "Email__FromAddress")
-            ?? ReadConfig(config, "Email:FromAddress");
+        var from = ReadExplicitFromEmail(config);
         if (HasValue(from))
             return from;
 
@@ -236,43 +274,25 @@ public static class SmtpEmailConfiguration
     }
 
     internal static string? ReadFromName(IConfiguration? config) =>
-        ReadEnvFirst("FROM_NAME", "Email__FromName")
-        ?? ReadConfig(config, "Email:FromName")
-        ?? "A to Z Clinical";
+        ReadOptionalEnv("FROM_NAME") ?? "A to Z Clinical";
 
     internal static bool ReadUseSsl(IConfiguration? config)
     {
-        var raw = ReadEnvFirst("SMTP_USE_SSL", "Email__UseSsl")
-            ?? ReadConfig(config, "Email:UseSsl");
+        var raw = ReadOptionalEnv("SMTP_USE_SSL");
         if (HasValue(raw) && bool.TryParse(raw!.Trim(), out var ssl))
             return ssl;
         return ReadPort(config) is 465 or 587;
     }
 
-    private static string? ReadEnvFirst(params string[] envNames)
+    private static string? ReadRequiredEnv(string name)
     {
-        foreach (var name in envNames)
-        {
-            var value = Environment.GetEnvironmentVariable(name);
-            if (HasValue(value))
-                return value!.Trim();
-        }
-
-        return null;
+        var value = Environment.GetEnvironmentVariable(name);
+        return HasValue(value) ? value!.Trim() : null;
     }
 
-    private static string? ReadConfig(IConfiguration? config, params string[] keys)
+    private static string? ReadOptionalEnv(string name)
     {
-        if (config is null)
-            return null;
-
-        foreach (var key in keys)
-        {
-            var value = config[key];
-            if (HasValue(value))
-                return value!.Trim();
-        }
-
-        return null;
+        var value = Environment.GetEnvironmentVariable(name);
+        return HasValue(value) ? value!.Trim() : null;
     }
 }

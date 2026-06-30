@@ -20,13 +20,13 @@ public static class SmtpConfigurationBootstrap
             }
         }
 
-        SetIfPresent(configuration, "Email:SmtpHost", "SMTP_HOST", "Email__SmtpHost");
-        SetIfPresent(configuration, "Email:SmtpPort", "SMTP_PORT", "Email__SmtpPort");
-        SetIfPresent(configuration, "Email:SmtpUser", "SMTP_USER", "Email__SmtpUser");
-        SetIfPresent(configuration, "Email:SmtpPassword", "SMTP_PASS", "SMTP_PASSWORD", "Email__SmtpPassword");
-        SetIfPresent(configuration, "Email:FromAddress", "SMTP_FROM", "FROM_EMAIL", "Email__FromAddress");
-        SetIfPresent(configuration, "Email:FromName", "FROM_NAME", "Email__FromName");
-        SetIfPresent(configuration, "Email:UseSsl", "SMTP_USE_SSL", "Email__UseSsl");
+        SetIfPresent(configuration, "Email:SmtpHost", "SMTP_HOST");
+        SetIfPresent(configuration, "Email:SmtpPort", "SMTP_PORT");
+        SetIfPresent(configuration, "Email:SmtpUser", "SMTP_USER");
+        SetIfPresent(configuration, "Email:SmtpPassword", "SMTP_PASS");
+        SetIfPresent(configuration, "Email:FromAddress", "SMTP_FROM");
+        SetIfPresent(configuration, "Email:FromName", "FROM_NAME");
+        SetIfPresent(configuration, "Email:UseSsl", "SMTP_USE_SSL");
 
         var host = configuration["Email:SmtpHost"];
         var user = configuration["Email:SmtpUser"];

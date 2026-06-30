@@ -88,31 +88,8 @@ public sealed class TrialRegistrationVerificationService
             return BuildLogOutcome(channel, destination);
         }
 
-        if (channel == RegistrationVerificationChannel.Email
-            && OtpDeliveryConfiguration.IsEmailAvailable(_config))
-        {
-            // Email channel: SMTP via MailKit (reads SMTP_* from process environment).
-            var body = $"""
-                <p>Hello {user.FullName},</p>
-                <p>Your A to Z Clinical verification code is:</p>
-                <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:24px 0">{plainCode}</p>
-                <p style="color:#666;font-size:14px">This code expires in {CodeExpiryMinutes} minutes.</p>
-                <p style="color:#666;font-size:14px">If you did not register, you can ignore this message.</p>
-                """;
-
-            var result = await _email.SendAsync(destination, "Your A to Z Clinical verification code", body, ct);
-            if (!result.Success)
-            {
-                _logger.LogError("Verification email failed for user {UserId}: {Reason}", user.Id, result.Message);
-                return VerificationCodeSendOutcome.Failed(result.Message);
-            }
-
-            _logger.LogInformation("Verification code email sent to {Destination} for user {UserId}", destination, user.Id);
-            return VerificationCodeSendOutcome.Sent(
-                channel,
-                MaskEmail(destination),
-                OtpDeliveryMethod.Email);
-        }
+        if (channel == RegistrationVerificationChannel.Email)
+            return await DeliverEmailOtpAsync(user, plainCode, destination, ct);
 
         var smsText = $"Your A to Z Clinical verification code is {plainCode}. It expires in {CodeExpiryMinutes} minutes.";
 
@@ -154,6 +131,69 @@ public sealed class TrialRegistrationVerificationService
 
         LogOtpForServerDelivery(user, plainCode, channel, destination);
         return BuildLogOutcome(channel, destination);
+    }
+
+    /// <summary>
+    /// Sends OTP by SMTP when all SMTP_* env vars are set; otherwise logs OTP LOG DELIVERY.
+    /// </summary>
+    private async Task<VerificationCodeSendOutcome> DeliverEmailOtpAsync(
+        ApplicationUser user,
+        string plainCode,
+        string destination,
+        CancellationToken ct)
+    {
+        if (!OtpDeliveryConfiguration.IsEmailConfigured(_config))
+        {
+            _logger.LogWarning(
+                "SMTP not configured — OTP will be logged to server ({Label}). Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM on Render.",
+                OtpLogDelivery.LogLabel);
+            LogOtpForServerDelivery(user, plainCode, RegistrationVerificationChannel.Email, destination);
+            return BuildLogOutcome(RegistrationVerificationChannel.Email, destination);
+        }
+
+        _logger.LogInformation(SmtpEmailConfiguration.OtpSendingLogMessage);
+
+        var body = $"""
+            <p>Hello {user.FullName},</p>
+            <p>Your A to Z Clinical verification code is:</p>
+            <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:24px 0">{plainCode}</p>
+            <p style="color:#666;font-size:14px">This code expires in {CodeExpiryMinutes} minutes.</p>
+            <p style="color:#666;font-size:14px">If you did not register, you can ignore this message.</p>
+            """;
+
+        ClinicalEmailSendResult result;
+        try
+        {
+            result = await _email.SendAsync(
+                destination,
+                "Your A to Z Clinical verification code",
+                body,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error sending OTP email for user {UserId}", user.Id);
+            return VerificationCodeSendOutcome.Failed(SmtpEmailDiagnostics.ClassifyFailure(ex));
+        }
+
+        if (result.Skipped)
+        {
+            _logger.LogWarning("SMTP became unavailable — falling back to OTP LOG DELIVERY for user {UserId}", user.Id);
+            LogOtpForServerDelivery(user, plainCode, RegistrationVerificationChannel.Email, destination);
+            return BuildLogOutcome(RegistrationVerificationChannel.Email, destination);
+        }
+
+        if (!result.Success)
+        {
+            _logger.LogError("Verification email failed for user {UserId}: {Reason}", user.Id, result.Message);
+            return VerificationCodeSendOutcome.Failed(result.Message);
+        }
+
+        _logger.LogInformation("OTP email sent to {Destination} for user {UserId}", destination, user.Id);
+        return VerificationCodeSendOutcome.Sent(
+            RegistrationVerificationChannel.Email,
+            MaskEmail(destination),
+            OtpDeliveryMethod.Email);
     }
 
     private static VerificationCodeSendOutcome BuildLogOutcome(

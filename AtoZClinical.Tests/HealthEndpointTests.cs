@@ -24,6 +24,26 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Health_includes_emailConfigured_flag()
+    {
+        var response = await _client.GetAsync("/health");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"emailConfigured\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Health_email_endpoint_returns_emailConfigured()
+    {
+        var response = await _client.GetAsync("/health/email");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"emailConfigured\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Login_page_is_reachable()
     {
         var response = await _client.GetAsync("/Account/Login");

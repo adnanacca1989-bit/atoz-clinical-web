@@ -11,7 +11,5 @@ public sealed class ClinicalEmailNotConfiguredException : Exception
     public IReadOnlyList<string> MissingVariables { get; }
 
     private static string BuildMessage(IReadOnlyList<string> missing) =>
-        missing.Count == 0
-            ? SmtpEmailConfiguration.NotConfiguredUserMessage
-            : $"SMTP is not configured. Missing: {string.Join(", ", missing)}";
+        SmtpEmailConfiguration.FormatMissingConfigurationError(missing);
 }
