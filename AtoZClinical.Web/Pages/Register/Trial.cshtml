@@ -19,7 +19,7 @@
         <div class="text-center mb-4">
             <h1 class="fw-bold" style="color:#0b4f8a">A to Z Clinical</h1>
             <p class="lead mb-1">Clinical Management System — Web Edition</p>
-            <p class="text-muted">30-day trial · Register and sign in immediately</p>
+            <p class="text-muted">30-day trial · Confirm your email before signing in</p>
         </div>
 
         <div class="row justify-content-center g-4">
@@ -34,9 +34,28 @@
                             <p>Clinic code (for patient portal): <strong>@Model.ClinicCode</strong></p>
                         }
                         <p>Username: <strong>@Model.AdminUsername</strong></p>
-                        <div class="alert alert-info small mb-0">
-                            Sign in now with your username and password. Trial expires 30 days from today.
-                        </div>
+                        @if (Model.EmailConfirmationSent)
+                        {
+                            <div class="alert alert-info small mb-0">
+                                A confirmation email was sent. Confirm your email, then sign in with your username and password.
+                                Trial expires 30 days from today.
+                            </div>
+                        }
+                        else if (Model.EmailConfirmationFailed)
+                        {
+                            <div class="alert alert-danger small mb-0">
+                                @Model.EmailConfirmationErrorMessage
+                                <p class="mb-0 mt-2">Use
+                                    <a asp-page="/Account/ResendConfirmation" asp-route-username="@Model.AdminUsername">Resend confirmation email</a>
+                                    after SMTP is configured, or contact support.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info small mb-0">
+                                Confirm your email before signing in. Trial expires 30 days from today.
+                            </div>
+                        }
                         <div class="mt-4 d-flex flex-wrap gap-2">
                             <a class="btn btn-atz-primary" asp-page="/Account/Login">Login</a>
                             <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
@@ -67,7 +86,7 @@
                                 <label asp-for="Input.Email" class="form-label"></label>
                                 <input asp-for="Input.Email" class="form-control" type="email" autocomplete="email" />
                                 <span asp-validation-for="Input.Email" class="text-danger"></span>
-                                <div class="form-text">Used for your account and clinic contact. No confirmation required.</div>
+                                <div class="form-text">Used for your account and clinic contact. Confirmation is required before sign-in.</div>
                             </div>
 
                             <partial name="_CaptchaWidget" />

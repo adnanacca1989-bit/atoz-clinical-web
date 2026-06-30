@@ -75,6 +75,16 @@ public class ClinicModel : CaptchaPageModel
 
         if (!await ValidateCaptchaAsync(_captcha)) return Page();
 
+        if (!string.IsNullOrWhiteSpace(Input.Email) && !SmtpEmailConfiguration.IsEmailConfigured(_config))
+        {
+            var missing = SmtpEmailConfiguration.GetMissingVariables(_config);
+            _logger.LogError(
+                "Clinic registration blocked: SMTP not configured. Missing: {Missing}",
+                string.Join(", ", missing));
+            ModelState.AddModelError(string.Empty, new ClinicalEmailNotConfiguredException(missing).Message);
+            return Page();
+        }
+
 
 
         try

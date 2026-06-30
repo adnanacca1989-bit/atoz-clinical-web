@@ -107,11 +107,12 @@ public sealed class VendorClinicService
         var phoneMessagingReady = OtpDeliveryConfiguration.IsPhoneMessagingAvailable(_config);
         var hasEmail = !string.IsNullOrWhiteSpace(request.Email?.Trim());
         var hasPhone = !string.IsNullOrWhiteSpace(request.AdminPhone?.Trim());
-        var requireVerification = request.RequireAccountVerification
+        var requireOtpVerification = request.RequireAccountVerification
             && (hasEmail || hasPhone)
             && AccountVerificationPolicy.IsRequired(_config);
+        var requireEmailConfirmation = request.RequireAccountVerification && hasEmail;
 
-        if (requireVerification && !smtpReady && !phoneMessagingReady)
+        if (requireOtpVerification && !smtpReady && !phoneMessagingReady)
         {
             _logger.LogWarning(
                 "SMTP/Twilio not configured — OTP for admin {Username} clinic {ClinicName} will be written to server logs until delivery is configured.",
@@ -131,8 +132,8 @@ public sealed class VendorClinicService
             ClinicId = clinic.Id,
             ClinicRole = ClinicUserRole.ClinicAdmin,
             IsVendorAdmin = false,
-            EmailConfirmed = !requireVerification || !AccountVerificationPolicy.IsRequired(_config),
-            PhoneNumberConfirmed = (!requireVerification || !AccountVerificationPolicy.IsRequired(_config)) && hasPhone
+            EmailConfirmed = !requireEmailConfirmation,
+            PhoneNumberConfirmed = (!requireOtpVerification || !AccountVerificationPolicy.IsRequired(_config)) && hasPhone
         };
 
         var result = await _users.CreateAsync(admin, password);
@@ -257,7 +258,7 @@ public sealed class VendorClinicService
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
-            RequireAccountVerification = false,
+            RequireAccountVerification = true,
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),

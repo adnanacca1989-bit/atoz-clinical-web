@@ -5,7 +5,6 @@ using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
-using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Filters;
 using AtoZClinical.Web.Middleware;
 using AtoZClinical.Web.Services;
@@ -133,16 +132,7 @@ public class LoginModel : PageModel
             clientIp,
             HttpContext.TraceIdentifier);
 
-        if (!AccountVerificationPolicy.IsRequired(_config))
-            await EnsureAccountConfirmedAsync(user);
-
         var result = await _signIn.PasswordSignInAsync(Input.Username, Input.Password, Input.RememberMe, lockoutOnFailure: true);
-
-        if (result.IsNotAllowed && !AccountVerificationPolicy.IsRequired(_config))
-        {
-            await EnsureAccountConfirmedAsync(user);
-            result = await _signIn.PasswordSignInAsync(Input.Username, Input.Password, Input.RememberMe, lockoutOnFailure: true);
-        }
 
         _logger.LogInformation(
             "PasswordSignInAsync result for {Username} succeeded={Succeeded} requires2fa={Requires2fa} lockedOut={LockedOut} notAllowed={NotAllowed} client={ClientIp} trace={TraceId}",
@@ -159,7 +149,13 @@ public class LoginModel : PageModel
 
         if (result.IsNotAllowed)
         {
-            if (AccountVerificationPolicy.IsRequired(_config))
+            if (!user.EmailConfirmed && !string.IsNullOrWhiteSpace(user.Email))
+            {
+                ShowResendConfirmation = true;
+                ModelState.AddModelError(string.Empty,
+                    "Please confirm your email address before logging in. Check your inbox and spam folder.");
+            }
+            else if (AccountVerificationPolicy.IsRequired(_config))
             {
                 ShowResendConfirmation = !string.IsNullOrWhiteSpace(user.Email) || !string.IsNullOrWhiteSpace(user.PhoneNumber);
                 ModelState.AddModelError(string.Empty,
@@ -294,23 +290,6 @@ public class LoginModel : PageModel
             clientIp);
 
         return RedirectToPage("/Dashboard/Index");
-    }
-
-    private async Task EnsureAccountConfirmedAsync(ApplicationUser user)
-    {
-        if (user.EmailConfirmed && user.PhoneNumberConfirmed)
-            return;
-
-        user.EmailConfirmed = true;
-        user.PhoneNumberConfirmed = true;
-        var update = await _users.UpdateAsync(user);
-        if (!update.Succeeded)
-        {
-            _logger.LogWarning(
-                "Could not auto-confirm account {UserId}: {Errors}",
-                user.Id,
-                string.Join("; ", update.Errors.Select(e => e.Description)));
-        }
     }
 
     public sealed class LoginInput

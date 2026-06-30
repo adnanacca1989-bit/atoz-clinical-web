@@ -51,7 +51,7 @@ public static class DatabaseInitializer
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
         await BackfillCashReceiptPatientCreditsAsync(db, logger);
-        await BackfillUnconfirmedAccountsAsync(db, config, logger);
+        await BackfillUnconfirmedPhoneNumbersAsync(db, config, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
         {
@@ -1240,7 +1240,7 @@ public static class DatabaseInitializer
         }
     }
 
-    private static async Task BackfillUnconfirmedAccountsAsync(
+    private static async Task BackfillUnconfirmedPhoneNumbersAsync(
         ClinicalDbContext db,
         IConfiguration config,
         ILogger logger)
@@ -1253,16 +1253,16 @@ public static class DatabaseInitializer
             var updated = await db.Database.ExecuteSqlRawAsync(
                 """
                 UPDATE "AspNetUsers"
-                SET "EmailConfirmed" = true, "PhoneNumberConfirmed" = true
-                WHERE "EmailConfirmed" = false OR "PhoneNumberConfirmed" = false
+                SET "PhoneNumberConfirmed" = true
+                WHERE "PhoneNumberConfirmed" = false
                 """);
 
             if (updated > 0)
-                logger.LogInformation("Auto-confirmed {Count} user account(s) (verification disabled).", updated);
+                logger.LogInformation("Auto-confirmed {Count} user phone number(s) (OTP verification disabled).", updated);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Account auto-confirm backfill skipped.");
+            logger.LogWarning(ex, "Phone-number auto-confirm backfill skipped.");
         }
     }
 }
