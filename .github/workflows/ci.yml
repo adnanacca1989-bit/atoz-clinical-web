@@ -33,11 +33,13 @@ jobs:
 
       - name: Install Render CLI
         run: |
-          curl -fsSL https://render.com/download-cli/install.sh | bash
-          echo "$HOME/.render/bin" >> "$GITHUB_PATH"
+          curl -fsSL -o render.zip https://github.com/render-oss/cli/releases/download/v2.19.0/cli_2.19.0_linux_amd64.zip
+          unzip render.zip
+          sudo install -m 0755 cli_v2.19.0 /usr/local/bin/render
+          render --version
 
       - name: Validate render.yaml
-        run: $HOME/.render/bin/render blueprints validate render.yaml
+        run: render blueprints validate render.yaml
 
   deploy-production:
     needs: build-test
