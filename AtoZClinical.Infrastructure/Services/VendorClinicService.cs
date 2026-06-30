@@ -107,7 +107,9 @@ public sealed class VendorClinicService
         var phoneMessagingReady = OtpDeliveryConfiguration.IsPhoneMessagingAvailable(_config);
         var hasEmail = !string.IsNullOrWhiteSpace(request.Email?.Trim());
         var hasPhone = !string.IsNullOrWhiteSpace(request.AdminPhone?.Trim());
-        var requireVerification = request.RequireAccountVerification && (hasEmail || hasPhone);
+        var requireVerification = request.RequireAccountVerification
+            && (hasEmail || hasPhone)
+            && AccountVerificationPolicy.IsRequired(_config);
 
         if (requireVerification && !smtpReady && !phoneMessagingReady)
         {
@@ -129,8 +131,8 @@ public sealed class VendorClinicService
             ClinicId = clinic.Id,
             ClinicRole = ClinicUserRole.ClinicAdmin,
             IsVendorAdmin = false,
-            EmailConfirmed = !requireVerification,
-            PhoneNumberConfirmed = !requireVerification && hasPhone
+            EmailConfirmed = !requireVerification || !AccountVerificationPolicy.IsRequired(_config),
+            PhoneNumberConfirmed = (!requireVerification || !AccountVerificationPolicy.IsRequired(_config)) && hasPhone
         };
 
         var result = await _users.CreateAsync(admin, password);
@@ -251,14 +253,11 @@ public sealed class VendorClinicService
         return await CreateClinicAsync(new CreateClinicRequest
         {
             Name = request.ClinicName.Trim(),
-            Email = request.Email?.Trim(),
-            Phone = request.Phone?.Trim(),
+            Email = request.Email.Trim(),
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
-            AdminPhone = request.Phone?.Trim(),
-            RequireAccountVerification = !string.IsNullOrWhiteSpace(request.Email?.Trim())
-                || !string.IsNullOrWhiteSpace(request.Phone?.Trim()),
+            RequireAccountVerification = false,
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
@@ -407,6 +406,5 @@ public sealed class TrialClinicRegistrationRequest
     public string ClinicName { get; set; } = string.Empty;
     public string AdminUsername { get; set; } = string.Empty;
     public string AdminPassword { get; set; } = string.Empty;
-    public string? Email { get; set; }
-    public string? Phone { get; set; }
+    public string Email { get; set; } = string.Empty;
 }

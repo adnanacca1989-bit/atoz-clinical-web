@@ -423,13 +423,20 @@ public enum VerificationCodeVerifyResult
 
 public static class AccountVerificationPolicy
 {
-    public static bool IsVerificationConfigured(IConfiguration config) => true;
+    /// <summary>When false, new accounts are confirmed immediately and sign-in does not require a verification code.</summary>
+    public static bool IsRequired(IConfiguration config) => false;
 
-    public static bool CanVerifyViaEmail(IConfiguration config) => true;
+    public static bool IsVerificationConfigured(IConfiguration config) =>
+        !UsesLogOnlyDelivery(config);
 
-    public static bool CanVerifyViaSms(IConfiguration config) => true;
+    public static bool CanVerifyViaEmail(IConfiguration config) =>
+        IsRequired(config) && OtpDeliveryConfiguration.IsEmailAvailable(config);
 
-    public static bool CanVerifyViaWhatsApp(IConfiguration config) => true;
+    public static bool CanVerifyViaSms(IConfiguration config) =>
+        IsRequired(config) && OtpDeliveryConfiguration.IsSmsAvailable(config);
+
+    public static bool CanVerifyViaWhatsApp(IConfiguration config) =>
+        IsRequired(config) && OtpDeliveryConfiguration.IsWhatsAppAvailable(config);
 
     public static bool UsesLogOnlyDelivery(IConfiguration config) =>
         OtpDeliveryConfiguration.UsesServerLogFallback(config);

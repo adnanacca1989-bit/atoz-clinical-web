@@ -51,6 +51,7 @@ public static class DatabaseInitializer
         await EnsureDataProtectionKeysSchemaAsync(db, logger);
         await BackfillClinicEnabledModulesAsync(db, logger);
         await BackfillCashReceiptPatientCreditsAsync(db, logger);
+        await BackfillUnconfirmedAccountsAsync(db, config, logger);
 
         foreach (var role in new[] { ClinicalRoles.Vendor, ClinicalRoles.ClinicAdmin, ClinicalRoles.ClinicStaff })
         {
@@ -1236,6 +1237,32 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Cash receipt PatientCredit backfill skipped (column may not exist yet).");
+        }
+    }
+
+    private static async Task BackfillUnconfirmedAccountsAsync(
+        ClinicalDbContext db,
+        IConfiguration config,
+        ILogger logger)
+    {
+        if (AccountVerificationPolicy.IsRequired(config))
+            return;
+
+        try
+        {
+            var updated = await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE "AspNetUsers"
+                SET "EmailConfirmed" = true, "PhoneNumberConfirmed" = true
+                WHERE "EmailConfirmed" = false OR "PhoneNumberConfirmed" = false
+                """);
+
+            if (updated > 0)
+                logger.LogInformation("Auto-confirmed {Count} user account(s) (verification disabled).", updated);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Account auto-confirm backfill skipped.");
         }
     }
 }

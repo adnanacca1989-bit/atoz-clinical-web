@@ -5,6 +5,7 @@ using AtoZClinical.Infrastructure;
 using AtoZClinical.Infrastructure.Data;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
+using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Filters;
 using AtoZClinical.Web.Middleware;
 using AtoZClinical.Web.Services;
@@ -26,6 +27,7 @@ public class LoginModel : PageModel
     private readonly SecurityAuditService _securityAudit;
     private readonly FormPermissionService _permissions;
     private readonly ClinicRuntimeCache _runtimeCache;
+    private readonly IConfiguration _config;
     private readonly ILogger<LoginModel> _logger;
 
     public LoginModel(
@@ -36,6 +38,7 @@ public class LoginModel : PageModel
         SecurityAuditService securityAudit,
         FormPermissionService permissions,
         ClinicRuntimeCache runtimeCache,
+        IConfiguration config,
         ILogger<LoginModel> logger)
     {
         _signIn = signIn;
@@ -45,6 +48,7 @@ public class LoginModel : PageModel
         _securityAudit = securityAudit;
         _permissions = permissions;
         _runtimeCache = runtimeCache;
+        _config = config;
         _logger = logger;
     }
 
@@ -129,7 +133,16 @@ public class LoginModel : PageModel
             clientIp,
             HttpContext.TraceIdentifier);
 
+        if (!AccountVerificationPolicy.IsRequired(_config))
+            await EnsureAccountConfirmedAsync(user);
+
         var result = await _signIn.PasswordSignInAsync(Input.Username, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+
+        if (result.IsNotAllowed && !AccountVerificationPolicy.IsRequired(_config))
+        {
+            await EnsureAccountConfirmedAsync(user);
+            result = await _signIn.PasswordSignInAsync(Input.Username, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+        }
 
         _logger.LogInformation(
             "PasswordSignInAsync result for {Username} succeeded={Succeeded} requires2fa={Requires2fa} lockedOut={LockedOut} notAllowed={NotAllowed} client={ClientIp} trace={TraceId}",
@@ -146,9 +159,17 @@ public class LoginModel : PageModel
 
         if (result.IsNotAllowed)
         {
-            ShowResendConfirmation = !string.IsNullOrWhiteSpace(user.Email) || !string.IsNullOrWhiteSpace(user.PhoneNumber);
-            ModelState.AddModelError(string.Empty,
-                "Please verify your account with the 4-digit code sent to your email or mobile before logging in.");
+            if (AccountVerificationPolicy.IsRequired(_config))
+            {
+                ShowResendConfirmation = !string.IsNullOrWhiteSpace(user.Email) || !string.IsNullOrWhiteSpace(user.PhoneNumber);
+                ModelState.AddModelError(string.Empty,
+                    "Please verify your account with the 4-digit code sent to your email or mobile before logging in.");
+            }
+            else
+            {
+                ModelState.AddModelError(string.Empty, "Sign-in is not allowed for this account. Contact support.");
+            }
+
             Input.Password = string.Empty;
             return Page();
         }
@@ -273,6 +294,23 @@ public class LoginModel : PageModel
             clientIp);
 
         return RedirectToPage("/Dashboard/Index");
+    }
+
+    private async Task EnsureAccountConfirmedAsync(ApplicationUser user)
+    {
+        if (user.EmailConfirmed && user.PhoneNumberConfirmed)
+            return;
+
+        user.EmailConfirmed = true;
+        user.PhoneNumberConfirmed = true;
+        var update = await _users.UpdateAsync(user);
+        if (!update.Succeeded)
+        {
+            _logger.LogWarning(
+                "Could not auto-confirm account {UserId}: {Errors}",
+                user.Id,
+                string.Join("; ", update.Errors.Select(e => e.Description)));
+        }
     }
 
     public sealed class LoginInput

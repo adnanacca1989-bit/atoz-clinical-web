@@ -124,7 +124,7 @@ builder.Services.AddAntiforgery(options =>
 
 var smtpConfiguredAtStartup = SmtpEmailConfiguration.IsEmailConfigured(builder.Configuration);
 var smsConfiguredAtStartup = SmsConfiguration.IsSmsConfigured(builder.Configuration);
-var accountVerificationRequiredAtStartup = true;
+var accountVerificationRequiredAtStartup = AccountVerificationPolicy.IsRequired(builder.Configuration);
 
 builder.Services.AddHttpClient("TwilioSms");
 
@@ -139,7 +139,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = false;
-        options.SignIn.RequireConfirmedEmail = accountVerificationRequiredAtStartup;
+        options.SignIn.RequireConfirmedEmail = false;
     })
     .AddEntityFrameworkStores<ClinicalDbContext>()
     .AddDefaultTokenProviders();
@@ -523,7 +523,7 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
             ["whatsappConfigured"] = SmsConfiguration.IsWhatsAppConfigured(config),
             ["otpDelivery"] = OtpDeliveryConfiguration.GetDeliveryAvailability(config),
             ["otpLogDelivery"] = OtpDeliveryConfiguration.UsesServerLogFallback(config),
-            ["emailConfirmationRequired"] = true,
+            ["emailConfirmationRequired"] = AccountVerificationPolicy.IsRequired(config),
             ["emailStatus"] = emailConfigured ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
             ["emailConfigurationError"] = emailConfigured ? null : SmtpEmailConfiguration.FormatMissingConfigurationError(config),
             ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config),
