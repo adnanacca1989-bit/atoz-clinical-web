@@ -37,7 +37,7 @@ jobs:
           echo "$HOME/.render/bin" >> "$GITHUB_PATH"
 
       - name: Validate render.yaml
-        run: render blueprints validate render.yaml
+        run: $HOME/.render/bin/render blueprints validate render.yaml
 
   deploy-production:
     needs: build-test

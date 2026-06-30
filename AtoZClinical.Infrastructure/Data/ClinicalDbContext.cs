@@ -472,6 +472,7 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ApplicationUser>(e =>
         {
             e.Property(x => x.FullName).HasMaxLength(200);
+            e.Property(x => x.DoctorRecordId);
         });
 
         ApplyClinicTenantFilters(builder);

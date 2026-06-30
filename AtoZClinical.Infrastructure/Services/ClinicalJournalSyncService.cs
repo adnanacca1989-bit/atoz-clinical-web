@@ -301,9 +301,9 @@ public sealed class ClinicalJournalSyncService
 
         var journalLines = new List<JournalEntryLine>
         {
-            CreateLine(entry.Id, 1, arAccount, "Asset", payment.Amount, 0,
+            CreateLine(entry.Id, 1, cashAccount, cashCategory, payment.Amount, 0,
                 $"Payment #{payment.PaymentNo}"),
-            CreateLine(entry.Id, 2, cashAccount, cashCategory, 0, payment.Amount,
+            CreateLine(entry.Id, 2, arAccount, "Asset", 0, payment.Amount,
                 $"Payment #{payment.PaymentNo}")
         };
 
@@ -510,19 +510,19 @@ public sealed class ClinicalJournalSyncService
             await _db.SaveChangesAsync();
     }
 
-    private async Task<decimal> SumBillCogsAsync(Guid clinicId, Guid billId) =>
-        await _db.PharmacyInventoryMovements
+    private Task<decimal> SumBillCogsAsync(Guid clinicId, Guid billId) =>
+        _db.PharmacyInventoryMovements
             .ForClinic(clinicId)
             .Where(m => m.ReferenceType == PharmacyInventoryTypes.ReferenceBill &&
                         m.ReferenceId == billId &&
                         m.MovementType == PharmacyInventoryTypes.BillOut)
-            .SumAsync(m => m.TotalValue);
+            .SumAsync(_db, m => m.TotalValue);
 
-    private async Task<decimal> SumInventoryMovementValueAsync(Guid clinicId, string referenceType, Guid referenceId) =>
-        await _db.PharmacyInventoryMovements
+    private Task<decimal> SumInventoryMovementValueAsync(Guid clinicId, string referenceType, Guid referenceId) =>
+        _db.PharmacyInventoryMovements
             .ForClinic(clinicId)
             .Where(m => m.ReferenceType == referenceType && m.ReferenceId == referenceId)
-            .SumAsync(m => m.TotalValue);
+            .SumAsync(_db, m => m.TotalValue);
 
     private static string CategoryFor(IReadOnlyList<ChartAccount> accounts, string accountName, string fallback) =>
         accounts.FirstOrDefault(a => string.Equals(a.Name, accountName, StringComparison.OrdinalIgnoreCase))?.CategoryType

@@ -250,7 +250,7 @@ public class FinancialStatementTests
         var cash = tb.Single(r => r.AccountName == "Cash");
 
         Assert.Equal(15_000m, ar.Balance);
-        Assert.Equal(-5_000m, cash.Balance);
+        Assert.Equal(5_000m, cash.Balance);
     }
 
     [Fact]

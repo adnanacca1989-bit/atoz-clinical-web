@@ -53,6 +53,30 @@ public static class PatientChargeMatcher
                invoiceDoctor.Contains(recordDoctor, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Loose barcode/name match for SQLite in-memory filtering (PostgreSQL uses ILike in SQL).</summary>
+    public static bool MatchesBarcodeOrNameFields(
+        string? barcode, string? name, string? entityBarcode, string? entityName)
+    {
+        barcode = barcode?.Trim();
+        name = name?.Trim();
+        entityBarcode = entityBarcode?.Trim();
+        entityName = entityName?.Trim();
+
+        if (!string.IsNullOrEmpty(barcode) && !string.IsNullOrEmpty(entityBarcode))
+        {
+            if (Equals(entityBarcode, barcode)) return true;
+            if (entityBarcode.Contains(barcode, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+
+        if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(entityName))
+        {
+            if (Equals(entityName, name)) return true;
+            if (entityName.Contains(name, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+
+        return false;
+    }
+
     private static bool Equals(string? left, string? right) =>
         string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }

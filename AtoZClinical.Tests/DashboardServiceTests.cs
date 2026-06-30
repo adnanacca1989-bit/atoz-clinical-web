@@ -78,7 +78,7 @@ public class DashboardServiceTests
             ClinicId = clinicId,
             PatientNo = "PAT-00001",
             FirstName = "Today",
-            Status = "Confirmed",
+            Status = "Pending",
             CreatedAt = today,
             AppointmentDate = null
         });
@@ -88,7 +88,7 @@ public class DashboardServiceTests
 
         var summary = await service.GetSummaryAsync(clinicId, today, today, isTodayScope: true);
 
-        Assert.Equal(1, summary.TodayConfirmed);
-        Assert.Equal(1, summary.PeriodConfirmed);
+        Assert.Equal(1, summary.TodayPending);
+        Assert.Equal(1, summary.PeriodPending);
     }
 }

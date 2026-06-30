@@ -24,9 +24,10 @@ public class MasterDataPropagationTests
             Phone = "111"
         };
         db.Db.Patients.Add(patient);
+        var invoiceId = Guid.NewGuid();
         db.Db.Invoices.Add(new Invoice
         {
-            Id = Guid.NewGuid(),
+            Id = invoiceId,
             ClinicId = clinicId,
             PatientId = patient.PatientNo,
             PatientName = "Old Name",
@@ -40,7 +41,8 @@ public class MasterDataPropagationTests
             EntryNo = 1,
             EntryDate = DateTime.Today,
             PatientName = "Old Name",
-            SourceType = ClinicalJournalSources.Invoice
+            SourceType = ClinicalJournalSources.Invoice,
+            SourceId = invoiceId
         });
         await db.Db.SaveChangesAsync();
 

@@ -277,6 +277,30 @@ public static class DatabaseInitializer
         return candidate;
     }
 
+    private static async Task EnsureSqliteCompatibilityPatchesAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (!db.Database.IsSqlite())
+            return;
+
+        foreach (var (table, column, sqlType) in new (string, string, string)[]
+        {
+            ("AspNetUsers", "DoctorRecordId", "TEXT"),
+            ("Patients", "DoctorRecordId", "TEXT"),
+            ("Patients", "PatientRecordId", "TEXT"),
+        })
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync(
+                    $"ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" {sqlType} NULL;");
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "SQLite patch skipped for {Table}.{Column}", table, column);
+            }
+        }
+    }
+
     private static async Task EnsureSchemaAsync(ClinicalDbContext db, IHostEnvironment env, ILogger logger)
     {
         if (db.Database.IsSqlite())
@@ -286,7 +310,8 @@ public static class DatabaseInitializer
             {
                 try
                 {
-                    await db.Database.ExecuteSqlRawAsync("SELECT \"UserNo\" FROM \"AspNetUsers\" LIMIT 1;");
+                    await db.Database.ExecuteSqlRawAsync(
+                        "SELECT \"UserNo\", \"DoctorRecordId\" FROM \"AspNetUsers\" LIMIT 1;");
                 }
                 catch
                 {
@@ -301,6 +326,7 @@ public static class DatabaseInitializer
                 logger.LogInformation("SQLite development schema ensured.");
             }
 
+            await EnsureSqliteCompatibilityPatchesAsync(db, logger);
             return;
         }
 
@@ -884,6 +910,9 @@ public static class DatabaseInitializer
         IServiceProvider services,
         ILogger logger)
     {
+        if (db.Database.IsSqlite())
+            return;
+
         try
         {
             await DoctorRecordLinkBackfill.BackfillAsync(db);

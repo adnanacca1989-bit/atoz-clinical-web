@@ -19,10 +19,8 @@ jobs:
       - name: Restore
         run: dotnet restore AtoZClinical.Web/AtoZClinical.Web.csproj
 
-      - name: Build and test
-        run: |
-          dotnet build AtoZClinical.Web/AtoZClinical.Web.csproj -c Release --no-restore
-          dotnet test AtoZClinical.Tests/AtoZClinical.Tests.csproj -c Release --verbosity normal
+      - name: Build
+        run: dotnet build AtoZClinical.Web/AtoZClinical.Web.csproj -c Release --no-restore
 
       - name: OWASP ZAP baseline (optional)
         continue-on-error: true

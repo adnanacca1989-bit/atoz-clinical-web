@@ -63,20 +63,20 @@ public sealed class DashboardService
             .AsNoTracking()
             .Apply(scope)
             .Where(i => i.InvoiceDate >= rangeFrom && i.InvoiceDate < rangeEndExclusive)
-            .SumAsync(i => (decimal?)i.TotalAmount) ?? 0m;
+            .SumNullableAsync(db, i => i.TotalAmount);
 
         var outstandingAr = await db.Invoices
             .ForClinic(clinicId)
             .AsNoTracking()
             .Apply(scope)
-            .SumAsync(i => (decimal?)i.BalanceDue) ?? 0m;
+            .SumNullableAsync(db, i => i.BalanceDue);
 
         var cashReceived = await db.CashReceipts
             .ForClinic(clinicId)
             .AsNoTracking()
             .Apply(scope)
             .Where(r => r.ReceiptDate >= rangeFrom && r.ReceiptDate < rangeEndExclusive)
-            .SumAsync(r => (decimal?)r.Amount) ?? 0m;
+            .SumNullableAsync(db, r => r.Amount);
 
         return new DashboardSummary
         {

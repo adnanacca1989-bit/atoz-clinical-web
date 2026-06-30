@@ -7,8 +7,13 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class PatientInvoiceService
 {
     private readonly ClinicalDbContext _db;
+    private readonly bool _useILike;
 
-    public PatientInvoiceService(ClinicalDbContext db) => _db = db;
+    public PatientInvoiceService(ClinicalDbContext db)
+    {
+        _db = db;
+        _useILike = db.Database.IsNpgsql();
+    }
 
     public async Task<PatientChargeSummary> GetChargesAsync(
         Guid clinicId,
@@ -54,16 +59,7 @@ public sealed class PatientInvoiceService
     {
         try
         {
-            var serviceRequests = await _db.ServiceIncomeRequests
-                .Include(r => r.Lines)
-                .ForClinic(clinicId)
-                .Where(r =>
-                    (barcode != null && r.PatientBarcode != null &&
-                     (EF.Functions.ILike(r.PatientBarcode, barcode) || EF.Functions.ILike(r.PatientBarcode, $"%{barcode}%"))) ||
-                    (name != null && r.PatientName != null &&
-                     (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
-                .OrderByDescending(r => r.RequestDate)
-                .ToListAsync();
+            var serviceRequests = await FetchServiceIncomeRequestsAsync(clinicId, barcode, name);
 
             AppendMatchedRequestLines(serviceRequests, barcode, name, doctor, patientRecordId,
                 r => r.PatientBarcode, r => r.PatientRecordId, _ => null, r => r.PatientName, r => r.DoctorName,
@@ -86,16 +82,7 @@ public sealed class PatientInvoiceService
     private async Task AddLabRequestLinesAsync(
         Guid clinicId, string? barcode, string? name, string? doctor, Guid? patientRecordId, List<PatientChargeLine> lines)
     {
-        var labRequests = await _db.LabRequests
-            .Include(r => r.Lines)
-            .ForClinic(clinicId)
-            .Where(r =>
-                (barcode != null && r.PatientBarcode != null &&
-                 (EF.Functions.ILike(r.PatientBarcode, barcode) || EF.Functions.ILike(r.PatientBarcode, $"%{barcode}%"))) ||
-                (name != null && r.PatientName != null &&
-                 (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
-            .OrderByDescending(r => r.RequestDate)
-            .ToListAsync();
+        var labRequests = await FetchLabRequestsAsync(clinicId, barcode, name);
 
         AppendMatchedRequestLines(labRequests, barcode, name, doctor, patientRecordId,
             r => r.PatientBarcode, r => r.PatientRecordId, _ => null, r => r.PatientName, r => r.DoctorName,
@@ -113,16 +100,7 @@ public sealed class PatientInvoiceService
     private async Task AddRadiologyRequestLinesAsync(
         Guid clinicId, string? barcode, string? name, string? doctor, Guid? patientRecordId, List<PatientChargeLine> lines)
     {
-        var radioRequests = await _db.RadiologyRequests
-            .Include(r => r.Lines)
-            .ForClinic(clinicId)
-            .Where(r =>
-                (barcode != null && r.PatientBarcode != null &&
-                 (EF.Functions.ILike(r.PatientBarcode, barcode) || EF.Functions.ILike(r.PatientBarcode, $"%{barcode}%"))) ||
-                (name != null && r.PatientName != null &&
-                 (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
-            .OrderByDescending(r => r.RequestDate)
-            .ToListAsync();
+        var radioRequests = await FetchRadiologyRequestsAsync(clinicId, barcode, name);
 
         AppendMatchedRequestLines(radioRequests, barcode, name, doctor, patientRecordId,
             r => r.PatientBarcode, r => r.PatientRecordId, _ => null, r => r.PatientName, r => r.DoctorName,
@@ -146,16 +124,7 @@ public sealed class PatientInvoiceService
             .Select(b => b.RequestNo!.Value)
             .ToListAsync();
 
-        var pharmacyRequests = await _db.PharmacyRequests
-            .Include(r => r.Lines)
-            .ForClinic(clinicId)
-            .Where(r =>
-                (barcode != null && r.PatientId != null &&
-                 (EF.Functions.ILike(r.PatientId, barcode) || EF.Functions.ILike(r.PatientId, $"%{barcode}%"))) ||
-                (name != null && r.PatientName != null &&
-                 (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
-            .OrderByDescending(r => r.RequestDate)
-            .ToListAsync();
+        var pharmacyRequests = await FetchPharmacyRequestsAsync(clinicId, barcode, name);
 
         pharmacyRequests = pharmacyRequests
             .Where(r => !billedRequestNos.Contains(r.RequestNo))
@@ -177,16 +146,7 @@ public sealed class PatientInvoiceService
     private async Task AddPharmacyBillLinesAsync(
         Guid clinicId, string? barcode, string? name, string? doctor, Guid? patientRecordId, List<PatientChargeLine> lines)
     {
-        var pharmacyBills = await _db.PharmacyBills
-            .Include(b => b.Lines)
-            .ForClinic(clinicId)
-            .Where(b =>
-                (barcode != null && b.PatientId != null &&
-                 (EF.Functions.ILike(b.PatientId, barcode) || EF.Functions.ILike(b.PatientId, $"%{barcode}%"))) ||
-                (name != null && b.PatientName != null &&
-                 (EF.Functions.ILike(b.PatientName, name) || EF.Functions.ILike(b.PatientName, $"%{name}%"))))
-            .OrderByDescending(b => b.BillDate)
-            .ToListAsync();
+        var pharmacyBills = await FetchPharmacyBillsAsync(clinicId, barcode, name);
 
         AppendMatchedRequestLines(pharmacyBills, barcode, name, doctor, patientRecordId,
             _ => null, b => b.PatientRecordId, b => b.PatientId, b => b.PatientName, b => b.DoctorName,
@@ -204,15 +164,28 @@ public sealed class PatientInvoiceService
     private async Task<List<CashReceipt>> LoadCashReceiptsAsync(
         Guid clinicId, string? barcode, string? name, string? doctor, Guid? patientRecordId)
     {
-        var receipts = await _db.CashReceipts
-            .ForClinic(clinicId)
-            .Where(r =>
-                (patientRecordId != null && r.PatientRecordId == patientRecordId) ||
-                (barcode != null && r.PatientId != null &&
-                 (EF.Functions.ILike(r.PatientId, barcode) || EF.Functions.ILike(r.PatientId, $"%{barcode}%"))) ||
-                (name != null && r.PatientName != null &&
-                 (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
-            .ToListAsync();
+        List<CashReceipt> receipts;
+        if (_useILike)
+        {
+            receipts = await _db.CashReceipts
+                .ForClinic(clinicId)
+                .Where(r =>
+                    (patientRecordId != null && r.PatientRecordId == patientRecordId) ||
+                    (barcode != null && r.PatientId != null &&
+                     (EF.Functions.ILike(r.PatientId, barcode) || EF.Functions.ILike(r.PatientId, $"%{barcode}%"))) ||
+                    (name != null && r.PatientName != null &&
+                     (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
+                .ToListAsync();
+        }
+        else
+        {
+            receipts = await _db.CashReceipts.ForClinic(clinicId).ToListAsync();
+            receipts = receipts.Where(r =>
+                    (patientRecordId != null && r.PatientRecordId == patientRecordId) ||
+                    PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, r.PatientId, r.PatientName))
+                .ToList();
+        }
+
         return receipts
             .Where(r => PatientChargeMatcher.MatchesPatient(barcode, name, null, r.PatientId, r.PatientName, patientRecordId, r.PatientRecordId))
             .Where(r => PatientChargeMatcher.MatchesDoctor(doctor, r.DoctorName))
@@ -222,15 +195,28 @@ public sealed class PatientInvoiceService
     private async Task<List<CashPayment>> LoadCashPaymentsAsync(
         Guid clinicId, string? barcode, string? name, string? doctor, Guid? patientRecordId)
     {
-        var patientPayments = await _db.CashPayments
-            .ForClinic(clinicId)
-            .Where(p =>
-                (patientRecordId != null && p.PatientRecordId == patientRecordId) ||
-                (barcode != null && p.PatientId != null &&
-                 (EF.Functions.ILike(p.PatientId, barcode) || EF.Functions.ILike(p.PatientId, $"%{barcode}%"))) ||
-                (name != null && p.PayeeName != null &&
-                 (EF.Functions.ILike(p.PayeeName, name) || EF.Functions.ILike(p.PayeeName, $"%{name}%"))))
-            .ToListAsync();
+        List<CashPayment> patientPayments;
+        if (_useILike)
+        {
+            patientPayments = await _db.CashPayments
+                .ForClinic(clinicId)
+                .Where(p =>
+                    (patientRecordId != null && p.PatientRecordId == patientRecordId) ||
+                    (barcode != null && p.PatientId != null &&
+                     (EF.Functions.ILike(p.PatientId, barcode) || EF.Functions.ILike(p.PatientId, $"%{barcode}%"))) ||
+                    (name != null && p.PayeeName != null &&
+                     (EF.Functions.ILike(p.PayeeName, name) || EF.Functions.ILike(p.PayeeName, $"%{name}%"))))
+                .ToListAsync();
+        }
+        else
+        {
+            patientPayments = await _db.CashPayments.ForClinic(clinicId).ToListAsync();
+            patientPayments = patientPayments.Where(p =>
+                    (patientRecordId != null && p.PatientRecordId == patientRecordId) ||
+                    PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, p.PatientId, p.PayeeName))
+                .ToList();
+        }
+
         return patientPayments
             .Where(p => PatientChargeMatcher.MatchesPatient(barcode, name, null, p.PatientId, p.PayeeName, patientRecordId, p.PatientRecordId))
             .Where(p => PatientChargeMatcher.MatchesDoctor(doctor, p.DoctorName))
@@ -286,29 +272,12 @@ public sealed class PatientInvoiceService
 
         if (patient is null)
         {
-            IQueryable<Patient> patientQuery = _db.Patients.ForClinic(clinicId);
-            if (!string.IsNullOrWhiteSpace(barcode))
-                patientQuery = patientQuery.Where(p => p.PatientNo != null &&
-                    (EF.Functions.ILike(p.PatientNo, barcode) || EF.Functions.ILike(p.PatientNo, $"%{barcode}%")));
-            else if (!string.IsNullOrWhiteSpace(name))
-                patientQuery = patientQuery.Where(p => p.FullName != null &&
-                    (EF.Functions.ILike(p.FullName, name) || EF.Functions.ILike(p.FullName, $"%{name}%")));
-            else
-                return;
-
-            if (!string.IsNullOrWhiteSpace(doctorName))
-                patientQuery = patientQuery.Where(p => p.DoctorName != null &&
-                    (EF.Functions.ILike(p.DoctorName, doctorName) || EF.Functions.ILike(p.DoctorName, $"%{doctorName}%")));
-
-            patient = await patientQuery.OrderByDescending(p => p.CreatedAt).FirstOrDefaultAsync();
+            patient = await FindPatientAsync(clinicId, barcode, name, doctorName);
         }
 
         if (patient is null || string.IsNullOrWhiteSpace(patient.DoctorName)) return;
 
-        var doctor = await _db.Doctors
-            .ForClinic(clinicId)
-            .Where(d => d.Name != null && EF.Functions.ILike(d.Name, patient.DoctorName))
-            .FirstOrDefaultAsync();
+        var doctor = await FindDoctorByNameAsync(clinicId, patient.DoctorName);
         if (doctor is null || doctor.ConsultationFee <= 0) return;
 
         var hasConsultation = lines.Any(l =>
@@ -340,16 +309,7 @@ public sealed class PatientInvoiceService
         var name = patientName?.Trim();
         var doctor = doctorName?.Trim();
 
-        var invoices = await _db.Invoices
-            .ForClinic(clinicId)
-            .Where(i =>
-                (patientRecordId != null && i.PatientRecordId == patientRecordId) ||
-                (barcode != null && i.PatientId != null &&
-                 (EF.Functions.ILike(i.PatientId, barcode) || EF.Functions.ILike(i.PatientId, $"%{barcode}%"))) ||
-                (name != null && i.PatientName != null &&
-                 (EF.Functions.ILike(i.PatientName, name) || EF.Functions.ILike(i.PatientName, $"%{name}%"))))
-            .OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo)
-            .ToListAsync();
+        var invoices = await FetchInvoicesAsync(clinicId, barcode, name, patientRecordId);
         invoices = invoices
             .Where(i => PatientChargeMatcher.MatchesPatient(barcode, name, null, i.PatientId, i.PatientName, patientRecordId, i.PatientRecordId))
             .Where(i => PatientChargeMatcher.MatchesDoctor(doctor, i.DoctorName))
@@ -393,6 +353,174 @@ public sealed class PatientInvoiceService
             _db.Invoices.UpdateRange(invoices);
             return Task.CompletedTask;
         });
+    }
+
+    private async Task<List<ServiceIncomeRequest>> FetchServiceIncomeRequestsAsync(Guid clinicId, string? barcode, string? name)
+    {
+        var query = _db.ServiceIncomeRequests.Include(r => r.Lines).ForClinic(clinicId);
+        if (_useILike)
+        {
+            return await query
+                .Where(r =>
+                    (barcode != null && r.PatientBarcode != null &&
+                     (EF.Functions.ILike(r.PatientBarcode, barcode) || EF.Functions.ILike(r.PatientBarcode, $"%{barcode}%"))) ||
+                    (name != null && r.PatientName != null &&
+                     (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
+                .OrderByDescending(r => r.RequestDate)
+                .ToListAsync();
+        }
+
+        var rows = await query.OrderByDescending(r => r.RequestDate).ToListAsync();
+        return rows.Where(r => PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, r.PatientBarcode, r.PatientName))
+            .ToList();
+    }
+
+    private async Task<List<LabRequest>> FetchLabRequestsAsync(Guid clinicId, string? barcode, string? name)
+    {
+        var query = _db.LabRequests.Include(r => r.Lines).ForClinic(clinicId);
+        if (_useILike)
+        {
+            return await query
+                .Where(r =>
+                    (barcode != null && r.PatientBarcode != null &&
+                     (EF.Functions.ILike(r.PatientBarcode, barcode) || EF.Functions.ILike(r.PatientBarcode, $"%{barcode}%"))) ||
+                    (name != null && r.PatientName != null &&
+                     (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
+                .OrderByDescending(r => r.RequestDate)
+                .ToListAsync();
+        }
+
+        var rows = await query.OrderByDescending(r => r.RequestDate).ToListAsync();
+        return rows.Where(r => PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, r.PatientBarcode, r.PatientName))
+            .ToList();
+    }
+
+    private async Task<List<RadiologyRequest>> FetchRadiologyRequestsAsync(Guid clinicId, string? barcode, string? name)
+    {
+        var query = _db.RadiologyRequests.Include(r => r.Lines).ForClinic(clinicId);
+        if (_useILike)
+        {
+            return await query
+                .Where(r =>
+                    (barcode != null && r.PatientBarcode != null &&
+                     (EF.Functions.ILike(r.PatientBarcode, barcode) || EF.Functions.ILike(r.PatientBarcode, $"%{barcode}%"))) ||
+                    (name != null && r.PatientName != null &&
+                     (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
+                .OrderByDescending(r => r.RequestDate)
+                .ToListAsync();
+        }
+
+        var rows = await query.OrderByDescending(r => r.RequestDate).ToListAsync();
+        return rows.Where(r => PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, r.PatientBarcode, r.PatientName))
+            .ToList();
+    }
+
+    private async Task<List<PharmacyRequest>> FetchPharmacyRequestsAsync(Guid clinicId, string? barcode, string? name)
+    {
+        var query = _db.PharmacyRequests.Include(r => r.Lines).ForClinic(clinicId);
+        if (_useILike)
+        {
+            return await query
+                .Where(r =>
+                    (barcode != null && r.PatientId != null &&
+                     (EF.Functions.ILike(r.PatientId, barcode) || EF.Functions.ILike(r.PatientId, $"%{barcode}%"))) ||
+                    (name != null && r.PatientName != null &&
+                     (EF.Functions.ILike(r.PatientName, name) || EF.Functions.ILike(r.PatientName, $"%{name}%"))))
+                .OrderByDescending(r => r.RequestDate)
+                .ToListAsync();
+        }
+
+        var rows = await query.OrderByDescending(r => r.RequestDate).ToListAsync();
+        return rows.Where(r => PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, r.PatientId, r.PatientName))
+            .ToList();
+    }
+
+    private async Task<List<PharmacyBill>> FetchPharmacyBillsAsync(Guid clinicId, string? barcode, string? name)
+    {
+        var query = _db.PharmacyBills.Include(b => b.Lines).ForClinic(clinicId);
+        if (_useILike)
+        {
+            return await query
+                .Where(b =>
+                    (barcode != null && b.PatientId != null &&
+                     (EF.Functions.ILike(b.PatientId, barcode) || EF.Functions.ILike(b.PatientId, $"%{barcode}%"))) ||
+                    (name != null && b.PatientName != null &&
+                     (EF.Functions.ILike(b.PatientName, name) || EF.Functions.ILike(b.PatientName, $"%{name}%"))))
+                .OrderByDescending(b => b.BillDate)
+                .ToListAsync();
+        }
+
+        var rows = await query.OrderByDescending(b => b.BillDate).ToListAsync();
+        return rows.Where(b => PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, b.PatientId, b.PatientName))
+            .ToList();
+    }
+
+    private async Task<List<Invoice>> FetchInvoicesAsync(
+        Guid clinicId, string? barcode, string? name, Guid? patientRecordId)
+    {
+        if (_useILike)
+        {
+            return await _db.Invoices
+                .ForClinic(clinicId)
+                .Where(i =>
+                    (patientRecordId != null && i.PatientRecordId == patientRecordId) ||
+                    (barcode != null && i.PatientId != null &&
+                     (EF.Functions.ILike(i.PatientId, barcode) || EF.Functions.ILike(i.PatientId, $"%{barcode}%"))) ||
+                    (name != null && i.PatientName != null &&
+                     (EF.Functions.ILike(i.PatientName, name) || EF.Functions.ILike(i.PatientName, $"%{name}%"))))
+                .OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo)
+                .ToListAsync();
+        }
+
+        var rows = await _db.Invoices.ForClinic(clinicId)
+            .OrderBy(i => i.InvoiceDate).ThenBy(i => i.InvoiceNo)
+            .ToListAsync();
+        return rows.Where(i =>
+                (patientRecordId != null && i.PatientRecordId == patientRecordId) ||
+                PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, i.PatientId, i.PatientName))
+            .ToList();
+    }
+
+    private async Task<Patient?> FindPatientAsync(Guid clinicId, string? barcode, string? name, string? doctorName)
+    {
+        if (string.IsNullOrWhiteSpace(barcode) && string.IsNullOrWhiteSpace(name))
+            return null;
+
+        if (_useILike)
+        {
+            IQueryable<Patient> patientQuery = _db.Patients.ForClinic(clinicId);
+            if (!string.IsNullOrWhiteSpace(barcode))
+                patientQuery = patientQuery.Where(p => p.PatientNo != null &&
+                    (EF.Functions.ILike(p.PatientNo, barcode) || EF.Functions.ILike(p.PatientNo, $"%{barcode}%")));
+            else
+                patientQuery = patientQuery.Where(p => p.FullName != null &&
+                    (EF.Functions.ILike(p.FullName, name!) || EF.Functions.ILike(p.FullName, $"%{name}%")));
+
+            if (!string.IsNullOrWhiteSpace(doctorName))
+                patientQuery = patientQuery.Where(p => p.DoctorName != null &&
+                    (EF.Functions.ILike(p.DoctorName, doctorName) || EF.Functions.ILike(p.DoctorName, $"%{doctorName}%")));
+
+            return await patientQuery.OrderByDescending(p => p.CreatedAt).FirstOrDefaultAsync();
+        }
+
+        var patients = await _db.Patients.ForClinic(clinicId).OrderByDescending(p => p.CreatedAt).ToListAsync();
+        return patients.FirstOrDefault(p =>
+            PatientChargeMatcher.MatchesBarcodeOrNameFields(barcode, name, p.PatientNo, p.FullName) &&
+            PatientChargeMatcher.MatchesDoctor(doctorName, p.DoctorName));
+    }
+
+    private async Task<Doctor?> FindDoctorByNameAsync(Guid clinicId, string doctorName)
+    {
+        if (_useILike)
+        {
+            return await _db.Doctors
+                .ForClinic(clinicId)
+                .Where(d => d.Name != null && EF.Functions.ILike(d.Name, doctorName))
+                .FirstOrDefaultAsync();
+        }
+
+        var doctors = await _db.Doctors.ForClinic(clinicId).ToListAsync();
+        return doctors.FirstOrDefault(d => PatientChargeMatcher.MatchesDoctor(doctorName, d.Name));
     }
 }
 
