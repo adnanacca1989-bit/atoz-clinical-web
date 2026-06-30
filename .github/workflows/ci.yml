@@ -46,8 +46,14 @@ jobs:
     environment: production
     steps:
       - name: Trigger Render production deploy
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$DEPLOY_HOOK" ]; then
+            curl -fsS -X POST "$DEPLOY_HOOK"
+          else
+            echo "RENDER_DEPLOY_HOOK_URL not configured — skipping production deploy hook"
+          fi
 
   deploy-staging:
     needs: build-test
@@ -56,5 +62,11 @@ jobs:
     environment: staging
     steps:
       - name: Trigger Render staging deploy
-        if: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL != '' }}
-        run: curl -fsS -X POST "${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}"
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$DEPLOY_HOOK" ]; then
+            curl -fsS -X POST "$DEPLOY_HOOK"
+          else
+            echo "RENDER_STAGING_DEPLOY_HOOK_URL not configured — skipping staging deploy hook"
+          fi

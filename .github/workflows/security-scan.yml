@@ -11,15 +11,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore AtoZClinical.Web/AtoZClinical.Web.csproj
+
       - name: Build and test
         run: |
-          dotnet build AtoZClinical.sln -c Release
-          dotnet test AtoZClinical.Tests/AtoZClinical.Tests.csproj -c Release --no-build
+          dotnet build AtoZClinical.Web/AtoZClinical.Web.csproj -c Release --no-restore
+          dotnet test AtoZClinical.Tests/AtoZClinical.Tests.csproj -c Release --verbosity normal
 
       - name: OWASP ZAP baseline (optional)
         continue-on-error: true
         run: |
-          docker run --rm -v "${{ github.workspace }}:/zap/wrk:rw" \
-            -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
-            -t http://host.docker.internal:8080 \
-            -r zap-report.html || echo "ZAP scan requires a running app URL. Set target in workflow for CI."
+          echo "ZAP baseline skipped in CI — no running app URL on GitHub runners."
+          echo "Run manually against staging/production when needed."
