@@ -34,15 +34,15 @@
         {
             @if (Model.CodeSent)
             {
-                @if (Model.OtpDeliveredViaLog)
+                @if (!string.IsNullOrWhiteSpace(Model.DeliveryMessage))
+                {
+                    <div class="alert alert-info small">@Model.DeliveryMessage</div>
+                }
+                @if (Model.ShowDevelopmentOtpHints && Model.OtpDeliveredViaLog)
                 {
                     <div class="alert alert-warning small">
-                        <strong>Development mode.</strong> @OtpDeliveryConfiguration.DevelopmentLogMessage
+                        <strong>Development only.</strong> @OtpDeliveryConfiguration.DevelopmentLogMessage
                     </div>
-                }
-                else if (!string.IsNullOrWhiteSpace(Model.DeliveryMessage))
-                {
-                    <div class="alert alert-success small">@Model.DeliveryMessage</div>
                 }
             }
             @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))

@@ -14,7 +14,32 @@ public enum OtpDeliveryMethod
 public static class OtpDeliveryConfiguration
 {
     public const string DevelopmentLogMessage =
-        "Your 4-digit code is in the server logs. On Render, open Logs and search for OTP LOG DELIVERY: (SMTP/Twilio are not configured on this server yet).";
+        "Your 4-digit code is in the server logs. Search for OTP LOG DELIVERY:";
+
+    /// <summary>User-facing verification prompt (no SMTP/Twilio technical details).</summary>
+    public static string BuildUserVerificationPrompt(
+        OtpDeliveryMethod method,
+        RegistrationVerificationChannel? channel = null,
+        string? maskedDestination = null)
+    {
+        var effectiveChannel = ResolvePromptChannel(method, channel);
+
+        return effectiveChannel switch
+        {
+            RegistrationVerificationChannel.Email => string.IsNullOrWhiteSpace(maskedDestination)
+                ? "Check your email for the verification code."
+                : $"Check your email for the verification code. We sent it to {maskedDestination}.",
+            RegistrationVerificationChannel.Sms => "Check your phone for the verification code.",
+            RegistrationVerificationChannel.WhatsApp => "Check WhatsApp for the verification code.",
+            _ => "Check your email for the verification code."
+        };
+    }
+
+    public static string BuildSentMessage(
+        OtpDeliveryMethod method,
+        string? maskedDestination,
+        RegistrationVerificationChannel? channel = null) =>
+        BuildUserVerificationPrompt(method, channel, maskedDestination);
 
     public static bool ForceLogDelivery(IConfiguration? config) =>
         ReadBool(config, "Otp:ForceLogDelivery", "OTP_FORCE_LOG_DELIVERY");
@@ -56,17 +81,8 @@ public static class OtpDeliveryConfiguration
         OtpDeliveryMethod.Email => "email",
         OtpDeliveryMethod.Sms => "SMS",
         OtpDeliveryMethod.WhatsApp => "WhatsApp",
-        _ => "server logs (development)"
+        _ => "email"
     };
-
-    public static string BuildSentMessage(OtpDeliveryMethod method, string? maskedDestination)
-    {
-        if (method == OtpDeliveryMethod.ServerLog)
-            return DevelopmentLogMessage;
-
-        var dest = string.IsNullOrWhiteSpace(maskedDestination) ? "" : $" ({maskedDestination})";
-        return $"We sent a 4-digit code to your {DescribeDeliveryMethod(method)}{dest}.";
-    }
 
     public static IReadOnlyDictionary<string, bool> GetDeliveryAvailability(IConfiguration? config) =>
         new Dictionary<string, bool>
@@ -76,6 +92,17 @@ public static class OtpDeliveryConfiguration
             ["whatsapp"] = IsWhatsAppAvailable(config),
             ["serverLogFallback"] = UsesServerLogFallback(config),
             ["forceLogDelivery"] = ForceLogDelivery(config)
+        };
+
+    private static RegistrationVerificationChannel ResolvePromptChannel(
+        OtpDeliveryMethod method,
+        RegistrationVerificationChannel? channel) =>
+        channel ?? method switch
+        {
+            OtpDeliveryMethod.Email => RegistrationVerificationChannel.Email,
+            OtpDeliveryMethod.Sms => RegistrationVerificationChannel.Sms,
+            OtpDeliveryMethod.WhatsApp => RegistrationVerificationChannel.WhatsApp,
+            _ => RegistrationVerificationChannel.Email
         };
 
     private static bool ReadBool(IConfiguration? config, string configKey, string envKey)

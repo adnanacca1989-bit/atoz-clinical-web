@@ -73,7 +73,10 @@ public static class AuthOtpApiEndpoints
                     deliveryMethod = OtpDeliveryConfiguration.DescribeDeliveryMethod(outcome.DeliveryMethod),
                     maskedDestination = outcome.MaskedDestination,
                     expiresInMinutes = TrialRegistrationVerificationService.CodeExpiryMinutes,
-                    message = OtpDeliveryConfiguration.BuildSentMessage(outcome.DeliveryMethod, outcome.MaskedDestination)
+                    message = OtpDeliveryConfiguration.BuildUserVerificationPrompt(
+                        outcome.DeliveryMethod,
+                        outcome.Channel,
+                        outcome.MaskedDestination)
                 });
             }
             catch (Exception ex)

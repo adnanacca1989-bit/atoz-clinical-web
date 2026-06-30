@@ -3,6 +3,7 @@ using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Identity;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -18,6 +19,7 @@ public class TrialModel : CaptchaPageModel
     private readonly TrialRegistrationVerificationService _verification;
     private readonly UserManager<ApplicationUser> _users;
     private readonly IConfiguration _config;
+    private readonly IWebHostEnvironment _env;
     private readonly ILogger<TrialModel> _logger;
 
     public TrialModel(
@@ -26,6 +28,7 @@ public class TrialModel : CaptchaPageModel
         TrialRegistrationVerificationService verification,
         UserManager<ApplicationUser> users,
         IConfiguration config,
+        IWebHostEnvironment env,
         ILogger<TrialModel> logger)
     {
         _vendor = vendor;
@@ -33,6 +36,7 @@ public class TrialModel : CaptchaPageModel
         _verification = verification;
         _users = users;
         _config = config;
+        _env = env;
         _logger = logger;
     }
 
@@ -61,7 +65,7 @@ public class TrialModel : CaptchaPageModel
     public string? AdminUsername { get; private set; }
     public string TrialShareUrl { get; private set; } = "";
     public bool OtpDeliveredViaLog { get; private set; }
-    public bool UsesLogOnlyOtp { get; private set; }
+    public bool ShowDevelopmentOtpHints => _env.IsDevelopment();
     public bool EmailDeliveryAvailable { get; private set; }
     public bool SmsDeliveryAvailable { get; private set; }
     public bool WhatsAppDeliveryAvailable { get; private set; }
@@ -208,7 +212,10 @@ public class TrialModel : CaptchaPageModel
     {
         MaskedDestination = sendOutcome.MaskedDestination;
         OtpDeliveredViaLog = sendOutcome.DeliveredViaLog;
-        DeliveryMessage = OtpDeliveryConfiguration.BuildSentMessage(sendOutcome.DeliveryMethod, sendOutcome.MaskedDestination);
+        DeliveryMessage = OtpDeliveryConfiguration.BuildUserVerificationPrompt(
+            sendOutcome.DeliveryMethod,
+            sendOutcome.Channel,
+            sendOutcome.MaskedDestination);
     }
 
     private (RegistrationVerificationChannel Channel, string Destination) ResolveRegistrationChannel()
@@ -225,7 +232,6 @@ public class TrialModel : CaptchaPageModel
         EmailDeliveryAvailable = OtpDeliveryConfiguration.IsEmailAvailable(_config);
         SmsDeliveryAvailable = OtpDeliveryConfiguration.IsSmsAvailable(_config);
         WhatsAppDeliveryAvailable = OtpDeliveryConfiguration.IsWhatsAppAvailable(_config);
-        UsesLogOnlyOtp = OtpDeliveryConfiguration.UsesServerLogFallback(_config);
 
         if (!Input.UseEmail && !SmsDeliveryAvailable && WhatsAppDeliveryAvailable)
             Input.ContactMethod = "whatsapp";
