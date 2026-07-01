@@ -139,7 +139,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = false;
-        options.SignIn.RequireConfirmedEmail = true;
+        options.SignIn.RequireConfirmedEmail = false;
     })
     .AddEntityFrameworkStores<ClinicalDbContext>()
     .AddDefaultTokenProviders();

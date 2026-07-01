@@ -110,7 +110,9 @@ public sealed class VendorClinicService
         var requireOtpVerification = request.RequireAccountVerification
             && (hasEmail || hasPhone)
             && AccountVerificationPolicy.IsRequired(_config);
-        var requireEmailConfirmation = request.RequireAccountVerification && hasEmail;
+        var requireEmailConfirmation = request.RequireAccountVerification
+            && hasEmail
+            && AccountVerificationPolicy.IsRequired(_config);
 
         if (requireOtpVerification && !smtpReady && !phoneMessagingReady)
         {
@@ -258,7 +260,7 @@ public sealed class VendorClinicService
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
-            RequireAccountVerification = true,
+            RequireAccountVerification = false,
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),
