@@ -70,7 +70,7 @@
             statusEl.textContent = 'No matching transactions found.';
             return;
         }
-        statusEl.textContent = `${items.length} result(s)`;
+        statusEl.textContent = `Showing ${items.length} result${items.length === 1 ? '' : 's'}`;
         items.forEach(item => {
             const tr = document.createElement('tr');
             tr.style.cursor = 'pointer';
@@ -123,6 +123,21 @@
         statusEl.textContent = '';
     };
 
+    const initPickers = () => {
+        if (typeof initPatientPicker === 'function' && patientNameInput) {
+            initPatientPicker({
+                patientNameSelector: '#globalSearchPatientName',
+                onApply: () => runSearch()
+            });
+        }
+        if (typeof initDoctorPicker === 'function' && doctorNameInput) {
+            initDoctorPicker({
+                doctorNameSelector: '#globalSearchDoctorName',
+                onApply: () => runSearch()
+            });
+        }
+    };
+
     useDobInput.addEventListener('change', () => {
         dobInput.disabled = !useDobInput.checked;
         if (useDobInput.checked && !dobInput.value) dobInput.value = todayIso();
@@ -147,4 +162,6 @@
     document.getElementById('globalNavSearchBtn')?.addEventListener('click', () => {
         openSearch(navInput?.value || '');
     });
+
+    initPickers();
 })();

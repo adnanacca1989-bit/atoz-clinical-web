@@ -123,6 +123,8 @@
     {
         <partial name="_ColumnFilterModal" />
         <partial name="_GlobalSearchModal" />
+        <partial name="_PatientSelectModal" />
+        <partial name="_DoctorSelectModal" />
     }
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
@@ -130,6 +132,7 @@
     @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("Vendor"))
     {
         <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+        <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
         <script src="~/js/clinical-column-filter.js" asp-append-version="true"></script>
         <script src="~/js/appointment-reminders.js" asp-append-version="true"></script>
         <script src="~/js/clinical-notifications.js" asp-append-version="true"></script>

@@ -20,7 +20,7 @@
                         <div class="col-md-3">
                             <label class="clinical-field-label" for="globalSearchTransactionType">Transaction Type</label>
                             <select id="globalSearchTransactionType" class="clinical-field">
-                                @foreach (var option in GlobalSearchTypes.AllOptions)
+                                @foreach (var option in GlobalSearchTypes.DropdownOptions)
                                 {
                                     <option value="@option">@option</option>
                                 }
@@ -28,7 +28,7 @@
                         </div>
                         <div class="col-md-3">
                             <label class="clinical-field-label" for="globalSearchPatientName">Patient Name</label>
-                            <input id="globalSearchPatientName" class="clinical-field" autocomplete="off" />
+                            <input id="globalSearchPatientName" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." autocomplete="off" />
                         </div>
                     </div>
                     <div class="row g-2 mt-1">
@@ -45,11 +45,10 @@
                         </div>
                         <div class="col-md-6">
                             <label class="clinical-field-label" for="globalSearchDoctorName">Doctor Name</label>
-                            <input id="globalSearchDoctorName" class="clinical-field" autocomplete="off" />
+                            <input id="globalSearchDoctorName" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." autocomplete="off" />
                         </div>
                     </div>
                 </div>
-                <div id="globalSearchStatus" class="small text-muted my-2"></div>
                 <div class="clinical-record-grid global-search-results advanced-search-results">
                     <table>
                         <thead>
@@ -69,6 +68,7 @@
                 </div>
             </div>
             <div class="modal-footer advanced-search-footer">
+                <span id="globalSearchStatus" class="small text-muted me-auto"></span>
                 <button type="button" class="btn btn-atz-primary" id="globalSearchApplyBtn">Apply</button>
                 <button type="button" class="btn btn-outline-secondary" id="globalSearchClearBtn">Clear</button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>

@@ -6,24 +6,27 @@ namespace AtoZClinical.Infrastructure.Services;
 public static class GlobalSearchTypes
 {
     public const string All = "All";
-    public const string Invoice = "Invoice / Billing";
+    public const string Invoice = "Invoice";
+    public const string Patient = "Patient";
+    public const string Doctor = "Doctor";
+    public const string Appointment = "Appointment";
     public const string CashReceipt = "Cash Receipt";
     public const string CashPayment = "Cash Payment";
-    public const string Prescription = "Doctor's Prescription";
-    public const string LabRequest = "Laboratory Request";
-    public const string LabResult = "Laboratory Result";
-    public const string PharmacyRequest = "Pharmacy Request";
-    public const string PharmacyBill = "Pharmacy Bill";
-    public const string PharmacyPurchase = "Pharmacy Purchase Bill";
-    public const string PharmacyOpening = "Pharmacy Opening Balance";
+    public const string LabRequest = "Lab Request";
+    public const string LabResult = "Lab Result";
     public const string RadiologyRequest = "Radiology Request";
     public const string RadiologyResult = "Radiology Result";
 
-    public static readonly string[] AllOptions =
+    public static readonly string[] DropdownOptions =
     [
-        All, Invoice, CashReceipt, CashPayment, Prescription,
-        LabRequest, LabResult, PharmacyRequest, PharmacyBill,
-        PharmacyPurchase, PharmacyOpening, RadiologyRequest, RadiologyResult
+        All, Invoice, Patient, Doctor, CashReceipt, CashPayment,
+        RadiologyResult, RadiologyRequest, LabResult, LabRequest
+    ];
+
+    public static readonly string[] AllSearchTypes =
+    [
+        Invoice, Patient, Doctor, Appointment, CashReceipt, CashPayment,
+        LabRequest, LabResult, RadiologyRequest, RadiologyResult
     ];
 }
 
@@ -45,35 +48,31 @@ public sealed partial class GlobalTransactionSearchService
     public async Task<List<GlobalSearchHit>> SearchAdvancedAsync(
         Guid clinicId,
         GlobalSearchCriteria criteria,
-        int limit = 200)
+        int limit = 500)
     {
         if (criteria.FromDate > criteria.ToDate)
             (criteria.FromDate, criteria.ToDate) = (criteria.ToDate, criteria.FromDate);
 
         var types = ResolveTransactionTypes(criteria.TransactionType);
-        var perType = Math.Max(10, limit / Math.Max(1, types.Count));
+        var perType = Math.Max(25, limit / Math.Max(1, types.Count));
         var hits = new List<GlobalSearchHit>();
 
         if (types.Contains(GlobalSearchTypes.Invoice))
             hits.AddRange(await SafeSearchAsync(() => SearchInvoicesAdvancedAsync(clinicId, criteria, perType)));
+        if (types.Contains(GlobalSearchTypes.Patient))
+            hits.AddRange(await SafeSearchAsync(() => SearchPatientsAdvancedAsync(clinicId, criteria, perType)));
+        if (types.Contains(GlobalSearchTypes.Doctor))
+            hits.AddRange(await SafeSearchAsync(() => SearchDoctorsAdvancedAsync(clinicId, criteria, perType)));
+        if (types.Contains(GlobalSearchTypes.Appointment))
+            hits.AddRange(await SafeSearchAsync(() => SearchPatientAppointmentsAdvancedAsync(clinicId, criteria, perType)));
         if (types.Contains(GlobalSearchTypes.CashReceipt))
             hits.AddRange(await SafeSearchAsync(() => SearchCashReceiptsAdvancedAsync(clinicId, criteria, perType)));
         if (types.Contains(GlobalSearchTypes.CashPayment))
             hits.AddRange(await SafeSearchAsync(() => SearchCashPaymentsAdvancedAsync(clinicId, criteria, perType)));
-        if (types.Contains(GlobalSearchTypes.Prescription))
-            hits.AddRange(await SafeSearchAsync(() => SearchPrescriptionsAdvancedAsync(clinicId, criteria, perType)));
         if (types.Contains(GlobalSearchTypes.LabRequest))
             hits.AddRange(await SafeSearchAsync(() => SearchLabRequestsAdvancedAsync(clinicId, criteria, perType)));
         if (types.Contains(GlobalSearchTypes.LabResult))
             hits.AddRange(await SafeSearchAsync(() => SearchLabResultsAdvancedAsync(clinicId, criteria, perType)));
-        if (types.Contains(GlobalSearchTypes.PharmacyRequest))
-            hits.AddRange(await SafeSearchAsync(() => SearchPharmacyRequestsAdvancedAsync(clinicId, criteria, perType)));
-        if (types.Contains(GlobalSearchTypes.PharmacyBill))
-            hits.AddRange(await SafeSearchAsync(() => SearchPharmacyBillsAdvancedAsync(clinicId, criteria, perType)));
-        if (types.Contains(GlobalSearchTypes.PharmacyPurchase))
-            hits.AddRange(await SafeSearchAsync(() => SearchPharmacyPurchasesAdvancedAsync(clinicId, criteria, perType)));
-        if (types.Contains(GlobalSearchTypes.PharmacyOpening))
-            hits.AddRange(await SafeSearchAsync(() => SearchPharmacyOpeningBalancesAdvancedAsync(clinicId, criteria, perType)));
         if (types.Contains(GlobalSearchTypes.RadiologyRequest))
             hits.AddRange(await SafeSearchAsync(() => SearchRadiologyRequestsAdvancedAsync(clinicId, criteria, perType)));
         if (types.Contains(GlobalSearchTypes.RadiologyResult))
@@ -94,8 +93,7 @@ public sealed partial class GlobalTransactionSearchService
         if (string.IsNullOrWhiteSpace(transactionType) ||
             string.Equals(transactionType, GlobalSearchTypes.All, StringComparison.OrdinalIgnoreCase))
         {
-            return GlobalSearchTypes.AllOptions
-                .Where(t => t != GlobalSearchTypes.All)
+            return GlobalSearchTypes.AllSearchTypes
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -116,6 +114,136 @@ public sealed partial class GlobalTransactionSearchService
 
         var nameSet = patientNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
         return hits.Where(h => nameSet.Contains(h.PatientOrParty)).ToList();
+    }
+
+    private async Task<List<GlobalSearchHit>> SearchPatientsAdvancedAsync(
+        Guid clinicId, GlobalSearchCriteria c, int take)
+    {
+        var from = c.FromDate.Date;
+        var to = c.ToDate.Date;
+        var query = _db.Patients.ForClinic(clinicId).AsNoTracking()
+            .Where(p => p.CreatedAt.Date >= from && p.CreatedAt.Date <= to)
+            .Apply(_doctorScope.Filter);
+
+        if (!string.IsNullOrWhiteSpace(c.PatientName))
+        {
+            var patient = c.PatientName.Trim();
+            var pattern = LikePattern(patient);
+            query = _useILike
+                ? query.Where(p =>
+                    EF.Functions.ILike(p.FirstName, pattern) ||
+                    EF.Functions.ILike(p.LastName, pattern) ||
+                    (p.PatientNo != null && EF.Functions.ILike(p.PatientNo, pattern)) ||
+                    (p.NationalId != null && EF.Functions.ILike(p.NationalId, pattern)))
+                : query.Where(p =>
+                    p.FirstName.Contains(patient) ||
+                    p.LastName.Contains(patient) ||
+                    (p.PatientNo != null && p.PatientNo.Contains(patient)) ||
+                    (p.NationalId != null && p.NationalId.Contains(patient)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(c.DoctorName))
+        {
+            var doctor = c.DoctorName.Trim();
+            var pattern = LikePattern(doctor);
+            query = _useILike
+                ? query.Where(p => p.DoctorName != null && EF.Functions.ILike(p.DoctorName, pattern))
+                : query.Where(p => p.DoctorName != null && p.DoctorName.Contains(doctor));
+        }
+
+        if (c.UseDateOfBirth && c.DateOfBirth.HasValue)
+            query = query.Where(p => p.DateOfBirth != null && p.DateOfBirth.Value.Date == c.DateOfBirth.Value.Date);
+
+        return await query.OrderByDescending(p => p.CreatedAt).Take(take)
+            .Select(p => new GlobalSearchHit(
+                GlobalSearchTypes.Patient,
+                $"#{p.PatientNo}",
+                p.CreatedAt,
+                (p.FirstName + " " + p.LastName).Trim(),
+                p.DoctorName ?? "",
+                0m,
+                $"/PatientRegistration/Index?RecordId={p.Id}",
+                (p.NationalId ?? "") + (p.City != null ? " | " + p.City : "")))
+            .ToListAsync();
+    }
+
+    private async Task<List<GlobalSearchHit>> SearchPatientAppointmentsAdvancedAsync(
+        Guid clinicId, GlobalSearchCriteria c, int take)
+    {
+        var from = c.FromDate.Date;
+        var to = c.ToDate.Date;
+        var query = _db.Patients.ForClinic(clinicId).AsNoTracking()
+            .Where(p => p.AppointmentDate != null &&
+                        p.AppointmentDate.Value.Date >= from &&
+                        p.AppointmentDate.Value.Date <= to)
+            .Apply(_doctorScope.Filter);
+
+        if (!string.IsNullOrWhiteSpace(c.PatientName))
+        {
+            var patient = c.PatientName.Trim();
+            var pattern = LikePattern(patient);
+            query = _useILike
+                ? query.Where(p =>
+                    EF.Functions.ILike(p.FirstName, pattern) ||
+                    EF.Functions.ILike(p.LastName, pattern))
+                : query.Where(p =>
+                    p.FirstName.Contains(patient) ||
+                    p.LastName.Contains(patient));
+        }
+
+        if (!string.IsNullOrWhiteSpace(c.DoctorName))
+        {
+            var doctor = c.DoctorName.Trim();
+            var pattern = LikePattern(doctor);
+            query = _useILike
+                ? query.Where(p => p.DoctorName != null && EF.Functions.ILike(p.DoctorName, pattern))
+                : query.Where(p => p.DoctorName != null && p.DoctorName.Contains(doctor));
+        }
+
+        return await query.OrderByDescending(p => p.AppointmentDate).Take(take)
+            .Select(p => new GlobalSearchHit(
+                GlobalSearchTypes.Appointment,
+                p.AppointmentId ?? $"#{p.PatientNo}",
+                p.AppointmentDate!.Value,
+                (p.FirstName + " " + p.LastName).Trim(),
+                p.DoctorName ?? "",
+                0m,
+                $"/PatientRegistration/Index?RecordId={p.Id}",
+                p.Status ?? ""))
+            .ToListAsync();
+    }
+
+    private async Task<List<GlobalSearchHit>> SearchDoctorsAdvancedAsync(
+        Guid clinicId, GlobalSearchCriteria c, int take)
+    {
+        var from = c.FromDate.Date;
+        var to = c.ToDate.Date;
+        var query = _db.Doctors.ForClinic(clinicId).AsNoTracking()
+            .Where(d => d.CreatedAt.Date >= from && d.CreatedAt.Date <= to);
+
+        if (!string.IsNullOrWhiteSpace(c.DoctorName))
+        {
+            var doctor = c.DoctorName.Trim();
+            var pattern = LikePattern(doctor);
+            query = _useILike
+                ? query.Where(d => EF.Functions.ILike(d.Name, pattern))
+                : query.Where(d => d.Name.Contains(doctor));
+        }
+
+        if (c.Amount is > 0)
+            query = query.Where(d => d.ConsultationFee == c.Amount.Value);
+
+        return await query.OrderByDescending(d => d.CreatedAt).Take(take)
+            .Select(d => new GlobalSearchHit(
+                GlobalSearchTypes.Doctor,
+                $"#{d.DoctorNo}",
+                d.CreatedAt,
+                "",
+                d.Name,
+                d.ConsultationFee,
+                $"/Doctors/Index?RecordId={d.Id}",
+                (d.Specialty ?? "") + (d.Phone != null ? " | " + d.Phone : "")))
+            .ToListAsync();
     }
 
     private async Task<List<GlobalSearchHit>> SearchInvoicesAdvancedAsync(
@@ -245,49 +373,6 @@ public sealed partial class GlobalTransactionSearchService
             .ToListAsync();
     }
 
-    private async Task<List<GlobalSearchHit>> SearchPrescriptionsAdvancedAsync(
-        Guid clinicId, GlobalSearchCriteria c, int take)
-    {
-        var from = c.FromDate.Date;
-        var to = c.ToDate.Date;
-        var query = _db.Prescriptions.AsNoTracking()
-            .Where(p => p.ClinicId == clinicId)
-            .Where(p => p.DatePrescription.Date >= from && p.DatePrescription.Date <= to)
-            .Apply(_doctorScope.Filter);
-
-        if (!string.IsNullOrWhiteSpace(c.PatientName))
-        {
-            var patient = c.PatientName.Trim();
-            var pattern = LikePattern(patient);
-            query = _useILike
-                ? query.Where(p => EF.Functions.ILike(p.PatientName!, pattern))
-                : query.Where(p => p.PatientName != null && p.PatientName.Contains(patient));
-        }
-
-        if (!string.IsNullOrWhiteSpace(c.DoctorName))
-        {
-            var doctor = c.DoctorName.Trim();
-            var pattern = LikePattern(doctor);
-            query = _useILike
-                ? query.Where(p => EF.Functions.ILike(p.DoctorName!, pattern))
-                : query.Where(p => p.DoctorName != null && p.DoctorName.Contains(doctor));
-        }
-
-        query = ApplyQuickTermToPrescriptions(query, c.QuickTerm);
-
-        return await query.OrderByDescending(p => p.DatePrescription).Take(take)
-            .Select(p => new GlobalSearchHit(
-                GlobalSearchTypes.Prescription,
-                $"#{p.PrescriptionNo}",
-                p.DatePrescription,
-                p.PatientName ?? "",
-                p.DoctorName ?? "",
-                0m,
-                $"/Prescriptions?RecordId={p.Id}",
-                p.DiseaseName ?? ""))
-            .ToListAsync();
-    }
-
     private async Task<List<GlobalSearchHit>> SearchLabRequestsAdvancedAsync(
         Guid clinicId, GlobalSearchCriteria c, int take)
     {
@@ -374,158 +459,6 @@ public sealed partial class GlobalTransactionSearchService
                 0m,
                 $"/Laboratory/Result?RecordId={r.Id}",
                 r.Lines.OrderBy(l => l.LineNo).Select(l => l.TestName).FirstOrDefault() ?? ""))
-            .ToListAsync();
-    }
-
-    private async Task<List<GlobalSearchHit>> SearchPharmacyRequestsAdvancedAsync(
-        Guid clinicId, GlobalSearchCriteria c, int take)
-    {
-        var from = c.FromDate.Date;
-        var to = c.ToDate.Date;
-        var query = _db.PharmacyRequests.AsNoTracking()
-            .Where(r => r.ClinicId == clinicId)
-            .Where(r => r.RequestDate.Date >= from && r.RequestDate.Date <= to)
-            .Apply(_doctorScope.Filter);
-
-        if (!string.IsNullOrWhiteSpace(c.PatientName))
-        {
-            var patient = c.PatientName.Trim();
-            var pattern = LikePattern(patient);
-            query = _useILike
-                ? query.Where(r => EF.Functions.ILike(r.PatientName!, pattern) || EF.Functions.ILike(r.PatientId!, pattern))
-                : query.Where(r =>
-                    (r.PatientName != null && r.PatientName.Contains(patient)) ||
-                    (r.PatientId != null && r.PatientId.Contains(patient)));
-        }
-
-        if (!string.IsNullOrWhiteSpace(c.DoctorName))
-        {
-            var doctor = c.DoctorName.Trim();
-            var pattern = LikePattern(doctor);
-            query = _useILike
-                ? query.Where(r => EF.Functions.ILike(r.DoctorName!, pattern))
-                : query.Where(r => r.DoctorName != null && r.DoctorName.Contains(doctor));
-        }
-
-        if (c.Amount is > 0) query = query.Where(r => r.TotalAmount == c.Amount.Value);
-        query = ApplyQuickTermToPharmacyRequests(query, c.QuickTerm);
-
-        return await query.OrderByDescending(r => r.RequestDate).Take(take)
-            .Select(r => new GlobalSearchHit(
-                GlobalSearchTypes.PharmacyRequest,
-                $"#{r.RequestNo}",
-                r.RequestDate,
-                r.PatientName ?? "",
-                r.DoctorName ?? "",
-                r.TotalAmount,
-                $"/Pharmacy/Request?RecordId={r.Id}",
-                r.Lines.OrderBy(l => l.LineNo).Select(l => l.MedicineName).FirstOrDefault() ?? ""))
-            .ToListAsync();
-    }
-
-    private async Task<List<GlobalSearchHit>> SearchPharmacyBillsAdvancedAsync(
-        Guid clinicId, GlobalSearchCriteria c, int take)
-    {
-        var from = c.FromDate.Date;
-        var to = c.ToDate.Date;
-        var query = _db.PharmacyBills.AsNoTracking()
-            .Where(r => r.ClinicId == clinicId)
-            .Where(r => r.BillDate.Date >= from && r.BillDate.Date <= to)
-            .Apply(_doctorScope.Filter);
-
-        if (!string.IsNullOrWhiteSpace(c.PatientName))
-        {
-            var patient = c.PatientName.Trim();
-            var pattern = LikePattern(patient);
-            query = _useILike
-                ? query.Where(r => EF.Functions.ILike(r.PatientName!, pattern) || EF.Functions.ILike(r.PatientId!, pattern))
-                : query.Where(r =>
-                    (r.PatientName != null && r.PatientName.Contains(patient)) ||
-                    (r.PatientId != null && r.PatientId.Contains(patient)));
-        }
-
-        if (!string.IsNullOrWhiteSpace(c.DoctorName))
-        {
-            var doctor = c.DoctorName.Trim();
-            var pattern = LikePattern(doctor);
-            query = _useILike
-                ? query.Where(r => EF.Functions.ILike(r.DoctorName!, pattern))
-                : query.Where(r => r.DoctorName != null && r.DoctorName.Contains(doctor));
-        }
-
-        if (c.Amount is > 0) query = query.Where(r => r.TotalAmount == c.Amount.Value);
-        query = ApplyQuickTermToPharmacyBills(query, c.QuickTerm);
-
-        return await query.OrderByDescending(r => r.BillDate).Take(take)
-            .Select(r => new GlobalSearchHit(
-                GlobalSearchTypes.PharmacyBill,
-                $"#{r.BillNo}",
-                r.BillDate,
-                r.PatientName ?? "",
-                r.DoctorName ?? "",
-                r.TotalAmount,
-                $"/Pharmacy/Bill?RecordId={r.Id}",
-                r.Lines.OrderBy(l => l.LineNo).Select(l => l.MedicineName).FirstOrDefault() ?? ""))
-            .ToListAsync();
-    }
-
-    private async Task<List<GlobalSearchHit>> SearchPharmacyPurchasesAdvancedAsync(
-        Guid clinicId, GlobalSearchCriteria c, int take)
-    {
-        var from = c.FromDate.Date;
-        var to = c.ToDate.Date;
-        var query = _db.PharmacyPurchaseBills.AsNoTracking()
-            .Where(r => r.ClinicId == clinicId)
-            .Where(r => r.PurchaseDate.Date >= from && r.PurchaseDate.Date <= to);
-
-        if (!string.IsNullOrWhiteSpace(c.PatientName))
-        {
-            var party = c.PatientName.Trim();
-            var pattern = LikePattern(party);
-            query = _useILike
-                ? query.Where(r => EF.Functions.ILike(r.SupplierName!, pattern))
-                : query.Where(r => r.SupplierName != null && r.SupplierName.Contains(party));
-        }
-
-        if (c.Amount is > 0) query = query.Where(r => r.NetAmount == c.Amount.Value);
-        query = ApplyQuickTermToPharmacyPurchases(query, c.QuickTerm);
-
-        return await query.OrderByDescending(r => r.PurchaseDate).Take(take)
-            .Select(r => new GlobalSearchHit(
-                GlobalSearchTypes.PharmacyPurchase,
-                $"#{r.PurchaseNo}",
-                r.PurchaseDate,
-                r.SupplierName ?? "",
-                "",
-                r.NetAmount,
-                $"/Pharmacy/Purchase?RecordId={r.Id}",
-                r.SupplierInvoiceNo ?? ""))
-            .ToListAsync();
-    }
-
-    private async Task<List<GlobalSearchHit>> SearchPharmacyOpeningBalancesAdvancedAsync(
-        Guid clinicId, GlobalSearchCriteria c, int take)
-    {
-        var from = c.FromDate.Date;
-        var to = c.ToDate.Date;
-        var query = _db.PharmacyOpeningBalances.AsNoTracking()
-            .Where(r => r.ClinicId == clinicId)
-            .Where(r => r.BalanceDate.Date >= from && r.BalanceDate.Date <= to);
-
-        if (c.Amount is > 0)
-            query = query.Where(r => r.Lines.Sum(l => l.Total) == c.Amount.Value);
-        query = ApplyQuickTermToPharmacyOpeningBalances(query, c.QuickTerm);
-
-        return await query.OrderByDescending(r => r.BalanceDate).Take(take)
-            .Select(r => new GlobalSearchHit(
-                GlobalSearchTypes.PharmacyOpening,
-                $"#{r.BalanceNo}",
-                r.BalanceDate,
-                "",
-                "",
-                r.Lines.Sum(l => l.Total),
-                $"/Pharmacy/OpeningBalance?RecordId={r.Id}",
-                r.Notes ?? ""))
             .ToListAsync();
     }
 
