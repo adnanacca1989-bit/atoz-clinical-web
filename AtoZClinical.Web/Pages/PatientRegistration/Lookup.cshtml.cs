@@ -44,6 +44,7 @@ public class LookupModel : PageModel
                 ? DateTime.Today.Add(p.AppointmentTime.Value).ToString("h:mm tt")
                 : null,
             dateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
+            nationalId = p.NationalId,
             motherName = p.MotherName,
             status = p.Status
         }));

@@ -1,0 +1,57 @@
+@page
+@using AtoZClinical.Core.Entities
+@model AtoZClinical.Web.Pages.Ward.PatientRoomModel
+@{
+    ViewData["Title"] = "Patient Ward Room";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-standard-form">
+    <h1 class="page-title">Patient Ward Room</h1>
+    <div class="inpatient-excel-form ward-board-wrap">
+        <div class="inpatient-form-banner">Patient Ward Room</div>
+        <div class="ward-room-grid">
+            @foreach (var room in Model.Board.Rooms)
+            {
+                var css = room.Status switch
+                {
+                    WardRoomStatuses.Booked => "ward-room-booked",
+                    WardRoomStatuses.Empty => "ward-room-empty",
+                    _ => "ward-room-remaining"
+                };
+                var href = room.Status == WardRoomStatuses.Booked
+                    ? $"/Rooms/Book?Search={room.RoomNo}"
+                    : $"/Rooms/Book?RoomNumber={room.RoomNo}";
+                <a class="ward-room-cell @css" href="@href" title="@room.PatientName">
+                    <span class="ward-room-no">@room.RoomNo</span>
+                </a>
+            }
+        </div>
+        <div class="ward-summary">
+            <div class="ward-summary-item">
+                <label>Total Room</label>
+                <div class="ward-summary-value">@Model.Board.TotalRooms</div>
+            </div>
+            <table class="ward-summary-table">
+                <thead>
+                    <tr>
+                        <th>Remaining</th>
+                        <th>Empty</th>
+                        <th>Booked</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="ward-room-remaining">@Model.Board.RemainingCount</td>
+                        <td class="ward-room-empty">@Model.Board.EmptyCount</td>
+                        <td class="ward-room-booked">@Model.Board.BookedCount</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="mt-3">
+        <a class="btn btn-outline-secondary" asp-page="/Dashboard/Index">Close</a>
+        <a class="btn btn-atz-primary ms-2" asp-page="/Rooms/Book">Book Room</a>
+    </div>
+</div>

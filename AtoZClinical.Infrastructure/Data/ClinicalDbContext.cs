@@ -26,6 +26,9 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Patient> Patients => Set<Patient>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<Doctor> Doctors => Set<Doctor>();
+    public DbSet<DoctorSurgery> DoctorSurgeries => Set<DoctorSurgery>();
+    public DbSet<RoomBooking> RoomBookings => Set<RoomBooking>();
+    public DbSet<WardRoom> WardRooms => Set<WardRoom>();
     public DbSet<ServiceIncome> ServiceIncomes => Set<ServiceIncome>();
     public DbSet<ServiceIncomeRequest> ServiceIncomeRequests => Set<ServiceIncomeRequest>();
     public DbSet<ServiceIncomeRequestLine> ServiceIncomeRequestLines => Set<ServiceIncomeRequestLine>();
@@ -124,6 +127,24 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Doctor>(e =>
         {
             e.HasIndex(x => new { x.ClinicId, x.DoctorNo }).IsUnique();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DoctorSurgery>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.SurgeryNo }).IsUnique();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<RoomBooking>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.BookingNo }).IsUnique();
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WardRoom>(e =>
+        {
+            e.HasIndex(x => new { x.ClinicId, x.RoomNo }).IsUnique();
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -483,6 +504,9 @@ public class ClinicalDbContext : IdentityDbContext<ApplicationUser>
         ConfigureClinicFilter<Patient>(builder);
         ConfigureClinicFilter<Appointment>(builder);
         ConfigureClinicFilter<Doctor>(builder);
+        ConfigureClinicFilter<DoctorSurgery>(builder);
+        ConfigureClinicFilter<RoomBooking>(builder);
+        ConfigureClinicFilter<WardRoom>(builder);
         ConfigureClinicFilter<ServiceIncome>(builder);
         ConfigureClinicFilter<ServiceIncomeRequest>(builder);
         ConfigureClinicFilter<CashReceipt>(builder);

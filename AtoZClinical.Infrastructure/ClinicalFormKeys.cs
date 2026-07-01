@@ -18,6 +18,9 @@ public static class ClinicalFormKeys
     public const string RadiologyRequest = "Radiology.Request";
     public const string RadiologyResult = "Radiology.Result";
     public const string Prescriptions = "Prescriptions";
+    public const string DoctorSurgery = "DoctorSurgery";
+    public const string BookRoom = "BookRoom";
+    public const string PatientWardRoom = "PatientWardRoom";
     public const string Invoices = "Invoices";
     public const string ChartAccounts = "ChartAccounts";
     public const string PharmacyRegistration = "Pharmacy.Registration";
@@ -50,7 +53,7 @@ public static class ClinicalFormKeys
         Dashboard, Workflow, Doctors, ServiceIncomes, ServiceIncomeRequest, PatientRegistration, CashReceipts, CashPayments,
         LabRegistration, LabRequest, LabResult,
         RadiologyRegistration, RadiologyRequest, RadiologyResult,
-        Prescriptions, Invoices, ChartAccounts, Expenses,
+        Prescriptions, DoctorSurgery, BookRoom, PatientWardRoom, Invoices, ChartAccounts, Expenses,
         PharmacyRegistration, PharmacyRequest, PharmacyBill, PharmacyPurchaseBill, PharmacyOpeningBalance,
         PatientHistory, AppointmentReminders, PatientStatus, PlStatement, GeneralLedger, TrialBalance, CostOfGoodsSold, BalanceSheet,
         AccountsReceivable, AccountsPayable, CashReport, PharmacyInventory, DoctorReport, RequestReport,

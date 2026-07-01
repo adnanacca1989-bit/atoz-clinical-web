@@ -35,6 +35,7 @@ public static class DatabaseInitializer
         await EnsurePasswordResetTokenSchemaAsync(db, logger);
         await EnsureRegistrationVerificationCodeSchemaAsync(db, logger);
         await EnsureServiceIncomeRequestSchemaAsync(db, logger);
+        await EnsureInpatientSchemaAsync(db, logger);
         await EnsurePrescriptionLinesSchemaAsync(db, logger);
         await EnsureExpenseJournalSchemaAsync(db, logger);
         await EnsureVendorPaymentSchemaAsync(db, logger);
@@ -665,6 +666,107 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Service income request schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureInpatientSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "DoctorSurgeries" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "SurgeryNo" integer NOT NULL,
+                    "RecordDate" timestamp without time zone NOT NULL,
+                    "SurgeryDate" timestamp without time zone NULL,
+                    "SurgeryTime" interval NULL,
+                    "PatientRecordId" uuid NULL,
+                    "PatientName" text NULL,
+                    "PatientBarcode" text NULL,
+                    "Age" integer NULL,
+                    "City" text NULL,
+                    "NationalId" text NULL,
+                    "Phone" text NULL,
+                    "MotherName" text NULL,
+                    "DoctorRecordId" uuid NULL,
+                    "DoctorName" text NULL,
+                    "Specialty" text NULL,
+                    "TypeOfSurgery" text NULL,
+                    "Classify" text NULL,
+                    "SurgeryName" text NULL,
+                    "InitialAmount" numeric NOT NULL DEFAULT 0,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "UpdatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_DoctorSurgeries" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_DoctorSurgeries_Clinics_ClinicId" FOREIGN KEY ("ClinicId") REFERENCES "Clinics" ("Id") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_DoctorSurgeries_ClinicId_SurgeryNo"
+                    ON "DoctorSurgeries" ("ClinicId", "SurgeryNo");
+
+                CREATE TABLE IF NOT EXISTS "RoomBookings" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "BookingNo" integer NOT NULL,
+                    "DateBook" timestamp without time zone NOT NULL,
+                    "PatientRecordId" uuid NULL,
+                    "DoctorSurgeryId" uuid NULL,
+                    "PatientName" text NULL,
+                    "PatientBarcode" text NULL,
+                    "Age" integer NULL,
+                    "City" text NULL,
+                    "NationalId" text NULL,
+                    "Phone" text NULL,
+                    "MotherName" text NULL,
+                    "DoctorName" text NULL,
+                    "Specialty" text NULL,
+                    "TypeOfSurgery" text NULL,
+                    "Classify" text NULL,
+                    "SurgeryName" text NULL,
+                    "RoomNumber" integer NULL,
+                    "EnterDate" timestamp without time zone NULL,
+                    "ExitDate" timestamp without time zone NULL,
+                    "EnterTime" interval NULL,
+                    "ExitTime" interval NULL,
+                    "Days" integer NULL,
+                    "Note" text NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "UpdatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_RoomBookings" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_RoomBookings_Clinics_ClinicId" FOREIGN KEY ("ClinicId") REFERENCES "Clinics" ("Id") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_RoomBookings_ClinicId_BookingNo"
+                    ON "RoomBookings" ("ClinicId", "BookingNo");
+
+                CREATE TABLE IF NOT EXISTS "WardRooms" (
+                    "Id" uuid NOT NULL,
+                    "ClinicId" uuid NOT NULL,
+                    "RoomNo" integer NOT NULL,
+                    "Status" text NOT NULL,
+                    "UpdatedAt" timestamp without time zone NOT NULL,
+                    CONSTRAINT "PK_WardRooms" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_WardRooms_Clinics_ClinicId" FOREIGN KEY ("ClinicId") REFERENCES "Clinics" ("Id") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_WardRooms_ClinicId_RoomNo"
+                    ON "WardRooms" ("ClinicId", "RoomNo");
+                """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('20260630150000_AddInpatientForms', '8.0.11')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+
+            logger.LogInformation("Inpatient (surgery/ward) schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Inpatient schema verification skipped.");
         }
     }
 

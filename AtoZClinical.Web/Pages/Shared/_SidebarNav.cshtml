@@ -34,6 +34,23 @@
     <a class="sidebar-link" asp-page="/Prescriptions/Index">Doctor's Prescription</a>
 }
 
+@if (NavCan(ClinicalFormKeys.DoctorSurgery) || NavCan(ClinicalFormKeys.BookRoom) || NavCan(ClinicalFormKeys.PatientWardRoom))
+{
+    <div class="text-white-50 small mt-3 mb-1">INPATIENT / WARD</div>
+}
+@if (NavCan(ClinicalFormKeys.DoctorSurgery))
+{
+    <a class="sidebar-link" asp-page="/Surgery/Index">Doctor Surgery</a>
+}
+@if (NavCan(ClinicalFormKeys.BookRoom))
+{
+    <a class="sidebar-link" asp-page="/Rooms/Book">Book Room</a>
+}
+@if (NavCan(ClinicalFormKeys.PatientWardRoom))
+{
+    <a class="sidebar-link" asp-page="/Ward/PatientRoom">Patient Ward Room</a>
+}
+
 @if (NavCan(ClinicalFormKeys.LabRegistration) || NavCan(ClinicalFormKeys.LabRequest) || NavCan(ClinicalFormKeys.LabResult))
 {
     <div class="text-white-50 small mt-3 mb-1">LABORATORY</div>

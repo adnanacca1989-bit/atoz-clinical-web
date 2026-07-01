@@ -558,3 +558,143 @@ html[dir="rtl"] .clinical-form-left {
     letter-spacing: 0.02em;
     padding: 0.35rem 0.65rem;
 }
+
+/* Inpatient / ward excel-style forms */
+.inpatient-excel-form {
+    border: 1px solid #333;
+    background: #fff;
+}
+
+.inpatient-form-banner {
+    background: #5bc0ff;
+    color: #111;
+    font-weight: 700;
+    text-align: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #333;
+}
+
+.inpatient-form-row.six-col {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.inpatient-form-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-bottom: 1px solid #333;
+}
+
+.inpatient-form-row:last-child {
+    border-bottom: none;
+}
+
+.inpatient-cell {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    border-right: 1px solid #333;
+    min-height: 2.5rem;
+}
+
+.inpatient-cell:last-child {
+    border-right: none;
+}
+
+.inpatient-cell-wide {
+    grid-column: span 2;
+}
+
+.inpatient-cell label {
+    font-weight: 600;
+    padding: 0.35rem 0.5rem;
+    border-right: 1px solid #333;
+    background: #f8f9fa;
+    white-space: nowrap;
+    margin: 0;
+}
+
+.inpatient-cell input,
+.inpatient-cell select {
+    border: 0;
+    border-radius: 0;
+    padding: 0.35rem 0.5rem;
+    width: 100%;
+    min-height: 2.25rem;
+}
+
+.ward-board-wrap {
+    max-width: 920px;
+}
+
+.ward-room-grid {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    border-left: 1px solid #333;
+    border-bottom: 1px solid #333;
+}
+
+.ward-room-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    border-top: 1px solid #333;
+    border-right: 1px solid #333;
+    text-decoration: none;
+    color: #111;
+    font-weight: 600;
+}
+
+.ward-room-remaining {
+    background: #fff;
+}
+
+.ward-room-empty {
+    background: #fff3cd;
+}
+
+.ward-room-booked {
+    background: #9ec5fe;
+}
+
+.ward-summary {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    padding: 1rem;
+    border-top: 1px solid #333;
+}
+
+.ward-summary-value {
+    border: 1px solid #333;
+    min-width: 4rem;
+    text-align: center;
+    padding: 0.35rem 0.5rem;
+    font-weight: 700;
+}
+
+.ward-summary-table {
+    border-collapse: collapse;
+}
+
+.ward-summary-table th,
+.ward-summary-table td {
+    border: 1px solid #333;
+    padding: 0.35rem 0.75rem;
+    text-align: center;
+    min-width: 5rem;
+}
+
+@media (max-width: 991.98px) {
+    .inpatient-form-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .inpatient-cell-wide {
+        grid-column: span 2;
+    }
+
+    .ward-room-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}

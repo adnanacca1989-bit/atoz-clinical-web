@@ -1,0 +1,82 @@
+@page
+@model AtoZClinical.Web.Pages.Surgery.IndexModel
+@{
+    ViewData["Title"] = "Doctor Surgery";
+    Layout = "_Layout";
+    ViewData["FormHint"] = "Click Patient Name to search. Demographics fill automatically; enter surgery type, classify, and amount manually.";
+}
+
+<div class="clinical-form-page clinical-standard-form clinical-his-compact">
+    <h1 class="page-title">Doctor Surgery</h1>
+    <div asp-validation-summary="All" class="validation-summary-errors"></div>
+    <partial name="_ClinicalFormHint" />
+    <form method="post">
+        <div class="clinical-form-body">
+            <div class="clinical-form-left clinical-form-scroll">
+                <div class="inpatient-excel-form">
+                    <div class="inpatient-form-banner">Doctor Surgery</div>
+                    <div class="inpatient-form-row">
+                        <div class="inpatient-cell"><label>ID</label><input asp-for="Input.SurgeryNo" readonly /></div>
+                        <div class="inpatient-cell"><label>Date</label><input asp-for="Input.RecordDate" type="date" /></div>
+                        <div class="inpatient-cell"><label>Date of Surgery</label><input asp-for="Input.SurgeryDate" type="date" /></div>
+                        <div class="inpatient-cell"><label>Time of Surgery</label><input asp-for="Input.SurgeryTime" type="time" /></div>
+                    </div>
+                    <div class="inpatient-form-row">
+                        <div class="inpatient-cell inpatient-cell-wide">
+                            <label class="field-required">Patient Name</label>
+                            <input asp-for="Input.PatientName" id="surgeryPatientNameInput" class="doctor-picker-field" readonly placeholder="Click to select patient..." required />
+                            <span asp-validation-for="Input.PatientName" class="text-danger small"></span>
+                        </div>
+                        <div class="inpatient-cell"><label>Age</label><input asp-for="Input.Age" type="number" readonly /></div>
+                        <div class="inpatient-cell"><label>City</label><input asp-for="Input.City" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row">
+                        <div class="inpatient-cell"><label>National ID</label><input asp-for="Input.NationalId" readonly /></div>
+                        <div class="inpatient-cell"><label>Phone</label><input asp-for="Input.Phone" readonly /></div>
+                        <div class="inpatient-cell"><label>Mother Name</label><input asp-for="Input.MotherName" readonly /></div>
+                        <div class="inpatient-cell"><label>Doctor Name</label><input asp-for="Input.DoctorName" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row">
+                        <div class="inpatient-cell"><label>Specialty</label><input asp-for="Input.Specialty" readonly /></div>
+                        <div class="inpatient-cell"><label>Type of Surgery</label><input asp-for="Input.TypeOfSurgery" /></div>
+                        <div class="inpatient-cell"><label>Classify</label><input asp-for="Input.Classify" /></div>
+                        <div class="inpatient-cell"><label>Initial Amount</label><input asp-for="Input.InitialAmount" type="number" step="0.01" /></div>
+                    </div>
+                    <input type="hidden" asp-for="Input.PatientBarcode" id="surgeryPatientBarcodeInput" />
+                    <input type="hidden" asp-for="Input.PatientRecordId" />
+                    <input type="hidden" asp-for="Input.DoctorRecordId" />
+                    <input type="hidden" asp-for="Input.SurgeryName" />
+                </div>
+            </div>
+            <div class="clinical-form-right">
+                <div class="record-transaction-header">Record Transaction</div>
+                <div class="record-transaction-status">@Model.StatusText</div>
+                <div class="p-2">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                </div>
+                <div class="clinical-record-grid">
+                    <table>
+                        <thead><tr><th>ID</th><th>Date</th><th>Patient</th><th>Surgery</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(Model.RecordId == r.Id ? "selected" : "")" onclick="location.href='?RecordId=@r.Id'">
+                                <td>@r.SurgeryNo</td>
+                                <td>@r.RecordDate.ToString("M/d/yyyy")</td>
+                                <td>@r.PatientName</td>
+                                <td>@r.TypeOfSurgery</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" asp-for="RecordId" />
+        <partial name="_FormToolbar" />
+    </form>
+</div>
+<partial name="_PatientSelectModal" />
+@section Scripts {
+    <script src="~/js/doctor-surgery.js" asp-append-version="true"></script>
+}

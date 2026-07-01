@@ -10,6 +10,9 @@ public static class RolePermissionDefaults
         ClinicalFormKeys.Workflow,
         ClinicalFormKeys.PatientRegistration,
         ClinicalFormKeys.Prescriptions,
+        ClinicalFormKeys.DoctorSurgery,
+        ClinicalFormKeys.BookRoom,
+        ClinicalFormKeys.PatientWardRoom,
         ClinicalFormKeys.LabRequest,
         ClinicalFormKeys.LabResult,
         ClinicalFormKeys.RadiologyRequest,
@@ -36,6 +39,8 @@ public static class RolePermissionDefaults
         ClinicalFormKeys.PatientStatus,
         ClinicalFormKeys.RequestReport,
         ClinicalFormKeys.CashReceipts,
+        ClinicalFormKeys.BookRoom,
+        ClinicalFormKeys.PatientWardRoom,
         ClinicalFormKeys.Invoices
     ];
 
