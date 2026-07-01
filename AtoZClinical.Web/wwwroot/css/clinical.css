@@ -45,6 +45,43 @@ body {
     overflow: auto;
 }
 
+.advanced-search-content {
+    background: #f3f3f3;
+}
+
+.advanced-search-header,
+.advanced-search-footer {
+    background: #f3f3f3;
+    border-color: #c8c8c8;
+}
+
+.advanced-search-body {
+    background: #f3f3f3;
+}
+
+.advanced-search-filters .clinical-field {
+    background: #fff;
+}
+
+.advanced-search-dob-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.advanced-search-dob-row .clinical-field {
+    flex: 1 1 auto;
+}
+
+.advanced-search-results table {
+    width: 100%;
+    background: #fff;
+}
+
+.advanced-search-footer .btn-atz-primary {
+    min-width: 5.5rem;
+}
+
 @media (max-width: 992px) {
     .global-nav-search {
         max-width: 100%;

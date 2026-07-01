@@ -1,35 +1,76 @@
+@using AtoZClinical.Infrastructure.Services
 <div class="modal fade" id="globalSearchModal" tabindex="-1" aria-labelledby="globalSearchTitle" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="globalSearchTitle">Advanced Transaction Search</h5>
+    <div class="modal-dialog modal-xl modal-dialog-scrollable advanced-search-dialog">
+        <div class="modal-content advanced-search-content">
+            <div class="modal-header advanced-search-header">
+                <h5 class="modal-title" id="globalSearchTitle">Advanced Search</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="clinical-field-label" for="globalSearchInput">Search all transactions</label>
-                    <input id="globalSearchInput" class="clinical-field" placeholder="Patient, doctor, invoice #, receipt #, medicine, supplier..." autocomplete="off" />
-                    <div class="small text-muted mt-1">Invoice, Cash Receipt/Payment, Prescription, Lab, Pharmacy, Radiology, Opening Balance</div>
+            <div class="modal-body advanced-search-body">
+                <div class="advanced-search-filters">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="clinical-field-label" for="globalSearchFromDate">From Date</label>
+                            <input id="globalSearchFromDate" class="clinical-field" type="date" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="clinical-field-label" for="globalSearchToDate">To Date</label>
+                            <input id="globalSearchToDate" class="clinical-field" type="date" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="clinical-field-label" for="globalSearchTransactionType">Transaction Type</label>
+                            <select id="globalSearchTransactionType" class="clinical-field">
+                                @foreach (var option in GlobalSearchTypes.AllOptions)
+                                {
+                                    <option value="@option">@option</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="clinical-field-label" for="globalSearchPatientName">Patient Name</label>
+                            <input id="globalSearchPatientName" class="clinical-field" autocomplete="off" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-1">
+                        <div class="col-md-3">
+                            <label class="clinical-field-label" for="globalSearchAmount">Amount</label>
+                            <input id="globalSearchAmount" class="clinical-field" type="number" step="0.01" min="0" value="0.00" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="clinical-field-label d-block">Date of Birth</label>
+                            <div class="advanced-search-dob-row">
+                                <input id="globalSearchUseDob" type="checkbox" class="form-check-input" />
+                                <input id="globalSearchDateOfBirth" class="clinical-field" type="date" disabled />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="clinical-field-label" for="globalSearchDoctorName">Doctor Name</label>
+                            <input id="globalSearchDoctorName" class="clinical-field" autocomplete="off" />
+                        </div>
+                    </div>
                 </div>
-                <div id="globalSearchStatus" class="small text-muted mb-2"></div>
-                <div class="clinical-record-grid global-search-results">
+                <div id="globalSearchStatus" class="small text-muted my-2"></div>
+                <div class="clinical-record-grid global-search-results advanced-search-results">
                     <table>
                         <thead>
                         <tr>
-                            <th>Type</th>
-                            <th>Reference</th>
+                            <th>No.</th>
                             <th>Date</th>
-                            <th>Patient / Party</th>
-                            <th>Doctor</th>
+                            <th>Type</th>
+                            <th>Patient Name</th>
+                            <th>Doctor Name</th>
                             <th class="text-end">Amount</th>
-                            <th></th>
+                            <th>Reference</th>
+                            <th>Details</th>
                         </tr>
                         </thead>
                         <tbody id="globalSearchTableBody"></tbody>
                     </table>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer advanced-search-footer">
+                <button type="button" class="btn btn-atz-primary" id="globalSearchApplyBtn">Apply</button>
+                <button type="button" class="btn btn-outline-secondary" id="globalSearchClearBtn">Clear</button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
