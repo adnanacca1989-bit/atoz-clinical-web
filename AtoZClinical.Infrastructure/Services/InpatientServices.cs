@@ -258,9 +258,15 @@ public sealed class WardRoomBoard
 public sealed class WardActiveStay
 {
     public Guid BookingId { get; set; }
+    public string? PatientId { get; set; }
     public string? PatientName { get; set; }
+    public string? MotherName { get; set; }
+    public int? Age { get; set; }
     public string? DoctorName { get; set; }
     public int RoomNo { get; set; }
+    public DateTime? SurgeryDate { get; set; }
+    public string? TypeOfSurgery { get; set; }
+    public string Status { get; set; } = "Admitted";
 }
 
 public sealed class WardRoomCell
@@ -283,6 +289,16 @@ public sealed class WardRoomService
         var activeBookings = await _db.RoomBookings.ForClinic(clinicId)
             .Where(b => b.RoomNumber != null && b.EnterDate != null && b.ExitDate == null)
             .ToListAsync();
+        var surgeryIds = activeBookings
+            .Where(b => b.DoctorSurgeryId.HasValue)
+            .Select(b => b.DoctorSurgeryId!.Value)
+            .Distinct()
+            .ToList();
+        var surgeries = surgeryIds.Count == 0
+            ? new Dictionary<Guid, DoctorSurgery>()
+            : await _db.DoctorSurgeries.ForClinic(clinicId)
+                .Where(s => surgeryIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id);
         var bookingByRoom = activeBookings
             .GroupBy(b => b.RoomNumber!.Value)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.EnterDate).First());
@@ -308,12 +324,30 @@ public sealed class WardRoomService
             ActiveStays = activeBookings
                 .Where(b => b.RoomNumber is int roomNo)
                 .OrderBy(b => b.RoomNumber)
-                .Select(b => new WardActiveStay
+                .Select(b =>
                 {
-                    BookingId = b.Id,
-                    PatientName = b.PatientName,
-                    DoctorName = b.DoctorName,
-                    RoomNo = b.RoomNumber!.Value
+                    DateTime? surgeryDate = null;
+                    if (b.DoctorSurgeryId.HasValue &&
+                        surgeries.TryGetValue(b.DoctorSurgeryId.Value, out var surgery))
+                        surgeryDate = surgery.SurgeryDate;
+
+                    var surgeryLabel = !string.IsNullOrWhiteSpace(b.SurgeryName)
+                        ? b.SurgeryName
+                        : b.TypeOfSurgery;
+
+                    return new WardActiveStay
+                    {
+                        BookingId = b.Id,
+                        PatientId = b.PatientBarcode,
+                        PatientName = b.PatientName,
+                        MotherName = b.MotherName,
+                        Age = b.Age,
+                        DoctorName = b.DoctorName,
+                        RoomNo = b.RoomNumber!.Value,
+                        SurgeryDate = surgeryDate,
+                        TypeOfSurgery = surgeryLabel,
+                        Status = "Admitted"
+                    };
                 })
                 .ToList()
         };

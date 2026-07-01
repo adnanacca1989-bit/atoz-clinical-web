@@ -663,39 +663,433 @@ html[dir="rtl"] .clinical-form-left {
     min-height: 2.25rem;
 }
 
+/* Modern inpatient forms (Book Room, Doctor Surgery) */
+.inpatient-excel-form.inpatient-form-modern {
+    border: 1px solid #c5d4e8;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(30, 91, 184, 0.08);
+}
+
+.inpatient-form-modern .inpatient-form-banner {
+    background: linear-gradient(180deg, #7ec8f0 0%, #5bc0ff 100%);
+    color: #0a3d6e;
+    border-bottom: 1px solid #4aa8e0;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+}
+
+.inpatient-form-modern .inpatient-form-row {
+    border-bottom-color: #d8e3ef;
+}
+
+.inpatient-form-modern .inpatient-cell {
+    border-right-color: #d8e3ef;
+    grid-template-columns: 10.5rem minmax(0, 1fr);
+}
+
+.inpatient-form-modern .inpatient-cell label {
+    background: #f0f6fc;
+    border-right-color: #d8e3ef;
+    color: #1e3a5f;
+}
+
+.inpatient-field-control {
+    display: flex;
+    align-items: center;
+    min-height: 2.25rem;
+    width: 100%;
+    background: #fff;
+}
+
+.inpatient-field-icon {
+    flex-shrink: 0;
+    width: 2rem;
+    text-align: center;
+    font-size: 0.95rem;
+    opacity: 0.8;
+    padding-left: 0.25rem;
+    user-select: none;
+}
+
+.inpatient-field-control > input,
+.inpatient-field-control > select {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.35rem 0.5rem 0.35rem 0;
+    min-height: 2.25rem;
+    width: auto;
+}
+
+.inpatient-field-control > input.inpatient-input-muted,
+.inpatient-field-control > input[readonly]:not(.doctor-picker-field) {
+    background: #f3f4f6;
+}
+
+.inpatient-field-control > input.doctor-picker-field {
+    cursor: pointer;
+    background: #fff;
+}
+
+.inpatient-field-action {
+    border: 0;
+    background: transparent;
+    padding: 0 0.55rem;
+    font-size: 1rem;
+    cursor: pointer;
+    opacity: 0.75;
+    line-height: 1;
+}
+
+.inpatient-field-action:hover {
+    opacity: 1;
+}
+
+.inpatient-field-chevron {
+    padding-right: 0.55rem;
+    color: #64748b;
+    font-size: 0.85rem;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.record-transaction-search-wrap {
+    position: relative;
+    padding: 0.5rem 0.75rem;
+}
+
+.record-transaction-search-wrap .clinical-field {
+    padding-right: 2rem;
+    margin-bottom: 0;
+}
+
+.record-transaction-search-wrap .record-search-icon {
+    position: absolute;
+    right: 1.35rem;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.55;
+    pointer-events: none;
+    font-size: 0.95rem;
+}
+
+.inpatient-form-page .clinical-form-body {
+    align-items: stretch;
+}
+
+.inpatient-form-page .clinical-form-left {
+    min-width: 0;
+}
+
+.inpatient-form-page .clinical-form-right {
+    min-width: 280px;
+}
+
 .ward-board-wrap {
     max-width: 920px;
+}
+
+/* Patient Ward Room dashboard */
+.ward-dashboard-page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 0 1.5rem;
+}
+
+.ward-dashboard-title {
+    text-align: center;
+    color: #1e5bb8;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    font-size: clamp(1.35rem, 2.5vw, 1.85rem);
+    margin: 0.5rem 0 1.25rem;
+}
+
+.ward-dashboard-card {
+    background: #fff;
+    border: 1px solid #dbe4f0;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(30, 91, 184, 0.08);
+    overflow: hidden;
+}
+
+.ward-section-label {
+    color: #1e5bb8;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.65rem;
+}
+
+.ward-rooms-section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 150px;
+    gap: 1.25rem;
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid #e8eef5;
 }
 
 .ward-room-grid {
     display: grid;
     grid-template-columns: repeat(10, minmax(0, 1fr));
-    border-left: 1px solid #333;
-    border-bottom: 1px solid #333;
+    gap: 0.45rem;
+}
+
+.ward-room-grid-modern {
+    border: none;
 }
 
 .ward-room-cell {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 2.75rem;
-    border-top: 1px solid #333;
-    border-right: 1px solid #333;
-    text-decoration: none;
-    color: #111;
+    min-height: 2.6rem;
+    border: 1px solid #d5dde8;
+    border-radius: 6px;
+    background: #fff;
+    color: #1f2937;
     font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
+.ward-room-cell:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(30, 91, 184, 0.15);
+}
+
+.ward-room-available,
 .ward-room-remaining {
     background: #fff;
 }
 
 .ward-room-empty {
-    background: #fff3cd;
+    background: #ffe08a;
+    border-color: #f0c84a;
 }
 
 .ward-room-booked {
-    background: #9ec5fe;
+    background: #1e5bb8;
+    border-color: #1e5bb8;
+    color: #fff;
+}
+
+.ward-room-selected {
+    background: #b8d4f5 !important;
+    border-color: #6ea8e8 !important;
+    color: #0f3d7a !important;
+    box-shadow: inset 0 0 0 2px #6ea8e8;
+}
+
+.ward-legend-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    font-size: 0.85rem;
+    color: #374151;
+}
+
+.ward-legend-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ward-legend-swatch {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 4px;
+    border: 1px solid #d5dde8;
+    flex-shrink: 0;
+}
+
+.ward-stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(220px, 1.4fr);
+    gap: 0.85rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e8eef5;
+    align-items: end;
+}
+
+.ward-stat-card {
+    background: #f7faff;
+    border: 1px solid #e3ebf6;
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ward-stat-label {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.ward-stat-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.ward-stat-total,
+.ward-stat-booked {
+    color: #1e5bb8;
+}
+
+.ward-stat-remaining {
+    color: #16a34a;
+}
+
+.ward-stat-empty {
+    color: #d97706;
+}
+
+.ward-search-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.ward-search-label {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.ward-search-input-wrap {
+    position: relative;
+}
+
+.ward-search-input {
+    width: 100%;
+    border: 1px solid #d5dde8;
+    border-radius: 8px;
+    padding: 0.55rem 2.25rem 0.55rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.ward-search-input:focus {
+    outline: none;
+    border-color: #6ea8e8;
+    box-shadow: 0 0 0 3px rgba(110, 168, 232, 0.25);
+}
+
+.ward-search-icon {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #1e5bb8;
+    pointer-events: none;
+    font-size: 0.95rem;
+}
+
+.ward-patient-list-section {
+    padding: 1rem 1.5rem 1.25rem;
+}
+
+.ward-patient-table-wrap {
+    overflow-x: auto;
+}
+
+.ward-patient-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.88rem;
+}
+
+.ward-patient-table thead th {
+    background: #e8f1fb;
+    color: #1e5bb8;
+    font-weight: 700;
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid #cfe0f5;
+}
+
+.ward-patient-table tbody td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid #edf2f7;
+    vertical-align: middle;
+    color: #1f2937;
+}
+
+.ward-patient-table tbody tr:hover {
+    background: #f8fbff;
+}
+
+.ward-status-badge {
+    display: inline-block;
+    background: #dbeafe;
+    color: #1e5bb8;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.ward-exit-btn {
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    background: #fff;
+    border-radius: 6px;
+    padding: 0.25rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.ward-exit-btn:hover {
+    background: #dc3545;
+    color: #fff;
+}
+
+.ward-patient-empty {
+    margin: 0.75rem 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.ward-dashboard-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.25rem;
+    gap: 1rem;
+}
+
+.ward-btn-close {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 8px;
+    padding: 0.5rem 1.1rem;
+}
+
+.ward-btn-book {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 8px;
+    padding: 0.65rem 1.5rem;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.ward-btn-icon-close {
+    color: #dc3545;
+    font-weight: 700;
 }
 
 .ward-summary {
@@ -750,7 +1144,28 @@ html[dir="rtl"] .clinical-form-left {
         grid-column: span 2;
     }
 
+    .ward-rooms-section {
+        grid-template-columns: 1fr;
+    }
+
+    .ward-stats-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ward-search-wrap {
+        grid-column: 1 / -1;
+    }
+
     .ward-room-grid {
         grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .ward-dashboard-footer {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .ward-btn-book {
+        justify-content: center;
     }
 }

@@ -6,83 +6,132 @@
     Layout = "_Layout";
 }
 
-<div class="clinical-form-page clinical-standard-form">
-    <h1 class="page-title">Patient Ward Room</h1>
-    <div class="inpatient-excel-form ward-board-wrap">
-        <div class="inpatient-form-banner">Patient Ward Room</div>
-        <div class="ward-room-grid">
-            @foreach (var room in Model.Board.Rooms)
-            {
-                var css = room.Status switch
-                {
-                    WardRoomStatuses.Booked => "ward-room-booked",
-                    WardRoomStatuses.Empty => "ward-room-empty",
-                    _ => "ward-room-remaining"
-                };
-                var href = room.Status == WardRoomStatuses.Booked
-                    ? $"/Rooms/Book?Search={room.RoomNo}"
-                    : $"/Rooms/Book?RoomNumber={room.RoomNo}";
-                <a class="ward-room-cell @css" href="@href" title="@room.PatientName">
-                    <span class="ward-room-no">@room.RoomNo</span>
-                </a>
-            }
-        </div>
-        <div class="ward-summary">
-            <div class="ward-summary-item">
-                <label>Total Room</label>
-                <div class="ward-summary-value">@Model.Board.TotalRooms</div>
+<div class="ward-dashboard-page">
+    <h1 class="ward-dashboard-title">PATIENT WARD ROOM</h1>
+
+    <div class="ward-dashboard-card">
+        <div class="ward-rooms-section">
+            <div class="ward-rooms-main">
+                <div class="ward-section-label">ROOMS</div>
+                <div class="ward-room-grid ward-room-grid-modern" id="wardRoomGrid">
+                    @foreach (var room in Model.Board.Rooms)
+                    {
+                        var css = room.Status switch
+                        {
+                            WardRoomStatuses.Booked => "ward-room-booked",
+                            WardRoomStatuses.Empty => "ward-room-empty",
+                            _ => "ward-room-available"
+                        };
+                        <button type="button"
+                                class="ward-room-cell @css"
+                                data-room="@room.RoomNo"
+                                data-status="@room.Status"
+                                data-patient="@room.PatientName"
+                                title="@(room.PatientName ?? $"Room {room.RoomNo}")">
+                            <span class="ward-room-no">@room.RoomNo</span>
+                        </button>
+                    }
+                </div>
             </div>
-            <table class="ward-summary-table">
-                <thead>
-                    <tr>
-                        <th>Remaining</th>
-                        <th>Empty</th>
-                        <th>Booked</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="ward-room-remaining">@Model.Board.RemainingCount</td>
-                        <td class="ward-room-empty">@Model.Board.EmptyCount</td>
-                        <td class="ward-room-booked">@Model.Board.BookedCount</td>
-                    </tr>
-                </tbody>
-            </table>
+            <aside class="ward-legend" aria-label="Room status legend">
+                <div class="ward-section-label">LEGEND</div>
+                <ul class="ward-legend-list">
+                    <li><span class="ward-legend-swatch ward-room-available"></span> Available</li>
+                    <li><span class="ward-legend-swatch ward-room-booked"></span> Booked</li>
+                    <li><span class="ward-legend-swatch ward-room-empty"></span> Empty</li>
+                    <li><span class="ward-legend-swatch ward-room-selected"></span> Selected</li>
+                </ul>
+            </aside>
         </div>
-        @if (Model.Board.ActiveStays.Count > 0)
-        {
-            <div class="ward-active-list">
-                <table class="line-grid">
+
+        <div class="ward-stats-row">
+            <div class="ward-stat-card">
+                <span class="ward-stat-label">Total Room</span>
+                <span class="ward-stat-value ward-stat-total">@Model.Board.TotalRooms</span>
+            </div>
+            <div class="ward-stat-card">
+                <span class="ward-stat-label">Remaining</span>
+                <span class="ward-stat-value ward-stat-remaining">@Model.Board.RemainingCount</span>
+            </div>
+            <div class="ward-stat-card">
+                <span class="ward-stat-label">Empty</span>
+                <span class="ward-stat-value ward-stat-empty">@Model.Board.EmptyCount</span>
+            </div>
+            <div class="ward-stat-card">
+                <span class="ward-stat-label">Booked</span>
+                <span class="ward-stat-value ward-stat-booked">@Model.Board.BookedCount</span>
+            </div>
+            <div class="ward-search-wrap">
+                <label class="ward-search-label" for="wardSearchInput">Search Room / Patient</label>
+                <div class="ward-search-input-wrap">
+                    <input id="wardSearchInput" class="ward-search-input" type="search"
+                           placeholder="Enter room no. or patient name..." autocomplete="off" />
+                    <span class="ward-search-icon" aria-hidden="true">&#128269;</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="ward-patient-list-section">
+            <div class="ward-section-label">PATIENT LIST</div>
+            <div class="ward-patient-table-wrap">
+                <table class="ward-patient-table" id="wardPatientTable">
                     <thead>
                         <tr>
+                            <th>Patient ID</th>
                             <th>Patient Name</th>
+                            <th>Mother Name</th>
+                            <th>Age</th>
                             <th>Doctor Name</th>
                             <th>Room Number</th>
-                            <th></th>
+                            <th>Date of Surgery</th>
+                            <th>Type of Surgery</th>
+                            <th>Status</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                     @foreach (var stay in Model.Board.ActiveStays)
                     {
-                        <tr>
-                            <td>@stay.PatientName</td>
-                            <td>@stay.DoctorName</td>
+                        <tr data-room="@stay.RoomNo"
+                            data-patient="@stay.PatientName"
+                            data-patient-id="@stay.PatientId">
+                            <td>@(stay.PatientId ?? "—")</td>
+                            <td>@(stay.PatientName ?? "—")</td>
+                            <td>@(stay.MotherName ?? "—")</td>
+                            <td>@(stay.Age?.ToString() ?? "—")</td>
+                            <td>@(stay.DoctorName ?? "—")</td>
                             <td>@stay.RoomNo</td>
-                            <td class="text-end">
-                                <form method="post" asp-page-handler="Exit" class="d-inline">
+                            <td>@(stay.SurgeryDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td>@(stay.TypeOfSurgery ?? "—")</td>
+                            <td><span class="ward-status-badge">@stay.Status</span></td>
+                            <td>
+                                <form method="post" asp-page-handler="Exit" class="d-inline ward-exit-form">
                                     <input type="hidden" name="bookingId" value="@stay.BookingId" />
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Exit</button>
+                                    <button type="submit" class="btn ward-exit-btn">Exit</button>
                                 </form>
                             </td>
                         </tr>
                     }
                     </tbody>
                 </table>
+                @if (Model.Board.ActiveStays.Count == 0)
+                {
+                    <p class="ward-patient-empty" id="wardPatientEmpty">No admitted patients in ward rooms.</p>
+                }
             </div>
-        }
+        </div>
     </div>
-    <div class="mt-3">
-        <a class="btn btn-outline-secondary" asp-page="/Dashboard/Index">Close</a>
-        <a class="btn btn-atz-primary ms-2" asp-page="/Rooms/Book">Book Room</a>
+
+    <div class="ward-dashboard-footer">
+        <a class="btn btn-outline-secondary ward-btn-close" asp-page="/Dashboard/Index">
+            <span class="ward-btn-icon ward-btn-icon-close" aria-hidden="true">&#10005;</span> Close
+        </a>
+        <a class="btn btn-atz-primary ward-btn-book" asp-page="/Rooms/Book" id="wardBookRoomBtn">
+            <span class="ward-btn-icon" aria-hidden="true">&#128197;</span> Book Room
+        </a>
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/patient-ward-room.js" asp-append-version="true"></script>
+}

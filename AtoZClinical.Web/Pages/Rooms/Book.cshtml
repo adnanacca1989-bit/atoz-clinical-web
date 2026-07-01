@@ -6,72 +6,178 @@
     ViewData["FormHint"] = "Select patient to auto-fill demographics and surgery details. Nursing staff enter room number and admission/discharge dates and times.";
 }
 
-<div class="clinical-form-page clinical-standard-form clinical-his-compact">
+<div class="clinical-form-page clinical-standard-form clinical-his-compact inpatient-form-page">
     <h1 class="page-title">Book Room</h1>
     <div asp-validation-summary="All" class="validation-summary-errors"></div>
     <partial name="_ClinicalFormHint" />
     <form method="post" id="bookRoomForm">
         <div class="clinical-form-body">
             <div class="clinical-form-left clinical-form-scroll">
-                <div class="inpatient-excel-form">
+                <div class="inpatient-excel-form inpatient-form-modern">
                     <div class="inpatient-form-banner">Book Room</div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Date Book</label><input asp-for="Input.DateBook" type="date" /></div>
+                        <div class="inpatient-cell">
+                            <label>Date Book</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128197;</span>
+                                <input asp-for="Input.DateBook" type="date" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell">
                             <label class="field-required">Patient Name</label>
-                            <input asp-for="Input.PatientName" id="bookRoomPatientNameInput" class="doctor-picker-field" readonly placeholder="Click to select patient..." required />
+                            <div class="inpatient-field-control inpatient-field-picker">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128100;</span>
+                                <input asp-for="Input.PatientName" id="bookRoomPatientNameInput" class="doctor-picker-field" readonly placeholder="Click to select patient..." required />
+                                <button type="button" class="inpatient-field-action" onclick="document.getElementById('bookRoomPatientNameInput')?.click();" aria-label="Search patient">&#128269;</button>
+                            </div>
                         </div>
                     </div>
                     <span asp-validation-for="Input.PatientName" class="text-danger small px-2"></span>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Age</label><input asp-for="Input.Age" type="number" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Age</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128100;</span>
+                                <input asp-for="Input.Age" type="number" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>City</label><input asp-for="Input.City" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>City</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128205;</span>
+                                <input asp-for="Input.City" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Room Number</label><input asp-for="Input.RoomNumber" type="number" min="1" max="50" id="bookRoomNumberInput" /></div>
+                        <div class="inpatient-cell">
+                            <label>Room Number</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#127976;</span>
+                                <input asp-for="Input.RoomNumber" type="number" min="1" max="50" id="bookRoomNumberInput" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Phone</label><input asp-for="Input.Phone" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Phone</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128222;</span>
+                                <input asp-for="Input.Phone" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Mother Name</label><input asp-for="Input.MotherName" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Mother Name</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128105;</span>
+                                <input asp-for="Input.MotherName" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Doctor Name</label><input asp-for="Input.DoctorName" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Doctor Name</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#129658;</span>
+                                <input asp-for="Input.DoctorName" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Specialty</label><input asp-for="Input.Specialty" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Specialty</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#129657;</span>
+                                <input asp-for="Input.Specialty" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Type of Surgery</label><input asp-for="Input.TypeOfSurgery" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Type of Surgery</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#9998;</span>
+                                <input asp-for="Input.TypeOfSurgery" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Classify</label><input asp-for="Input.Classify" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Classify</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128203;</span>
+                                <input asp-for="Input.Classify" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Surgery Name</label><input asp-for="Input.SurgeryName" readonly /></div>
+                        <div class="inpatient-cell">
+                            <label>Surgery Name</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#9998;</span>
+                                <input asp-for="Input.SurgeryName" readonly class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Enter Date</label><input asp-for="Input.EnterDate" type="date" id="bookEnterDate" /></div>
+                        <div class="inpatient-cell">
+                            <label>Enter Date</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128197;</span>
+                                <input asp-for="Input.EnterDate" type="date" id="bookEnterDate" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Exit Date</label><input asp-for="Input.ExitDate" type="date" id="bookExitDate" /></div>
+                        <div class="inpatient-cell">
+                            <label>Exit Date</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128197;</span>
+                                <input asp-for="Input.ExitDate" type="date" id="bookExitDate" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Enter Time</label><input asp-for="Input.EnterTime" type="time" /></div>
+                        <div class="inpatient-cell">
+                            <label>Enter Time</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128339;</span>
+                                <input asp-for="Input.EnterTime" type="time" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Exit Time</label><input asp-for="Input.ExitTime" type="time" /></div>
+                        <div class="inpatient-cell">
+                            <label>Exit Time</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128339;</span>
+                                <input asp-for="Input.ExitTime" type="time" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Days</label><input asp-for="Input.Days" type="number" readonly id="bookDays" /></div>
+                        <div class="inpatient-cell">
+                            <label>Days</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128197;</span>
+                                <input asp-for="Input.Days" type="number" readonly id="bookDays" class="inpatient-input-muted" />
+                            </div>
+                        </div>
                     </div>
                     <div class="inpatient-form-row single-col">
-                        <div class="inpatient-cell"><label>Note</label><input asp-for="Input.Note" /></div>
+                        <div class="inpatient-cell">
+                            <label>Note</label>
+                            <div class="inpatient-field-control">
+                                <span class="inpatient-field-icon" aria-hidden="true">&#128221;</span>
+                                <input asp-for="Input.Note" />
+                            </div>
+                        </div>
                     </div>
                     <input type="hidden" asp-for="Input.BookingNo" />
                     <input type="hidden" asp-for="Input.PatientBarcode" id="bookRoomPatientBarcodeInput" />
@@ -83,8 +189,9 @@
             <div class="clinical-form-right">
                 <div class="record-transaction-header">Record Transaction</div>
                 <div class="record-transaction-status">@Model.StatusText</div>
-                <div class="p-2">
-                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field mb-2" placeholder="Search..." />
+                <div class="record-transaction-search-wrap">
+                    <input id="searchBox" name="Search" value="@Model.Search" class="clinical-field" placeholder="Search..." />
+                    <span class="record-search-icon" aria-hidden="true">&#128269;</span>
                 </div>
                 <div class="clinical-record-grid">
                     <table>

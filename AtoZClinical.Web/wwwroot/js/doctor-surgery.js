@@ -14,6 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    initDoctorPicker({
+        doctorNameSelector: '#surgeryDoctorNameInput',
+        fieldMap: {
+            '[name="Input.DoctorRecordId"]': d => d.id || '',
+            '[name="Input.Specialty"]': d => d.specialty || ''
+        }
+    });
+
     initPatientBarcodeScanner({
         barcodeSelector: '#surgeryPatientBarcodeInput',
         patientNameSelector: '#surgeryPatientNameInput',
