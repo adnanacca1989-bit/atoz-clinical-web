@@ -188,6 +188,24 @@ public sealed class RoomBookingService
             $"Booking #{item.BookingNo} — Room {item.RoomNumber}");
     }
 
+    public async Task<bool> ExitStayAsync(Guid clinicId, Guid bookingId, string? userName = null)
+    {
+        var booking = await GetAsync(clinicId, bookingId);
+        if (booking is null || booking.ExitDate.HasValue || booking.RoomNumber is null)
+            return false;
+
+        var now = DateTime.Now;
+        booking.ExitDate = now.Date;
+        booking.ExitTime = now.TimeOfDay;
+        booking.Days = ComputeDays(booking.EnterDate, booking.ExitDate);
+        booking.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        await _wardRooms.SyncFromBookingAsync(clinicId, booking);
+        await _audit.LogAsync(clinicId, userName, "Book Room", "Exit",
+            $"Booking #{booking.BookingNo} — Room {booking.RoomNumber} — {booking.PatientName}");
+        return true;
+    }
+
     public static int? ComputeDays(DateTime? enterDate, DateTime? exitDate)
     {
         if (enterDate is null || exitDate is null) return null;
@@ -234,6 +252,15 @@ public sealed class WardRoomBoard
     public int EmptyCount { get; set; }
     public int BookedCount { get; set; }
     public List<WardRoomCell> Rooms { get; set; } = [];
+    public List<WardActiveStay> ActiveStays { get; set; } = [];
+}
+
+public sealed class WardActiveStay
+{
+    public Guid BookingId { get; set; }
+    public string? PatientName { get; set; }
+    public string? DoctorName { get; set; }
+    public int RoomNo { get; set; }
 }
 
 public sealed class WardRoomCell
@@ -277,7 +304,18 @@ public sealed class WardRoomService
             RemainingCount = cells.Count(c => c.Status == WardRoomStatuses.Remaining),
             EmptyCount = cells.Count(c => c.Status == WardRoomStatuses.Empty),
             BookedCount = cells.Count(c => c.Status == WardRoomStatuses.Booked),
-            Rooms = cells
+            Rooms = cells,
+            ActiveStays = activeBookings
+                .Where(b => b.RoomNumber is int roomNo)
+                .OrderBy(b => b.RoomNumber)
+                .Select(b => new WardActiveStay
+                {
+                    BookingId = b.Id,
+                    PatientName = b.PatientName,
+                    DoctorName = b.DoctorName,
+                    RoomNo = b.RoomNumber!.Value
+                })
+                .ToList()
         };
     }
 

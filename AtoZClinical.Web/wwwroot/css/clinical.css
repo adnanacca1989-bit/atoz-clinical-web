@@ -578,6 +578,10 @@ html[dir="rtl"] .clinical-form-left {
     grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.inpatient-form-row.single-col {
+    grid-template-columns: 1fr;
+}
+
 .inpatient-form-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -683,6 +687,21 @@ html[dir="rtl"] .clinical-form-left {
     padding: 0.35rem 0.75rem;
     text-align: center;
     min-width: 5rem;
+}
+
+.ward-active-list {
+    padding: 1rem;
+    border-top: 1px solid #333;
+}
+
+.ward-active-list table {
+    width: 100%;
+}
+
+.ward-active-list th,
+.ward-active-list td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
 }
 
 @media (max-width: 991.98px) {

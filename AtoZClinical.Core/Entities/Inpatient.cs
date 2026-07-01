@@ -69,6 +69,21 @@ public static class WardRoomStatuses
     public const string Booked = "Booked";
 }
 
+public static class SurgeryTypeOptions
+{
+    public static readonly string[] All =
+    [
+        "Minor",
+        "Moderate",
+        "Major",
+        "Super Major",
+        "Skill",
+        "Special",
+        "Comprehensive",
+        "Other"
+    ];
+}
+
 public class WardRoom : IClinicScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();

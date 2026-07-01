@@ -1,5 +1,6 @@
 @page
 @model AtoZClinical.Web.Pages.Surgery.IndexModel
+@using AtoZClinical.Core.Entities
 @{
     ViewData["Title"] = "Doctor Surgery";
     Layout = "_Layout";
@@ -15,31 +16,67 @@
             <div class="clinical-form-left clinical-form-scroll">
                 <div class="inpatient-excel-form">
                     <div class="inpatient-form-banner">Doctor Surgery</div>
-                    <div class="inpatient-form-row">
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>ID</label><input asp-for="Input.SurgeryNo" readonly /></div>
-                        <div class="inpatient-cell"><label>Date</label><input asp-for="Input.RecordDate" type="date" /></div>
-                        <div class="inpatient-cell"><label>Date of Surgery</label><input asp-for="Input.SurgeryDate" type="date" /></div>
-                        <div class="inpatient-cell"><label>Time of Surgery</label><input asp-for="Input.SurgeryTime" type="time" /></div>
                     </div>
-                    <div class="inpatient-form-row">
-                        <div class="inpatient-cell inpatient-cell-wide">
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Date</label><input asp-for="Input.RecordDate" type="date" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell">
                             <label class="field-required">Patient Name</label>
                             <input asp-for="Input.PatientName" id="surgeryPatientNameInput" class="doctor-picker-field" readonly placeholder="Click to select patient..." required />
-                            <span asp-validation-for="Input.PatientName" class="text-danger small"></span>
                         </div>
+                    </div>
+                    <span asp-validation-for="Input.PatientName" class="text-danger small px-2"></span>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Phone</label><input asp-for="Input.Phone" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Age</label><input asp-for="Input.Age" type="number" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Mother Name</label><input asp-for="Input.MotherName" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>City</label><input asp-for="Input.City" readonly /></div>
                     </div>
-                    <div class="inpatient-form-row">
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Date of Surgery</label><input asp-for="Input.SurgeryDate" type="date" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Time of Surgery</label><input asp-for="Input.SurgeryTime" type="time" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>National ID</label><input asp-for="Input.NationalId" readonly /></div>
-                        <div class="inpatient-cell"><label>Phone</label><input asp-for="Input.Phone" readonly /></div>
-                        <div class="inpatient-cell"><label>Mother Name</label><input asp-for="Input.MotherName" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Doctor Name</label><input asp-for="Input.DoctorName" readonly /></div>
                     </div>
-                    <div class="inpatient-form-row">
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Specialty</label><input asp-for="Input.Specialty" readonly /></div>
-                        <div class="inpatient-cell"><label>Type of Surgery</label><input asp-for="Input.TypeOfSurgery" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell">
+                            <label>Type of Surgery</label>
+                            <select asp-for="Input.TypeOfSurgery" class="clinical-field">
+                                <option value="">— Select —</option>
+                                @foreach (var option in SurgeryTypeOptions.All)
+                                {
+                                    <option value="@option">@option</option>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(Model.Input.TypeOfSurgery)
+                                     && !SurgeryTypeOptions.All.Contains(Model.Input.TypeOfSurgery, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    <option value="@Model.Input.TypeOfSurgery">@Model.Input.TypeOfSurgery</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Classify</label><input asp-for="Input.Classify" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Initial Amount</label><input asp-for="Input.InitialAmount" type="number" step="0.01" /></div>
                     </div>
                     <input type="hidden" asp-for="Input.PatientBarcode" id="surgeryPatientBarcodeInput" />

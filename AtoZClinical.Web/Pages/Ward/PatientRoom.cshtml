@@ -49,6 +49,37 @@
                 </tbody>
             </table>
         </div>
+        @if (Model.Board.ActiveStays.Count > 0)
+        {
+            <div class="ward-active-list">
+                <table class="line-grid">
+                    <thead>
+                        <tr>
+                            <th>Patient Name</th>
+                            <th>Doctor Name</th>
+                            <th>Room Number</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var stay in Model.Board.ActiveStays)
+                    {
+                        <tr>
+                            <td>@stay.PatientName</td>
+                            <td>@stay.DoctorName</td>
+                            <td>@stay.RoomNo</td>
+                            <td class="text-end">
+                                <form method="post" asp-page-handler="Exit" class="d-inline">
+                                    <input type="hidden" name="bookingId" value="@stay.BookingId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Exit</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
     <div class="mt-3">
         <a class="btn btn-outline-secondary" asp-page="/Dashboard/Index">Close</a>
