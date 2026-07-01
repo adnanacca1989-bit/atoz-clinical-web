@@ -77,12 +77,14 @@
                         <div class="inpatient-cell"><label>Classify</label><input asp-for="Input.Classify" /></div>
                     </div>
                     <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Surgery Name</label><input asp-for="Input.SurgeryName" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Initial Amount</label><input asp-for="Input.InitialAmount" type="number" step="0.01" /></div>
                     </div>
                     <input type="hidden" asp-for="Input.PatientBarcode" id="surgeryPatientBarcodeInput" />
                     <input type="hidden" asp-for="Input.PatientRecordId" />
                     <input type="hidden" asp-for="Input.DoctorRecordId" />
-                    <input type="hidden" asp-for="Input.SurgeryName" />
                 </div>
             </div>
             <div class="clinical-form-right">

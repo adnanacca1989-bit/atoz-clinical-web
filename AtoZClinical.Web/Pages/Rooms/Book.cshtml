@@ -15,32 +15,62 @@
             <div class="clinical-form-left clinical-form-scroll">
                 <div class="inpatient-excel-form">
                     <div class="inpatient-form-banner">Book Room</div>
-                    <div class="inpatient-form-row six-col">
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Date Book</label><input asp-for="Input.DateBook" type="date" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell">
                             <label class="field-required">Patient Name</label>
-                            <input asp-for="Input.PatientName" id="bookRoomPatientNameInput" class="doctor-picker-field" readonly placeholder="Click..." required />
+                            <input asp-for="Input.PatientName" id="bookRoomPatientNameInput" class="doctor-picker-field" readonly placeholder="Click to select patient..." required />
                         </div>
-                        <div class="inpatient-cell"><label>Age</label><input asp-for="Input.Age" type="number" readonly /></div>
-                        <div class="inpatient-cell"><label>City</label><input asp-for="Input.City" readonly /></div>
-                        <div class="inpatient-cell"><label>Room Number</label><input asp-for="Input.RoomNumber" type="number" min="1" max="50" id="bookRoomNumberInput" /></div>
-                        <div class="inpatient-cell"><label>Phone</label><input asp-for="Input.Phone" readonly /></div>
                     </div>
                     <span asp-validation-for="Input.PatientName" class="text-danger small px-2"></span>
-                    <div class="inpatient-form-row six-col">
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Age</label><input asp-for="Input.Age" type="number" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>City</label><input asp-for="Input.City" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Room Number</label><input asp-for="Input.RoomNumber" type="number" min="1" max="50" id="bookRoomNumberInput" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
+                        <div class="inpatient-cell"><label>Phone</label><input asp-for="Input.Phone" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Mother Name</label><input asp-for="Input.MotherName" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Doctor Name</label><input asp-for="Input.DoctorName" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Specialty</label><input asp-for="Input.Specialty" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Type of Surgery</label><input asp-for="Input.TypeOfSurgery" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Classify</label><input asp-for="Input.Classify" readonly /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Surgery Name</label><input asp-for="Input.SurgeryName" readonly /></div>
                     </div>
-                    <div class="inpatient-form-row six-col">
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Enter Date</label><input asp-for="Input.EnterDate" type="date" id="bookEnterDate" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Exit Date</label><input asp-for="Input.ExitDate" type="date" id="bookExitDate" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Enter Time</label><input asp-for="Input.EnterTime" type="time" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Exit Time</label><input asp-for="Input.ExitTime" type="time" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Days</label><input asp-for="Input.Days" type="number" readonly id="bookDays" /></div>
+                    </div>
+                    <div class="inpatient-form-row single-col">
                         <div class="inpatient-cell"><label>Note</label><input asp-for="Input.Note" /></div>
                     </div>
                     <input type="hidden" asp-for="Input.BookingNo" />
