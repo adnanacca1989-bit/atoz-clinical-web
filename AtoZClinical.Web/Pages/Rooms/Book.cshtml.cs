@@ -81,6 +81,7 @@ public class BookModel : ClinicFormPageModel
         if (clinicId is null) return Forbid();
 
         await BackfillFromPatientAsync(clinicId.Value);
+        ValidateStayDates();
         Input.Days = RoomBookingService.ComputeDays(Input.EnterDate, Input.ExitDate);
 
         if (!ModelState.IsValid)
@@ -103,6 +104,18 @@ public class BookModel : ClinicFormPageModel
         await LoadAsync(clinicId.Value);
         ViewData["OpenPatientSelect"] = true;
         SetFormViewData("Book Room", null, null, Input.UpdatedAt, Input.BookingNo.ToString());
+    }
+
+    private void ValidateStayDates()
+    {
+        if (!Input.EnterDate.HasValue || !Input.ExitDate.HasValue) return;
+
+        if (Input.ExitDate.Value.Date < Input.EnterDate.Value.Date)
+        {
+            ModelState.AddModelError(
+                $"{nameof(Input)}.{nameof(Input.ExitDate)}",
+                "Exit date cannot be before enter date.");
+        }
     }
 
     private async Task BackfillFromPatientAsync(Guid clinicId)

@@ -1,7 +1,29 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('bookRoomForm');
     const enterDate = document.getElementById('bookEnterDate');
     const exitDate = document.getElementById('bookExitDate');
     const daysInput = document.getElementById('bookDays');
+    const exitDateError = document.getElementById('bookExitDateError');
+
+    const stayDateErrorMessage = 'Exit date cannot be before enter date.';
+
+    const isStayDateRangeInvalid = () => {
+        if (!enterDate?.value || !exitDate?.value) return false;
+        return exitDate.value < enterDate.value;
+    };
+
+    const showStayDateError = (message) => {
+        if (exitDateError) {
+            exitDateError.textContent = message || '';
+        }
+        exitDate?.classList.toggle('input-validation-error', !!message);
+    };
+
+    const validateStayDates = () => {
+        const invalid = isStayDateRangeInvalid();
+        showStayDateError(invalid ? stayDateErrorMessage : '');
+        return !invalid;
+    };
 
     const recomputeDays = () => {
         if (!enterDate || !exitDate || !daysInput) return;
@@ -9,17 +31,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const exit = exitDate.value;
         if (!enter || !exit) {
             daysInput.value = '';
+            validateStayDates();
+            return;
+        }
+        if (isStayDateRangeInvalid()) {
+            daysInput.value = '';
+            validateStayDates();
             return;
         }
         const start = new Date(enter);
         const end = new Date(exit);
         const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
         daysInput.value = diff >= 0 ? diff + 1 : '';
+        showStayDateError('');
     };
 
     enterDate?.addEventListener('change', recomputeDays);
     exitDate?.addEventListener('change', recomputeDays);
     recomputeDays();
+
+    form?.addEventListener('submit', (e) => {
+        if (!validateStayDates()) {
+            e.preventDefault();
+            e.stopPropagation();
+            exitDate?.focus();
+        }
+    });
 
     initPatientPicker({
         patientNameSelector: '#bookRoomPatientNameInput',
