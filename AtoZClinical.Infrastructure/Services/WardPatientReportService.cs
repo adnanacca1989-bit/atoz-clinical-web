@@ -23,24 +23,25 @@ public sealed class WardPatientReportService
         if (from > to)
             (from, to) = (to, from);
 
+        var patients = await _db.Patients.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var resolvedPatient = ResolveFilterPatient(patients, patientBarcode, patientName);
+        var hasPatientFilter = resolvedPatient is not null
+            || !string.IsNullOrWhiteSpace(patientBarcode)
+            || !string.IsNullOrWhiteSpace(patientName);
+
         var bookings = await _db.RoomBookings.ForClinic(clinicId).AsNoTracking().ToListAsync();
-        bookings = bookings
-            .Where(b => IsInReportDateRange(b, from, to))
-            .ToList();
 
-        if (!string.IsNullOrWhiteSpace(patientBarcode))
+        if (hasPatientFilter)
         {
-            var bc = patientBarcode.Trim();
-            bookings = bookings.Where(b =>
-                string.Equals(b.PatientBarcode, bc, StringComparison.OrdinalIgnoreCase) ||
-                b.PatientBarcode?.Contains(bc, StringComparison.OrdinalIgnoreCase) == true).ToList();
+            bookings = bookings
+                .Where(b => MatchesPatientFilter(b, resolvedPatient, patientBarcode, patientName))
+                .ToList();
         }
-
-        if (!string.IsNullOrWhiteSpace(patientName))
+        else
         {
-            var name = patientName.Trim();
-            bookings = bookings.Where(b =>
-                b.PatientName?.Contains(name, StringComparison.OrdinalIgnoreCase) == true).ToList();
+            bookings = bookings
+                .Where(b => IsInReportDateRange(b, from, to))
+                .ToList();
         }
 
         if (!string.IsNullOrWhiteSpace(doctorName))
@@ -55,7 +56,6 @@ public sealed class WardPatientReportService
             .ThenBy(b => b.BookingNo)
             .ToList();
 
-        var patients = await _db.Patients.ForClinic(clinicId).AsNoTracking().ToListAsync();
         var doctors = await _db.Doctors.ForClinic(clinicId).AsNoTracking().ToListAsync();
         var demographics = new ClinicalDemographicsSyncService(_db);
 
@@ -185,8 +185,55 @@ public sealed class WardPatientReportService
 
     private static bool IsInReportDateRange(RoomBooking booking, DateTime from, DateTime to)
     {
-        var reportDate = (booking.EnterDate ?? booking.DateBook).Date;
-        return reportDate >= from && reportDate <= to;
+        var stayStart = (booking.EnterDate ?? booking.DateBook).Date;
+        if (!booking.ExitDate.HasValue)
+            return stayStart <= to;
+
+        var stayEnd = booking.ExitDate.Value.Date;
+        return stayStart <= to && stayEnd >= from;
+    }
+
+    private static Patient? ResolveFilterPatient(
+        IReadOnlyList<Patient> patients,
+        string? patientBarcode,
+        string? patientName)
+    {
+        if (!string.IsNullOrWhiteSpace(patientBarcode))
+        {
+            var bc = patientBarcode.Trim();
+            var byBarcode = patients.FirstOrDefault(p =>
+                string.Equals(p.PatientNo, bc, StringComparison.OrdinalIgnoreCase) ||
+                (p.NationalId != null && p.NationalId.Contains(bc, StringComparison.OrdinalIgnoreCase)));
+            if (byBarcode is not null)
+                return byBarcode;
+        }
+
+        if (string.IsNullOrWhiteSpace(patientName))
+            return null;
+
+        var name = patientName.Trim();
+        return patients.FirstOrDefault(p =>
+            p.FullName.Contains(name, StringComparison.OrdinalIgnoreCase) ||
+            name.Contains(p.FullName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool MatchesPatientFilter(
+        RoomBooking booking,
+        Patient? resolvedPatient,
+        string? patientBarcode,
+        string? patientName)
+    {
+        if (resolvedPatient is not null && booking.PatientRecordId == resolvedPatient.Id)
+            return true;
+
+        return PatientChargeMatcher.MatchesPatient(
+            patientBarcode,
+            patientName,
+            booking.PatientBarcode,
+            booking.PatientBarcode,
+            booking.PatientName,
+            resolvedPatient?.Id,
+            booking.PatientRecordId);
     }
 
     private static bool MatchesBooking(RoomBooking booking, Invoice invoice) =>
