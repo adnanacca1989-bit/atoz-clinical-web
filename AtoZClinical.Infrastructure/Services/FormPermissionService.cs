@@ -150,6 +150,7 @@ public sealed class FormPermissionService
             "/surgery" or "/surgery/index" => ClinicalFormKeys.DoctorSurgery,
             "/rooms/book" => ClinicalFormKeys.BookRoom,
             "/ward/patientroom" => ClinicalFormKeys.PatientWardRoom,
+            "/ward/patientreport" => ClinicalFormKeys.WardPatientReport,
             "/laboratory/registration" => ClinicalFormKeys.LabRegistration,
             "/laboratory/request" => ClinicalFormKeys.LabRequest,
             "/laboratory/result" => ClinicalFormKeys.LabResult,

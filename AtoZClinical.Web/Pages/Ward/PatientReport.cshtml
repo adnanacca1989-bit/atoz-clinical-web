@@ -1,0 +1,132 @@
+@page
+@model AtoZClinical.Web.Pages.Ward.PatientReportModel
+@{
+    ViewData["Title"] = "Patient Report";
+    ViewData["UseReportPickers"] = true;
+    ViewData["ReportColumnKey"] = "Ward Patient Report";
+    Layout = "_Layout";
+}
+
+<div class="clinical-form-page clinical-report-page">
+    <h1 class="page-title">Patient Report</h1>
+    <partial name="_ReportBranding" />
+    <form method="post" id="clinicalReportForm">
+        <button type="submit" asp-page-handler="Run" id="reportRunSubmit" class="d-none" aria-hidden="true"></button>
+        <div class="report-filter-panel">
+            <div class="row g-2 mb-0">
+                <div class="col-md-2">
+                    <label class="clinical-field-label">From Date</label>
+                    <input asp-for="FromDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">To Date</label>
+                    <input asp-for="ToDate" class="clinical-field" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label class="clinical-field-label">Patient Barcode</label>
+                    <input asp-for="PatientBarcode" id="reportPatientBarcodeInput" class="clinical-field patient-barcode-input" placeholder="Scan barcode..." autocomplete="off" />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Patient Name</label>
+                    <input asp-for="PatientName" id="reportPatientNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select patient..." />
+                </div>
+                <div class="col-md-3">
+                    <label class="clinical-field-label">Doctor Name</label>
+                    <input asp-for="DoctorName" id="reportDoctorNameInput" class="clinical-field doctor-picker-field" readonly placeholder="Click to select doctor..." />
+                </div>
+            </div>
+        </div>
+        <p class="report-hint">Inpatient ward stays by room booking. Filter by enter date range, patient barcode, patient, or doctor. Use <strong>Filter</strong> to show/hide columns.</p>
+        <div class="report-results-scroll">
+            <table class="line-grid report-grid">
+                <thead>
+                <tr>
+                    <th data-col="id">ID</th>
+                    <th data-col="patient">Patient Name</th>
+                    <th data-col="age">Age</th>
+                    <th data-col="city">City</th>
+                    <th data-col="mother">Mother Name</th>
+                    <th data-col="doctor">Doctor Name</th>
+                    <th data-col="specialty">Specialty</th>
+                    <th data-col="room">Room Number</th>
+                    <th data-col="enterDate">Enter Date</th>
+                    <th data-col="exitDate">Exit Date</th>
+                    <th data-col="enterTime">Enter Time</th>
+                    <th data-col="exitTime">Exit Time</th>
+                    <th data-col="days">Days</th>
+                    <th data-col="note">Note</th>
+                    <th data-col="cashReceipt" class="text-end">Cash Receipt</th>
+                    <th data-col="cashPayment" class="text-end">Cash Payment</th>
+                    <th data-col="invoice" class="text-end">Invoice Amount</th>
+                    <th data-col="discount" class="text-end">Discount</th>
+                    <th data-col="endingBalance" class="text-end">Ending Balance</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Results)
+                {
+                    <tr>
+                        <td data-col="id">@r.Id</td>
+                        <td data-col="patient">@r.PatientName</td>
+                        <td data-col="age">@(r.Age?.ToString() ?? "")</td>
+                        <td data-col="city">@r.City</td>
+                        <td data-col="mother">@r.MotherName</td>
+                        <td data-col="doctor">@r.DoctorName</td>
+                        <td data-col="specialty">@r.Specialty</td>
+                        <td data-col="room">@(r.RoomNumber?.ToString() ?? "")</td>
+                        <td data-col="enterDate">@(r.EnterDate?.ToString("d") ?? "")</td>
+                        <td data-col="exitDate">@(r.ExitDate?.ToString("d") ?? "")</td>
+                        <td data-col="enterTime">@PatientReportModel.FormatTime(r.EnterTime)</td>
+                        <td data-col="exitTime">@PatientReportModel.FormatTime(r.ExitTime)</td>
+                        <td data-col="days">@(r.Days?.ToString() ?? "")</td>
+                        <td data-col="note">@r.Note</td>
+                        <td data-col="cashReceipt" class="text-end">@r.CashReceipt.ToString("N2")</td>
+                        <td data-col="cashPayment" class="text-end">@r.CashPayment.ToString("N2")</td>
+                        <td data-col="invoice" class="text-end">@r.InvoiceAmount.ToString("N2")</td>
+                        <td data-col="discount" class="text-end">@r.Discount.ToString("N2")</td>
+                        <td data-col="endingBalance" class="text-end @(r.EndingBalance < 0 ? "text-success" : r.EndingBalance > 0 ? "text-danger" : "")">@PatientReportModel.FormatEndingBalance(r.EndingBalance)</td>
+                    </tr>
+                }
+                </tbody>
+                @if (Model.Results.Count > 0)
+                {
+                <tfoot>
+                    <tr class="report-totals-row fw-bold">
+                        <td data-col="id"></td>
+                        <td data-col="patient">Totals</td>
+                        <td data-col="age"></td>
+                        <td data-col="city"></td>
+                        <td data-col="mother"></td>
+                        <td data-col="doctor"></td>
+                        <td data-col="specialty"></td>
+                        <td data-col="room"></td>
+                        <td data-col="enterDate"></td>
+                        <td data-col="exitDate"></td>
+                        <td data-col="enterTime"></td>
+                        <td data-col="exitTime"></td>
+                        <td data-col="days"></td>
+                        <td data-col="note"></td>
+                        <td data-col="cashReceipt" class="text-end">@Model.TotalCashReceipt.ToString("N2")</td>
+                        <td data-col="cashPayment" class="text-end">@Model.TotalCashPayment.ToString("N2")</td>
+                        <td data-col="invoice" class="text-end">@Model.TotalInvoiceAmount.ToString("N2")</td>
+                        <td data-col="discount" class="text-end">@Model.TotalDiscount.ToString("N2")</td>
+                        <td data-col="endingBalance" class="text-end">@PatientReportModel.FormatEndingBalance(Model.TotalEndingBalance)</td>
+                    </tr>
+                </tfoot>
+                }
+            </table>
+        </div>
+        <partial name="_ReportToolbar" />
+    </form>
+</div>
+
+<partial name="_PatientSelectModal" />
+<partial name="_DoctorSelectModal" />
+
+@section Scripts {
+    <script src="~/js/patient-picker.js" asp-append-version="true"></script>
+    <script src="~/js/doctor-picker.js" asp-append-version="true"></script>
+    <script src="~/js/report-filters.js" asp-append-version="true"></script>
+    <partial name="_ReportColumnFilterScript" />
+    <script>document.addEventListener('DOMContentLoaded', () => initReportPickers());</script>
+}

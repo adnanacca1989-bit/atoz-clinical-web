@@ -306,6 +306,7 @@ builder.Services.AddScoped<PrescriptionService>();
 builder.Services.AddScoped<DoctorSurgeryService>();
 builder.Services.AddScoped<RoomBookingService>();
 builder.Services.AddScoped<WardRoomService>();
+builder.Services.AddScoped<WardPatientReportService>();
 builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddScoped<CashPaymentService>();
 builder.Services.AddScoped<ChartAccountService>();

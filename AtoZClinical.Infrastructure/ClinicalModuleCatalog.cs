@@ -12,10 +12,12 @@ public static class ClinicalModuleCatalog
             ClinicalFormKeys.Dashboard, ClinicalFormKeys.Workflow,
             ClinicalFormKeys.PatientRegistration, ClinicalFormKeys.Doctors,
             ClinicalFormKeys.Prescriptions, ClinicalFormKeys.Messaging,
-            ClinicalFormKeys.DoctorSurgery, ClinicalFormKeys.BookRoom, ClinicalFormKeys.PatientWardRoom
+            ClinicalFormKeys.DoctorSurgery, ClinicalFormKeys.BookRoom, ClinicalFormKeys.PatientWardRoom,
+            ClinicalFormKeys.WardPatientReport
         ]),
         new("Inpatient", "Inpatient / Ward", [
-            ClinicalFormKeys.DoctorSurgery, ClinicalFormKeys.BookRoom, ClinicalFormKeys.PatientWardRoom
+            ClinicalFormKeys.DoctorSurgery, ClinicalFormKeys.BookRoom, ClinicalFormKeys.PatientWardRoom,
+            ClinicalFormKeys.WardPatientReport
         ]),
         new("Laboratory", "Laboratory", [
             ClinicalFormKeys.LabRegistration, ClinicalFormKeys.LabRequest, ClinicalFormKeys.LabResult

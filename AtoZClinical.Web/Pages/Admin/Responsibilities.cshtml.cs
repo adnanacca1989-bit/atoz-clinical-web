@@ -51,6 +51,7 @@ public class ResponsibilitiesModel : PageModel
         (ClinicalFormKeys.DoctorSurgery, "Doctor Surgery"),
         (ClinicalFormKeys.BookRoom, "Book Room"),
         (ClinicalFormKeys.PatientWardRoom, "Patient Ward Room"),
+        (ClinicalFormKeys.WardPatientReport, "Ward Patient Report"),
         (ClinicalFormKeys.LabRegistration, "Laboratory Registration"),
         (ClinicalFormKeys.LabRequest, "Laboratory Request"),
         (ClinicalFormKeys.LabResult, "Laboratory Result"),
