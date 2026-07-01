@@ -36,6 +36,7 @@ public class PatientReportModel : PageModel
     public decimal TotalCashPayment { get; private set; }
     public decimal TotalInvoiceAmount { get; private set; }
     public decimal TotalDiscount { get; private set; }
+    public decimal TotalInitialAmount { get; private set; }
     public decimal TotalEndingBalance { get; private set; }
 
     public async Task<IActionResult> OnGetAsync() => await RunAsync();
@@ -55,6 +56,7 @@ public class PatientReportModel : PageModel
         TotalCashPayment = report.TotalCashPayment;
         TotalInvoiceAmount = report.TotalInvoiceAmount;
         TotalDiscount = report.TotalDiscount;
+        TotalInitialAmount = report.TotalInitialAmount;
         TotalEndingBalance = report.TotalEndingBalance;
 
         return Page();
@@ -67,13 +69,15 @@ public class PatientReportModel : PageModel
 
         var bytes = ReportExcelService.Export("Ward Patient Report",
             [
-                "ID", "Patient Name", "Age", "City", "Mother Name", "Doctor Name", "Specialty",
+                "ID", "Patient Name", "Age", "City", "Mother Name", "National ID", "Doctor Name", "Specialty",
+                "Date of Surgery", "Time of Surgery", "Type of Surgery", "Classify", "Initial Amount",
                 "Room Number", "Enter Date", "Exit Date", "Enter Time", "Exit Time", "Days", "Note",
                 "Cash Receipt", "Cash Payment", "Invoice Amount", "Discount", "Ending Balance"
             ],
             Results.Select(r => new object?[]
             {
-                r.Id, r.PatientName, r.Age, r.City, r.MotherName, r.DoctorName, r.Specialty,
+                r.Id, r.PatientName, r.Age, r.City, r.MotherName, r.NationalId, r.DoctorName, r.Specialty,
+                r.SurgeryDate?.ToString("d"), FormatTime(r.SurgeryTime), r.TypeOfSurgery, r.Classify, r.InitialAmount,
                 r.RoomNumber, r.EnterDate?.ToString("d"), r.ExitDate?.ToString("d"),
                 FormatTime(r.EnterTime), FormatTime(r.ExitTime), r.Days, r.Note,
                 r.CashReceipt, r.CashPayment, r.InvoiceAmount, r.Discount,

@@ -74,12 +74,16 @@ public sealed class WardPatientReportService
             .ToListAsync();
         var periodPayments = allPayments.Where(p => p.PaymentDate.Date >= from).ToList();
 
+        var surgeries = await _db.DoctorSurgeries.ForClinic(clinicId).AsNoTracking().ToListAsync();
+        var surgeryById = surgeries.ToDictionary(s => s.Id);
+
         var rows = new List<WardPatientReportRow>();
         foreach (var booking in bookings)
         {
             var livePatient = demographics.ResolvePatientFromList(
                 patients, booking.PatientRecordId, booking.PatientBarcode, booking.PatientName);
             var liveDoctor = demographics.ResolveDoctorFromList(doctors, null, booking.DoctorName);
+            var surgery = ResolveSurgery(booking, surgeries, surgeryById);
 
             var displayPatient = livePatient?.FullName ?? booking.PatientName ?? "";
             var displayAge = livePatient?.AgeYears ?? booking.Age;
@@ -87,6 +91,12 @@ public sealed class WardPatientReportService
             var displayMother = livePatient?.MotherName ?? booking.MotherName ?? "";
             var displayDoctor = liveDoctor?.Name ?? booking.DoctorName ?? "";
             var displaySpecialty = liveDoctor?.Specialty ?? booking.Specialty ?? "";
+            var displayNationalId = livePatient?.NationalId ?? booking.NationalId ?? surgery?.NationalId ?? "";
+            var surgeryDate = surgery?.SurgeryDate;
+            var surgeryTime = surgery?.SurgeryTime;
+            var typeOfSurgery = surgery?.TypeOfSurgery ?? booking.TypeOfSurgery ?? "";
+            var classify = surgery?.Classify ?? booking.Classify ?? "";
+            var initialAmount = surgery?.InitialAmount ?? 0m;
 
             var matchedPeriodInvoices = periodInvoices
                 .Where(i => MatchesBooking(booking, i))
@@ -123,8 +133,14 @@ public sealed class WardPatientReportService
                 displayAge,
                 displayCity,
                 displayMother,
+                displayNationalId,
                 displayDoctor,
                 displaySpecialty,
+                surgeryDate,
+                surgeryTime,
+                typeOfSurgery,
+                classify,
+                initialAmount,
                 booking.RoomNumber,
                 booking.EnterDate,
                 booking.ExitDate,
@@ -145,7 +161,26 @@ public sealed class WardPatientReportService
             rows.Sum(r => r.CashPayment),
             rows.Sum(r => r.InvoiceAmount),
             rows.Sum(r => r.Discount),
+            rows.Sum(r => r.InitialAmount),
             rows.Sum(r => r.EndingBalance));
+    }
+
+    private static DoctorSurgery? ResolveSurgery(
+        RoomBooking booking,
+        IReadOnlyList<DoctorSurgery> surgeries,
+        IReadOnlyDictionary<Guid, DoctorSurgery> surgeryById)
+    {
+        if (booking.DoctorSurgeryId is Guid surgeryId && surgeryById.TryGetValue(surgeryId, out var linked))
+            return linked;
+
+        if (booking.PatientRecordId is not Guid patientId)
+            return null;
+
+        return surgeries
+            .Where(s => s.PatientRecordId == patientId)
+            .OrderByDescending(s => s.SurgeryDate)
+            .ThenByDescending(s => s.SurgeryNo)
+            .FirstOrDefault();
     }
 
     private static bool IsInReportDateRange(RoomBooking booking, DateTime from, DateTime to)
@@ -194,8 +229,14 @@ public sealed class WardPatientReportService
         int? Age,
         string City,
         string MotherName,
+        string NationalId,
         string DoctorName,
         string Specialty,
+        DateTime? SurgeryDate,
+        TimeSpan? SurgeryTime,
+        string TypeOfSurgery,
+        string Classify,
+        decimal InitialAmount,
         int? RoomNumber,
         DateTime? EnterDate,
         DateTime? ExitDate,
@@ -215,5 +256,6 @@ public sealed class WardPatientReportService
         decimal TotalCashPayment,
         decimal TotalInvoiceAmount,
         decimal TotalDiscount,
+        decimal TotalInitialAmount,
         decimal TotalEndingBalance);
 }

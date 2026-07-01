@@ -46,8 +46,14 @@
                     <th data-col="age">Age</th>
                     <th data-col="city">City</th>
                     <th data-col="mother">Mother Name</th>
+                    <th data-col="nationalId">National ID</th>
                     <th data-col="doctor">Doctor Name</th>
                     <th data-col="specialty">Specialty</th>
+                    <th data-col="surgeryDate">Date of Surgery</th>
+                    <th data-col="surgeryTime">Time of Surgery</th>
+                    <th data-col="typeOfSurgery">Type of Surgery</th>
+                    <th data-col="classify">Classify</th>
+                    <th data-col="initialAmount" class="text-end">Initial Amount</th>
                     <th data-col="room">Room Number</th>
                     <th data-col="enterDate">Enter Date</th>
                     <th data-col="exitDate">Exit Date</th>
@@ -71,8 +77,14 @@
                         <td data-col="age">@(r.Age?.ToString() ?? "")</td>
                         <td data-col="city">@r.City</td>
                         <td data-col="mother">@r.MotherName</td>
+                        <td data-col="nationalId">@r.NationalId</td>
                         <td data-col="doctor">@r.DoctorName</td>
                         <td data-col="specialty">@r.Specialty</td>
+                        <td data-col="surgeryDate">@(r.SurgeryDate?.ToString("d") ?? "")</td>
+                        <td data-col="surgeryTime">@PatientReportModel.FormatTime(r.SurgeryTime)</td>
+                        <td data-col="typeOfSurgery">@r.TypeOfSurgery</td>
+                        <td data-col="classify">@r.Classify</td>
+                        <td data-col="initialAmount" class="text-end">@r.InitialAmount.ToString("N2")</td>
                         <td data-col="room">@(r.RoomNumber?.ToString() ?? "")</td>
                         <td data-col="enterDate">@(r.EnterDate?.ToString("d") ?? "")</td>
                         <td data-col="exitDate">@(r.ExitDate?.ToString("d") ?? "")</td>
@@ -97,8 +109,14 @@
                         <td data-col="age"></td>
                         <td data-col="city"></td>
                         <td data-col="mother"></td>
+                        <td data-col="nationalId"></td>
                         <td data-col="doctor"></td>
                         <td data-col="specialty"></td>
+                        <td data-col="surgeryDate"></td>
+                        <td data-col="surgeryTime"></td>
+                        <td data-col="typeOfSurgery"></td>
+                        <td data-col="classify"></td>
+                        <td data-col="initialAmount" class="text-end">@Model.TotalInitialAmount.ToString("N2")</td>
                         <td data-col="room"></td>
                         <td data-col="enterDate"></td>
                         <td data-col="exitDate"></td>
