@@ -13,6 +13,7 @@ public sealed class AuthPostRateLimitMiddleware
         "/Account/ForgotPassword",
         "/Account/ResetPassword",
         "/Account/ResendConfirmation",
+        "/Account/VerifyAccount",
         "/Account/ExternalLogin",
         "/Portal/Login"
     ];

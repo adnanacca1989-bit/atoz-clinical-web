@@ -260,7 +260,7 @@ public sealed class VendorClinicService
             ContactPerson = request.ClinicName.Trim(),
             AdminUsername = request.AdminUsername.Trim(),
             AdminPassword = request.AdminPassword,
-            RequireAccountVerification = false,
+            RequireAccountVerification = AccountVerificationPolicy.IsRequired(_config),
             PlanName = "Trial",
             MaxUsers = 10,
             LicenseExpires = DateTime.UtcNow.Date.AddDays(30),

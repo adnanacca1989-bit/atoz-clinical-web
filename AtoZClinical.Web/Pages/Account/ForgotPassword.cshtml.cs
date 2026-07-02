@@ -72,7 +72,7 @@ public class ForgotPasswordModel : PageModel
                     <p>We received a request to reset your password for A to Z Clinical.</p>
                     <p><a href="{link}">Reset your password</a></p>
                     <p>If you did not request this, you can ignore this email.</p>
-                    <p>This link expires in {PasswordResetService.DefaultExpiryMinutes} minutes for security.</p>
+                    <p>This link expires in {_config.GetValue("PasswordReset:ExpiryMinutes", PasswordResetService.DefaultExpiryMinutes)} minutes for security.</p>
                     """;
 
                 var result = await _email.SendAsync(payload.Email, "Reset your A to Z Clinical password", body);

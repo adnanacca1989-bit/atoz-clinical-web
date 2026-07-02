@@ -14,7 +14,12 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
 
     private static readonly string[] SkipPrefixes =
     [
-        "/Account", "/Vendor", "/Register", "/Error", "/Index", "/Privacy", "/Search"
+        "/Account", "/Vendor", "/Register", "/Error", "/Index", "/Privacy"
+    ];
+
+    private static readonly string[] UnmappedAllowedPrefixes =
+    [
+        "/hub", "/api", "/css", "/js", "/lib", "/images", "/favicon"
     ];
 
     private readonly ILogger<FormPermissionPageFilter> _logger;
@@ -73,14 +78,19 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
             return;
         }
 
+        var isClinicUser = IsAuthenticatedClinicUser(context.HttpContext);
         var formKey = FormPermissionService.ResolveFormKeyFromPath(path);
         if (formKey is null)
         {
+            if (isClinicUser && RequiresFormPermissionGate(path))
+            {
+                context.Result = await DenyAccessAsync(context.HttpContext, path, hasNoPermissions: false);
+                return;
+            }
+
             await next();
             return;
         }
-
-        var isClinicUser = IsAuthenticatedClinicUser(context.HttpContext);
 
         if (context.HttpContext.Items[FormPermissionService.VisibleFormsItemKey] is not HashSet<string> visible)
         {
@@ -155,6 +165,18 @@ public sealed class FormPermissionPageFilter : IAsyncPageFilter
 
     private static ContentResult SafeDenyResult(string message) =>
         new() { StatusCode = 403, Content = message };
+
+    private static bool RequiresFormPermissionGate(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        if (UnmappedAllowedPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        return path.StartsWith("/", StringComparison.Ordinal)
+               && !path.StartsWith("/portal", StringComparison.OrdinalIgnoreCase);
+    }
 
     public Task OnPageHandlerSelectionAsync(PageHandlerSelectedContext context) => Task.CompletedTask;
 }

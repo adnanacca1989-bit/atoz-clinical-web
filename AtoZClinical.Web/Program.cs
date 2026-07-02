@@ -139,7 +139,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = false;
-        options.SignIn.RequireConfirmedEmail = false;
+        options.SignIn.RequireConfirmedEmail = accountVerificationRequiredAtStartup;
     })
     .AddEntityFrameworkStores<ClinicalDbContext>()
     .AddDefaultTokenProviders();
@@ -381,7 +381,15 @@ builder.Services.AddRazorPages(options =>
     {
         model.Filters.Add(new ServiceFilterAttribute(typeof(ReportBrandingPageFilter)));
     });
-    options.Conventions.AddFolderApplicationModelConvention("/Account", model =>
+    options.Conventions.AddPageApplicationModelConvention("/Account/Login", model =>
+    {
+        model.Filters.Add(new IgnoreAntiforgeryTokenAttribute());
+    });
+    options.Conventions.AddPageApplicationModelConvention("/Account/LoginWith2fa", model =>
+    {
+        model.Filters.Add(new IgnoreAntiforgeryTokenAttribute());
+    });
+    options.Conventions.AddPageApplicationModelConvention("/Account/ExternalLogin", model =>
     {
         model.Filters.Add(new IgnoreAntiforgeryTokenAttribute());
     });
@@ -461,8 +469,17 @@ if (!accountVerificationRequiredAtStartup)
     app.Logger.LogWarning(
         "Account verification is disabled. Users can sign in without a verification code.");
 else if (AccountVerificationPolicy.UsesLogOnlyDelivery(app.Configuration))
+{
+    if (app.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "AccountVerification:Required is enabled but OTP delivery is not configured. " +
+            "Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM and/or Twilio variables.");
+    }
+
     app.Logger.LogWarning(
         "OTP uses server log delivery (development). Configure SMTP for email and/or Twilio for SMS/WhatsApp.");
+}
 else
 {
     if (OtpDeliveryConfiguration.IsEmailAvailable(app.Configuration))

@@ -170,7 +170,7 @@ public class LoginModel : PageModel
                 {
                     ShowResendConfirmation = !string.IsNullOrWhiteSpace(user.Email) || !string.IsNullOrWhiteSpace(user.PhoneNumber);
                     ModelState.AddModelError(string.Empty,
-                        "Please verify your account with the 4-digit code sent to your email or mobile before logging in.");
+                        "Please verify your account with the 6-digit code sent to your email or mobile before logging in.");
                 }
             }
             else

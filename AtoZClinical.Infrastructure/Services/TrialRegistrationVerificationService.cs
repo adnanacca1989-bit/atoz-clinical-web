@@ -57,7 +57,7 @@ public sealed class TrialRegistrationVerificationService
             .Where(c => c.UserId == user.Id && !c.Used && c.ExpiryDate > DateTime.UtcNow)
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.Used, true), ct);
 
-        var plainCode = GenerateFourDigitCode();
+        var plainCode = GenerateVerificationCode();
         _db.RegistrationVerificationCodes.Add(new RegistrationVerificationCode
         {
             Id = Guid.NewGuid(),
@@ -311,10 +311,10 @@ public sealed class TrialRegistrationVerificationService
         return Convert.ToHexString(bytes);
     }
 
-    private static string GenerateFourDigitCode()
+    private static string GenerateVerificationCode()
     {
-        var value = RandomNumberGenerator.GetInt32(0, 10000);
-        return value.ToString("D4");
+        var value = RandomNumberGenerator.GetInt32(0, 1_000_000);
+        return value.ToString("D6");
     }
 
     private static string NormalizeDestination(RegistrationVerificationChannel channel, string destination)
@@ -425,8 +425,20 @@ public enum VerificationCodeVerifyResult
 public static class AccountVerificationPolicy
 {
     /// <summary>When false, new accounts are confirmed immediately and sign-in does not require a verification code.</summary>
-    public static bool IsRequired(IConfiguration config) =>
-        config.GetValue("AccountVerification:Required", false);
+    public static bool IsRequired(IConfiguration config)
+    {
+        var explicitValue = config.GetValue<bool?>("AccountVerification:Required");
+        if (explicitValue.HasValue)
+            return explicitValue.Value;
+
+        var env = config["ASPNETCORE_ENVIRONMENT"]
+                  ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        if (string.Equals(env, "Production", StringComparison.OrdinalIgnoreCase))
+            return OtpDeliveryConfiguration.IsEmailAvailable(config)
+                   || OtpDeliveryConfiguration.IsPhoneMessagingAvailable(config);
+
+        return false;
+    }
 
     public static bool IsVerificationConfigured(IConfiguration config) =>
         !UsesLogOnlyDelivery(config);

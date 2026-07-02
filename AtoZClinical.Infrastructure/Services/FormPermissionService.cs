@@ -191,8 +191,36 @@ public sealed class FormPermissionService
                 or "/settings/vendor" or "/settings/maintenance" or "/settings/changepassword"
                 or "/settings/formstyle" => ClinicalFormKeys.Settings,
             "/messages" or "/messages/index" => ClinicalFormKeys.Messaging,
-            "/search/query" => null,
-            _ => null
+            "/search/query" => ClinicalFormKeys.Dashboard,
+            "/billing" or "/billing/index" => ClinicalFormKeys.Invoices,
+            "/notifications/feed" => ClinicalFormKeys.Messaging,
+            "/admin/enterprise" or "/admin/integrations" or "/admin/dataprivacy" => ClinicalFormKeys.Settings,
+            "/patientregistration/lookup" or "/patientregistration/visitinfo" or "/patientregistration/cloneinfo"
+                => ClinicalFormKeys.PatientRegistration,
+            "/doctors/lookup" => ClinicalFormKeys.Doctors,
+            "/pharmacy/itemlookup" or "/pharmacy/requestbypatient" => ClinicalFormKeys.PharmacyRequest,
+            "/laboratory/requestbypatient" => ClinicalFormKeys.LabRequest,
+            "/radiology/requestbypatient" => ClinicalFormKeys.RadiologyRequest,
+            "/invoices/patientcharges" => ClinicalFormKeys.Invoices,
+            "/reports/patientprintbundle" => ClinicalFormKeys.PatientHistory,
+            "/settings/clinicprofile" or "/settings/doctoraccess" or "/settings/twofactor"
+                or "/settings/unlinkeddoctorusers" => ClinicalFormKeys.Settings,
+            _ => ResolveFormKeyByPrefix(path)
         };
+    }
+
+    private static string? ResolveFormKeyByPrefix(string path)
+    {
+        if (path.StartsWith("/admin/", StringComparison.Ordinal))
+            return ClinicalFormKeys.AuditLog;
+        if (path.StartsWith("/reports/", StringComparison.Ordinal))
+            return ClinicalFormKeys.PatientHistory;
+        if (path.StartsWith("/settings/", StringComparison.Ordinal))
+            return ClinicalFormKeys.Settings;
+        if (path.StartsWith("/pharmacy/", StringComparison.Ordinal))
+            return ClinicalFormKeys.PharmacyBill;
+        if (path.StartsWith("/patientregistration/", StringComparison.Ordinal))
+            return ClinicalFormKeys.PatientRegistration;
+        return null;
     }
 }

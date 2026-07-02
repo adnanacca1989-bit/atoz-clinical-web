@@ -9,8 +9,9 @@ public static class AuthOtpApiEndpoints
     public static void MapAuthOtpApi(this WebApplication app)
     {
         var auth = app.MapGroup("/api/auth");
+        var rateLimitOtp = !app.Environment.IsDevelopment();
 
-        auth.MapPost("/send-otp", async (
+        var sendOtp = auth.MapPost("/send-otp", async (
             SendOtpApiRequest body,
             ApplicationUserLookup userLookup,
             TrialRegistrationVerificationService verification,
@@ -86,9 +87,11 @@ public static class AuthOtpApiEndpoints
                 return Results.Json(new { success = false, error = "Could not generate verification code." },
                     statusCode: StatusCodes.Status500InternalServerError);
             }
-        }).AllowAnonymous().RequireRateLimiting("auth-otp");
+        }).AllowAnonymous();
+        if (rateLimitOtp)
+            sendOtp.RequireRateLimiting("auth-otp");
 
-        auth.MapPost("/verify-otp", async (
+        var verifyOtp = auth.MapPost("/verify-otp", async (
             VerifyOtpApiRequest body,
             TrialRegistrationVerificationService verification,
             ILogger<Program> logger) =>
@@ -143,7 +146,9 @@ public static class AuthOtpApiEndpoints
                     error = outcome.ErrorMessage ?? "Verification failed."
                 }, statusCode: StatusCodes.Status500InternalServerError)
             };
-        }).AllowAnonymous().RequireRateLimiting("auth-otp");
+        }).AllowAnonymous();
+        if (rateLimitOtp)
+            verifyOtp.RequireRateLimiting("auth-otp");
     }
 }
 
