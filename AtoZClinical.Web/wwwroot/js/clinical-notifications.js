@@ -38,6 +38,12 @@
         localStorage.setItem(LAST_POLL_KEY, String(ticks));
     };
 
+    const escapeHtml = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
+    };
+
     const playNotifySound = () => {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -83,9 +89,9 @@
                 const li = document.createElement('li');
                 li.className = 'dropdown-item-text clinical-notify-item';
                 li.style.cursor = item.link ? 'pointer' : 'default';
-                li.innerHTML = `<div class="fw-semibold">${item.title || 'Notification'}</div>
-                    <div class="small text-muted">${item.detail || ''}</div>
-                    <div class="small text-muted">${item.at || ''}</div>`;
+                li.innerHTML = `<div class="fw-semibold">${escapeHtml(item.title || 'Notification')}</div>
+                    <div class="small text-muted">${escapeHtml(item.detail || '')}</div>
+                    <div class="small text-muted">${escapeHtml(item.at || '')}</div>`;
                 if (item.link) {
                     li.addEventListener('click', () => { window.location.href = item.link; });
                 }

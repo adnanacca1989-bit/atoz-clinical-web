@@ -65,9 +65,11 @@ public sealed class PharmacyItemRegistrationService
             medicineName.Contains(i.MedicineName, StringComparison.OrdinalIgnoreCase));
     }
 
-    public Task<int> NextItemNoAsync(Guid clinicId) =>
-        _db.PharmacyItems.ForClinic(clinicId).Select(i => (int?)i.ItemNo).MaxAsync()
-            .ContinueWith(t => (t.Result ?? 0) + 1);
+    public async Task<int> NextItemNoAsync(Guid clinicId)
+    {
+        var max = await _db.PharmacyItems.ForClinic(clinicId).Select(i => (int?)i.ItemNo).MaxAsync();
+        return (max ?? 0) + 1;
+    }
 
     public async Task<PharmacyItem> SaveAsync(Guid clinicId, PharmacyItem item, string? userName = null)
     {

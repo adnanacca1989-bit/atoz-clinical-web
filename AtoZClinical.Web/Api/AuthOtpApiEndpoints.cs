@@ -1,13 +1,14 @@
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Pages.Account;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace AtoZClinical.Web.Api;
 
 public static class AuthOtpApiEndpoints
 {
     public static void MapAuthOtpApi(this WebApplication app)
     {
-        var auth = app.MapGroup("/api/auth").DisableRateLimiting();
+        var auth = app.MapGroup("/api/auth");
 
         auth.MapPost("/send-otp", async (
             SendOtpApiRequest body,
@@ -34,8 +35,7 @@ public static class AuthOtpApiEndpoints
                 return Results.Json(new
                 {
                     success = true,
-                    alreadyVerified = true,
-                    userId = user.Id
+                    message = "If an unconfirmed account exists, a verification code was generated."
                 });
             }
 
@@ -86,7 +86,7 @@ public static class AuthOtpApiEndpoints
                 return Results.Json(new { success = false, error = "Could not generate verification code." },
                     statusCode: StatusCodes.Status500InternalServerError);
             }
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("auth-otp");
 
         auth.MapPost("/verify-otp", async (
             VerifyOtpApiRequest body,
@@ -143,7 +143,7 @@ public static class AuthOtpApiEndpoints
                     error = outcome.ErrorMessage ?? "Verification failed."
                 }, statusCode: StatusCodes.Status500InternalServerError)
             };
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("auth-otp");
     }
 }
 

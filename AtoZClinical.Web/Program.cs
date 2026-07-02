@@ -243,6 +243,12 @@ builder.Services.AddRateLimiter(options =>
         limiter.PermitLimit = 8;
         limiter.QueueLimit = 0;
     });
+    options.AddFixedWindowLimiter("auth-otp", limiter =>
+    {
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.PermitLimit = 12;
+        limiter.QueueLimit = 0;
+    });
 });
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -402,6 +408,12 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Settings");
     options.Conventions.AuthorizeFolder("/Notifications");
     options.Conventions.AuthorizeFolder("/Messages");
+    options.Conventions.AuthorizeFolder("/Surgery");
+    options.Conventions.AuthorizeFolder("/Ward");
+    options.Conventions.AuthorizeFolder("/Rooms");
+    options.Conventions.AuthorizeFolder("/Expenses");
+    options.Conventions.AuthorizeFolder("/Workflow");
+    options.Conventions.AuthorizeFolder("/Search");
     options.Conventions.AllowAnonymousToPage("/Error");
     options.Conventions.AllowAnonymousToPage("/Account/Login");
     options.Conventions.AllowAnonymousToPage("/Account/Logout");
@@ -510,36 +522,42 @@ app.UseMiddleware<LoginAuditMiddleware>();
 app.UseMiddleware<LoginAuthDiagnosticsMiddleware>();
 app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalMetrics metrics, IConfiguration config, DataProtectionDbContext dpDb) =>
 {
+    static bool HealthTokenValid(HttpContext httpContext, IConfiguration configuration)
+    {
+        var token = configuration["Operations:HealthToken"];
+        return !string.IsNullOrWhiteSpace(token)
+               && httpContext.Request.Headers.TryGetValue("X-Health-Token", out var provided)
+               && provided == token;
+    }
+
     try
     {
         if (!await db.Database.CanConnectAsync())
             return Results.Problem("Database unreachable", statusCode: StatusCodes.Status503ServiceUnavailable);
 
-        var emailConfigured = SmtpEmailConfiguration.IsEmailConfigured(config);
+        var tokenAuthorized = HealthTokenValid(ctx, config);
         var basic = new Dictionary<string, object?>
         {
             ["status"] = "healthy",
             ["version"] = AppBuildInfo.Version,
-            ["timestamp"] = DateTime.UtcNow,
-            ["isHttps"] = ctx.Request.IsHttps,
-            ["emailConfigured"] = emailConfigured,
-            ["smsConfigured"] = SmsConfiguration.IsSmsConfigured(config),
-            ["whatsappConfigured"] = SmsConfiguration.IsWhatsAppConfigured(config),
-            ["otpDelivery"] = OtpDeliveryConfiguration.GetDeliveryAvailability(config),
-            ["otpLogDelivery"] = OtpDeliveryConfiguration.UsesServerLogFallback(config),
-            ["emailConfirmationRequired"] = AccountVerificationPolicy.IsRequired(config),
-            ["emailStatus"] = emailConfigured ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness(),
-            ["emailConfigurationError"] = emailConfigured ? null : SmtpEmailConfiguration.FormatMissingConfigurationError(config),
-            ["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config),
-            ["smtpEnvUnset"] = SmtpEmailConfiguration.GetUnsetProcessEnvironmentVariables(),
-            ["smtpVariables"] = SmtpEmailConfiguration.GetVariablePresence(config)
+            ["timestamp"] = DateTime.UtcNow
         };
 
-        var token = config["Operations:HealthToken"];
-        if (!string.IsNullOrWhiteSpace(token) &&
-            ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided) &&
-            provided == token)
+        if (tokenAuthorized)
         {
+            var emailConfigured = SmtpEmailConfiguration.IsEmailConfigured(config);
+            basic["isHttps"] = ctx.Request.IsHttps;
+            basic["emailConfigured"] = emailConfigured;
+            basic["smsConfigured"] = SmsConfiguration.IsSmsConfigured(config);
+            basic["whatsappConfigured"] = SmsConfiguration.IsWhatsAppConfigured(config);
+            basic["otpDelivery"] = OtpDeliveryConfiguration.GetDeliveryAvailability(config);
+            basic["otpLogDelivery"] = OtpDeliveryConfiguration.UsesServerLogFallback(config);
+            basic["emailConfirmationRequired"] = AccountVerificationPolicy.IsRequired(config);
+            basic["emailStatus"] = emailConfigured ? "ready" : SmtpEmailSettings.From(config).DescribeReadiness();
+            basic["emailConfigurationError"] = emailConfigured ? null : SmtpEmailConfiguration.FormatMissingConfigurationError(config);
+            basic["emailMissingVariables"] = SmtpEmailConfiguration.GetMissingVariables(config);
+            basic["smtpEnvUnset"] = SmtpEmailConfiguration.GetUnsetProcessEnvironmentVariables();
+            basic["smtpVariables"] = SmtpEmailConfiguration.GetVariablePresence(config);
             basic["database"] = "connected";
             basic["metrics"] = metrics.GetSnapshot();
             try
@@ -561,30 +579,50 @@ app.MapGet("/health", async (HttpContext ctx, ClinicalDbContext db, OperationalM
     }
 }).AllowAnonymous().DisableRateLimiting();
 
-app.MapGet("/health/email", (IConfiguration config) =>
-    Results.Content(
+app.MapGet("/health/email", (HttpContext ctx, IConfiguration config) =>
+{
+    var token = config["Operations:HealthToken"];
+    var isDev = app.Environment.IsDevelopment();
+    if (!isDev)
+    {
+        if (string.IsNullOrWhiteSpace(token)
+            || !ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided)
+            || provided != token)
+        {
+            return Results.Json(new { error = "Unauthorized. Send header X-Health-Token." }, statusCode: StatusCodes.Status401Unauthorized);
+        }
+    }
+
+    return Results.Content(
         JsonSerializer.Serialize(SmtpEmailConfiguration.BuildEmailHealthPayload(config)),
-        "application/json"))
+        "application/json");
+})
     .AllowAnonymous()
     .DisableRateLimiting();
 
-app.MapGet("/debug-email-config", (IConfiguration config) =>
-    Results.Json(SmtpEmailConfiguration.GetVariablePresence(config)))
+app.MapGet("/debug-email-config", (HttpContext ctx, IConfiguration config) =>
+{
+    var token = config["Operations:HealthToken"];
+    if (string.IsNullOrWhiteSpace(token)
+        || !ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided)
+        || provided != token)
+    {
+        return Results.Json(new { error = "Unauthorized. Send header X-Health-Token." }, statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    return Results.Json(SmtpEmailConfiguration.GetVariablePresence(config));
+})
     .AllowAnonymous()
     .DisableRateLimiting();
 
 app.MapGet("/test-email", async (HttpContext ctx, IClinicalEmailSender email, IConfiguration config, ILogger<Program> logger) =>
 {
     var healthToken = config["Operations:HealthToken"];
-    var isDev = app.Environment.IsDevelopment();
-    if (!isDev)
+    if (string.IsNullOrWhiteSpace(healthToken)
+        || !ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided)
+        || provided != healthToken)
     {
-        if (string.IsNullOrWhiteSpace(healthToken)
-            || !ctx.Request.Headers.TryGetValue("X-Health-Token", out var provided)
-            || provided != healthToken)
-        {
-            return Results.Json(new { success = false, error = "Unauthorized. Send header X-Health-Token." }, statusCode: StatusCodes.Status401Unauthorized);
-        }
+        return Results.Json(new { success = false, error = "Unauthorized. Send header X-Health-Token." }, statusCode: StatusCodes.Status401Unauthorized);
     }
 
     var to = ctx.Request.Query["to"].ToString().Trim();

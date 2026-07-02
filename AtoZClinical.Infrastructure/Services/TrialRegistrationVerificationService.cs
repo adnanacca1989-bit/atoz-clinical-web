@@ -301,7 +301,8 @@ public sealed class TrialRegistrationVerificationService
             user.UserName,
             channel.ToString(),
             destination,
-            CodeExpiryMinutes);
+            CodeExpiryMinutes,
+            _config);
     }
 
     public static string HashCode(string plainCode)
@@ -424,7 +425,8 @@ public enum VerificationCodeVerifyResult
 public static class AccountVerificationPolicy
 {
     /// <summary>When false, new accounts are confirmed immediately and sign-in does not require a verification code.</summary>
-    public static bool IsRequired(IConfiguration config) => false;
+    public static bool IsRequired(IConfiguration config) =>
+        config.GetValue("AccountVerification:Required", false);
 
     public static bool IsVerificationConfigured(IConfiguration config) =>
         !UsesLogOnlyDelivery(config);

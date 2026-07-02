@@ -19,15 +19,18 @@ public static class OtpLogDelivery
         string? username,
         string channel,
         string destination,
-        int expiryMinutes)
+        int expiryMinutes,
+        IConfiguration? config = null)
     {
-        // Primary line for Render log search: OTP LOG DELIVERY: 1234
-        logger.LogWarning("{Label} {Otp}", LogLabel, plainCode);
+        var logPlain = OtpDeliveryConfiguration.ForceLogDelivery(config);
+        var codeForLog = logPlain ? plainCode : "REDACTED";
+
+        logger.LogWarning("{Label} {Otp}", LogLabel, codeForLog);
 
         logger.LogWarning(
             "{Label} {Otp} | UserId={UserId} Username={Username} Channel={Channel} Destination={Destination} ExpiresInMinutes={Expiry} | Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM on Render for email delivery.",
             LogLabel,
-            plainCode,
+            codeForLog,
             userId,
             username,
             channel,

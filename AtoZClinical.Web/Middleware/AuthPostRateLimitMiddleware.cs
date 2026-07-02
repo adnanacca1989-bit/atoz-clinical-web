@@ -75,6 +75,10 @@ public sealed class AuthPostRateLimitMiddleware
     private static bool IsAuthPostPath(HttpContext context)
     {
         var path = context.Request.Path.Value ?? string.Empty;
-        return AuthPostPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        if (AuthPostPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        return HttpMethods.IsPost(context.Request.Method)
+               && path.StartsWith("/api/auth/", StringComparison.OrdinalIgnoreCase);
     }
 }
