@@ -28,6 +28,24 @@ public static class ClinicSaveHelper
         db.ChangeTracker.Clear();
     }
 
+    public static async Task ExecuteInTransactionAsync(
+        ClinicalDbContext db,
+        Func<Task> action,
+        CancellationToken ct = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            await action();
+            await transaction.CommitAsync(ct);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
+    }
+
     public static async Task<T> InsertWithSequenceRetryAsync<T>(
         ClinicalDbContext db,
         Func<int, Task<T>> buildRow,

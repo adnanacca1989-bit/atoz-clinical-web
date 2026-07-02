@@ -146,13 +146,14 @@ public sealed class PatientVisitStatusService
         if (patients.Count == 0)
             return 0;
 
+        var index = await PatientClinicActivityIndex.LoadAsync(_db, clinicId, ct);
         var updated = 0;
         foreach (var patient in patients)
         {
             if (PatientVisitStatuses.IsCancelled(patient.Status))
                 continue;
 
-            var derived = await DeriveStatusFromActivityAsync(clinicId, patient, ct);
+            var derived = index.DeriveStatus(patient);
             if (string.Equals(PatientVisitStatuses.Normalize(patient.Status), derived, StringComparison.OrdinalIgnoreCase))
                 continue;
 

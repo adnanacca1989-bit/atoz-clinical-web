@@ -256,6 +256,18 @@ public sealed class BillingPropagationService
     {
         if (ContextsEqual(before, after)) return;
 
+        await ClinicSaveHelper.ExecuteInTransactionAsync(_db, async () =>
+        {
+            await PropagatePatientDoctorCoreAsync(clinicId, before, after, recalcPayments);
+        });
+    }
+
+    private async Task PropagatePatientDoctorCoreAsync(
+        Guid clinicId,
+        PatientDoctorContext before,
+        PatientDoctorContext after,
+        bool recalcPayments)
+    {
         var oldId = before.PatientId?.Trim();
         var oldName = before.PatientName?.Trim();
         var oldDoctor = before.DoctorName?.Trim();
@@ -411,17 +423,34 @@ public sealed class BillingPropagationService
         IReadOnlyList<BillingLine> lines,
         IReadOnlyList<string>? previousItemNames)
     {
-        var invoices = await _db.Invoices
+        await ClinicSaveHelper.ExecuteInTransactionAsync(_db, async () =>
+        {
+            await SyncPrefixLinesToInvoicesCoreAsync(clinicId, prefix, patientId, patientName, lines, previousItemNames);
+        });
+    }
+
+    private async Task SyncPrefixLinesToInvoicesCoreAsync(
+        Guid clinicId,
+        string prefix,
+        string? patientId,
+        string? patientName,
+        IReadOnlyList<BillingLine> lines,
+        IReadOnlyList<string>? previousItemNames)
+    {
+        var invoiceQuery = _db.Invoices
             .Include(i => i.Lines)
             .ForClinic(clinicId)
-            .ToListAsync();
+            .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(patientId) || !string.IsNullOrWhiteSpace(patientName))
+        if (!string.IsNullOrWhiteSpace(patientId))
+            invoiceQuery = invoiceQuery.Where(i => i.PatientId == patientId.Trim());
+        if (!string.IsNullOrWhiteSpace(patientName))
         {
-            invoices = invoices
-                .Where(i => PatientChargeMatcher.MatchesPatient(patientId, patientName, null, i.PatientId, i.PatientName))
-                .ToList();
+            var name = patientName.Trim();
+            invoiceQuery = invoiceQuery.Where(i => i.PatientName != null && i.PatientName.Contains(name));
         }
+
+        var invoices = await invoiceQuery.ToListAsync();
 
         if (invoices.Count == 0) return;
 

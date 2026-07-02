@@ -6,24 +6,31 @@ namespace AtoZClinical.Infrastructure.Services;
 
 public sealed class DashboardService
 {
+    private static readonly TimeSpan SummaryCacheTtl = TimeSpan.FromSeconds(45);
+
     private readonly ReportingDataService _reporting;
-    private readonly PatientVisitStatusService _visitStatus;
     private readonly DoctorScopeContext _doctorScope;
+    private readonly ClinicRuntimeCache _cache;
 
     public DashboardService(
         ReportingDataService reporting,
-        PatientVisitStatusService visitStatus,
-        DoctorScopeContext doctorScope)
+        DoctorScopeContext doctorScope,
+        ClinicRuntimeCache cache)
     {
         _reporting = reporting;
-        _visitStatus = visitStatus;
         _doctorScope = doctorScope;
+        _cache = cache;
     }
 
-    public async Task<DashboardSummary> GetSummaryAsync(Guid clinicId, DateTime from, DateTime to, bool isTodayScope)
+    public Task<DashboardSummary> GetSummaryAsync(Guid clinicId, DateTime from, DateTime to, bool isTodayScope)
     {
-        await _visitStatus.SyncAllPatientStatusesForClinicAsync(clinicId);
+        var scopeKey = _doctorScope.Filter?.DoctorName ?? "all";
+        var cacheKey = $"dashboard:summary:{clinicId}:{from:yyyyMMdd}:{to:yyyyMMdd}:{isTodayScope}:{scopeKey}";
+        return _cache.GetOrCreateWithTtlAsync(cacheKey, SummaryCacheTtl, () => LoadSummaryAsync(clinicId, from, to, isTodayScope));
+    }
 
+    private async Task<DashboardSummary> LoadSummaryAsync(Guid clinicId, DateTime from, DateTime to, bool isTodayScope)
+    {
         var db = _reporting.ReadDb;
         var scope = _doctorScope.Filter;
         var today = DateTime.Today;

@@ -7,6 +7,8 @@ namespace AtoZClinical.Infrastructure.Services;
 
 public sealed class ArReportService
 {
+    private const int MaxRows = 2000;
+
     private readonly ClinicalDbContext _db;
     private readonly DoctorScopeContext _doctorScope;
     private readonly ILogger<ArReportService> _logger;
@@ -26,42 +28,72 @@ public sealed class ArReportService
         string? patientBarcode,
         string? doctorName)
     {
-        var invoices = await _db.Invoices
-            .ForClinic(clinicId)
-            .Apply(_doctorScope.Filter)
-            .AsNoTracking()
+        var invoiceQuery = ApplyInvoiceFilters(
+            _db.Invoices.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking(),
+            fromDate,
+            toDate,
+            patientName,
+            patientBarcode,
+            doctorName);
+
+        var invoices = await invoiceQuery
             .OrderByDescending(i => i.InvoiceDate)
             .ThenByDescending(i => i.InvoiceNo)
+            .Take(MaxRows)
             .ToListAsync();
 
-        if (fromDate.HasValue)
-            invoices = invoices.Where(i => i.InvoiceDate.Date >= fromDate.Value.Date).ToList();
-        if (toDate.HasValue)
-            invoices = invoices.Where(i => i.InvoiceDate.Date <= toDate.Value.Date).ToList();
-        if (!string.IsNullOrWhiteSpace(patientName))
-            invoices = invoices.Where(i => i.PatientName?.Contains(patientName.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
+        var allInvoicesQuery = _db.Invoices.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking();
         if (!string.IsNullOrWhiteSpace(patientBarcode))
-            invoices = invoices.Where(i => i.PatientId?.Equals(patientBarcode.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
-        if (!string.IsNullOrWhiteSpace(doctorName))
-            invoices = invoices.Where(i => i.DoctorName?.Contains(doctorName.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
+            allInvoicesQuery = allInvoicesQuery.Where(i => i.PatientId == patientBarcode.Trim());
+        else if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var term = patientName.Trim();
+            allInvoicesQuery = allInvoicesQuery.Where(i => i.PatientName != null && i.PatientName.Contains(term));
+        }
 
-        var allInvoices = await _db.Invoices.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync();
-        var patients = await _db.Patients.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync();
+        var allInvoices = await allInvoicesQuery.ToListAsync();
+
+        var patientQuery = _db.Patients.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(patientBarcode))
+            patientQuery = patientQuery.Where(p => p.PatientNo == patientBarcode.Trim());
+        else if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var term = patientName.Trim();
+            patientQuery = patientQuery.Where(p =>
+                p.FirstName.Contains(term) || p.LastName.Contains(term));
+        }
+
+        var patients = await patientQuery.ToListAsync();
         var specialtyLookup = await DoctorSpecialtyResolver.BuildMapAsync(_db, clinicId);
-        var receipts = await _db.CashReceipts.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync();
-        var payments = await _db.CashPayments
+
+        var receiptQuery = _db.CashReceipts.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking();
+        var paymentQuery = _db.CashPayments
             .ForClinic(clinicId)
             .Apply(_doctorScope.Filter)
             .AsNoTracking()
-            .Where(p => p.PayeeName != null || p.PatientId != null)
-            .ToListAsync();
+            .Where(p => p.PayeeName != null || p.PatientId != null);
+
+        if (!string.IsNullOrWhiteSpace(patientBarcode))
+        {
+            receiptQuery = receiptQuery.Where(r => r.PatientId == patientBarcode.Trim());
+            paymentQuery = paymentQuery.Where(p => p.PatientId == patientBarcode.Trim());
+        }
+        else if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var term = patientName.Trim();
+            receiptQuery = receiptQuery.Where(r => r.PatientName != null && r.PatientName.Contains(term));
+            paymentQuery = paymentQuery.Where(p => p.PayeeName != null && p.PayeeName.Contains(term));
+        }
 
         if (toDate.HasValue)
         {
-            var asOf = toDate.Value.Date;
-            receipts = receipts.Where(r => r.ReceiptDate.Date <= asOf).ToList();
-            payments = payments.Where(p => p.PaymentDate.Date <= asOf).ToList();
+            var asOf = toDate.Value.Date.AddDays(1);
+            receiptQuery = receiptQuery.Where(r => r.ReceiptDate < asOf);
+            paymentQuery = paymentQuery.Where(p => p.PaymentDate < asOf);
         }
+
+        var receipts = await receiptQuery.ToListAsync();
+        var payments = await paymentQuery.ToListAsync();
 
         _logger.LogDebug(
             "AR report clinic {ClinicId}: {InvoiceCount} invoices, {ReceiptCount} receipts, {PaymentCount} payments as of {AsOf}",
@@ -119,6 +151,34 @@ public sealed class ArReportService
                     return credit?.EndingBalance ?? 0m;
                 }),
             rows.GroupBy(r => (r.Patient, r.Doctor)).Sum(g => g.First().PatientCredit));
+    }
+
+    private static IQueryable<Invoice> ApplyInvoiceFilters(
+        IQueryable<Invoice> query,
+        DateTime? fromDate,
+        DateTime? toDate,
+        string? patientName,
+        string? patientBarcode,
+        string? doctorName)
+    {
+        if (fromDate.HasValue)
+            query = query.Where(i => i.InvoiceDate >= fromDate.Value.Date);
+        if (toDate.HasValue)
+            query = query.Where(i => i.InvoiceDate <= toDate.Value.Date);
+        if (!string.IsNullOrWhiteSpace(patientBarcode))
+            query = query.Where(i => i.PatientId == patientBarcode.Trim());
+        if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var term = patientName.Trim();
+            query = query.Where(i => i.PatientName != null && i.PatientName.Contains(term));
+        }
+        if (!string.IsNullOrWhiteSpace(doctorName))
+        {
+            var term = doctorName.Trim();
+            query = query.Where(i => i.DoctorName != null && i.DoctorName.Contains(term));
+        }
+
+        return query;
     }
 
     private static Patient? ResolvePatient(List<Patient> patients, Invoice invoice)

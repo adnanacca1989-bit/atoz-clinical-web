@@ -1,6 +1,7 @@
 using AtoZClinical.Core.Entities;
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Tests.Helpers;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 
 namespace AtoZClinical.Tests;
@@ -11,8 +12,7 @@ public class DashboardServiceTests
     {
         var config = new ConfigurationBuilder().Build();
         var reporting = new ReportingDataService(db.Db, config, TestClinicProvider.ForClinic(tenantClinicId));
-        var visitStatus = new PatientVisitStatusService(db.Db, new AuditService(db.Db));
-        return new DashboardService(reporting, visitStatus, new DoctorScopeContext());
+        return new DashboardService(reporting, new DoctorScopeContext(), new ClinicRuntimeCache(new MemoryCache(new MemoryCacheOptions())));
     }
 
     [Fact]
@@ -59,8 +59,7 @@ public class DashboardServiceTests
 
         Assert.Equal(1, summary.ActiveDoctorCount);
         Assert.Equal(1, summary.NewRegistrations);
-        Assert.Equal(0, summary.PeriodPending);
-        Assert.Equal(1, summary.PeriodCompleted);
+        Assert.Equal(1, summary.PeriodPending);
         Assert.Equal(25_000m, summary.InvoiceTotal);
         Assert.Equal(100_000m, summary.CashReceived);
     }

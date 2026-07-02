@@ -60,4 +60,16 @@ public sealed class ClinicRuntimeCache
     public static string EnabledFormsKey(Guid clinicId) => $"clinic:enabled-forms:{clinicId}";
     public static string VisibleFormsKey(Guid clinicId, string roleName) =>
         $"clinic:visible-forms:{clinicId}:{roleName}";
+
+    public static string DashboardSummaryKey(Guid clinicId, DateTime from, DateTime to, bool isTodayScope, string scopeKey) =>
+        $"dashboard:summary:{clinicId}:{from:yyyyMMdd}:{to:yyyyMMdd}:{isTodayScope}:{scopeKey}";
+
+    public async Task<T> GetOrCreateWithTtlAsync<T>(string key, TimeSpan ttl, Func<Task<T>> factory)
+    {
+        return (await _cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = ttl;
+            return await factory();
+        }))!;
+    }
 }

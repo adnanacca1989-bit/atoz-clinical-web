@@ -61,13 +61,8 @@ public sealed class RequestReportService
 
         var rows = new List<RequestReportRow>();
 
-        foreach (var req in await _db.LabRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync())
+        foreach (var req in await FilterLabRequests(clinicId, from, to, patientName, doctorName, nonZeroOnly))
         {
-            if (!InRequestDateRange(req.RequestDate, from, to)) continue;
-            if (!MatchesPatient(req.PatientName, req.PatientBarcode, patientName)) continue;
-            if (!MatchesDoctor(req.DoctorName, doctorName)) continue;
-            if (nonZeroOnly && req.TotalAmount == 0) continue;
-
             var patient = ResolvePatient(patients, demographics, req.PatientRecordId, req.PatientBarcode, req.PatientName);
             labByRequest.TryGetValue(req.RequestNo, out var result);
             var status = result is not null ? StatusCreated : StatusNotYet;
@@ -81,13 +76,8 @@ public sealed class RequestReportService
                 result?.ResultDate, result?.ResultNo.ToString(), result?.Id, "/Laboratory/Result"));
         }
 
-        foreach (var req in await _db.RadiologyRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync())
+        foreach (var req in await FilterRadiologyRequests(clinicId, from, to, patientName, doctorName, nonZeroOnly))
         {
-            if (!InRequestDateRange(req.RequestDate, from, to)) continue;
-            if (!MatchesPatient(req.PatientName, req.PatientBarcode, patientName)) continue;
-            if (!MatchesDoctor(req.DoctorName, doctorName)) continue;
-            if (nonZeroOnly && req.TotalAmount == 0) continue;
-
             var patient = ResolvePatient(patients, demographics, req.PatientRecordId, req.PatientBarcode, req.PatientName);
             radByRequest.TryGetValue(req.RequestNo, out var result);
             var status = result is not null ? StatusCreated : StatusNotYet;
@@ -101,13 +91,8 @@ public sealed class RequestReportService
                 result?.ResultDate, result?.ResultNo.ToString(), result?.Id, "/Radiology/Result"));
         }
 
-        foreach (var req in await _db.PharmacyRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync())
+        foreach (var req in await FilterPharmacyRequests(clinicId, from, to, patientName, doctorName, nonZeroOnly))
         {
-            if (!InRequestDateRange(req.RequestDate, from, to)) continue;
-            if (!MatchesPatient(req.PatientName, req.PatientId, patientName)) continue;
-            if (!MatchesDoctor(req.DoctorName, doctorName)) continue;
-            if (nonZeroOnly && req.TotalAmount == 0) continue;
-
             var patient = ResolvePatient(patients, demographics, req.PatientRecordId, req.PatientId, req.PatientName);
             billByRequest.TryGetValue(req.RequestNo, out var bill);
             var status = bill is not null ? StatusCreated : StatusNotYet;
@@ -121,13 +106,8 @@ public sealed class RequestReportService
                 bill?.BillDate, bill?.BillNo.ToString(), bill?.Id, "/Pharmacy/Bill"));
         }
 
-        foreach (var req in await _db.ServiceIncomeRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking().ToListAsync())
+        foreach (var req in await FilterServiceIncomeRequests(clinicId, from, to, patientName, doctorName, nonZeroOnly))
         {
-            if (!InRequestDateRange(req.RequestDate, from, to)) continue;
-            if (!MatchesPatient(req.PatientName, req.PatientBarcode, patientName)) continue;
-            if (!MatchesDoctor(req.DoctorName, doctorName)) continue;
-            if (nonZeroOnly && req.TotalAmount == 0) continue;
-
             var patient = ResolvePatient(patients, demographics, req.PatientRecordId, req.PatientBarcode, req.PatientName);
             serviceInvoices.TryGetValue(req.RequestNo, out var invoice);
             var status = invoice is not null ? StatusCreated : StatusNotYet;
@@ -258,6 +238,166 @@ public sealed class RequestReportService
         string? barcode,
         string? name) =>
         demographics.ResolvePatientFromList(patients, patientRecordId, barcode, name);
+
+    private Task<List<LabRequest>> FilterLabRequests(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? patientName,
+        string? doctorName,
+        bool nonZeroOnly) =>
+        ApplyRequestFilters(
+            _db.LabRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking(),
+            from,
+            to,
+            patientName,
+            doctorName,
+            nonZeroOnly,
+            r => r.PatientName,
+            r => r.PatientBarcode);
+
+    private Task<List<RadiologyRequest>> FilterRadiologyRequests(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? patientName,
+        string? doctorName,
+        bool nonZeroOnly) =>
+        ApplyRequestFilters(
+            _db.RadiologyRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking(),
+            from,
+            to,
+            patientName,
+            doctorName,
+            nonZeroOnly,
+            r => r.PatientName,
+            r => r.PatientBarcode);
+
+    private Task<List<PharmacyRequest>> FilterPharmacyRequests(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? patientName,
+        string? doctorName,
+        bool nonZeroOnly) =>
+        ApplyRequestFilters(
+            _db.PharmacyRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking(),
+            from,
+            to,
+            patientName,
+            doctorName,
+            nonZeroOnly,
+            r => r.PatientName,
+            r => r.PatientId);
+
+    private Task<List<ServiceIncomeRequest>> FilterServiceIncomeRequests(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? patientName,
+        string? doctorName,
+        bool nonZeroOnly) =>
+        ApplyRequestFilters(
+            _db.ServiceIncomeRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking(),
+            from,
+            to,
+            patientName,
+            doctorName,
+            nonZeroOnly,
+            r => r.PatientName,
+            r => r.PatientBarcode);
+
+    private static async Task<List<T>> ApplyRequestFilters<T>(
+        IQueryable<T> query,
+        DateTime from,
+        DateTime to,
+        string? patientName,
+        string? doctorName,
+        bool nonZeroOnly,
+        Func<T, string?> getPatientName,
+        Func<T, string?> getPatientId) where T : class
+    {
+        if (typeof(T) == typeof(LabRequest))
+        {
+            var typed = (IQueryable<LabRequest>)(object)query;
+            typed = typed.Where(r => r.RequestDate >= from && r.RequestDate <= to);
+            if (!string.IsNullOrWhiteSpace(patientName))
+            {
+                var term = patientName.Trim();
+                typed = typed.Where(r =>
+                    (r.PatientName != null && r.PatientName.Contains(term)) ||
+                    (r.PatientBarcode != null && r.PatientBarcode.Contains(term)));
+            }
+            if (!string.IsNullOrWhiteSpace(doctorName))
+            {
+                var term = doctorName.Trim();
+                typed = typed.Where(r => r.DoctorName != null && r.DoctorName.Contains(term));
+            }
+            if (nonZeroOnly)
+                typed = typed.Where(r => r.TotalAmount != 0);
+            return (await typed.Take(2000).ToListAsync()).Cast<T>().ToList();
+        }
+
+        if (typeof(T) == typeof(RadiologyRequest))
+        {
+            var typed = (IQueryable<RadiologyRequest>)(object)query;
+            typed = typed.Where(r => r.RequestDate >= from && r.RequestDate <= to);
+            if (!string.IsNullOrWhiteSpace(patientName))
+            {
+                var term = patientName.Trim();
+                typed = typed.Where(r =>
+                    (r.PatientName != null && r.PatientName.Contains(term)) ||
+                    (r.PatientBarcode != null && r.PatientBarcode.Contains(term)));
+            }
+            if (!string.IsNullOrWhiteSpace(doctorName))
+            {
+                var term = doctorName.Trim();
+                typed = typed.Where(r => r.DoctorName != null && r.DoctorName.Contains(term));
+            }
+            if (nonZeroOnly)
+                typed = typed.Where(r => r.TotalAmount != 0);
+            return (await typed.Take(2000).ToListAsync()).Cast<T>().ToList();
+        }
+
+        if (typeof(T) == typeof(PharmacyRequest))
+        {
+            var typed = (IQueryable<PharmacyRequest>)(object)query;
+            typed = typed.Where(r => r.RequestDate >= from && r.RequestDate <= to);
+            if (!string.IsNullOrWhiteSpace(patientName))
+            {
+                var term = patientName.Trim();
+                typed = typed.Where(r =>
+                    (r.PatientName != null && r.PatientName.Contains(term)) ||
+                    (r.PatientId != null && r.PatientId.Contains(term)));
+            }
+            if (!string.IsNullOrWhiteSpace(doctorName))
+            {
+                var term = doctorName.Trim();
+                typed = typed.Where(r => r.DoctorName != null && r.DoctorName.Contains(term));
+            }
+            if (nonZeroOnly)
+                typed = typed.Where(r => r.TotalAmount != 0);
+            return (await typed.Take(2000).ToListAsync()).Cast<T>().ToList();
+        }
+
+        var service = (IQueryable<ServiceIncomeRequest>)(object)query;
+        service = service.Where(r => r.RequestDate >= from && r.RequestDate <= to);
+        if (!string.IsNullOrWhiteSpace(patientName))
+        {
+            var term = patientName.Trim();
+            service = service.Where(r =>
+                (r.PatientName != null && r.PatientName.Contains(term)) ||
+                (r.PatientBarcode != null && r.PatientBarcode.Contains(term)));
+        }
+        if (!string.IsNullOrWhiteSpace(doctorName))
+        {
+            var term = doctorName.Trim();
+            service = service.Where(r => r.DoctorName != null && r.DoctorName.Contains(term));
+        }
+        if (nonZeroOnly)
+            service = service.Where(r => r.TotalAmount != 0);
+        return (await service.Take(2000).ToListAsync()).Cast<T>().ToList();
+    }
 
     private static bool InRequestDateRange(DateTime requestDate, DateTime from, DateTime to) =>
         requestDate.Date >= from && requestDate.Date <= to;
