@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace AtoZClinical.Tests;
 
+[Collection("ClinicalWeb")]
 public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
 {
     private readonly HttpClient _client;

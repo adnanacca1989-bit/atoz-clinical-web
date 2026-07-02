@@ -22,6 +22,7 @@ public sealed class ClinicalWebApplicationFactory : WebApplicationFactory<Progra
                 ["Billing:Enabled"] = "false",
                 ["Email:Enabled"] = "false",
                 ["Captcha:Enabled"] = "false",
+                ["AccountVerification:Required"] = "false",
                 ["Operations:HealthToken"] = HealthToken
             });
         });

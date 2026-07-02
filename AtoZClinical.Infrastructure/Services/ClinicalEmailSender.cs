@@ -72,47 +72,70 @@ public sealed class SmtpClinicalEmailSender : IClinicalEmailSender
         message.Body = new TextPart("html") { Text = htmlBody };
 
         using var client = new SmtpClient();
-        try
+        Exception? lastError = null;
+        for (var attempt = 1; attempt <= 3; attempt++)
         {
-            _logger.LogInformation(
-                "Connecting to SMTP {Host}:{Port} with {SocketOption}...",
-                settings.Host, settings.Port, settings.SecureSocketOptions);
-            await client.ConnectAsync(settings.Host!, settings.Port, settings.SecureSocketOptions, cancellationToken);
-
-            if (string.IsNullOrWhiteSpace(settings.User) || string.IsNullOrWhiteSpace(settings.Password))
+            try
             {
-                _logger.LogError("SMTP_USER or SMTP_PASS is empty — cannot authenticate to SMTP server.");
-                return ClinicalEmailSendResult.Failed("SMTP authentication credentials are missing.");
+                _logger.LogInformation(
+                    "Connecting to SMTP {Host}:{Port} with {SocketOption} (attempt {Attempt}/3)...",
+                    settings.Host, settings.Port, settings.SecureSocketOptions, attempt);
+                await client.ConnectAsync(settings.Host!, settings.Port, settings.SecureSocketOptions, cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(settings.User) || string.IsNullOrWhiteSpace(settings.Password))
+                {
+                    _logger.LogError("SMTP_USER or SMTP_PASS is empty — cannot authenticate to SMTP server.");
+                    return ClinicalEmailSendResult.Failed("SMTP authentication credentials are missing.");
+                }
+
+                _logger.LogInformation("Authenticating SMTP user {User}...", settings.User);
+                await client.AuthenticateAsync(settings.User, settings.Password, cancellationToken);
+
+                var response = await client.SendAsync(message, cancellationToken);
+                await client.DisconnectAsync(true, cancellationToken);
+
+                _logger.LogInformation(
+                    "Email sent successfully to {To} via {Host}:{Port} (response: {Response}, attempt {Attempt})",
+                    toEmail, settings.Host, settings.Port, response, attempt);
+
+                return ClinicalEmailSendResult.Sent();
             }
+            catch (Exception ex) when (attempt < 3)
+            {
+                lastError = ex;
+                var reason = SmtpEmailDiagnostics.ClassifyFailure(ex);
+                _logger.LogWarning(ex,
+                    "Email send attempt {Attempt}/3 failed to {To} via {Host}:{Port}: {FailureReason}",
+                    attempt, toEmail, settings.Host, settings.Port, reason);
+                try
+                {
+                    if (client.IsConnected)
+                        await client.DisconnectAsync(true, cancellationToken);
+                }
+                catch { /* ignore disconnect errors between retries */ }
 
-            _logger.LogInformation("Authenticating SMTP user {User}...", settings.User);
-            await client.AuthenticateAsync(settings.User, settings.Password, cancellationToken);
-
-            var response = await client.SendAsync(message, cancellationToken);
-            await client.DisconnectAsync(true, cancellationToken);
-
-            _logger.LogInformation(
-                "Email sent successfully to {To} via {Host}:{Port} (response: {Response})",
-                toEmail, settings.Host, settings.Port, response);
-
-            return ClinicalEmailSendResult.Sent();
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                break;
+            }
         }
-        catch (Exception ex)
+
+        var finalReason = SmtpEmailDiagnostics.ClassifyFailure(lastError!);
+        _logger.LogError(lastError,
+            "Email send failed to {To} via {Host}:{Port} after retries: {FailureReason}",
+            toEmail, settings.Host, settings.Port, finalReason);
+
+        if (SmtpEmailDiagnostics.IsGmailHost(settings.Host)
+            && finalReason.Contains("authentication", StringComparison.OrdinalIgnoreCase))
         {
-            var reason = SmtpEmailDiagnostics.ClassifyFailure(ex);
-            _logger.LogError(ex,
-                "Email send failed to {To} via {Host}:{Port}: {FailureReason}",
-                toEmail, settings.Host, settings.Port, reason);
-
-            if (SmtpEmailDiagnostics.IsGmailHost(settings.Host)
-                && reason.Contains("authentication", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogError(
-                    "Gmail SMTP authentication failed. Use a Google App Password in SMTP_PASS (not your normal Gmail password). " +
-                    "Enable 2-Step Verification, then create an App Password at https://myaccount.google.com/apppasswords");
-            }
-
-            return ClinicalEmailSendResult.Failed(reason);
+            _logger.LogError(
+                "Gmail SMTP authentication failed. Use a Google App Password in SMTP_PASS (not your normal Gmail password). " +
+                "Enable 2-Step Verification, then create an App Password at https://myaccount.google.com/apppasswords");
         }
+
+        return ClinicalEmailSendResult.Failed(finalReason);
     }
 }
