@@ -1,7 +1,6 @@
 using System.Net;
-using Microsoft.AspNetCore.Hosting;
+using AtoZClinical.Tests.Helpers;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 
 namespace AtoZClinical.Tests;
 
@@ -24,13 +23,25 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Health_includes_emailConfigured_flag()
+    public async Task Health_includes_emailConfigured_flag_when_token_provided()
+    {
+        using var client = _factory.CreateClientWithHealthToken();
+        var response = await client.GetAsync("/health");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"emailConfigured\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Health_without_token_omits_smtp_details()
     {
         var response = await _client.GetAsync("/health");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var json = await response.Content.ReadAsStringAsync();
-        Assert.Contains("\"emailConfigured\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"status\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("smtpVariables", json, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -119,27 +130,5 @@ public class HealthEndpointTests : IClassFixture<ClinicalWebApplicationFactory>
         var response = await client.GetAsync("/Portal/Book");
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains("/Portal/Login", response.Headers.Location?.ToString());
-    }
-}
-
-public sealed class ClinicalWebApplicationFactory : WebApplicationFactory<Program>
-{
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Development");
-        builder.ConfigureAppConfiguration((_, config) =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:ClinicalDatabase"] = $"Data Source={Path.Combine(Path.GetTempPath(), $"atoz_test_{Guid.NewGuid():N}.db")}",
-                ["Database:Provider"] = "Sqlite",
-                ["Seed:VendorUsername"] = "vendor",
-                ["Seed:VendorPassword"] = "TestVendor@123456!",
-                ["Billing:Enabled"] = "false",
-                ["Email:Enabled"] = "false",
-                ["Captcha:Enabled"] = "false",
-                ["Operations:HealthToken"] = "test-health-token"
-            });
-        });
     }
 }
