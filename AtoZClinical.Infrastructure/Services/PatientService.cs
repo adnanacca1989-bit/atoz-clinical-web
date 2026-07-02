@@ -191,6 +191,11 @@ public sealed class PatientService
         }
         else
         {
+            var owned = await _db.Patients.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.ClinicId == clinicId && p.Id == patient.Id);
+            if (owned is null)
+                throw new InvalidOperationException("Patient record was not found.");
+
             var patientNo = string.IsNullOrWhiteSpace(patient.PatientNo)
                 ? await GeneratePatientNoAsync(clinicId)
                 : patient.PatientNo.Trim();
@@ -198,11 +203,15 @@ public sealed class PatientService
             if (await AllPatients(clinicId).AnyAsync(p => p.PatientNo == patientNo && p.Id != patient.Id))
                 throw new InvalidOperationException($"Barcode/Patient No '{patientNo}' is already assigned to another patient.");
 
-            patient.PatientNo = patientNo;
             if (previous is not null)
                 patient.Status = previous.Status;
 
-            _db.Patients.Update(patient);
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, patient);
+            owned.PatientNo = patientNo;
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            owned.UpdatedBy = userName;
+            patient = owned;
             await _db.SaveChangesAsync();
         }
 

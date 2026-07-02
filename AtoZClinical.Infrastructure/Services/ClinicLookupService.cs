@@ -37,7 +37,14 @@ public sealed class ClinicLookupService
             _db.ClinicUoms.Add(item);
         }
         else
-            _db.ClinicUoms.Update(item);
+        {
+            var owned = await _db.ClinicUoms.FirstOrDefaultAsync(x => x.ClinicId == clinicId && x.Id == item.Id)
+                ?? throw new InvalidOperationException("UOM record was not found.");
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+        }
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Define UOM", isNew ? "Create" : "Update", $"{item.Code} — {item.Name}");
@@ -82,7 +89,14 @@ public sealed class ClinicLookupService
             _db.ClinicCurrencies.Add(item);
         }
         else
-            _db.ClinicCurrencies.Update(item);
+        {
+            var owned = await _db.ClinicCurrencies.FirstOrDefaultAsync(x => x.ClinicId == clinicId && x.Id == item.Id)
+                ?? throw new InvalidOperationException("Currency record was not found.");
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+        }
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Define Currency", isNew ? "Create" : "Update", $"{item.Code} — {item.Name}");
@@ -119,7 +133,14 @@ public sealed class ClinicLookupService
             _db.ClinicOwners.Add(item);
         }
         else
-            _db.ClinicOwners.Update(item);
+        {
+            var owned = await _db.ClinicOwners.FirstOrDefaultAsync(x => x.ClinicId == clinicId && x.Id == item.Id)
+                ?? throw new InvalidOperationException("Owner record was not found.");
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+        }
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Define Owner", isNew ? "Create" : "Update", item.Name);
@@ -163,7 +184,14 @@ public sealed class ClinicLookupService
             _db.ClinicLanguages.Add(item);
         }
         else
-            _db.ClinicLanguages.Update(item);
+        {
+            var owned = await _db.ClinicLanguages.FirstOrDefaultAsync(x => x.ClinicId == clinicId && x.Id == item.Id)
+                ?? throw new InvalidOperationException("Language record was not found.");
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+        }
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync(clinicId, userName, "Define Language", isNew ? "Create" : "Update", item.Name);
@@ -224,12 +252,12 @@ public sealed class ClinicLookupService
         }
         else
         {
-            var existing = await GetVendorAsync(clinicId, item.Id);
-            if (existing is null)
-                throw new InvalidOperationException("Vendor record was not found.");
-            item.VendorNo = existing.VendorNo;
-            item.CreatedAt = existing.CreatedAt;
-            _db.ClinicVendors.Update(item);
+            var owned = await GetVendorAsync(clinicId, item.Id)
+                ?? throw new InvalidOperationException("Vendor record was not found.");
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item, nameof(ClinicVendor.VendorNo));
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
             await _db.SaveChangesAsync();
         }
 

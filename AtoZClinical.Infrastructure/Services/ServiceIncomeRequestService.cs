@@ -56,10 +56,13 @@ public sealed class ServiceIncomeRequestService
         List<ServiceIncomeRequestLine>? previousLines = null;
         if (!isNew)
         {
-            previous = await GetAsync(clinicId, item.Id);
-            if (previous is null)
+            if (!await _db.ServiceIncomeRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking()
+                    .AnyAsync(r => r.Id == item.Id))
                 throw new UnauthorizedAccessException("You do not have access to this record.");
-            previousLines = previous.Lines.OrderBy(l => l.LineNo).ToList();
+            previous = await _db.ServiceIncomeRequests.ForClinic(clinicId).AsNoTracking()
+                .Include(r => r.Lines)
+                .FirstOrDefaultAsync(r => r.Id == item.Id);
+            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
         }
 
         var validLines = lines

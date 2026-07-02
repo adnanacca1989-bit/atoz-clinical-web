@@ -194,8 +194,8 @@ public sealed class RadiologyRequestService
         List<RadiologyRequestLine>? previousLines = null;
         if (!isNew)
         {
-            var owned = await GetAsync(clinicId, item.Id);
-            if (owned is null)
+            if (!await _db.RadiologyRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking()
+                    .AnyAsync(r => r.Id == item.Id))
                 throw new UnauthorizedAccessException("You do not have access to this radiology request.");
             previous = await _db.RadiologyRequests.ForClinic(clinicId).AsNoTracking()
                 .Include(r => r.Lines)
@@ -417,9 +417,16 @@ public sealed class RadiologyResultService
         }
         else
         {
+            var owned = await _db.RadiologyResults.ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == item.Id)
+                ?? throw new UnauthorizedAccessException("You do not have access to this record.");
+
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+
             var existing = await _db.RadiologyResultLines.Where(l => l.RadiologyResultId == item.Id).ToListAsync();
             _db.RadiologyResultLines.RemoveRange(existing);
-            _db.RadiologyResults.Update(item);
         }
 
         foreach (var line in lines)
@@ -493,9 +500,10 @@ public sealed class PrescriptionService
     {
         var isNew = item.Id == Guid.Empty;
         Prescription? previous = null;
+        Prescription? owned = null;
         if (!isNew)
         {
-            var owned = await GetAsync(clinicId, item.Id);
+            owned = await GetAsync(clinicId, item.Id);
             if (owned is null)
                 throw new UnauthorizedAccessException("You do not have access to this prescription.");
             previous = await _db.Prescriptions.ForClinic(clinicId).AsNoTracking()
@@ -522,9 +530,13 @@ public sealed class PrescriptionService
         }
         else
         {
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned!, item);
+            owned!.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+
             var existing = await _db.PrescriptionLines.Where(l => l.PrescriptionId == item.Id).ToListAsync();
             _db.PrescriptionLines.RemoveRange(existing);
-            _db.Prescriptions.Update(item);
         }
 
         foreach (var line in validLines)
@@ -660,8 +672,8 @@ public sealed class InvoiceService
         }
         else
         {
-            var owned = await GetAsync(clinicId, item.Id);
-            if (owned is null)
+            if (!await _db.Invoices.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking()
+                    .AnyAsync(i => i.Id == item.Id))
                 throw new UnauthorizedAccessException("You do not have access to this invoice.");
             await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, async () =>
             {
@@ -828,10 +840,11 @@ public sealed class CashPaymentService
         CashPayment? previous = null;
         if (!isNew)
         {
-            previous = await GetAsync(clinicId, item.Id);
-            if (previous is null)
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
                 throw new UnauthorizedAccessException("You do not have access to this payment.");
-            if (previous.JournalEntryId is Guid journalId)
+            previous = owned;
+            if (owned.JournalEntryId is Guid journalId)
                 item.JournalEntryId = journalId;
         }
 
@@ -851,7 +864,14 @@ public sealed class CashPaymentService
             item.CreatedAt = DateTime.UtcNow;
             _db.CashPayments.Add(item);
         }
-        else _db.CashPayments.Update(item);
+        else
+        {
+            var owned = previous!;
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+        }
 
         if (item.VendorId.HasValue && !string.IsNullOrWhiteSpace(item.ChartAccountName))
             await SyncVendorPaymentJournalAsync(clinicId, item);
@@ -1096,7 +1116,14 @@ public sealed class RolePermissionService
             item.Id = Guid.NewGuid();
             _db.RolePermissions.Add(item);
         }
-        else _db.RolePermissions.Update(item);
+        else
+        {
+            var owned = await _db.RolePermissions.ForClinic(clinicId).FirstOrDefaultAsync(r => r.Id == item.Id)
+                ?? throw new InvalidOperationException("Role permission was not found.");
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            item = owned;
+        }
 
         await _db.SaveChangesAsync();
         _cache.InvalidateVisibleForms(clinicId, item.RoleName);
@@ -1243,8 +1270,8 @@ public sealed class PharmacyRequestService
         List<PharmacyRequestLine>? previousLines = null;
         if (!isNew)
         {
-            var owned = await GetAsync(clinicId, item.Id);
-            if (owned is null)
+            if (!await _db.PharmacyRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking()
+                    .AnyAsync(r => r.Id == item.Id))
                 throw new UnauthorizedAccessException("You do not have access to this pharmacy request.");
             previous = await _db.PharmacyRequests.ForClinic(clinicId).AsNoTracking()
                 .Include(r => r.Lines)
@@ -1426,10 +1453,13 @@ public sealed class PharmacyBillService
         List<PharmacyBillLine>? previousLines = null;
         if (!isNew)
         {
-            previous = await GetAsync(clinicId, item.Id);
-            if (previous is null)
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
                 throw new UnauthorizedAccessException("You do not have access to this record.");
-            previousLines = previous.Lines.OrderBy(l => l.LineNo).ToList();
+            previous = await _db.PharmacyBills.ForClinic(clinicId).AsNoTracking()
+                .Include(b => b.Lines)
+                .FirstOrDefaultAsync(b => b.Id == item.Id);
+            previousLines = previous?.Lines.OrderBy(l => l.LineNo).ToList();
         }
 
         var validLines = lines
@@ -1464,9 +1494,18 @@ public sealed class PharmacyBillService
         }
         else
         {
+            var owned = await GetAsync(clinicId, item.Id)
+                ?? throw new UnauthorizedAccessException("You do not have access to this record.");
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            owned.SubTotal = validLines.Sum(l => l.LineTotal);
+            owned.TotalAmount = owned.SubTotal - owned.Discount;
+            owned.BalanceDue = owned.TotalAmount - owned.AmountPaid;
+            item = owned;
+
             var existing = await _db.PharmacyBillLines.Where(l => l.PharmacyBillId == item.Id).ToListAsync();
             _db.PharmacyBillLines.RemoveRange(existing);
-            _db.PharmacyBills.Update(item);
         }
 
         foreach (var line in validLines)

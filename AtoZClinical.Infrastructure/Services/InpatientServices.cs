@@ -46,13 +46,14 @@ public sealed class DoctorSurgeryService
             var owned = await GetAsync(clinicId, item.Id);
             if (owned is null)
                 throw new UnauthorizedAccessException("You do not have access to this surgery record.");
-            item.ClinicId = clinicId;
-            item.UpdatedAt = DateTime.UtcNow;
-            _db.DoctorSurgeries.Update(item);
+
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             await _audit.LogAsync(clinicId, userName, "Doctor Surgery", "Update",
-                $"Surgery #{item.SurgeryNo} — {item.PatientName}");
-            return item;
+                $"Surgery #{owned.SurgeryNo} — {owned.PatientName}");
+            return owned;
         }
 
         var template = item;
@@ -142,14 +143,19 @@ public sealed class RoomBookingService
         var isNew = item.Id == Guid.Empty;
         if (!isNew)
         {
-            item.ClinicId = clinicId;
-            item.UpdatedAt = DateTime.UtcNow;
-            _db.RoomBookings.Update(item);
+            var owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
+                throw new UnauthorizedAccessException("You do not have access to this room booking.");
+
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.Days = ComputeDays(owned.EnterDate, owned.ExitDate);
+            owned.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
-            await _wardRooms.SyncFromBookingAsync(clinicId, item);
+            await _wardRooms.SyncFromBookingAsync(clinicId, owned);
             await _audit.LogAsync(clinicId, userName, "Book Room", "Update",
-                $"Booking #{item.BookingNo} — Room {item.RoomNumber} — {item.PatientName}");
-            return item;
+                $"Booking #{owned.BookingNo} — Room {owned.RoomNumber} — {owned.PatientName}");
+            return owned;
         }
 
         var template = item;

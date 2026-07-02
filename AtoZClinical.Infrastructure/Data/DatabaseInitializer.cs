@@ -29,7 +29,7 @@ public static class DatabaseInitializer
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
-        await EnsureSchemaAsync(db, env, logger);
+        await EnsureSchemaAsync(db, env, config, logger);
         await EnsureEnterpriseSchemaAsync(db, logger);
         await EnsureSaasPlatformSchemaAsync(db, logger);
         await EnsurePasswordResetTokenSchemaAsync(db, logger);
@@ -289,6 +289,10 @@ public static class DatabaseInitializer
             ("AspNetUsers", "DoctorRecordId", "TEXT"),
             ("Patients", "DoctorRecordId", "TEXT"),
             ("Patients", "PatientRecordId", "TEXT"),
+            ("Clinics", "Subdomain", "TEXT"),
+            ("Clinics", "DedicatedConnectionName", "TEXT"),
+            ("ClinicConfigurations", "AllowDoctorViewAllPatients", "INTEGER NOT NULL DEFAULT 1"),
+            ("ClinicConfigurations", "PatientPortalEnabled", "INTEGER NOT NULL DEFAULT 0"),
         })
         {
             try
@@ -303,21 +307,30 @@ public static class DatabaseInitializer
         }
     }
 
-    private static async Task EnsureSchemaAsync(ClinicalDbContext db, IHostEnvironment env, ILogger logger)
+    private static async Task EnsureSchemaAsync(ClinicalDbContext db, IHostEnvironment env, IConfiguration config, ILogger logger)
     {
         if (db.Database.IsSqlite())
         {
-            var recreate = !await db.Database.CanConnectAsync();
+            var forceRecreate = config.GetValue("Database:RecreateSqliteOnStartup", false);
+            var recreate = forceRecreate || !await db.Database.CanConnectAsync();
             if (!recreate)
             {
-                try
+                foreach (var probeSql in new[]
                 {
-                    await db.Database.ExecuteSqlRawAsync(
-                        "SELECT \"UserNo\", \"DoctorRecordId\" FROM \"AspNetUsers\" LIMIT 1;");
-                }
-                catch
+                    """SELECT "UserNo", "DoctorRecordId" FROM "AspNetUsers" LIMIT 1""",
+                    """SELECT "DedicatedConnectionName", "SubscriptionExpiryDate" FROM "Clinics" LIMIT 1""",
+                    """SELECT "AllowDoctorViewAllPatients" FROM "ClinicConfigurations" LIMIT 1"""
+                })
                 {
-                    recreate = true;
+                    try
+                    {
+                        await db.Database.ExecuteSqlRawAsync(probeSql);
+                    }
+                    catch
+                    {
+                        recreate = true;
+                        break;
+                    }
                 }
             }
 

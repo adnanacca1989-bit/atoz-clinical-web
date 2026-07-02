@@ -123,9 +123,16 @@ public sealed class PharmacyPurchaseBillService
         }
         else
         {
+            var owned = await _db.PharmacyPurchaseBills.ForClinic(clinicId).FirstOrDefaultAsync(b => b.Id == item.Id)
+                ?? throw new InvalidOperationException("Pharmacy purchase bill was not found.");
+
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+
             var existing = await _db.PharmacyPurchaseBillLines.Where(l => l.PharmacyPurchaseBillId == item.Id).ToListAsync();
             _db.PharmacyPurchaseBillLines.RemoveRange(existing);
-            _db.PharmacyPurchaseBills.Update(item);
             foreach (var line in validLines)
             {
                 line.Id = Guid.NewGuid();

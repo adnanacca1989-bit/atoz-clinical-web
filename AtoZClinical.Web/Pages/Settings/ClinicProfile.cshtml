@@ -67,16 +67,15 @@
             <div class="row g-2">
                 <div class="col-md-4">
                     <label class="form-label">Time Zone</label>
-                    <select asp-for="Input.TimeZoneId" class="form-select" asp-items="@(new SelectList(ClinicProfileModel.TimeZones))"></select>
+                    <select asp-for="Input.TimeZoneId" class="form-select" asp-items="ClinicProfileModel.TimeZoneSelectItems"></select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Language</label>
-                    <select asp-for="Input.LanguageCode" class="form-select"
-                            asp-items="@(new SelectList(ClinicProfileModel.Languages, "Code", "Name", Model.Input.LanguageCode))"></select>
+                    <select asp-for="Input.LanguageCode" class="form-select" asp-items="ClinicProfileModel.LanguageSelectItems"></select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Form Style</label>
-                    <select asp-for="Input.FormStyle" class="form-select" asp-items="@(new SelectList(ClinicProfileModel.FormStyles))"></select>
+                    <select asp-for="Input.FormStyle" class="form-select" asp-items="ClinicProfileModel.FormStyleSelectItems"></select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Primary Color</label>

@@ -1,6 +1,7 @@
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AtoZClinical.Web.Pages.Settings;
@@ -40,6 +41,15 @@ public class ClinicProfileModel : SettingsPageModel
     ];
 
     public static readonly string[] FormStyles = ["Default", "Compact", "Large"];
+
+    public static IEnumerable<SelectListItem> TimeZoneSelectItems =>
+        TimeZones.Select(t => new SelectListItem(t, t));
+
+    public static IEnumerable<SelectListItem> LanguageSelectItems =>
+        Languages.Select(l => new SelectListItem(l.Name, l.Code));
+
+    public static IEnumerable<SelectListItem> FormStyleSelectItems =>
+        FormStyles.Select(s => new SelectListItem(s, s));
 
     public async Task<IActionResult> OnGetAsync()
     {

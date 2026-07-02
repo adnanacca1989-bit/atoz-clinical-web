@@ -438,9 +438,16 @@ public sealed class PharmacyOpeningBalanceService
         }
         else
         {
+            var owned = await _db.PharmacyOpeningBalances.ForClinic(clinicId).FirstOrDefaultAsync(b => b.Id == item.Id)
+                ?? throw new InvalidOperationException("Opening balance record was not found.");
+
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+
             var existing = await _db.PharmacyOpeningBalanceLines.Where(l => l.PharmacyOpeningBalanceId == item.Id).ToListAsync();
             _db.PharmacyOpeningBalanceLines.RemoveRange(existing);
-            _db.PharmacyOpeningBalances.Update(item);
         }
 
         foreach (var line in validLines)

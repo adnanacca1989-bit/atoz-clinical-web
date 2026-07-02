@@ -6,14 +6,12 @@ public static class ClinicalModuleCatalog
 {
     public sealed record ModuleGroup(string Key, string Label, string[] FormKeys);
 
+    /// <summary>Coarse module bundles for clinic registration / SaaS enablement.</summary>
     public static readonly ModuleGroup[] Groups =
     [
-        new("Core", "Core Clinic", [
-            ClinicalFormKeys.Dashboard, ClinicalFormKeys.Workflow,
-            ClinicalFormKeys.PatientRegistration, ClinicalFormKeys.Doctors,
-            ClinicalFormKeys.Prescriptions, ClinicalFormKeys.Messaging,
-            ClinicalFormKeys.DoctorSurgery, ClinicalFormKeys.BookRoom, ClinicalFormKeys.PatientWardRoom,
-            ClinicalFormKeys.WardPatientReport
+        new("Outpatient", "Outpatient / Clinic", [
+            ClinicalFormKeys.Dashboard, ClinicalFormKeys.Workflow, ClinicalFormKeys.Messaging,
+            ClinicalFormKeys.PatientRegistration, ClinicalFormKeys.Doctors, ClinicalFormKeys.Prescriptions
         ]),
         new("Inpatient", "Inpatient / Ward", [
             ClinicalFormKeys.DoctorSurgery, ClinicalFormKeys.BookRoom, ClinicalFormKeys.PatientWardRoom,
@@ -26,8 +24,8 @@ public static class ClinicalModuleCatalog
             ClinicalFormKeys.RadiologyRegistration, ClinicalFormKeys.RadiologyRequest, ClinicalFormKeys.RadiologyResult
         ]),
         new("Pharmacy", "Pharmacy", [
-            ClinicalFormKeys.PharmacyRegistration, ClinicalFormKeys.PharmacyRequest,
-            ClinicalFormKeys.PharmacyBill, ClinicalFormKeys.PharmacyPurchaseBill, ClinicalFormKeys.PharmacyOpeningBalance
+            ClinicalFormKeys.PharmacyRegistration, ClinicalFormKeys.PharmacyOpeningBalance,
+            ClinicalFormKeys.PharmacyPurchaseBill, ClinicalFormKeys.PharmacyRequest, ClinicalFormKeys.PharmacyBill
         ]),
         new("Billing", "Billing", [
             ClinicalFormKeys.ServiceIncomes, ClinicalFormKeys.ServiceIncomeRequest, ClinicalFormKeys.Invoices,
@@ -35,12 +33,13 @@ public static class ClinicalModuleCatalog
         ]),
         new("Reports", "Reports", [
             ClinicalFormKeys.PatientHistory, ClinicalFormKeys.AppointmentReminders, ClinicalFormKeys.PatientStatus,
-            ClinicalFormKeys.PlStatement, ClinicalFormKeys.GeneralLedger, ClinicalFormKeys.TrialBalance, ClinicalFormKeys.CostOfGoodsSold, ClinicalFormKeys.BalanceSheet,
+            ClinicalFormKeys.PlStatement, ClinicalFormKeys.GeneralLedger, ClinicalFormKeys.TrialBalance,
+            ClinicalFormKeys.CostOfGoodsSold, ClinicalFormKeys.BalanceSheet,
             ClinicalFormKeys.AccountsReceivable, ClinicalFormKeys.AccountsPayable,
             ClinicalFormKeys.CashReport, ClinicalFormKeys.PharmacyInventory, ClinicalFormKeys.DoctorReport,
             ClinicalFormKeys.RequestReport
         ]),
-        new("Admin", "Admin", [
+        new("Admin", "Clinic Admin", [
             ClinicalFormKeys.RolePermissions, ClinicalFormKeys.AuditLog, ClinicalFormKeys.Backup, ClinicalFormKeys.Settings
         ])
     ];
@@ -48,11 +47,14 @@ public static class ClinicalModuleCatalog
     public static HashSet<string> AllFormKeys() =>
         Groups.SelectMany(g => g.FormKeys).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+    private static readonly Dictionary<string, string> LegacyGroupKeyAliases =
+        new(StringComparer.OrdinalIgnoreCase) { ["Core"] = "Outpatient" };
+
     public static string BuildEnabledFormKeysFromGroups(IEnumerable<string>? groupKeys)
     {
         var selected = groupKeys?
             .Where(g => !string.IsNullOrWhiteSpace(g))
-            .Select(g => g.Trim())
+            .Select(g => LegacyGroupKeyAliases.TryGetValue(g.Trim(), out var mapped) ? mapped : g.Trim())
             .ToList();
 
         if (selected is null || selected.Count == 0)

@@ -28,6 +28,47 @@ public static class ClinicSaveHelper
         db.ChangeTracker.Clear();
     }
 
+    /// <summary>
+    /// Copy scalar values from a detached instance onto an already-tracked row.
+    /// Preserves primary key and audit columns by default.
+    /// </summary>
+    public static void CopyTrackedScalars<T>(
+        ClinicalDbContext db,
+        T tracked,
+        T incoming,
+        params string[] preservePropertyNames) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(tracked);
+        ArgumentNullException.ThrowIfNull(incoming);
+
+        var entry = db.Entry(tracked);
+        var preserve = new HashSet<string>(preservePropertyNames, StringComparer.Ordinal)
+        {
+            "Id",
+            "CreatedAt",
+            "CreatedBy"
+        };
+
+        var saved = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var prop in entry.Properties)
+        {
+            if (preserve.Contains(prop.Metadata.Name))
+                saved[prop.Metadata.Name] = prop.CurrentValue;
+        }
+
+        entry.CurrentValues.SetValues(incoming);
+
+        foreach (var (name, value) in saved)
+            entry.Property(name).CurrentValue = value;
+    }
+
+    /// <summary>Load a tracked row for update or return null when missing.</summary>
+    public static Task<T?> FindTrackedAsync<T>(
+        ClinicalDbContext db,
+        IQueryable<T> query,
+        CancellationToken ct = default) where T : class =>
+        query.FirstOrDefaultAsync(ct);
+
     public static async Task ExecuteInTransactionAsync(
         ClinicalDbContext db,
         Func<Task> action,

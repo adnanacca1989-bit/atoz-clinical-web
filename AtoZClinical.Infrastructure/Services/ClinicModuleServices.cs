@@ -246,9 +246,18 @@ public sealed class DoctorService
         }
         else
         {
-            if (previous is not null)
-                doctor.DoctorNo = previous.DoctorNo;
-            _db.Doctors.Update(doctor);
+            var owned = await _db.Doctors.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.ClinicId == clinicId && d.Id == doctor.Id);
+            if (owned is null)
+                throw new InvalidOperationException("Doctor record was not found.");
+
+            var doctorNo = previous?.DoctorNo ?? owned.DoctorNo;
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, doctor);
+            owned.DoctorNo = doctorNo;
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            owned.UpdatedBy = userName;
+            doctor = owned;
         }
 
         await _db.SaveChangesAsync();
@@ -460,9 +469,11 @@ public sealed class CashReceiptService
         CashReceipt? previous = null;
         if (!isNew)
         {
-            previous = await GetAsync(clinicId, item.Id);
-            if (previous is null)
+            if (!await _db.CashReceipts.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking()
+                    .AnyAsync(r => r.Id == item.Id))
                 throw new UnauthorizedAccessException("You do not have access to this receipt.");
+            previous = await _db.CashReceipts.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == item.Id);
         }
 
         item.ClinicId = clinicId;
@@ -706,8 +717,8 @@ public sealed class LabRequestService
         List<LabRequestLine>? previousLines = null;
         if (!isNew)
         {
-            var owned = await GetAsync(clinicId, item.Id);
-            if (owned is null)
+            if (!await _db.LabRequests.ForClinic(clinicId).Apply(_doctorScope.Filter).AsNoTracking()
+                    .AnyAsync(r => r.Id == item.Id))
                 throw new UnauthorizedAccessException("You do not have access to this laboratory request.");
             previous = await _db.LabRequests.ForClinic(clinicId).AsNoTracking()
                 .Include(r => r.Lines)
@@ -892,10 +903,11 @@ public sealed class LabResultService
     public async Task<LabResult> SaveAsync(Guid clinicId, LabResult item, List<LabResultLine> lines)
     {
         LabResult? previous = null;
+        LabResult? owned = null;
         if (item.Id != Guid.Empty)
         {
-            var existing = await GetAsync(clinicId, item.Id);
-            if (existing is null)
+            owned = await GetAsync(clinicId, item.Id);
+            if (owned is null)
                 throw new UnauthorizedAccessException("You do not have access to this record.");
             previous = await _db.LabResults.ForClinic(clinicId).AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == item.Id);
@@ -913,9 +925,13 @@ public sealed class LabResultService
         }
         else
         {
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned!, item);
+            owned!.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            item = owned;
+
             var existing = await _db.LabResultLines.Where(l => l.LabResultId == item.Id).ToListAsync();
             _db.LabResultLines.RemoveRange(existing);
-            _db.LabResults.Update(item);
         }
 
         foreach (var line in lines)

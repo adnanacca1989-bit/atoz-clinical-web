@@ -56,11 +56,27 @@
                 <tbody>
                 @for (var i = 0; i < Model.Forms.Count; i++)
                 {
+                    @if (Model.Forms[i].ShowSectionHeader)
+                    {
+                        <tr class="table-secondary">
+                            <th colspan="2" class="small text-uppercase">@Model.Forms[i].SectionLabel</th>
+                        </tr>
+                    }
+                    @if (Model.Forms[i].ShowGroupHeader)
+                    {
+                        <tr class="table-light">
+                            <th colspan="2" class="small ps-3">@Model.Forms[i].GroupLabel</th>
+                        </tr>
+                    }
                     <tr>
-                        <td>
+                        <td class="@(string.IsNullOrWhiteSpace(Model.Forms[i].GroupLabel) ? "ps-3" : "ps-4")">
                             @Model.Forms[i].FormLabel
                             <input type="hidden" asp-for="Forms[i].FormKey" />
                             <input type="hidden" asp-for="Forms[i].FormLabel" />
+                            <input type="hidden" asp-for="Forms[i].SectionLabel" />
+                            <input type="hidden" asp-for="Forms[i].GroupLabel" />
+                            <input type="hidden" asp-for="Forms[i].ShowSectionHeader" />
+                            <input type="hidden" asp-for="Forms[i].ShowGroupHeader" />
                         </td>
                         <td class="text-center">
                             <input asp-for="Forms[i].IsVisible" type="checkbox" />

@@ -106,9 +106,17 @@ public sealed class ExpenseVoucherService
         }
         else
         {
+            var owned = await _db.ExpenseVouchers.ForClinic(clinicId).FirstOrDefaultAsync(v => v.Id == item.Id)
+                ?? throw new InvalidOperationException("Expense voucher was not found.");
+
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, item);
+            owned.ClinicId = clinicId;
+            owned.UpdatedAt = DateTime.UtcNow;
+            owned.TotalAmount = validLines.Sum(l => l.Amount);
+            item = owned;
+
             var existingLines = await _db.ExpenseVoucherLines.Where(l => l.ExpenseVoucherId == item.Id).ToListAsync();
             _db.ExpenseVoucherLines.RemoveRange(existingLines);
-            _db.ExpenseVouchers.Update(item);
         }
 
         foreach (var line in validLines)

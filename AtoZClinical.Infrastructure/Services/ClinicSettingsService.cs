@@ -61,14 +61,17 @@ public sealed class ClinicSettingsService
     public async Task SaveAsync(ClinicConfiguration config)
     {
         config.UpdatedAt = DateTime.UtcNow;
-        var exists = await _db.ClinicConfigurations
+        var owned = await _db.ClinicConfigurations
             .IgnoreQueryFilters()
-            .AnyAsync(c => c.Id == config.Id && c.ClinicId == config.ClinicId);
+            .FirstOrDefaultAsync(c => c.Id == config.Id && c.ClinicId == config.ClinicId);
 
-        if (exists)
-            _db.ClinicConfigurations.Update(config);
-        else
+        if (owned is null)
             _db.ClinicConfigurations.Add(config);
+        else
+        {
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, config);
+            owned.UpdatedAt = DateTime.UtcNow;
+        }
 
         await _db.SaveChangesAsync();
         _cache.InvalidateConfiguration(config.ClinicId);

@@ -1,230 +1,34 @@
 @using AtoZClinical.Infrastructure
 @using AtoZClinical.Infrastructure.Services
-@functions {
-    bool NavCan(string key)
+@{
+    var visible = Context.Items[FormPermissionService.VisibleFormsItemKey] as HashSet<string>;
+}
+
+@foreach (var section in ClinicalNavCatalog.Sections)
+{
+    if (!ClinicalNavCatalog.IsSectionVisible(section, visible))
     {
-        var visible = Context.Items[FormPermissionService.VisibleFormsItemKey] as HashSet<string>;
-        return visible?.Contains(key) == true;
+        continue;
+    }
+
+    <div class="text-white-50 small mt-3 mb-1">@(section.Label)</div>
+
+    foreach (var group in section.Groups)
+    {
+        var groupLinks = group.Links.Where(l => ClinicalNavCatalog.IsLinkVisible(l, visible)).ToList();
+        if (groupLinks.Count == 0)
+        {
+            continue;
+        }
+
+        if (!string.IsNullOrWhiteSpace(group.SubLabel))
+        {
+            <div class="text-white-50 small mt-2 mb-1 ps-2" style="font-size: 0.7rem; letter-spacing: 0.04em;">@group.SubLabel</div>
+        }
+
+        foreach (var link in groupLinks)
+        {
+            <a class="sidebar-link" asp-page="@link.Page">@link.Label</a>
+        }
     }
 }
-
-<div class="text-white-50 small mb-2">CLINIC</div>
-@if (NavCan(ClinicalFormKeys.Dashboard))
-{
-    <a class="sidebar-link" asp-page="/Dashboard/Index">Dashboard</a>
-}
-@if (NavCan(ClinicalFormKeys.Messaging))
-{
-    <a class="sidebar-link" asp-page="/Messages/Index">Messages</a>
-}
-@if (NavCan(ClinicalFormKeys.Workflow))
-{
-    <a class="sidebar-link" asp-page="/Workflow/Index">Workflow</a>
-}
-@if (NavCan(ClinicalFormKeys.PatientRegistration))
-{
-    <a class="sidebar-link" asp-page="/PatientRegistration/Index">Patient Registration</a>
-}
-@if (NavCan(ClinicalFormKeys.Doctors))
-{
-    <a class="sidebar-link" asp-page="/Doctors/Index">Doctor Registration</a>
-}
-@if (NavCan(ClinicalFormKeys.Prescriptions))
-{
-    <a class="sidebar-link" asp-page="/Prescriptions/Index">Doctor's Prescription</a>
-}
-
-@if (NavCan(ClinicalFormKeys.DoctorSurgery) || NavCan(ClinicalFormKeys.BookRoom) || NavCan(ClinicalFormKeys.PatientWardRoom) || NavCan(ClinicalFormKeys.WardPatientReport))
-{
-    <div class="text-white-50 small mt-3 mb-1">INPATIENT / WARD</div>
-}
-@if (NavCan(ClinicalFormKeys.DoctorSurgery))
-{
-    <a class="sidebar-link" asp-page="/Surgery/Index">Doctor Surgery</a>
-}
-@if (NavCan(ClinicalFormKeys.BookRoom))
-{
-    <a class="sidebar-link" asp-page="/Rooms/Book">Book Room</a>
-}
-@if (NavCan(ClinicalFormKeys.PatientWardRoom))
-{
-    <a class="sidebar-link" asp-page="/Ward/PatientRoom">Patient Ward Room</a>
-}
-@if (NavCan(ClinicalFormKeys.WardPatientReport))
-{
-    <a class="sidebar-link" asp-page="/Ward/PatientReport">Patient Report</a>
-}
-
-@if (NavCan(ClinicalFormKeys.LabRegistration) || NavCan(ClinicalFormKeys.LabRequest) || NavCan(ClinicalFormKeys.LabResult))
-{
-    <div class="text-white-50 small mt-3 mb-1">LABORATORY</div>
-}
-@if (NavCan(ClinicalFormKeys.LabRegistration))
-{
-    <a class="sidebar-link" asp-page="/Laboratory/Registration">Lab Registration</a>
-}
-@if (NavCan(ClinicalFormKeys.LabRequest))
-{
-    <a class="sidebar-link" asp-page="/Laboratory/Request">Lab Request</a>
-}
-@if (NavCan(ClinicalFormKeys.LabResult))
-{
-    <a class="sidebar-link" asp-page="/Laboratory/Result">Lab Result</a>
-}
-
-@if (NavCan(ClinicalFormKeys.RadiologyRegistration) || NavCan(ClinicalFormKeys.RadiologyRequest) || NavCan(ClinicalFormKeys.RadiologyResult))
-{
-    <div class="text-white-50 small mt-3 mb-1">RADIOLOGY</div>
-}
-@if (NavCan(ClinicalFormKeys.RadiologyRegistration))
-{
-    <a class="sidebar-link" asp-page="/Radiology/Registration">Radiology Registration</a>
-}
-@if (NavCan(ClinicalFormKeys.RadiologyRequest))
-{
-    <a class="sidebar-link" asp-page="/Radiology/Request">Radiology Request</a>
-}
-@if (NavCan(ClinicalFormKeys.RadiologyResult))
-{
-    <a class="sidebar-link" asp-page="/Radiology/Result">Radiology Result</a>
-}
-
-@if (NavCan(ClinicalFormKeys.PharmacyRegistration) || NavCan(ClinicalFormKeys.PharmacyRequest) || NavCan(ClinicalFormKeys.PharmacyBill))
-{
-    <div class="text-white-50 small mt-3 mb-1">PHARMACY</div>
-}
-@if (NavCan(ClinicalFormKeys.PharmacyRegistration))
-{
-    <a class="sidebar-link" asp-page="/Pharmacy/Registration">Pharmacy Item Registration</a>
-}
-@if (NavCan(ClinicalFormKeys.PharmacyRequest))
-{
-    <a class="sidebar-link" asp-page="/Pharmacy/Request">Pharmacy Request</a>
-}
-@if (NavCan(ClinicalFormKeys.PharmacyBill))
-{
-    <a class="sidebar-link" asp-page="/Pharmacy/Bill">Pharmacy Bill</a>
-}
-@if (NavCan(ClinicalFormKeys.PharmacyPurchaseBill))
-{
-    <a class="sidebar-link" asp-page="/Pharmacy/Purchase">Purchase Bill</a>
-}
-@if (NavCan(ClinicalFormKeys.PharmacyOpeningBalance))
-{
-    <a class="sidebar-link" asp-page="/Pharmacy/OpeningBalance">Opening Balance</a>
-}
-
-@if (NavCan(ClinicalFormKeys.ServiceIncomes) || NavCan(ClinicalFormKeys.Invoices) || NavCan(ClinicalFormKeys.CashReceipts))
-{
-    <div class="text-white-50 small mt-3 mb-1">BILLING</div>
-}
-@if (NavCan(ClinicalFormKeys.ServiceIncomes))
-{
-    <a class="sidebar-link" asp-page="/ServiceIncomes/Index">Service Income</a>
-}
-@if (NavCan(ClinicalFormKeys.ServiceIncomeRequest) || NavCan(ClinicalFormKeys.ServiceIncomes))
-{
-    <a class="sidebar-link" asp-page="/ServiceIncomes/Request">Service Income Request</a>
-}
-@if (NavCan(ClinicalFormKeys.Invoices))
-{
-    <a class="sidebar-link" asp-page="/Invoices/Index">Invoice / Billing</a>
-}
-@if (NavCan(ClinicalFormKeys.CashReceipts))
-{
-    <a class="sidebar-link" asp-page="/CashReceipts/Index">Cash Receipt</a>
-}
-@if (NavCan(ClinicalFormKeys.CashPayments))
-{
-    <a class="sidebar-link" asp-page="/CashPayments/Index">Cash Payment</a>
-}
-@if (NavCan(ClinicalFormKeys.Expenses))
-{
-    <a class="sidebar-link" asp-page="/Expenses/Index">Expenses</a>
-}
-@if (NavCan(ClinicalFormKeys.ChartAccounts))
-{
-    <a class="sidebar-link" asp-page="/ChartOfAccounts/Index">Chart of Accounts</a>
-}
-
-@if (NavCan(ClinicalFormKeys.PatientHistory) || NavCan(ClinicalFormKeys.PatientStatus) || NavCan(ClinicalFormKeys.RequestReport))
-{
-    <div class="text-white-50 small mt-3 mb-1">REPORTS</div>
-}
-@if (NavCan(ClinicalFormKeys.PatientHistory))
-{
-    <a class="sidebar-link" asp-page="/Reports/PatientHistory">Patient History</a>
-}
-@if (NavCan(ClinicalFormKeys.AppointmentReminders))
-{
-    <a class="sidebar-link" asp-page="/Reports/AppointmentReminders">Appointment Reminders</a>
-}
-@if (NavCan(ClinicalFormKeys.PatientStatus))
-{
-    <a class="sidebar-link" asp-page="/Reports/PatientStatus">Patient Status</a>
-}
-@if (NavCan(ClinicalFormKeys.RequestReport))
-{
-    <a class="sidebar-link" asp-page="/Reports/RequestReport">Request Report</a>
-}
-@if (NavCan(ClinicalFormKeys.PlStatement))
-{
-    <a class="sidebar-link" asp-page="/Reports/PlStatement">PL Statement</a>
-}
-@if (NavCan(ClinicalFormKeys.GeneralLedger))
-{
-    <a class="sidebar-link" asp-page="/Reports/GeneralLedger">General Ledger</a>
-}
-@if (NavCan(ClinicalFormKeys.TrialBalance))
-{
-    <a class="sidebar-link" asp-page="/Reports/TrialBalance">Trial Balance</a>
-}
-@if (NavCan(ClinicalFormKeys.CostOfGoodsSold))
-{
-    <a class="sidebar-link" asp-page="/Reports/CostOfGoodsSold">Cost of Goods Sold</a>
-}
-@if (NavCan(ClinicalFormKeys.BalanceSheet))
-{
-    <a class="sidebar-link" asp-page="/Reports/BalanceSheet">Balance Sheet</a>
-}
-@if (NavCan(ClinicalFormKeys.AccountsReceivable))
-{
-    <a class="sidebar-link" asp-page="/Reports/AccountsReceivable">Accounts Receivable</a>
-}
-@if (NavCan(ClinicalFormKeys.AccountsPayable))
-{
-    <a class="sidebar-link" asp-page="/Reports/AccountsPayable">Accounts Payable</a>
-}
-@if (NavCan(ClinicalFormKeys.CashReport))
-{
-    <a class="sidebar-link" asp-page="/Reports/CashReport">Cash Report</a>
-}
-@if (NavCan(ClinicalFormKeys.PharmacyInventory))
-{
-    <a class="sidebar-link" asp-page="/Reports/PharmacyInventory">Pharmacy Inventory</a>
-}
-@if (NavCan(ClinicalFormKeys.DoctorReport))
-{
-    <a class="sidebar-link" asp-page="/Reports/DoctorReport">Doctor Report</a>
-}
-
-@if (NavCan(ClinicalFormKeys.RolePermissions) || NavCan(ClinicalFormKeys.AuditLog) || NavCan(ClinicalFormKeys.Backup))
-{
-    <div class="text-white-50 small mt-3 mb-1">ADMIN</div>
-}
-@if (NavCan(ClinicalFormKeys.RolePermissions))
-{
-    <a class="sidebar-link" asp-page="/Admin/Responsibilities">Responsibilities</a>
-}
-@if (NavCan(ClinicalFormKeys.AuditLog))
-{
-    <a class="sidebar-link" asp-page="/Admin/AuditLog">Audit Log</a>
-}
-@if (NavCan(ClinicalFormKeys.Backup))
-{
-    <a class="sidebar-link" asp-page="/Admin/Backup">Data Backup</a>
-}
-<a class="sidebar-link" asp-page="/Admin/DataPrivacy">Data Privacy</a>
-<a class="sidebar-link" asp-page="/Admin/Enterprise">Enterprise</a>
-<a class="sidebar-link" asp-page="/Admin/Integrations">Integrations</a>
-<a class="sidebar-link" asp-page="/Billing/Index">Subscription</a>

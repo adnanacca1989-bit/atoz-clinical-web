@@ -17,6 +17,7 @@ public sealed class ClinicalWebApplicationFactory : WebApplicationFactory<Progra
             {
                 ["ConnectionStrings:ClinicalDatabase"] = $"Data Source={Path.Combine(Path.GetTempPath(), $"atoz_test_{Guid.NewGuid():N}.db")}",
                 ["Database:Provider"] = "Sqlite",
+                ["Database:RecreateSqliteOnStartup"] = "true",
                 ["Seed:VendorUsername"] = "vendor",
                 ["Seed:VendorPassword"] = "TestVendor@123456!",
                 ["Billing:Enabled"] = "false",

@@ -40,55 +40,8 @@ public class ResponsibilitiesModel : PageModel
 
     public static readonly string[] Roles = ClinicUserRoleHelper.ResponsibilityRoles;
 
-    public static readonly (string Key, string Label)[] FormDefinitions =
-    [
-        (ClinicalFormKeys.Dashboard, "Dashboard"),
-        (ClinicalFormKeys.Messaging, "Internal Messaging"),
-        (ClinicalFormKeys.Workflow, "Patient Process Workflow"),
-        (ClinicalFormKeys.PatientRegistration, "Patient Registration"),
-        (ClinicalFormKeys.Doctors, "Doctor Registration"),
-        (ClinicalFormKeys.Prescriptions, "Doctor's Prescription"),
-        (ClinicalFormKeys.DoctorSurgery, "Doctor Surgery"),
-        (ClinicalFormKeys.BookRoom, "Book Room"),
-        (ClinicalFormKeys.PatientWardRoom, "Patient Ward Room"),
-        (ClinicalFormKeys.WardPatientReport, "Ward Patient Report"),
-        (ClinicalFormKeys.LabRegistration, "Laboratory Registration"),
-        (ClinicalFormKeys.LabRequest, "Laboratory Request"),
-        (ClinicalFormKeys.LabResult, "Laboratory Result"),
-        (ClinicalFormKeys.RadiologyRegistration, "Radiology Registration"),
-        (ClinicalFormKeys.RadiologyRequest, "Radiology Request"),
-        (ClinicalFormKeys.RadiologyResult, "Radiology Result"),
-        (ClinicalFormKeys.ServiceIncomes, "Service Income"),
-        (ClinicalFormKeys.ServiceIncomeRequest, "Service Income Request"),
-        (ClinicalFormKeys.Invoices, "Invoice / Billing"),
-        (ClinicalFormKeys.CashReceipts, "Cash Receipt"),
-        (ClinicalFormKeys.CashPayments, "Cash Payment"),
-        (ClinicalFormKeys.Expenses, "Expenses"),
-        (ClinicalFormKeys.ChartAccounts, "Chart of Accounts"),
-        (ClinicalFormKeys.PharmacyRegistration, "Pharmacy Registration"),
-        (ClinicalFormKeys.PharmacyRequest, "Pharmacy Request"),
-        (ClinicalFormKeys.PharmacyBill, "Pharmacy Bill"),
-        (ClinicalFormKeys.PharmacyPurchaseBill, "Pharmacy Purchase Bill"),
-        (ClinicalFormKeys.PharmacyOpeningBalance, "Pharmacy Opening Balance"),
-        (ClinicalFormKeys.PatientHistory, "Patient History"),
-        (ClinicalFormKeys.AppointmentReminders, "Appointment Reminders"),
-        (ClinicalFormKeys.PatientStatus, "Patient Status Report"),
-        (ClinicalFormKeys.PlStatement, "PL Statement"),
-        (ClinicalFormKeys.GeneralLedger, "General Ledger"),
-        (ClinicalFormKeys.TrialBalance, "Trial Balance"),
-        (ClinicalFormKeys.CostOfGoodsSold, "Cost of Goods Sold"),
-        (ClinicalFormKeys.BalanceSheet, "Balance Sheet"),
-        (ClinicalFormKeys.AccountsReceivable, "Accounts Receivable"),
-        (ClinicalFormKeys.AccountsPayable, "Accounts Payable"),
-        (ClinicalFormKeys.CashReport, "Cash Report"),
-        (ClinicalFormKeys.PharmacyInventory, "Pharmacy Inventory Report"),
-        (ClinicalFormKeys.DoctorReport, "Doctor Report"),
-        (ClinicalFormKeys.RequestReport, "Request Report"),
-        (ClinicalFormKeys.Settings, "Settings"),
-        (ClinicalFormKeys.RolePermissions, "Responsibilities"),
-        (ClinicalFormKeys.AuditLog, "Audit Log"),
-        (ClinicalFormKeys.Backup, "Data Backup")
-    ];
+    public static IEnumerable<(string Key, string Label)> FormDefinitions =>
+        ClinicalNavCatalog.DistinctPermissionForms().Select(p => (p.FormKey, p.Label));
 
     public async Task<IActionResult> OnGetAsync(string? role = null, string? userId = null)
     {
@@ -182,14 +135,25 @@ public class ResponsibilitiesModel : PageModel
         if (existing.Count == 0 && UserRole.Equals("Admin", StringComparison.OrdinalIgnoreCase))
             existing = await _service.ListForRoleAsync(clinicId, ClinicalRoles.ClinicAdmin);
 
-        Forms = FormDefinitions.Select(fd =>
+        string? lastSection = null;
+        string? lastGroup = null;
+        Forms = ClinicalNavCatalog.DistinctPermissionForms().Select(fd =>
         {
-            var match = existing.FirstOrDefault(e => e.FormKey == fd.Key);
+            var match = existing.FirstOrDefault(e => e.FormKey == fd.FormKey);
             var defaultVisible = UserRole.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+            var showSection = !string.Equals(lastSection, fd.Section, StringComparison.Ordinal);
+            var showGroup = showSection
+                || !string.Equals(lastGroup, fd.Group, StringComparison.Ordinal);
+            lastSection = fd.Section;
+            lastGroup = fd.Group;
             return new FormPermissionInput
             {
-                FormKey = fd.Key,
+                FormKey = fd.FormKey,
                 FormLabel = fd.Label,
+                SectionLabel = fd.Section,
+                GroupLabel = fd.Group,
+                ShowSectionHeader = showSection,
+                ShowGroupHeader = showGroup && !string.IsNullOrWhiteSpace(fd.Group),
                 IsVisible = match?.IsVisible ?? defaultVisible
             };
         }).ToList();
@@ -199,6 +163,10 @@ public class ResponsibilitiesModel : PageModel
     {
         public string FormKey { get; set; } = string.Empty;
         public string FormLabel { get; set; } = string.Empty;
+        public string SectionLabel { get; set; } = string.Empty;
+        public string? GroupLabel { get; set; }
+        public bool ShowSectionHeader { get; set; }
+        public bool ShowGroupHeader { get; set; }
         public bool IsVisible { get; set; } = true;
     }
 }

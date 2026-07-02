@@ -115,12 +115,13 @@ public sealed class PharmacyItemRegistrationService
         }
         else
         {
-            var existing = await GetAsync(clinicId, item.Id);
-            if (existing is not null)
+            var snapshot = await _db.PharmacyItems.ForClinic(clinicId).AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == item.Id);
+            if (snapshot is not null)
             {
-                item.QuantityOnHand = existing.QuantityOnHand;
+                item.QuantityOnHand = snapshot.QuantityOnHand;
                 if (item.MovingAverageCost <= 0)
-                    item.MovingAverageCost = existing.MovingAverageCost;
+                    item.MovingAverageCost = snapshot.MovingAverageCost;
             }
 
             await ClinicSaveHelper.ExecuteIsolatedSaveAsync(_db, () =>

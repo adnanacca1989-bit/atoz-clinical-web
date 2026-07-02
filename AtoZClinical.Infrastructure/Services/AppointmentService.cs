@@ -48,13 +48,6 @@ public sealed class AppointmentService
 
     public async Task<Appointment> SaveAsync(Guid clinicId, Appointment appointment)
     {
-        if (appointment.Id != Guid.Empty)
-        {
-            var existing = await GetAsync(clinicId, appointment.Id);
-            if (existing is null)
-                throw new UnauthorizedAccessException("You do not have access to this record.");
-        }
-
         appointment.ClinicId = clinicId;
         var isNew = appointment.Id == Guid.Empty;
         if (isNew)
@@ -65,7 +58,14 @@ public sealed class AppointmentService
         }
         else
         {
-            _db.Appointments.Update(appointment);
+            var owned = await _db.Appointments
+                .FirstOrDefaultAsync(a => a.ClinicId == clinicId && a.Id == appointment.Id);
+            if (owned is null || !DoctorScopeQuery.Matches(_doctorScope.Filter, owned.DoctorRecordId, owned.DoctorName))
+                throw new UnauthorizedAccessException("You do not have access to this record.");
+
+            ClinicSaveHelper.CopyTrackedScalars(_db, owned, appointment);
+            owned.ClinicId = clinicId;
+            appointment = owned;
         }
 
         await _db.SaveChangesAsync();
