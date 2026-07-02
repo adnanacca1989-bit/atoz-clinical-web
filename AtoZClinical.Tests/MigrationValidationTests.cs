@@ -56,6 +56,17 @@ public class MigrationValidationTests : IClassFixture<ClinicalWebApplicationFact
             .FirstOrDefaultAsync();
     }
 
+    [Fact]
+    public async Task Test_host_schema_supports_clinic_branding_columns()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ClinicalDbContext>();
+
+        _ = await db.ClinicConfigurations
+            .Select(c => new { c.LogoBase64, c.Tagline, c.Website, c.PrimaryColor, c.FormStyle, c.TimeZoneId })
+            .FirstOrDefaultAsync();
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

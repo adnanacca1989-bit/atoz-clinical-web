@@ -10,11 +10,16 @@ public sealed class ClinicBrandingPageFilter : IAsyncPageFilter
 {
     private readonly ClinicContextService _clinicContext;
     private readonly ClinicProfileService _profile;
+    private readonly ILogger<ClinicBrandingPageFilter> _logger;
 
-    public ClinicBrandingPageFilter(ClinicContextService clinicContext, ClinicProfileService profile)
+    public ClinicBrandingPageFilter(
+        ClinicContextService clinicContext,
+        ClinicProfileService profile,
+        ILogger<ClinicBrandingPageFilter> logger)
     {
         _clinicContext = clinicContext;
         _profile = profile;
+        _logger = logger;
     }
 
     public Task OnPageHandlerSelectionAsync(PageHandlerSelectedContext context) => Task.CompletedTask;
@@ -37,13 +42,18 @@ public sealed class ClinicBrandingPageFilter : IAsyncPageFilter
                 try
                 {
                     var profile = await _profile.GetAsync(clinicId.Value);
-                    context.HttpContext.Items["ClinicPrimaryColor"] = profile.PrimaryColor;
+                    context.HttpContext.Items["ClinicPrimaryColor"] =
+                        ClinicBrandingHelper.NormalizePrimaryColor(profile.PrimaryColor);
                     context.HttpContext.Items["ClinicLogoBase64"] = profile.LogoBase64;
-                    context.HttpContext.Items["ClinicDisplayName"] = profile.Name;
+                    context.HttpContext.Items["ClinicDisplayName"] = profile.Name ?? "Clinic";
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Non-fatal — layout falls back to defaults.
+                    _logger.LogWarning(ex,
+                        "Clinic branding filter fallback for clinic {ClinicId} path {Path}",
+                        clinicId,
+                        path);
+                    context.HttpContext.Items["ClinicPrimaryColor"] = ClinicBrandingHelper.DefaultPrimaryColor;
                 }
             }
         }

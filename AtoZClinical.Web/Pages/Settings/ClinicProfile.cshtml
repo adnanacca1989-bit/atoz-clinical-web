@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Clinic Profile & Branding";
     Layout = "_Layout";
+    var input = Model.Input ?? new AtoZClinical.Infrastructure.Services.ClinicProfileInput();
 }
 
 <h2 class="atz-section-title">Clinic Profile & Branding</h2>
@@ -67,19 +68,34 @@
             <div class="row g-2">
                 <div class="col-md-4">
                     <label class="form-label">Time Zone</label>
-                    <select asp-for="Input.TimeZoneId" class="form-select" asp-items="ClinicProfileModel.TimeZoneSelectItems"></select>
+                    <select asp-for="Input.TimeZoneId" class="form-select">
+                        @foreach (var tz in ClinicProfileModel.TimeZones)
+                        {
+                            <option value="@tz" selected="@(string.Equals(input.TimeZoneId, tz, StringComparison.Ordinal))">@tz</option>
+                        }
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Language</label>
-                    <select asp-for="Input.LanguageCode" class="form-select" asp-items="ClinicProfileModel.LanguageSelectItems"></select>
+                    <select asp-for="Input.LanguageCode" class="form-select">
+                        @foreach (var lang in ClinicProfileModel.Languages)
+                        {
+                            <option value="@lang.Code" selected="@(string.Equals(input.LanguageCode, lang.Code, StringComparison.OrdinalIgnoreCase))">@lang.Name</option>
+                        }
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Form Style</label>
-                    <select asp-for="Input.FormStyle" class="form-select" asp-items="ClinicProfileModel.FormStyleSelectItems"></select>
+                    <select asp-for="Input.FormStyle" class="form-select">
+                        @foreach (var style in ClinicProfileModel.FormStyles)
+                        {
+                            <option value="@style" selected="@(string.Equals(input.FormStyle, style, StringComparison.OrdinalIgnoreCase))">@style</option>
+                        }
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Primary Color</label>
-                    <input asp-for="Input.PrimaryColor" class="form-control" type="color" />
+                    <input asp-for="Input.PrimaryColor" class="form-control" type="color" value="@Model.PreviewPrimaryColor" />
                 </div>
             </div>
 
@@ -92,9 +108,9 @@
         <div class="atz-card p-3 mb-3">
             <h3 class="h6">Clinic Logo</h3>
             <div class="text-center mb-2 p-2 border rounded bg-light" style="min-height:120px;">
-                @if (!string.IsNullOrEmpty(Model.Input.LogoBase64))
+                @if (!string.IsNullOrEmpty(input.LogoBase64))
                 {
-                    <img src="@Model.Input.LogoBase64" alt="Clinic logo" style="max-height:100px; max-width:100%;" />
+                    <img src="@input.LogoBase64" alt="Clinic logo" style="max-height:100px; max-width:100%;" />
                 }
                 else
                 {
@@ -102,23 +118,25 @@
                 }
             </div>
             <form method="post" asp-page-handler="UploadLogo" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
                 <input type="file" name="logoFile" accept="image/*" class="form-control form-control-sm mb-2" />
                 <button type="submit" class="btn btn-sm btn-outline-primary">Upload Logo</button>
             </form>
-            @if (!string.IsNullOrEmpty(Model.Input.LogoBase64))
+            @if (!string.IsNullOrEmpty(input.LogoBase64))
             {
                 <form method="post" asp-page-handler="ClearLogo" class="mt-2">
+                    @Html.AntiForgeryToken()
                     <button type="submit" class="btn btn-sm btn-outline-danger">Remove Logo</button>
                 </form>
             }
         </div>
         <div class="atz-card p-3">
             <h3 class="h6">Preview</h3>
-            <div class="p-2 rounded text-white" style="background:@Model.Input.PrimaryColor">
-                <strong>@Model.Input.Name</strong>
-                @if (!string.IsNullOrWhiteSpace(Model.Input.Tagline))
+            <div class="p-2 rounded text-white" style="background:@Model.PreviewPrimaryColor">
+                <strong>@(input.Name ?? "Clinic")</strong>
+                @if (!string.IsNullOrWhiteSpace(input.Tagline))
                 {
-                    <div class="small opacity-75">@Model.Input.Tagline</div>
+                    <div class="small opacity-75">@input.Tagline</div>
                 }
             </div>
         </div>

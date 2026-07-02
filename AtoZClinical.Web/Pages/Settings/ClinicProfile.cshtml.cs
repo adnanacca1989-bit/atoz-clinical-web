@@ -1,7 +1,6 @@
 using AtoZClinical.Infrastructure.Services;
 using AtoZClinical.Web.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AtoZClinical.Web.Pages.Settings;
@@ -42,52 +41,26 @@ public class ClinicProfileModel : SettingsPageModel
 
     public static readonly string[] FormStyles = ["Default", "Compact", "Large"];
 
-    public static IEnumerable<SelectListItem> TimeZoneSelectItems =>
-        TimeZones.Select(t => new SelectListItem(t, t));
-
-    public static IEnumerable<SelectListItem> LanguageSelectItems =>
-        Languages.Select(l => new SelectListItem(l.Name, l.Code));
-
-    public static IEnumerable<SelectListItem> FormStyleSelectItems =>
-        FormStyles.Select(s => new SelectListItem(s, s));
+    public string PreviewPrimaryColor => ClinicBrandingHelper.NormalizePrimaryColor(Input?.PrimaryColor);
 
     public async Task<IActionResult> OnGetAsync()
     {
-        if (!await LoadClinicContextAsync()) return Page();
+        _logger.LogDebug("ClinicProfile OnGet started for user {User}", User.Identity?.Name);
+
+        if (!await LoadClinicContextAsync())
+        {
+            _logger.LogWarning("ClinicProfile denied — vendor user {User}", User.Identity?.Name);
+            return Page();
+        }
+
         var clinicId = await RequireClinicIdAsync();
-        if (clinicId is null) return ClinicRequired();
-
-        try
+        if (clinicId is null)
         {
-            var profile = await _profile.GetAsync(clinicId.Value);
-            Input = new ClinicProfileInput
-            {
-                Name = profile.Name,
-                ContactPerson = profile.ContactPerson,
-                Email = profile.Email,
-                Phone = profile.Phone,
-                Address = profile.Address,
-                City = profile.City,
-                Country = profile.Country,
-                TimeZoneId = profile.TimeZoneId,
-                LanguageCode = profile.LanguageCode,
-                LanguageName = profile.LanguageName,
-                LogoBase64 = profile.LogoBase64,
-                Tagline = profile.Tagline,
-                Website = profile.Website,
-                PrimaryColor = profile.PrimaryColor,
-                FormStyle = profile.FormStyle
-            };
-            ErrorMessage = null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load clinic profile for clinic {ClinicId}", clinicId);
-            ErrorMessage = "Could not load clinic profile. If this continues after refresh, contact support.";
-            Input.Name = "Clinic";
+            _logger.LogWarning("ClinicProfile OnGet — no operational clinic for user {User}", User.Identity?.Name);
+            return ClinicRequired();
         }
 
-        return Page();
+        return await LoadPageAsync(clinicId.Value);
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -96,22 +69,25 @@ public class ClinicProfileModel : SettingsPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
 
-        if (string.IsNullOrWhiteSpace(Input.Name))
+        if (string.IsNullOrWhiteSpace(Input?.Name))
         {
             ErrorMessage = "Clinic name is required.";
             return Page();
         }
 
-        Input.LanguageName = Languages.FirstOrDefault(l => l.Code == Input.LanguageCode).Name ?? Input.LanguageName;
+        Input!.LanguageName = Languages.FirstOrDefault(l => l.Code == Input.LanguageCode).Name ?? Input.LanguageName;
+        Input.PrimaryColor = ClinicBrandingHelper.NormalizePrimaryColor(Input.PrimaryColor);
 
         try
         {
             await _profile.SaveAsync(clinicId.Value, Input);
             StatusMessage = "Clinic profile and branding saved.";
+            _logger.LogInformation("ClinicProfile saved by user {User} for clinic {ClinicId}", User.Identity?.Name, clinicId);
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            _logger.LogError(ex, "ClinicProfile save failed for clinic {ClinicId}", clinicId);
+            ErrorMessage = "Could not save clinic profile. Please try again.";
         }
 
         return Page();
@@ -126,41 +102,39 @@ public class ClinicProfileModel : SettingsPageModel
         if (logoFile is null || logoFile.Length == 0)
         {
             ErrorMessage = "Please choose an image file.";
-            return await OnGetAsync();
+            return await LoadPageAsync(clinicId.Value);
         }
 
         if (logoFile.Length > 512_000)
         {
             ErrorMessage = "Logo must be 500 KB or smaller.";
-            return await OnGetAsync();
+            return await LoadPageAsync(clinicId.Value);
         }
 
-        await using var ms = new MemoryStream();
-        await logoFile.CopyToAsync(ms);
-        var base64 = Convert.ToBase64String(ms.ToArray());
-        var mime = logoFile.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
-            ? logoFile.ContentType
-            : "image/png";
-        Input.LogoBase64 = $"data:{mime};base64,{base64}";
+        try
+        {
+            await using var ms = new MemoryStream();
+            await logoFile.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            var mime = logoFile.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                ? logoFile.ContentType
+                : "image/png";
 
-        var profile = await _profile.GetAsync(clinicId.Value);
-        Input.Name = profile.Name;
-        Input.ContactPerson = profile.ContactPerson;
-        Input.Email = profile.Email;
-        Input.Phone = profile.Phone;
-        Input.Address = profile.Address;
-        Input.City = profile.City;
-        Input.Country = profile.Country;
-        Input.TimeZoneId = profile.TimeZoneId;
-        Input.LanguageCode = profile.LanguageCode;
-        Input.LanguageName = profile.LanguageName;
-        Input.Tagline = profile.Tagline;
-        Input.Website = profile.Website;
-        Input.PrimaryColor = profile.PrimaryColor;
-        Input.FormStyle = profile.FormStyle;
+            var profile = await _profile.GetAsync(clinicId.Value);
+            Input = MapInputFromProfile(profile);
+            Input.LogoBase64 = $"data:{mime};base64,{base64}";
 
-        await _profile.SaveAsync(clinicId.Value, Input);
-        StatusMessage = "Logo uploaded.";
+            await _profile.SaveAsync(clinicId.Value, Input);
+            StatusMessage = "Logo uploaded.";
+            _logger.LogInformation("ClinicProfile logo uploaded by user {User} for clinic {ClinicId}", User.Identity?.Name, clinicId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ClinicProfile logo upload failed for clinic {ClinicId}", clinicId);
+            ErrorMessage = "Could not upload logo. Please try a smaller image.";
+            return await LoadPageAsync(clinicId.Value);
+        }
+
         return Page();
     }
 
@@ -170,29 +144,72 @@ public class ClinicProfileModel : SettingsPageModel
         var clinicId = await RequireClinicIdAsync();
         if (clinicId is null) return ClinicRequired();
 
-        var profile = await _profile.GetAsync(clinicId.Value);
-        Input = new ClinicProfileInput
+        try
         {
-            Name = profile.Name,
-            ContactPerson = profile.ContactPerson,
-            Email = profile.Email,
-            Phone = profile.Phone,
-            Address = profile.Address,
-            City = profile.City,
-            Country = profile.Country,
-            TimeZoneId = profile.TimeZoneId,
-            LanguageCode = profile.LanguageCode,
-            LanguageName = profile.LanguageName,
-            Tagline = profile.Tagline,
-            Website = profile.Website,
-            PrimaryColor = profile.PrimaryColor,
-            FormStyle = profile.FormStyle,
-            ClearLogo = true
-        };
+            var profile = await _profile.GetAsync(clinicId.Value);
+            Input = MapInputFromProfile(profile);
+            Input.ClearLogo = true;
+            Input.LogoBase64 = null;
 
-        await _profile.SaveAsync(clinicId.Value, Input);
-        Input.LogoBase64 = null;
-        StatusMessage = "Logo removed.";
+            await _profile.SaveAsync(clinicId.Value, Input);
+            StatusMessage = "Logo removed.";
+            _logger.LogInformation("ClinicProfile logo cleared by user {User} for clinic {ClinicId}", User.Identity?.Name, clinicId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ClinicProfile logo clear failed for clinic {ClinicId}", clinicId);
+            ErrorMessage = "Could not remove logo. Please try again.";
+            return await LoadPageAsync(clinicId.Value);
+        }
+
         return Page();
     }
+
+    private async Task<IActionResult> LoadPageAsync(Guid clinicId)
+    {
+        try
+        {
+            var profile = await _profile.GetAsync(clinicId);
+            Input = MapInputFromProfile(profile);
+            ErrorMessage = null;
+            _logger.LogDebug("ClinicProfile page loaded for clinic {ClinicId}", clinicId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ClinicProfile load failed for clinic {ClinicId}", clinicId);
+            ErrorMessage = "Could not load clinic profile. If this continues after refresh, contact support.";
+            Input = CreateSafeFallbackInput();
+        }
+
+        return Page();
+    }
+
+    private static ClinicProfileInput MapInputFromProfile(ClinicProfileDto profile) => new()
+    {
+        Name = profile.Name ?? "Clinic",
+        ContactPerson = profile.ContactPerson,
+        Email = profile.Email,
+        Phone = profile.Phone,
+        Address = profile.Address,
+        City = profile.City,
+        Country = profile.Country,
+        TimeZoneId = profile.TimeZoneId,
+        LanguageCode = profile.LanguageCode,
+        LanguageName = profile.LanguageName,
+        LogoBase64 = profile.LogoBase64,
+        Tagline = profile.Tagline,
+        Website = profile.Website,
+        PrimaryColor = profile.PrimaryColor,
+        FormStyle = profile.FormStyle
+    };
+
+    private static ClinicProfileInput CreateSafeFallbackInput() => new()
+    {
+        Name = "Clinic",
+        TimeZoneId = "UTC",
+        LanguageCode = "en",
+        LanguageName = "English",
+        PrimaryColor = ClinicBrandingHelper.DefaultPrimaryColor,
+        FormStyle = "Default"
+    };
 }

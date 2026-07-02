@@ -151,4 +151,15 @@ public static class ClinicalAuthTestHelper
             html, @"name=""__RequestVerificationToken""[^>]*value=""([^""]+)""");
         return match.Success ? match.Groups[1].Value : null;
     }
+
+    public static async Task<Guid> GetClinicAdminClinicIdAsync(
+        ClinicalWebApplicationFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureClinicAdminUserAsync(factory, cancellationToken);
+        using var scope = factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await users.FindByNameAsync(ClinicAdminUsername);
+        return user?.ClinicId ?? throw new InvalidOperationException("Clinic admin has no clinic.");
+    }
 }

@@ -6,7 +6,8 @@
     var isRtl = uiLang.Equals("ar", StringComparison.OrdinalIgnoreCase);
 }
 @{
-    var primaryColor = Context.Items["ClinicPrimaryColor"] as string ?? "#0b4f8a";
+    var primaryColor = ClinicBrandingHelper.NormalizePrimaryColor(
+        Context.Items["ClinicPrimaryColor"] as string);
     var clinicLogo = Context.Items["ClinicLogoBase64"] as string;
     var clinicName = Context.Items["ClinicDisplayName"] as string;
 }

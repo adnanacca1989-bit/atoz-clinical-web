@@ -31,6 +31,7 @@ public static class DatabaseInitializer
 
         await EnsureSchemaAsync(db, env, config, logger);
         await EnsureEnterpriseSchemaAsync(db, logger);
+        await EnsureClinicBrandingSchemaAsync(db, logger);
         await EnsureSaasPlatformSchemaAsync(db, logger);
         await EnsurePasswordResetTokenSchemaAsync(db, logger);
         await EnsureRegistrationVerificationCodeSchemaAsync(db, logger);
@@ -454,6 +455,48 @@ public static class DatabaseInitializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Enterprise schema verification skipped.");
+        }
+    }
+
+    private static async Task EnsureClinicBrandingSchemaAsync(ClinicalDbContext db, ILogger logger)
+    {
+        if (db.Database.IsSqlite())
+            return;
+
+        var statements = new[]
+        {
+            """ALTER TABLE "Clinics" ADD COLUMN IF NOT EXISTS "TimeZoneId" character varying(64) NULL""",
+            """ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "TimeZoneId" character varying(64) NOT NULL DEFAULT 'UTC'""",
+            """ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "LogoBase64" text NULL""",
+            """ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "Tagline" character varying(200) NULL""",
+            """ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "Website" character varying(256) NULL""",
+            """ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "PrimaryColor" text NOT NULL DEFAULT '#0b4f8a'""",
+            """ALTER TABLE "ClinicConfigurations" ADD COLUMN IF NOT EXISTS "FormStyle" text NOT NULL DEFAULT 'Default'"""
+        };
+
+        foreach (var sql in statements)
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync(sql);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Clinic branding schema patch failed: {Sql}", sql);
+            }
+        }
+
+        try
+        {
+            _ = await db.ClinicConfigurations
+                .AsNoTracking()
+                .Select(c => new { c.LogoBase64, c.Tagline, c.Website, c.PrimaryColor, c.FormStyle, c.TimeZoneId })
+                .FirstOrDefaultAsync();
+            logger.LogInformation("Clinic branding schema verified.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Clinic branding schema probe failed — Clinic Profile may not load until columns exist.");
         }
     }
 
