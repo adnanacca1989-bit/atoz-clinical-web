@@ -7,7 +7,7 @@ public enum RegistrationVerificationChannel
     WhatsApp = 2
 }
 
-/// <summary>Time-limited 4-digit registration code (hashed at rest).</summary>
+/// <summary>Time-limited 6-digit registration code (hashed at rest).</summary>
 public class RegistrationVerificationCode
 {
     public Guid Id { get; set; } = Guid.NewGuid();

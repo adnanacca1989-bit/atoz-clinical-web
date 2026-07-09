@@ -61,7 +61,7 @@
         @if (accountVerificationRequired && Model.ShowResendConfirmation)
         {
             <p class="small text-center mb-3">
-                <a href="/Account/VerifyAccount?username=@Uri.EscapeDataString(Model.Input.Username)">Verify with 4-digit code</a>
+                <a href="/Account/VerifyAccount?username=@Uri.EscapeDataString(Model.Input.Username)">Verify with 6-digit code</a>
                 ·
                 <a href="/Account/ResendConfirmation?username=@Uri.EscapeDataString(Model.Input.Username)">Resend email link</a>
             </p>

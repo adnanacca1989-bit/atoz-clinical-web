@@ -15,14 +15,14 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/clinical.css" asp-append-version="true" />
     <style>
-        .verification-code-input { font-size:1.75rem; letter-spacing:.5rem; text-align:center; max-width:200px; margin:0 auto; }
+        .verification-code-input { font-size:1.75rem; letter-spacing:.35rem; text-align:center; max-width:260px; margin:0 auto; }
     </style>
 </head>
 <body>
     <div class="login-panel atz-card p-4">
         <div class="text-center mb-4">
             <h3 class="fw-bold" style="color:#0b4f8a">Verify your account</h3>
-            <p class="text-muted mb-0">Enter the 4-digit code sent to your email, SMS, or WhatsApp</p>
+            <p class="text-muted mb-0">Enter the 6-digit code sent to your email, SMS, or WhatsApp</p>
         </div>
 
         @if (Model.Verified)
@@ -47,10 +47,10 @@
                 <input type="hidden" asp-for="PendingUserId" />
                 <input type="hidden" asp-for="Input.Username" />
                 <div class="mb-4">
-                    <label class="form-label text-center d-block">4-digit code</label>
+                    <label class="form-label text-center d-block">6-digit code</label>
                     <input asp-for="VerificationCode" class="form-control verification-code-input"
-                           maxlength="4" pattern="\d{4}" inputmode="numeric" autocomplete="one-time-code"
-                           placeholder="0000" required />
+                           maxlength="6" pattern="\d{6}" inputmode="numeric" autocomplete="one-time-code"
+                           placeholder="000000" required />
                 </div>
                 <button type="submit" class="btn btn-atz-primary w-100 mb-2">Verify</button>
             </form>

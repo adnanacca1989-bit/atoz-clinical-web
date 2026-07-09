@@ -13,6 +13,7 @@ namespace AtoZClinical.Infrastructure.Services;
 public sealed class TrialRegistrationVerificationService
 {
     public const int CodeExpiryMinutes = 10;
+    public const int VerificationCodeLength = 6;
     public const int MaxFailedAttempts = 5;
     public const int MaxCodesPerHour = 5;
 
@@ -235,8 +236,8 @@ public sealed class TrialRegistrationVerificationService
         string code,
         CancellationToken ct)
     {
-        var digits = new string((code ?? "").Where(char.IsDigit).ToArray());
-        if (digits.Length != 4)
+        var digits = NormalizeVerificationDigits(code);
+        if (digits is null)
             return VerificationCodeVerifyOutcome.InvalidCode();
 
         user ??= await _users.FindByIdAsync(userId);
@@ -311,10 +312,16 @@ public sealed class TrialRegistrationVerificationService
         return Convert.ToHexString(bytes);
     }
 
+    public static string? NormalizeVerificationDigits(string? code)
+    {
+        var digits = new string((code ?? "").Where(char.IsDigit).ToArray());
+        return digits.Length == VerificationCodeLength ? digits : null;
+    }
+
     private static string GenerateVerificationCode()
     {
         var value = RandomNumberGenerator.GetInt32(0, 1_000_000);
-        return value.ToString("D6");
+        return value.ToString($"D{VerificationCodeLength}");
     }
 
     private static string NormalizeDestination(RegistrationVerificationChannel channel, string destination)

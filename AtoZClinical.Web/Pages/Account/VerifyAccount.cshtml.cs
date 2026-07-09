@@ -121,7 +121,8 @@ public class VerifyAccountModel : PageModel
         if (string.IsNullOrWhiteSpace(PendingUserId) || string.IsNullOrWhiteSpace(VerificationCode))
         {
             ShowCodeForm = true;
-            ModelState.AddModelError(string.Empty, "Enter the 4-digit verification code.");
+            ModelState.AddModelError(string.Empty,
+                $"Enter the {TrialRegistrationVerificationService.VerificationCodeLength}-digit verification code.");
             return Page();
         }
 
